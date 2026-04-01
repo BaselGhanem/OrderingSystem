@@ -1,5 +1,6 @@
 import { db, collection, getDocs, query, where, addDoc, deleteDoc, doc } from './firebase.js';
 
+// --- تعريف العناصر ---
 const repSelect = document.getElementById('repSelect');
 const pharmacySelect = document.getElementById('pharmacySelect');
 const startOrderBtn = document.getElementById('startOrderBtn');
@@ -11,8 +12,9 @@ const detailsModal = document.getElementById('detailsModal');
 const modalItemsBody = document.getElementById('modalItemsBody');
 
 let productsList = []; 
+const MAX_ROWS = 20; 
 
-// 1. تحميل المناديب والأصناف
+// --- 1. تحميل المناديب والأصناف ---
 async function loadInitialData() {
     try {
         const repsSnap = await getDocs(collection(db, "reps"));
@@ -28,7 +30,7 @@ async function loadInitialData() {
         productsList = [];
         prodSnap.forEach(d => productsList.push({ id: d.id, ...d.data() }));
         productsList.sort((a, b) => a.name.localeCompare(b.name));
-    } catch (e) { console.error("Error Loading:", e); }
+    } catch (e) { console.error(e); }
 }
 
 // 2. جلب صيدليات المندوب
@@ -48,7 +50,7 @@ repSelect.onchange = async (e) => {
 
 pharmacySelect.onchange = () => startOrderBtn.disabled = !pharmacySelect.value;
 
-// 3. إدارة التبويبات
+// 3. إدارة التبويبات والشاشات
 startOrderBtn.onclick = () => {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('orderScreen').style.display = 'block';
@@ -73,9 +75,9 @@ document.getElementById('navReportsBtn').onclick = () => {
     loadReports();
 };
 
-document.getElementById('logoutBtn').onclick = () => location.reload();
+document.getElementById('logoutBtn').onclick = () => { if(confirm("هل تريد تسجيل الخروج؟")) location.reload(); };
 
-// 4. منطق الجدول (الفاتورة)
+// 4. منطق جدول الفاتورة
 function addNewRow() {
     const tr = document.createElement('tr');
     let opts = '<option value="">-- اختر الصنف --</option>';
@@ -127,14 +129,14 @@ submitOrderBtn.onclick = async () => {
             grandTotal: parseFloat(grandTotalEl.innerText),
             createdAt: new Date(), status: "Pending"
         });
-        alert("✅ تم الإرسال!"); location.reload();
-    } catch (e) { alert("خطأ!"); submitOrderBtn.disabled = false; }
+        alert("✅ تم الإرسال بنجاح!"); location.reload();
+    } catch (e) { alert("خطأ في الإرسال"); submitOrderBtn.disabled = false; }
 };
 
-// 6. التقارير
+// --- 6. التقارير والعرض والحذف ---
 async function loadReports() {
     const body = document.getElementById('reportsBody');
-    body.innerHTML = '<tr><td colspan="7">جاري التحميل...</td></tr>';
+    body.innerHTML = '<tr><td colspan="7">جاري جلب البيانات...</td></tr>';
     try {
         const snap = await getDocs(collection(db, "orders"));
         body.innerHTML = '';
@@ -143,13 +145,13 @@ async function loadReports() {
         os.forEach(o => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><b>${o.id.substring(0,5)}</b></td>
+                <td><b>${o.id.substring(0,5).toUpperCase()}</b></td>
                 <td>${o.createdAt.toDate().toLocaleString('ar-JO')}</td>
                 <td>${o.repName}</td><td>${o.pharmacyName}</td>
                 <td>${o.grandTotal.toFixed(2)}</td><td><span class="status-badge">قيد الانتظار</span></td>
                 <td class="actions-cell">
-                    <button class="btn-view" style="color:#004a99; background:none; border:none; cursor:pointer;"><i class="ph ph-eye"></i></button>
-                    <button class="btn-delete" style="color:#d32f2f; background:none; border:none; cursor:pointer; margin-right:10px;"><i class="ph ph-trash"></i></button>
+                    <button class="btn-view" style="color:#004a99; background:none; border:none; cursor:pointer; font-size:1.2rem;"><i class="ph ph-eye"></i></button>
+                    <button class="btn-delete" style="color:#d32f2f; background:none; border:none; cursor:pointer; font-size:1.2rem; margin-right:10px;"><i class="ph ph-trash"></i></button>
                 </td>
             `;
             tr.querySelector('.btn-view').onclick = () => {
@@ -165,8 +167,51 @@ async function loadReports() {
     } catch (e) { console.error(e); }
 }
 
-window.closeModal = () => detailsModal.style.display = 'none';
-document.getElementById('exportExcelBtn').onclick = () => XLSX.writeFile(XLSX.utils.table_to_book(document.getElementById('reportsTable')), "Orders.xlsx");
+// --- 7. تصدير الإكسل المطور (يشمل الأصناف) ---
+document.getElementById('exportExcelBtn').onclick = async () => {
+    const btn = document.getElementById('exportExcelBtn');
+    btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري التحميل...";
+    
+    try {
+        const snap = await getDocs(collection(db, "orders"));
+        let flatData = [];
 
-// بدء التشغيل
+        snap.forEach(docSnap => {
+            const order = docSnap.data();
+            const orderId = docSnap.id.substring(0, 5).toUpperCase();
+            const dateStr = order.createdAt.toDate().toLocaleString('ar-JO');
+
+            // تكرار بيانات الطلبية لكل صنف (Data Normalization)
+            order.items.forEach(item => {
+                flatData.push({
+                    "رقم المرجع": orderId,
+                    "التاريخ والوقت": dateStr,
+                    "المندوب": order.repName,
+                    "الصيدلية": order.pharmacyName,
+                    "الصنف": item.name,
+                    "الكمية": item.qty,
+                    "البونص": item.bonus,
+                    "السعر": item.price,
+                    "المجموع الفرعي": item.total,
+                    "الإجمالي الكلي للطلبية": order.grandTotal
+                });
+            });
+        });
+
+        if (flatData.length === 0) { alert("لا توجد طلبيات لتصديرها"); return; }
+
+        const ws = XLSX.utils.json_to_sheet(flatData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "تفاصيل الطلبيات");
+        XLSX.writeFile(wb, "تقرير_طلبيات_دار_الدواء_المفصل.xlsx");
+
+    } catch (e) {
+        console.error(e);
+        alert("حدث خطأ أثناء تصدير الإكسل");
+    } finally {
+        btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير للإكسل";
+    }
+};
+
+window.closeModal = () => detailsModal.style.display = 'none';
 loadInitialData();
