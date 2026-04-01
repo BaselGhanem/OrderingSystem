@@ -1,54 +1,159 @@
-/* --------------------------------------------------- */
-/* --- التنسيقات الجديدة: التبويبات وشاشة التقارير --- */
-/* --------------------------------------------------- */
+/* 1. المتغيرات الأساسية */
+:root {
+    --primary-color: #004a99;
+    --secondary-color: #0073e6;
+    --bg-color: #eef2f6;
+    --text-main: #2c3e50;
+    --glass-bg: rgba(255, 255, 255, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.4);
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+}
 
-/* حاوية التبويبات في الشريط العلوي */
+/* 2. التنسيقات العامة */
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+}
+
+.bg-shapes { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; overflow: hidden; }
+.shape { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.6; }
+.shape-1 { width: 400px; height: 400px; background: var(--primary-color); top: -100px; right: -100px; }
+.shape-2 { width: 500px; height: 500px; background: #00b4d8; bottom: -150px; left: -100px; }
+
+.app-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+/* 3. تأثير الزجاج (Glassmorphism) */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: var(--glass-shadow);
+}
+
+/* 4. الهيدر المطور (Header) */
+header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 15px 25px; 
+    margin-bottom: 25px; 
+    flex-wrap: wrap; /* للسماح بالعناصر بالنزول لسطر جديد في الجوال */
+    gap: 15px;
+}
+
+.logo-area { display: flex; align-items: center; gap: 15px; }
+.logo { height: 45px; object-fit: contain; }
+.logo-area h1 { font-size: 1.3rem; color: var(--primary-color); font-weight: 800; }
+
+.user-info { 
+    display: flex; 
+    align-items: center; 
+    gap: 20px; 
+    flex-wrap: wrap; 
+}
+
+/* 5. التبويبات (Tabs) */
 .tabs { 
     display: flex; 
-    gap: 10px; 
-    background: rgba(0,0,0,0.05); 
-    padding: 5px; 
+    gap: 5px; 
+    background: rgba(0,0,0,0.06); 
+    padding: 4px; 
     border-radius: 12px; 
 }
 
-/* أزرار التبويبات */
 .btn-tab { 
     background: transparent; 
     color: #555; 
     border: none; 
-    padding: 10px 20px; 
+    padding: 8px 16px; 
     font-weight: bold; 
     cursor: pointer; 
     border-radius: 8px; 
     transition: 0.3s; 
-    font-size: 1rem; 
+    font-size: 0.95rem; 
 }
 
-/* التبويب النشط (المفتوح حالياً) */
 .btn-tab.active { 
     background: white; 
     color: var(--primary-color); 
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
 }
 
-/* تأثير التمرير على التبويب غير النشط */
-.btn-tab:hover:not(.active) { 
-    color: var(--primary-color); 
+#currentRepName { font-size: 1rem; color: var(--text-main); font-weight: 600; }
+
+.btn-icon { 
+    background: rgba(211, 47, 47, 0.1); 
+    color: #d32f2f; 
+    border: none; 
+    width: 38px; 
+    height: 38px; 
+    border-radius: 50%; 
+    font-size: 1.2rem; 
+    cursor: pointer; 
+    transition: 0.3s; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+}
+.btn-icon:hover { background: #d32f2f; color: white; }
+
+/* 6. الشاشات والجداول */
+.screen { padding: 30px; animation: fadeIn 0.4s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.table-responsive { width: 100%; overflow-x: auto; margin-top: 15px; border-radius: 12px; }
+.order-table { width: 100%; border-collapse: collapse; text-align: right; background: white; }
+.order-table th { background: var(--primary-color); color: white; padding: 12px 15px; font-size: 1rem; }
+.order-table td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+
+/* 7. الحقول والأزرار داخل الفاتورة */
+.order-table input, .order-table select { 
+    width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; outline: none; 
 }
 
-/* شارة حالة الطلبية في جدول التقارير (مثلاً: قيد الانتظار) */
-.status-badge { 
-    background: #e3f2fd; 
-    color: #1976d2; 
-    padding: 5px 12px; 
-    border-radius: 20px; 
-    font-size: 0.9rem; 
-    font-weight: bold; 
-    display: inline-block; 
+.btn-primary {
+    background: var(--primary-color); color: white; border: none; padding: 12px 25px;
+    border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.3s;
+    display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+}
+.btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+
+.btn-secondary { 
+    background: white; color: var(--primary-color); border: 2px solid var(--primary-color);
+    padding: 8px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;
 }
 
-/* تعديلات إضافية للجوال عشان التبويبات ما تنضغط */
+.btn-danger { background: #fee2e2; color: #dc2626; border: none; padding: 8px; border-radius: 6px; cursor: pointer; width: 100%; }
+
+.total-box { 
+    background: #f0f7ff; padding: 12px 25px; border-radius: 12px; border: 2px solid var(--primary-color);
+    display: flex; align-items: center; gap: 10px; font-size: 1.1rem;
+}
+.total-box strong { color: var(--primary-color); font-size: 1.6rem; }
+
+.status-badge { background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; }
+
+/* 8. شاشة تسجيل الدخول */
+.auth-box { max-width: 400px; margin: 40px auto; text-align: center; }
+.auth-icon { font-size: 3.5rem; color: var(--primary-color); margin-bottom: 15px; }
+.input-group { text-align: right; margin-bottom: 15px; }
+.input-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+
+/* 9. التجاوب مع الجوال (Responsive) */
 @media (max-width: 768px) {
-    .tabs { width: 100%; justify-content: center; }
-    .btn-tab { flex: 1; text-align: center; font-size: 0.9rem; padding: 8px 10px; }
+    header { justify-content: center; text-align: center; padding: 15px; }
+    .user-info { width: 100%; justify-content: center; order: 2; }
+    .logo-area { width: 100%; justify-content: center; order: 1; }
+    .tabs { width: 100%; }
+    .btn-tab { flex: 1; padding: 10px 5px; font-size: 0.85rem; }
+    .screen { padding: 15px; }
+    .order-table th, .order-table td { padding: 8px 5px; font-size: 0.85rem; }
+    .total-box { width: 100%; justify-content: center; margin-bottom: 15px; }
 }
