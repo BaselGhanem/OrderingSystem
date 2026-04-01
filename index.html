@@ -26,7 +26,6 @@
                     <button type="button" id="navOrderBtn" class="btn-tab active">طلب جديد</button>
                     <button type="button" id="navReportsBtn" class="btn-tab">التقارير</button>
                 </div>
-                
                 <span id="currentRepName"><i class="ph ph-user"></i> المندوب: <b>-</b></span>
                 <button type="button" id="logoutBtn" class="btn-icon" title="تسجيل خروج"><i class="ph ph-sign-out"></i></button>
             </div>
@@ -37,115 +36,63 @@
                 <i class="ph ph-shield-check auth-icon"></i>
                 <h2>تسجيل الدخول للنظام</h2>
                 <p>الرجاء تحديد هويتك والصيدلية لبدء الطلبية</p>
-                
-                <div class="input-group">
-                    <label>اسم المندوب</label>
-                    <select id="repSelect" disabled>
-                        <option value="">جاري تحميل بيانات المناديب...</option>
-                    </select>
-                </div>
-
-                <div class="input-group">
-                    <label>الصيدلية المستهدفة</label>
-                    <select id="pharmacySelect" disabled>
-                        <option value="">اختر المندوب أولاً...</option>
-                    </select>
-                </div>
-
-                <button type="button" id="startOrderBtn" class="btn-primary" disabled>
-                    بدء إدخال الطلبية <i class="ph ph-arrow-left"></i>
-                </button>
+                <div class="input-group"><label>اسم المندوب</label><select id="repSelect" disabled><option>جاري التحميل...</option></select></div>
+                <div class="input-group"><label>الصيدلية المستهدفة</label><select id="pharmacySelect" disabled><option>اختر المندوب أولاً...</option></select></div>
+                <button type="button" id="startOrderBtn" class="btn-primary" disabled>بدء إدخال الطلبية <i class="ph ph-arrow-left"></i></button>
             </div>
         </main>
 
         <main id="orderScreen" class="screen glass-panel" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0;">إدخال طلبية جديدة</h2>
-                <h3 id="orderPharmacyName" style="color: var(--primary-color); margin: 0; background: rgba(0,74,153,0.1); padding: 5px 15px; border-radius: 8px;">اسم الصيدلية</h3>
+                <h2>إدخال طلبية جديدة</h2>
+                <h3 id="orderPharmacyName">اسم الصيدلية</h3>
             </div>
-
             <div class="table-responsive">
                 <table class="order-table">
                     <thead>
-                        <tr>
-                            <th style="width: 40%;">الصنف</th>
-                            <th style="width: 15%;">الكمية</th>
-                            <th style="width: 15%;">البونص</th>
-                            <th style="width: 10%;">السعر</th>
-                            <th style="width: 10%;">المجموع</th>
-                            <th style="width: 10%;">حذف</th>
-                        </tr>
+                        <tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th><th>حذف</th></tr>
                     </thead>
                     <tbody id="orderBody"></tbody>
                 </table>
             </div>
-
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-                <button type="button" id="addRowBtn" class="btn-secondary">
-                    <i class="ph ph-plus-circle"></i> إضافة صنف
-                </button>
-                <div class="total-box">
-                    <span>الإجمالي الكلي:</span>
-                    <strong id="grandTotal">0.00</strong> <span>د.أ</span>
-                </div>
+                <button type="button" id="addRowBtn" class="btn-secondary"><i class="ph ph-plus-circle"></i> إضافة صنف</button>
+                <div class="total-box">الإجمالي: <strong id="grandTotal">0.00</strong> د.أ</div>
             </div>
-
-            <button type="button" id="submitOrderBtn" class="btn-primary" style="margin-top: 20px;">
-                <i class="ph ph-paper-plane-tilt"></i> إعتماد وإرسال الطلبية
-            </button>
+            <button type="button" id="submitOrderBtn" class="btn-primary" style="margin-top: 20px;"><i class="ph ph-paper-plane-tilt"></i> إرسال الطلبية</button>
         </main>
 
         <main id="reportsScreen" class="screen glass-panel" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0;">سجل الطلبيات</h2>
-                <button type="button" id="exportExcelBtn" class="btn-secondary" style="background: #107c41; color: white; border-color: #107c41;">
-                    <i class="ph ph-file-xls"></i> تصدير للإكسل
-                </button>
+                <h2>سجل الطلبيات</h2>
+                <button type="button" id="exportExcelBtn" class="btn-secondary" style="background:#107c41; color:white; border:none;"><i class="ph ph-file-xls"></i> تصدير للإكسل</button>
             </div>
-
             <div class="table-responsive">
                 <table class="order-table" id="reportsTable">
                     <thead>
-                        <tr>
-                            <th>رقم المرجع</th>
-                            <th>التاريخ والوقت</th>
-                            <th>المندوب</th>
-                            <th>الصيدلية</th>
-                            <th>الإجمالي (د.أ)</th>
-                            <th>الحالة</th>
-                        </tr>
+                        <tr><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr>
                     </thead>
-                    <tbody id="reportsBody">
-                        </tbody>
+                    <tbody id="reportsBody"></tbody>
                 </table>
             </div>
         </main>
-
     </div>
 
-    <script type="module" src="js/app.js?v=4"></script>
     <div id="detailsModal" class="modal-overlay" style="display: none;">
-    <div class="modal-content glass-panel">
-        <div class="modal-header">
-            <h3>تفاصيل الأصناف</h3>
-            <button type="button" class="close-modal" onclick="closeModal()"><i class="ph ph-x"></i></button>
-        </div>
-        <div class="table-responsive">
-            <table class="order-table">
-                <thead>
-                    <tr>
-                        <th>الصنف</th>
-                        <th>الكمية</th>
-                        <th>البونص</th>
-                        <th>السعر</th>
-                        <th>المجموع</th>
-                    </tr>
-                </thead>
-                <tbody id="modalItemsBody">
-                    </tbody>
-            </table>
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3>أصناف الطلبية</h3>
+                <button type="button" class="close-modal" onclick="closeModal()"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="table-responsive">
+                <table class="order-table">
+                    <thead><tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th></tr></thead>
+                    <tbody id="modalItemsBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
-</div>
+
+    <script type="module" src="js/app.js?v=final"></script>
 </body>
 </html>
