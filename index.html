@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الطلبيات | DAR ALDAWAA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+    </div>
+
+    <div class="app-container">
+        <header class="glass-panel">
+            <div class="logo-area">
+                <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="Dar Al Dawaa Logo" class="logo">
+                <h1>نظام الطلبيات الذكي</h1>
+            </div>
+            <div class="user-info" id="userInfo" style="display: none;">
+                <span id="currentRepName"><i class="ph ph-user"></i> المندوب: <b>-</b></span>
+                <button id="logoutBtn" class="btn-icon" title="تسجيل خروج"><i class="ph ph-sign-out"></i></button>
+            </div>
+        </header>
+
+        <main id="loginScreen" class="screen active glass-panel">
+            <div class="auth-box">
+                <i class="ph ph-shield-check auth-icon"></i>
+                <h2>تسجيل الدخول للنظام</h2>
+                <p>الرجاء تحديد هويتك والصيدلية لبدء الطلبية</p>
+                
+                <div class="input-group">
+                    <label>اسم المندوب</label>
+                    <select id="repSelect" disabled>
+                        <option value="">جاري تحميل بيانات المناديب...</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>الصيدلية المستهدفة</label>
+                    <select id="pharmacySelect" disabled>
+                        <option value="">اختر المندوب أولاً...</option>
+                    </select>
+                </div>
+
+                <button id="startOrderBtn" class="btn-primary" disabled>
+                    بدء إدخال الطلبية <i class="ph ph-arrow-left"></i>
+                </button>
+            </div>
+        </main>
+
+        <main id="orderScreen" class="screen glass-panel" style="display: none;">
+            <h2>شاشة الطلبية</h2>
+        </main>
+
+    </div>
+
+    </body>
+</html>
