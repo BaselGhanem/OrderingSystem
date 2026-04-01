@@ -1,6 +1,7 @@
-import { db, collection, getDocs, query, where, addDoc } from './firebase.js';
+// 1. استيراد الأدوات من ملف firebase.js
+import { db, collection, getDocs, query, where, addDoc, deleteDoc, doc } from './firebase.js';
 
-// --- تعريف العناصر ---
+// --- تعريف العناصر الأساسية ---
 const repSelect = document.getElementById('repSelect');
 const pharmacySelect = document.getElementById('pharmacySelect');
 const startOrderBtn = document.getElementById('startOrderBtn');
@@ -9,10 +10,14 @@ const addRowBtn = document.getElementById('addRowBtn');
 const grandTotalEl = document.getElementById('grandTotal');
 const submitOrderBtn = document.getElementById('submitOrderBtn');
 
+// عناصر النافذة المنبثقة (Modal)
+const detailsModal = document.getElementById('detailsModal');
+const modalItemsBody = document.getElementById('modalItemsBody');
+
 let productsList = []; 
 const MAX_ROWS = 20; 
 
-// --- 1. تحميل البيانات الأساسية ---
+// --- 2. تحميل البيانات الأساسية (مناديب + أصناف) ---
 async function loadInitialData() {
     try {
         const repsSnapshot = await getDocs(collection(db, "reps"));
@@ -32,7 +37,7 @@ async function loadInitialData() {
     } catch (e) { console.error("خطأ في التحميل:", e); }
 }
 
-// جلب صيدليات المندوب
+// جلب صيدليات المندوب عند الاختيار
 repSelect.addEventListener('change', async (e) => {
     const repId = e.target.value;
     if (!repId) return;
@@ -51,7 +56,7 @@ repSelect.addEventListener('change', async (e) => {
 
 pharmacySelect.addEventListener('change', () => startOrderBtn.disabled = !pharmacySelect.value);
 
-// --- 2. إدارة الشاشات ---
+// --- 3. إدارة التبويبات والشاشات ---
 startOrderBtn.addEventListener('click', () => {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('orderScreen').style.display = 'block';
@@ -61,7 +66,6 @@ startOrderBtn.addEventListener('click', () => {
     if (orderBody.children.length === 0) addNewRow();
 });
 
-// التنقل بين التبويبات
 document.getElementById('navOrderBtn').addEventListener('click', () => {
     document.getElementById('reportsScreen').style.display = 'none';
     document.getElementById('orderScreen').style.display = 'block';
@@ -77,9 +81,13 @@ document.getElementById('navReportsBtn').addEventListener('click', () => {
     loadReports();
 });
 
-// --- 3. منطق الجدول (Live Calculation) ---
+document.getElementById('logoutBtn').addEventListener('click', () => {
+    if(confirm("هل أنت متأكد من الخروج؟ سيتم مسح أي بيانات غير محفوظة.")) location.reload();
+});
+
+// --- 4. منطق جدول الطلبية (Live Calculation) ---
 function addNewRow() {
-    if (orderBody.children.length >= MAX_ROWS) return;
+    if (orderBody.children.length >= MAX_ROWS) return alert("الحد الأقصى 20 صنف!");
     const tr = document.createElement('tr');
     let options = '<option value="">-- اختر الصنف --</option>';
     productsList.forEach(p => options += `<option value="${p.id}" data-price="${p.price}">${p.name}</option>`);
@@ -95,6 +103,7 @@ function addNewRow() {
 
     const sel = tr.querySelector('.product-select');
     const qty = tr.querySelector('.qty-input');
+    const bns = tr.querySelector('.bonus-input');
     const prc = tr.querySelector('.price-cell');
     const tot = tr.querySelector('.row-total');
 
@@ -120,25 +129,26 @@ function updateGrandTotal() {
     grandTotalEl.innerText = gTotal.toFixed(2);
 }
 
-// --- 4. إرسال الطلبية ---
+// --- 5. إرسال الطلبية لـ Firebase ---
 submitOrderBtn.addEventListener('click', async () => {
     const rows = document.querySelectorAll('#orderBody tr');
-    if (rows.length === 0) return alert("الفاتورة فارغة!");
-
     const items = [];
     rows.forEach(r => {
         const s = r.querySelector('.product-select');
         if (s.value) {
             items.push({
-                name: s.options[s.selectedIndex].text,
+                productName: s.options[s.selectedIndex].text,
                 qty: r.querySelector('.qty-input').value,
+                bonus: r.querySelector('.bonus-input').value || 0,
                 price: r.querySelector('.price-cell').innerText,
                 total: r.querySelector('.row-total').innerText
             });
         }
     });
 
-    const data = {
+    if (items.length === 0) return alert("يرجى إضافة صنف واحد على الأقل.");
+
+    const orderData = {
         repName: repSelect.options[repSelect.selectedIndex].text,
         pharmacyName: pharmacySelect.options[pharmacySelect.selectedIndex].text,
         items: items,
@@ -149,32 +159,72 @@ submitOrderBtn.addEventListener('click', async () => {
 
     try {
         submitOrderBtn.disabled = true;
-        await addDoc(collection(db, "orders"), data);
-        alert("✅ تم الإرسال بنجاح!");
+        await addDoc(collection(db, "orders"), orderData);
+        alert("✅ تم إرسال الطلبية بنجاح!");
         location.reload();
     } catch (e) { alert("خطأ في الإرسال"); submitOrderBtn.disabled = false; }
 });
 
-// --- 5. التقارير ---
+// --- 6. التقارير (العرض، التفاصيل، الحذف) ---
 async function loadReports() {
     const body = document.getElementById('reportsBody');
-    body.innerHTML = '<tr><td colspan="6">جاري التحميل...</td></tr>';
-    const snap = await getDocs(collection(db, "orders"));
-    body.innerHTML = '';
-    snap.forEach(doc => {
-        const d = doc.data();
-        body.innerHTML += `
-            <tr>
-                <td>${doc.id.substring(0,5)}</td>
-                <td>${d.createdAt.toDate().toLocaleString('ar-JO')}</td>
-                <td>${d.repName}</td>
-                <td>${d.pharmacyName}</td>
-                <td>${d.grandTotal.toFixed(2)}</td>
+    body.innerHTML = '<tr><td colspan="7">جاري التحميل...</td></tr>';
+    try {
+        const snap = await getDocs(collection(db, "orders"));
+        body.innerHTML = '';
+        let orders = [];
+        snap.forEach(doc => orders.push({ id: doc.id, ...doc.data() }));
+        orders.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
+
+        orders.forEach(order => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><b>${order.id.substring(0,5).toUpperCase()}</b></td>
+                <td>${order.createdAt.toDate().toLocaleString('ar-JO')}</td>
+                <td>${order.repName}</td>
+                <td>${order.pharmacyName}</td>
+                <td>${order.grandTotal.toFixed(2)}</td>
                 <td><span class="status-badge">قيد الانتظار</span></td>
-            </tr>`;
-    });
+                <td class="actions-cell">
+                    <button class="btn-view" title="عرض الأصناف"><i class="ph ph-eye"></i></button>
+                    <button class="btn-delete-report" title="حذف"><i class="ph ph-trash"></i></button>
+                </td>
+            `;
+            // أزرار الإجراءات
+            tr.querySelector('.btn-view').onclick = () => viewOrderDetails(order.items);
+            tr.querySelector('.btn-delete-report').onclick = () => deleteOrder(order.id);
+            body.appendChild(tr);
+        });
+    } catch (e) { body.innerHTML = '<tr><td colspan="7">خطأ في جلب البيانات</td></tr>'; }
 }
 
+async function deleteOrder(id) {
+    if (confirm("هل أنت متأكد من حذف هذه الطلبية نهائياً؟")) {
+        await deleteDoc(doc(db, "orders", id));
+        loadReports();
+    }
+}
+
+function viewOrderDetails(items) {
+    modalItemsBody.innerHTML = '';
+    items.forEach(item => {
+        modalItemsBody.innerHTML += `
+            <tr>
+                <td>${item.productName || item.name}</td>
+                <td>${item.qty}</td>
+                <td>${item.bonus}</td>
+                <td>${item.price}</td>
+                <td>${item.total}</td>
+            </tr>`;
+    });
+    detailsModal.style.display = 'flex';
+}
+
+// إغلاق المودال
+window.closeModal = () => detailsModal.style.display = 'none';
+window.onclick = (e) => { if(e.target == detailsModal) closeModal(); };
+
+// تصدير إكسل
 document.getElementById('exportExcelBtn').onclick = () => {
     XLSX.writeFile(XLSX.utils.table_to_book(document.getElementById('reportsTable')), "DAR_ALDAWAA_Orders.xlsx");
 };
