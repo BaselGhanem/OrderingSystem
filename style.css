@@ -159,12 +159,12 @@ header {
 /* تنسيق النافذة المنبثقة (Modal) */
 .modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px);
-    display: flex; justify-content: center; align-items: center; z-index: 1000;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(5px);
+    display: none; justify-content: center; align-items: center; z-index: 9999;
 }
-.modal-content { width: 90%; max-width: 700px; padding: 25px; position: relative; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.close-modal { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #d32f2f; }
+.modal-content { width: 90%; max-width: 700px; padding: 20px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .close-modal { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #d32f2f; }
 
 /* أزرار الإجراءات في جدول التقارير */
 .actions-cell { display: flex; gap: 8px; justify-content: center; }
