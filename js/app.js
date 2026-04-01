@@ -6,24 +6,47 @@ const repSelect = document.getElementById('repSelect');
 const pharmacySelect = document.getElementById('pharmacySelect');
 const startOrderBtn = document.getElementById('startOrderBtn');
 
-// 1. وظيفة جلب المندوبين عند فتح الصفحة
-async function loadReps() {
+// عناصر شاشة الفاتورة
+const orderBody = document.getElementById('orderBody');
+const addRowBtn = document.getElementById('addRowBtn');
+const grandTotalEl = document.getElementById('grandTotal');
+
+// متغيرات النظام
+let productsList = []; // مصفوفة لحفظ الأصناف القادمة من فايربيس
+const MAX_ROWS = 20; // الحد الأقصى للأصناف في الطلبية الواحدة
+
+/* ==========================================
+   1. وظائف التحميل الأولية (المندوبين والأصناف)
+   ========================================== */
+
+async function loadInitialData() {
     try {
-        const querySnapshot = await getDocs(collection(db, "reps"));
-        repSelect.innerHTML = '<option value="">-- اختر اسم المندوب --</option>'; // تفريغ القائمة
-        
-        querySnapshot.forEach((doc) => {
+        // 1. جلب المندوبين
+        const repsSnapshot = await getDocs(collection(db, "reps"));
+        repSelect.innerHTML = '<option value="">-- اختر اسم المندوب --</option>';
+        repsSnapshot.forEach((doc) => {
             const rep = doc.data();
             const option = document.createElement('option');
-            option.value = doc.id; // نحفظ الـ ID لكي نبحث به عن الصيدليات لاحقاً
+            option.value = doc.id;
             option.textContent = rep.name;
             repSelect.appendChild(option);
         });
+        repSelect.disabled = false;
+
+        // 2. جلب الأصناف وتخزينها في المصفوفة
+        const productsSnapshot = await getDocs(collection(db, "products"));
+        productsSnapshot.forEach((doc) => {
+            productsList.push({ id: doc.id, ...doc.data() });
+        });
         
-        repSelect.disabled = false; // تفعيل القائمة بعد انتهاء التحميل
+        // ترتيب الأصناف أبجدياً لسهولة البحث
+        productsList.sort((a, b) => a.name.localeCompare(b.name));
+        
+        console.log(`تم تحميل ${productsList.length} صنف بنجاح.`);
+
     } catch (error) {
-        console.error("حدث خطأ في جلب المندوبين: ", error);
-        repSelect.innerHTML = '<option value="">حدث خطأ في التحميل</option>';
+        console.error("حدث خطأ في جلب البيانات: ", error);
+        alert("حدث خطأ في الاتصال بقاعدة البيانات. الرجاء تحديث الصفحة.");
     }
 }
 
@@ -31,7 +54,6 @@ async function loadReps() {
 repSelect.addEventListener('change', async (e) => {
     const selectedRepId = e.target.value;
     
-    // إذا اختار "-- اختر اسم المندوب --" (قيمة فارغة)
     if (!selectedRepId) {
         pharmacySelect.innerHTML = '<option value="">اختر المندوب أولاً...</option>';
         pharmacySelect.disabled = true;
@@ -39,18 +61,15 @@ repSelect.addEventListener('change', async (e) => {
         return;
     }
 
-    // إظهار حالة التحميل للصيدليات
     pharmacySelect.innerHTML = '<option value="">جاري تحميل الصيدليات...</option>';
     pharmacySelect.disabled = true;
     startOrderBtn.disabled = true;
 
     try {
-        // استعلام ذكي: اجلب الصيدليات التي يكون حقل rep_id فيها يساوي ID المندوب المختار
         const q = query(collection(db, "pharmacies"), where("rep_id", "==", selectedRepId));
         const querySnapshot = await getDocs(q);
         
         pharmacySelect.innerHTML = '<option value="">-- اختر الصيدلية --</option>';
-        
         if (querySnapshot.empty) {
             pharmacySelect.innerHTML = '<option value="">لا يوجد صيدليات مرتبطة بهذا المندوب</option>';
             return;
@@ -64,59 +83,163 @@ repSelect.addEventListener('change', async (e) => {
             pharmacySelect.appendChild(option);
         });
         
-        pharmacySelect.disabled = false; // تفعيل قائمة الصيدليات
+        pharmacySelect.disabled = false;
     } catch (error) {
         console.error("حدث خطأ في جلب الصيدليات: ", error);
         pharmacySelect.innerHTML = '<option value="">حدث خطأ في التحميل</option>';
     }
 });
 
-// 3. تفعيل زر (بدء الطلبية) فقط عند اختيار صيدلية
+// 3. تفعيل زر (بدء الطلبية)
 pharmacySelect.addEventListener('change', (e) => {
-    if (e.target.value) {
-        startOrderBtn.disabled = false;
-    } else {
-        startOrderBtn.disabled = true;
-    }
+    startOrderBtn.disabled = !e.target.value;
 });
 
-// تشغيل وظيفة جلب المندوبين فوراً
-loadReps();
 
 /* ==========================================
-   الأكواد الجديدة: الانتقال بين الشاشات
+   2. وظائف شاشة الفاتورة (الانتقال والعمليات)
    ========================================== */
 
-// 4. الانتقال إلى شاشة الفاتورة عند الضغط على (بدء إدخال الطلبية)
 startOrderBtn.addEventListener('click', () => {
-    // جلب أسماء المندوب والصيدلية من القوائم
     const repName = repSelect.options[repSelect.selectedIndex].text;
     const pharmacyName = pharmacySelect.options[pharmacySelect.selectedIndex].text;
 
-    // إخفاء شاشة تسجيل الدخول
     document.getElementById('loginScreen').style.display = 'none';
-    
-    // إظهار شاشة الفاتورة
     document.getElementById('orderScreen').style.display = 'block';
-    
-    // إظهار الشريط العلوي (اسم المندوب وزر الخروج)
     document.getElementById('userInfo').style.display = 'flex';
     document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${repName}</b>`;
-    
-    // وضع اسم الصيدلية في ترويسة الفاتورة
     document.getElementById('orderPharmacyName').innerText = pharmacyName;
+
+    // إضافة أول سطر تلقائياً عند فتح الفاتورة
+    if (orderBody.children.length === 0) {
+        addNewRow();
+    }
 });
 
-// 5. برمجة زر تسجيل الخروج (العودة للشاشة الأولى)
 document.getElementById('logoutBtn').addEventListener('click', () => {
-    // إعادة تعيين القوائم كما كانت
-    repSelect.value = "";
-    pharmacySelect.innerHTML = '<option value="">اختر المندوب أولاً...</option>';
-    pharmacySelect.disabled = true;
-    startOrderBtn.disabled = true;
+    if(confirm("هل أنت متأكد من الخروج؟ سيتم مسح الطلبية الحالية.")){
+        repSelect.value = "";
+        pharmacySelect.innerHTML = '<option value="">اختر المندوب أولاً...</option>';
+        pharmacySelect.disabled = true;
+        startOrderBtn.disabled = true;
+        
+        // تفريغ الفاتورة
+        orderBody.innerHTML = '';
+        updateGrandTotal();
 
-    // إخفاء شاشة الطلبية والهيدر، وإظهار شاشة الدخول
-    document.getElementById('orderScreen').style.display = 'none';
-    document.getElementById('userInfo').style.display = 'none';
-    document.getElementById('loginScreen').style.display = 'block';
+        document.getElementById('orderScreen').style.display = 'none';
+        document.getElementById('userInfo').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'block';
+    }
 });
+
+
+/* ==========================================
+   3. الحسابات الديناميكية وجدول الطلبية (Live Calculation)
+   ========================================== */
+
+// دالة لإنشاء قائمة الخيارات (Dropdown) للأصناف
+function getProductsOptionsHTML() {
+    let options = '<option value="">-- اختر الصنف --</option>';
+    productsList.forEach(prod => {
+        options += `<option value="${prod.id}" data-price="${prod.price}">${prod.name} (${prod.code})</option>`;
+    });
+    return options;
+}
+
+// دالة تحديث الإجمالي الكلي
+function updateGrandTotal() {
+    let total = 0;
+    const rowTotals = document.querySelectorAll('.row-total');
+    rowTotals.forEach(cell => {
+        total += parseFloat(cell.innerText) || 0;
+    });
+    grandTotalEl.innerText = total.toFixed(2);
+}
+
+// دالة إضافة سطر جديد للفاتورة
+function addNewRow() {
+    // التحقق من الحد الأقصى
+    if (orderBody.children.length >= MAX_ROWS) {
+        alert("لا يمكن إضافة أكثر من 20 صنف في الطلبية الواحدة!");
+        return;
+    }
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+        <td>
+            <select class="product-select" required>
+                ${getProductsOptionsHTML()}
+            </select>
+        </td>
+        <td><input type="number" class="qty-input" min="1" value="1" required></td>
+        <td><input type="number" class="bonus-input" min="0" value="0"></td>
+        <td class="price-cell">0.00</td>
+        <td class="row-total" style="font-weight: bold; color: var(--primary-color);">0.00</td>
+        <td><button type="button" class="btn-danger delete-btn" title="حذف الصنف"><i class="ph ph-trash"></i></button></td>
+    `;
+
+    // 1. برمجة تغيير الصنف (تحديث السعر والتحقق من التكرار)
+    const selectEl = tr.querySelector('.product-select');
+    const priceCell = tr.querySelector('.price-cell');
+    const qtyInput = tr.querySelector('.qty-input');
+    const rowTotalCell = tr.querySelector('.row-total');
+
+    selectEl.addEventListener('change', function() {
+        // التحقق من عدم تكرار الصنف في سطور أخرى
+        const selectedValue = this.value;
+        if (selectedValue !== "") {
+            const allSelects = document.querySelectorAll('.product-select');
+            let count = 0;
+            allSelects.forEach(sel => { if (sel.value === selectedValue) count++; });
+            
+            if (count > 1) {
+                alert("هذا الصنف موجود مسبقاً في الطلبية!");
+                this.value = ""; // إعادة تعيين القائمة
+                priceCell.innerText = "0.00";
+                rowTotalCell.innerText = "0.00";
+                updateGrandTotal();
+                return;
+            }
+        }
+
+        // جلب السعر من الـ data-price
+        const selectedOption = this.options[this.selectedIndex];
+        const price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        
+        priceCell.innerText = price.toFixed(2);
+        
+        // حساب المجموع للسطر
+        calculateRowTotal();
+    });
+
+    // 2. برمجة تغيير الكمية (حساب المجموع فوراً)
+    qtyInput.addEventListener('input', calculateRowTotal);
+
+    function calculateRowTotal() {
+        const qty = parseFloat(qtyInput.value) || 0;
+        const price = parseFloat(priceCell.innerText) || 0;
+        const rowTotal = qty * price;
+        rowTotalCell.innerText = rowTotal.toFixed(2);
+        
+        // تحديث الإجمالي الكلي للفاتورة
+        updateGrandTotal();
+    }
+
+    // 3. برمجة زر الحذف
+    const deleteBtn = tr.querySelector('.delete-btn');
+    deleteBtn.addEventListener('click', () => {
+        tr.remove();
+        updateGrandTotal();
+    });
+
+    // إضافة السطر إلى الجدول
+    orderBody.appendChild(tr);
+}
+
+// ربط زر "إضافة صنف" بالدالة
+addRowBtn.addEventListener('click', addNewRow);
+
+// تشغيل التحميل عند فتح الصفحة
+loadInitialData();
