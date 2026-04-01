@@ -82,3 +82,41 @@ pharmacySelect.addEventListener('change', (e) => {
 
 // تشغيل وظيفة جلب المندوبين فوراً
 loadReps();
+
+/* ==========================================
+   الأكواد الجديدة: الانتقال بين الشاشات
+   ========================================== */
+
+// 4. الانتقال إلى شاشة الفاتورة عند الضغط على (بدء إدخال الطلبية)
+startOrderBtn.addEventListener('click', () => {
+    // جلب أسماء المندوب والصيدلية من القوائم
+    const repName = repSelect.options[repSelect.selectedIndex].text;
+    const pharmacyName = pharmacySelect.options[pharmacySelect.selectedIndex].text;
+
+    // إخفاء شاشة تسجيل الدخول
+    document.getElementById('loginScreen').style.display = 'none';
+    
+    // إظهار شاشة الفاتورة
+    document.getElementById('orderScreen').style.display = 'block';
+    
+    // إظهار الشريط العلوي (اسم المندوب وزر الخروج)
+    document.getElementById('userInfo').style.display = 'flex';
+    document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${repName}</b>`;
+    
+    // وضع اسم الصيدلية في ترويسة الفاتورة
+    document.getElementById('orderPharmacyName').innerText = pharmacyName;
+});
+
+// 5. برمجة زر تسجيل الخروج (العودة للشاشة الأولى)
+document.getElementById('logoutBtn').addEventListener('click', () => {
+    // إعادة تعيين القوائم كما كانت
+    repSelect.value = "";
+    pharmacySelect.innerHTML = '<option value="">اختر المندوب أولاً...</option>';
+    pharmacySelect.disabled = true;
+    startOrderBtn.disabled = true;
+
+    // إخفاء شاشة الطلبية والهيدر، وإظهار شاشة الدخول
+    document.getElementById('orderScreen').style.display = 'none';
+    document.getElementById('userInfo').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'block';
+});
