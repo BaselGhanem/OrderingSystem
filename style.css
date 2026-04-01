@@ -1,0 +1,82 @@
+:root {
+    --primary-color: #004a99; /* لون دار الدواء */
+    --secondary-color: #0073e6;
+    --bg-color: #eef2f6;
+    --text-main: #2c3e50;
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.4);
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* خلفيات متحركة لجمالية التصميم */
+.bg-shapes { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; overflow: hidden; }
+.shape { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.6; }
+.shape-1 { width: 400px; height: 400px; background: #004a99; top: -100px; right: -100px; }
+.shape-2 { width: 500px; height: 500px; background: #00b4d8; bottom: -150px; left: -100px; }
+
+.app-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+/* تأثير الزجاج (Glassmorphism) الموحد */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: var(--glass-shadow);
+}
+
+/* تصميم الهيدر (الشريط العلوي) */
+header { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; margin-bottom: 30px; }
+.logo-area { display: flex; align-items: center; gap: 20px; }
+.logo { height: 50px; object-fit: contain; }
+.logo-area h1 { font-size: 1.5rem; color: var(--primary-color); font-weight: 800; margin: 0; }
+
+.user-info { display: flex; align-items: center; gap: 15px; font-size: 1.1rem; }
+.btn-icon { background: rgba(255,0,0,0.1); color: #d32f2f; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; transition: 0.3s; }
+.btn-icon:hover { background: #d32f2f; color: white; }
+
+/* شاشات النظام */
+.screen { padding: 40px; text-align: center; animation: fadeIn 0.5s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* شاشة تسجيل الدخول */
+.auth-box { max-width: 450px; margin: 0 auto; }
+.auth-icon { font-size: 4rem; color: var(--primary-color); margin-bottom: 10px; }
+.auth-box h2 { font-size: 1.8rem; margin-bottom: 5px; }
+.auth-box p { color: #666; margin-bottom: 30px; }
+
+.input-group { text-align: right; margin-bottom: 20px; }
+.input-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.95rem; }
+.input-group select {
+    width: 100%; padding: 12px 15px; border-radius: 10px;
+    border: 1px solid #ccc; background: rgba(255,255,255,0.9);
+    font-size: 1rem; color: #333; outline: none; transition: 0.3s;
+}
+.input-group select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(0, 74, 153, 0.2); }
+.input-group select:disabled { background: #e9ecef; cursor: not-allowed; }
+
+.btn-primary {
+    width: 100%; background: var(--primary-color); color: white;
+    border: none; padding: 14px; border-radius: 10px; font-size: 1.1rem;
+    font-weight: bold; cursor: pointer; display: flex; justify-content: center;
+    align-items: center; gap: 10px; transition: 0.3s; margin-top: 10px;
+}
+.btn-primary:hover:not(:disabled) { background: var(--secondary-color); transform: translateY(-2px); }
+.btn-primary:disabled { background: #a0aec0; cursor: not-allowed; }
+
+/* التجاوب مع الجوال */
+@media (max-width: 768px) {
+    header { flex-direction: column; gap: 15px; padding: 15px; }
+    .screen { padding: 20px; }
+}
