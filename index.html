@@ -6,6 +6,7 @@
     <title>نظام الطلبيات | DAR ALDAWAA</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,6 +22,11 @@
                 <h1>نظام الطلبيات الذكي</h1>
             </div>
             <div class="user-info" id="userInfo" style="display: none;">
+                <div class="tabs">
+                    <button type="button" id="navOrderBtn" class="btn-tab active">طلب جديد</button>
+                    <button type="button" id="navReportsBtn" class="btn-tab">التقارير</button>
+                </div>
+                
                 <span id="currentRepName"><i class="ph ph-user"></i> المندوب: <b>-</b></span>
                 <button type="button" id="logoutBtn" class="btn-icon" title="تسجيل خروج"><i class="ph ph-sign-out"></i></button>
             </div>
@@ -70,8 +76,7 @@
                             <th style="width: 10%;">حذف</th>
                         </tr>
                     </thead>
-                    <tbody id="orderBody">
-                        </tbody>
+                    <tbody id="orderBody"></tbody>
                 </table>
             </div>
 
@@ -79,7 +84,6 @@
                 <button type="button" id="addRowBtn" class="btn-secondary">
                     <i class="ph ph-plus-circle"></i> إضافة صنف
                 </button>
-                
                 <div class="total-box">
                     <span>الإجمالي الكلي:</span>
                     <strong id="grandTotal">0.00</strong> <span>د.أ</span>
@@ -90,8 +94,35 @@
                 <i class="ph ph-paper-plane-tilt"></i> إعتماد وإرسال الطلبية
             </button>
         </main>
+
+        <main id="reportsScreen" class="screen glass-panel" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">سجل الطلبيات</h2>
+                <button type="button" id="exportExcelBtn" class="btn-secondary" style="background: #107c41; color: white; border-color: #107c41;">
+                    <i class="ph ph-file-xls"></i> تصدير للإكسل
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="order-table" id="reportsTable">
+                    <thead>
+                        <tr>
+                            <th>رقم المرجع</th>
+                            <th>التاريخ والوقت</th>
+                            <th>المندوب</th>
+                            <th>الصيدلية</th>
+                            <th>الإجمالي (د.أ)</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsBody">
+                        </tbody>
+                </table>
+            </div>
+        </main>
+
     </div>
 
-    <script type="module" src="js/app.js?v=2"></script>
+    <script type="module" src="js/app.js?v=3"></script>
 </body>
 </html>
