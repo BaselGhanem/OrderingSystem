@@ -1,155 +1,253 @@
-/* 1. Reset + Base */
+/* 1. Root Variables & Base */
+:root {
+    --primary: #004a99;
+    --primary-light: #0066cc;
+    --secondary: #64748b;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --bg-body: #f1f5f9;
+    --glass: rgba(255, 255, 255, 0.85);
+    --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
     font-family: 'Cairo', sans-serif;
+    transition: all 0.3s ease;
 }
 
 body {
-    background: #eef2f6;
-    color: #2c3e50;
+    background: var(--bg-body);
+    background-image: 
+        radial-gradient(at 0% 0%, rgba(0, 74, 153, 0.05) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(0, 74, 153, 0.05) 0px, transparent 50%);
+    color: #1e293b;
     min-height: 100vh;
-    overflow-x: hidden;
 }
 
-/* 2. Container */
+/* 2. Background Shapes */
+.bg-shapes {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -1;
+    overflow: hidden;
+}
+.shape {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+}
+.shape-1 { width: 300px; height: 300px; background: rgba(0, 74, 153, 0.1); top: -100px; right: -100px; }
+.shape-2 { width: 250px; height: 250px; background: rgba(16, 185, 129, 0.05); bottom: -50px; left: -50px; }
+
+/* 3. Reusable Glass Panel */
+.glass-panel {
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+/* 4. Layout Container */
 .app-container {
     width: 100%;
-    padding: 15px;
+    max-width: 1400px;
     margin: auto;
+    padding: 10px;
 }
 
-/* 3. Header */
+/* 5. Header Section */
 header {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 15px;
+    align-items: center;
 }
 
 .logo-area {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 10px;
+    gap: 15px;
 }
-.logo { height: 40px; }
+.logo { height: 50px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
+.logo-area h1 { font-size: 1.4rem; color: var(--primary); font-weight: 800; }
 
 .user-info {
+    width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 15px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0,0,0,0.05);
 }
 
-/* 4. Tabs */
+/* 6. Navigation Tabs */
 .tabs {
     display: flex;
-    width: 100%;
-    overflow-x: auto;
+    background: rgba(0,0,0,0.05);
+    padding: 5px;
+    border-radius: 12px;
     gap: 5px;
 }
-
 .btn-tab {
     flex: 1;
     padding: 10px;
-    font-size: 0.85rem;
     border: none;
-    border-radius: 8px;
-    background: #eee;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--secondary);
 }
-
 .btn-tab.active {
-    background: #004a99;
-    color: white;
+    background: white;
+    color: var(--primary);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
-/* 5. Table Responsive (IMPORTANT) */
+/* 7. Forms & Inputs */
+.input-group { margin-bottom: 15px; }
+.input-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--secondary); }
+select, input {
+    width: 100%;
+    padding: 12px;
+    border: 1.5px solid rgba(0,0,0,0.1);
+    border-radius: 10px;
+    outline: none;
+    background: white;
+}
+select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(0, 74, 153, 0.1); }
+
+/* 8. Tables */
 .table-responsive {
     width: 100%;
     overflow-x: auto;
-}
-
-.order-table {
-    min-width: 700px; /* يمنع التخبيص */
-    width: 100%;
-    border-collapse: collapse;
+    border-radius: 15px;
     background: white;
 }
-
-.order-table th,
-.order-table td {
-    padding: 8px;
+.order-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
+.order-table th {
+    background: #f8fafc;
+    padding: 15px;
+    text-align: right;
     font-size: 0.85rem;
-    border-bottom: 1px solid #eee;
+    color: var(--secondary);
+    text-transform: uppercase;
 }
-
-/* 6. Inputs */
-input, select {
-    width: 100%;
-    padding: 8px;
+.order-table td {
+    padding: 15px;
+    border-bottom: 1px solid #f1f5f9;
 }
+.row-total { font-weight: 800; color: var(--primary); }
 
-/* 7. Buttons */
+/* 9. Buttons */
 .btn-primary {
-    width: 100%;
-    padding: 12px;
-    border: none;
-    background: #004a99;
+    background: var(--primary);
     color: white;
-    border-radius: 8px;
+    padding: 14px 24px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.btn-primary:hover:not(:disabled) { background: var(--primary-light); transform: translateY(-2px); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary { background: white; border: 1.5px solid var(--primary); color: var(--primary); padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+
+.btn-icon { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: none; padding: 10px; border-radius: 10px; cursor: pointer; }
+
+/* 10. Modals */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+.modal-content {
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    animation: modalSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modalSlide {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-/* ========================= */
-/* 📱 Tablet (768px) */
-/* ========================= */
+/* ========================================= */
+/* 📱 Responsive Design (Layouts per Device) */
+/* ========================================= */
+
+/* Mobile (Default) - Stacked everything, full width buttons */
+
+/* 🍏 Tablet (768px+) */
 @media (min-width: 768px) {
-
-    .app-container {
-        max-width: 720px;
-    }
-
+    .app-container { padding: 20px; }
+    
     header {
         flex-direction: row;
         justify-content: space-between;
-        align-items: center;
     }
-
+    
     .user-info {
         flex-direction: row;
+        width: auto;
+        border-top: none;
         align-items: center;
     }
-
-    .btn-tab {
-        font-size: 0.9rem;
-    }
-
-    .order-table th,
-    .order-table td {
-        font-size: 0.9rem;
-        padding: 10px;
+    
+    .tabs { width: 300px; }
+    
+    .auth-box {
+        max-width: 450px;
+        margin: 50px auto;
+        text-align: center;
     }
 }
 
-/* ========================= */
-/* 💻 Laptop (1024px+) */
-/* ========================= */
+/* 💻 Laptop/Desktop (1024px+) */
 @media (min-width: 1024px) {
-
-    .app-container {
-        max-width: 1200px;
+    .app-container { max-width: 1200px; }
+    
+    .screen { padding: 40px; }
+    
+    /* جعل صفحة إدخال الطلبية تبدو أفضل */
+    #orderScreen {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
     }
+}
 
-    .screen {
-        padding: 30px;
-    }
-
-    .btn-tab {
-        font-size: 1rem;
-    }
-
-    .order-table th,
-    .order-table td {
-        font-size: 1rem;
-        padding: 12px;
-    }
+/* Status Badges */
+.status-badge {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
 }
