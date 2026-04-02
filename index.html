@@ -33,44 +33,71 @@
 
         <main id="loginScreen" class="screen active glass-panel">
             <div class="auth-box">
-                <i class="ph ph-shield-check auth-icon"></i>
+                <i class="ph ph-shield-check auth-icon" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
                 <h2>تسجيل الدخول للنظام</h2>
                 <p>الرجاء تحديد هويتك والصيدلية لبدء الطلبية</p>
-                <div class="input-group"><label>اسم المندوب</label><select id="repSelect" disabled><option>جاري التحميل...</option></select></div>
-                <div class="input-group"><label>الصيدلية المستهدفة</label><select id="pharmacySelect" disabled><option>اختر المندوب أولاً...</option></select></div>
-                <button type="button" id="startOrderBtn" class="btn-primary" disabled>بدء إدخال الطلبية <i class="ph ph-arrow-left"></i></button>
+                <div class="input-group">
+                    <label>اسم المندوب</label>
+                    <select id="repSelect" disabled><option>جاري التحميل...</option></select>
+                </div>
+                <div class="input-group">
+                    <label>الصيدلية المستهدفة</label>
+                    <select id="pharmacySelect" disabled><option>اختر المندوب أولاً...</option></select>
+                </div>
+                <button type="button" id="startOrderBtn" class="btn-primary" disabled>
+                    بدء إدخال الطلبية <i class="ph ph-arrow-left"></i>
+                </button>
             </div>
         </main>
 
         <main id="orderScreen" class="screen glass-panel" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2>إدخال طلبية جديدة</h2>
-                <h3 id="orderPharmacyName">اسم الصيدلية</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <h2><i class="ph ph-shopping-cart"></i> إدخال طلبية جديدة</h2>
+                <h3 id="orderPharmacyName" style="color: var(--primary);">اسم الصيدلية</h3>
             </div>
             <div class="table-responsive">
                 <table class="order-table">
                     <thead>
-                        <tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th><th>حذف</th></tr>
+                        <tr>
+                            <th>الصنف</th>
+                            <th>الكمية</th>
+                            <th>البونص</th>
+                            <th>السعر</th>
+                            <th>المجموع</th>
+                            <th>حذف</th>
+                        </tr>
                     </thead>
                     <tbody id="orderBody"></tbody>
                 </table>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 15px;">
                 <button type="button" id="addRowBtn" class="btn-secondary"><i class="ph ph-plus-circle"></i> إضافة صنف</button>
-                <div class="total-box">الإجمالي: <strong id="grandTotal">0.00</strong> د.أ</div>
+                <div class="total-box" style="font-size: 1.2rem; font-weight: 800;">الإجمالي: <strong id="grandTotal" style="color: var(--primary);">0.00</strong> د.أ</div>
             </div>
-            <button type="button" id="submitOrderBtn" class="btn-primary" style="margin-top: 20px;"><i class="ph ph-paper-plane-tilt"></i> إرسال الطلبية</button>
+            <button type="button" id="submitOrderBtn" class="btn-primary" style="margin-top: 30px; width: 100%;">
+                <i class="ph ph-paper-plane-tilt"></i> إرسال الطلبية النهائية
+            </button>
         </main>
 
         <main id="reportsScreen" class="screen glass-panel" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2>سجل الطلبيات</h2>
-                <button type="button" id="exportExcelBtn" class="btn-secondary" style="background:#107c41; color:white; border:none;"><i class="ph ph-file-xls"></i> تصدير للإكسل</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <h2><i class="ph ph- briefcase"></i> سجل الطلبيات المستلمة</h2>
+                <button type="button" id="exportExcelBtn" class="btn-secondary" style="background:#107c41; color:white; border:none;">
+                    <i class="ph ph-file-xls"></i> تصدير للإكسل
+                </button>
             </div>
             <div class="table-responsive">
                 <table class="order-table" id="reportsTable">
                     <thead>
-                        <tr><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr>
+                        <tr>
+                            <th>رقم المرجع</th>
+                            <th>التاريخ</th>
+                            <th>المندوب</th>
+                            <th>الصيدلية</th>
+                            <th>الإجمالي</th>
+                            <th>الحالة</th>
+                            <th>الإجراءات</th>
+                        </tr>
                     </thead>
                     <tbody id="reportsBody"></tbody>
                 </table>
@@ -80,19 +107,33 @@
 
     <div id="detailsModal" class="modal-overlay" style="display: none;">
         <div class="modal-content glass-panel">
-            <div class="modal-header">
-                <h3>أصناف الطلبية</h3>
-                <button type="button" class="close-modal" onclick="closeModal()"><i class="ph ph-x"></i></button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+                <div>
+                    <h3 style="color: var(--primary); margin: 0;"><i class="ph ph-receipt"></i> تفاصيل الفاتورة</h3>
+                    <small id="modalPharmacySubtitle" style="color: var(--secondary); font-weight: 600; display: block; margin-top: 5px;"></small>
+                </div>
+                <button type="button" class="close-modal" onclick="closeModal()" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger); transition: 0.3s;">
+                    <i class="ph ph-x-circle"></i>
+                </button>
             </div>
+            
             <div class="table-responsive">
                 <table class="order-table">
-                    <thead><tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>الصنف</th>
+                            <th>الكمية</th>
+                            <th>البونص</th>
+                            <th>السعر</th>
+                            <th>المجموع</th>
+                        </tr>
+                    </thead>
                     <tbody id="modalItemsBody"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <script type="module" src="js/app.js?v=50"></script>
+    <script type="module" src="js/app.js?v=60"></script>
 </body>
 </html>
