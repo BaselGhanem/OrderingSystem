@@ -14,7 +14,7 @@ const modalItemsBody = document.getElementById('modalItemsBody');
 let productsList = []; 
 const MAX_ROWS = 20; 
 
-// --- 1. تحميل المناديب والأصناف ---
+// --- 1. تحميل المناديب والأصناف عند البداية ---
 async function loadInitialData() {
     try {
         const repsSnap = await getDocs(collection(db, "reps"));
@@ -30,10 +30,10 @@ async function loadInitialData() {
         productsList = [];
         prodSnap.forEach(d => productsList.push({ id: d.id, ...d.data() }));
         productsList.sort((a, b) => a.name.localeCompare(b.name));
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Error loading data:", e); }
 }
 
-// 2. جلب صيدليات المندوب
+// --- 2. جلب صيدليات المندوب المختار ---
 repSelect.onchange = async (e) => {
     if (!e.target.value) return;
     pharmacySelect.innerHTML = '<option>جاري التحميل...</option>';
@@ -50,12 +50,12 @@ repSelect.onchange = async (e) => {
 
 pharmacySelect.onchange = () => startOrderBtn.disabled = !pharmacySelect.value;
 
-// 3. إدارة التبويبات والشاشات
+// --- 3. إدارة التنقل والشاشات ---
 startOrderBtn.onclick = () => {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('orderScreen').style.display = 'block';
     document.getElementById('userInfo').style.display = 'flex';
-    document.getElementById('currentRepName').innerHTML = `<b>${repSelect.options[repSelect.selectedIndex].text}</b>`;
+    document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${repSelect.options[repSelect.selectedIndex].text}</b>`;
     document.getElementById('orderPharmacyName').innerText = pharmacySelect.options[pharmacySelect.selectedIndex].text;
     if (orderBody.children.length === 0) addNewRow();
 };
@@ -77,11 +77,12 @@ document.getElementById('navReportsBtn').onclick = () => {
 
 document.getElementById('logoutBtn').onclick = () => { if(confirm("هل تريد تسجيل الخروج؟")) location.reload(); };
 
-// 4. منطق جدول الفاتورة
+// --- 4. منطق جدول الفاتورة ---
 function addNewRow() {
     const tr = document.createElement('tr');
     let opts = '<option value="">-- اختر الصنف --</option>';
     productsList.forEach(p => opts += `<option value="${p.id}" data-price="${p.price}">${p.name}</option>`);
+    
     tr.innerHTML = `
         <td><select class="product-select">${opts}</select></td>
         <td><input type="number" class="qty-input" value="1" min="1"></td>
@@ -89,24 +90,37 @@ function addNewRow() {
         <td class="price-cell">0.00</td><td class="row-total">0.00</td>
         <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
     `;
-    const s = tr.querySelector('.product-select'), q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
+
+    const s = tr.querySelector('.product-select'), 
+          q = tr.querySelector('.qty-input'), 
+          p = tr.querySelector('.price-cell'), 
+          t = tr.querySelector('.row-total');
+
     s.onchange = () => {
         const pr = parseFloat(s.options[s.selectedIndex].dataset.price) || 0;
-        p.innerText = pr.toFixed(2); t.innerText = (pr * q.value).toFixed(2);
+        p.innerText = pr.toFixed(2); 
+        t.innerText = (pr * q.value).toFixed(2);
         updateGrandTotal();
     };
-    q.oninput = () => { t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); updateGrandTotal(); };
+
+    q.oninput = () => { 
+        t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); 
+        updateGrandTotal(); 
+    };
+
     tr.querySelector('.del-row').onclick = () => { tr.remove(); updateGrandTotal(); };
     orderBody.appendChild(tr);
 }
+
 addRowBtn.onclick = addNewRow;
 
 function updateGrandTotal() {
-    let g = 0; document.querySelectorAll('.row-total').forEach(td => g += parseFloat(td.innerText) || 0);
+    let g = 0; 
+    document.querySelectorAll('.row-total').forEach(td => g += parseFloat(td.innerText) || 0);
     grandTotalEl.innerText = g.toFixed(2);
 }
 
-// 5. إرسال الطلبية (تم التعديل هنا)
+// --- 5. إرسال الطلبية وتصفير الواجهة ---
 submitOrderBtn.onclick = async () => {
     const items = [];
     document.querySelectorAll('#orderBody tr').forEach(r => {
@@ -119,7 +133,9 @@ submitOrderBtn.onclick = async () => {
             total: r.querySelector('.row-total').innerText
         });
     });
+
     if (items.length === 0) return alert("الفاتورة فارغة!");
+
     try {
         submitOrderBtn.disabled = true;
         await addDoc(collection(db, "orders"), {
@@ -127,12 +143,13 @@ submitOrderBtn.onclick = async () => {
             pharmacyName: pharmacySelect.options[pharmacySelect.selectedIndex].text,
             items: items,
             grandTotal: parseFloat(grandTotalEl.innerText),
-            createdAt: new Date(), status: "Pending"
+            createdAt: new Date(), 
+            status: "Pending"
         });
         
         alert("✅ تم الإرسال بنجاح!");
         
-        // المنطق الجديد بدلاً من reload
+        // إعادة تعيين الواجهة بدون Reload
         orderBody.innerHTML = '';
         grandTotalEl.innerText = '0.00';
         addNewRow();
@@ -144,15 +161,17 @@ submitOrderBtn.onclick = async () => {
     }
 };
 
-// --- 6. التقارير والعرض والحذف (تم تعديل الحذف هنا) ---
+// --- 6. التقارير، عرض التفاصيل، والحذف بباسوورد ---
 async function loadReports() {
     const body = document.getElementById('reportsBody');
     body.innerHTML = '<tr><td colspan="7">جاري جلب البيانات...</td></tr>';
     try {
         const snap = await getDocs(collection(db, "orders"));
         body.innerHTML = '';
-        let os = []; snap.forEach(d => os.push({ id: d.id, ...d.data() }));
+        let os = []; 
+        snap.forEach(d => os.push({ id: d.id, ...d.data() }));
         os.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
+
         os.forEach(o => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -165,13 +184,33 @@ async function loadReports() {
                     <button class="btn-delete" style="color:#d32f2f; background:none; border:none; cursor:pointer; font-size:1.2rem; margin-right:10px;"><i class="ph ph-trash"></i></button>
                 </td>
             `;
+
+            // عرض تفاصيل الطلبية (المنطق المطور)
             tr.querySelector('.btn-view').onclick = () => {
                 modalItemsBody.innerHTML = '';
-                o.items.forEach(i => modalItemsBody.innerHTML += `<tr><td>${i.name}</td><td>${i.qty}</td><td>${i.bonus}</td><td>${i.price}</td><td>${i.total}</td></tr>`);
+                o.items.forEach(i => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="font-weight:600; color:#004a99;">${i.name}</td>
+                        <td style="text-align:center;">${i.qty}</td>
+                        <td style="text-align:center;">${i.bonus || 0}</td>
+                        <td style="text-align:center;">${parseFloat(i.price).toFixed(2)}</td>
+                        <td style="text-align:center; font-weight:bold;">${parseFloat(i.total).toFixed(2)}</td>
+                    `;
+                    modalItemsBody.appendChild(row);
+                });
+
+                const footerRow = document.createElement('tr');
+                footerRow.style.background = "#f8fafc";
+                footerRow.innerHTML = `
+                    <td colspan="4" style="text-align:left; font-weight:800;">الإجمالي الكلي للطلبية:</td>
+                    <td style="text-align:center; font-weight:800; color:#004a99; font-size:1.1rem;">${o.grandTotal.toFixed(2)} د.أ</td>
+                `;
+                modalItemsBody.appendChild(footerRow);
                 detailsModal.style.display = 'flex';
             };
             
-            // تعديل حذف الطلبية بباسوورد
+            // حذف الطلبية بباسوورد 5050
             tr.querySelector('.btn-delete').onclick = async () => {
                 const password = prompt("الرجاء إدخال كلمة المرور لحذف الطلبية:");
                 if (password === "5050") {
@@ -187,12 +226,13 @@ async function loadReports() {
             
             body.appendChild(tr);
         });
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Error loading reports:", e); }
 }
 
-// --- 7. تصدير الإكسل المطور ---
+// --- 7. تصدير البيانات إلى Excel ---
 document.getElementById('exportExcelBtn').onclick = async () => {
     const btn = document.getElementById('exportExcelBtn');
+    const originalText = btn.innerHTML;
     btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري التحميل...";
     
     try {
@@ -228,12 +268,14 @@ document.getElementById('exportExcelBtn').onclick = async () => {
         XLSX.writeFile(wb, "تقرير_طلبيات_دار_الدواء_المفصل.xlsx");
 
     } catch (e) {
-        console.error(e);
+        console.error("Excel Export Error:", e);
         alert("حدث خطأ أثناء تصدير الإكسل");
     } finally {
-        btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير للإكسل";
+        btn.innerHTML = originalText;
     }
 };
 
 window.closeModal = () => detailsModal.style.display = 'none';
+
+// تشغيل جلب البيانات الأولية
 loadInitialData();
