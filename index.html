@@ -44,8 +44,10 @@
                 
                 <div class="input-group">
                     <label>الصيدلية المستهدفة</label>
-                    <input type="text" id="pharmacyInput" list="pharmacyList" placeholder="اختر المندوب أولاً..." disabled>
-                    <datalist id="pharmacyList"></datalist>
+                    <div class="autocomplete-wrapper">
+                        <input type="text" id="pharmacyInput" placeholder="اختر المندوب أولاً..." autocomplete="off" disabled>
+                        <div id="pharmacySuggestions" class="autocomplete-list"></div>
+                    </div>
                 </div>
                 
                 <button type="button" id="startOrderBtn" class="btn-primary" disabled>
