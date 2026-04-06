@@ -14,11 +14,14 @@ const modalItemsBody = document.getElementById('modalItemsBody');
 let productsList = []; 
 const MAX_ROWS = 20; 
 let isAdmin = false; // متغير للتحقق من وضع المدير
-// --- دالة الإكمال التلقائي المخصصة ---
+// --- دالة الإكمال التلقائي المخصصة (محسنة للموبايل واللابتوب) ---
 function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) {
+    let currentFocus = -1; // تتبع العنصر المحدد بالكيبورد
+
     inputEl.addEventListener('input', function() {
         const val = this.value.trim().toLowerCase();
         suggestionsEl.innerHTML = '';
+        currentFocus = -1;
         
         if (!val) {
             suggestionsEl.style.display = 'none';
@@ -31,12 +34,24 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
             filtered.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'autocomplete-item';
-                div.innerText = item;
-                div.onclick = () => {
+                
+                // تمييز النص المطابق بلون مختلف لتسهيل القراءة
+                const matchIndex = item.toLowerCase().indexOf(val);
+                if (matchIndex >= 0) {
+                    div.innerHTML = item.substring(0, matchIndex) + 
+                                    "<strong>" + item.substring(matchIndex, matchIndex + val.length) + "</strong>" + 
+                                    item.substring(matchIndex + val.length);
+                } else {
+                    div.innerText = item;
+                }
+
+                // استخدام mousedown بدلاً من click لمنع تعارض الـ blur
+                div.addEventListener('mousedown', function(e) {
+                    e.preventDefault(); 
                     inputEl.value = item;
                     suggestionsEl.style.display = 'none';
                     if (onSelectCallback) onSelectCallback(item);
-                };
+                });
                 suggestionsEl.appendChild(div);
             });
             suggestionsEl.style.display = 'block';
@@ -45,11 +60,44 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
         }
     });
 
-    // إخفاء القائمة عند النقر خارجها
-    document.addEventListener('click', function(e) {
-        if (e.target !== inputEl) {
-            suggestionsEl.style.display = 'none';
+    // --- دعم لوحة المفاتيح (للابتوب) ---
+    inputEl.addEventListener('keydown', function(e) {
+        let x = suggestionsEl.getElementsByClassName('autocomplete-item');
+        if (e.key === 'ArrowDown') {
+            currentFocus++;
+            addActive(x);
+        } else if (e.key === 'ArrowUp') {
+            currentFocus--;
+            addActive(x);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (currentFocus > -1 && x.length > 0) {
+                x[currentFocus].dispatchEvent(new Event('mousedown'));
+            } else if (x.length === 1) { // إذا كان هناك خيار واحد فقط واضغط Enter
+                x[0].dispatchEvent(new Event('mousedown'));
+            }
         }
+    });
+
+    function addActive(x) {
+        if (!x) return false;
+        removeActive(x);
+        if (currentFocus >= x.length) currentFocus = 0;
+        if (currentFocus < 0) currentFocus = (x.length - 1);
+        x[currentFocus].classList.add('autocomplete-active');
+        // تمرير القائمة تلقائياً لتظهر العنصر المحدد
+        x[currentFocus].scrollIntoView({ block: "nearest" });
+    }
+
+    function removeActive(x) {
+        for (let i = 0; i < x.length; i++) {
+            x[i].classList.remove('autocomplete-active');
+        }
+    }
+
+    // إخفاء القائمة عند فقدان التركيز (مع تأخير بسيط للسماح بتسجيل النقر)
+    inputEl.addEventListener('blur', function() {
+        setTimeout(() => { suggestionsEl.style.display = 'none'; }, 150);
     });
 }
 // --- 1. تحميل المناديب والأصناف عند البداية ---
@@ -325,6 +373,36 @@ async function loadReports() {
 }
 
 // --- فلترة التقارير (بحث محلي في الجدول) ---
+// --- دالة لحساب وعرض الإجمالي للتقارير المفلترة ---
+function updateFilteredTotal() {
+    const rows = document.querySelectorAll('#reportsBody tr');
+    let total = 0;
+
+    rows.forEach(row => {
+        // التأكد من أن الصف ظاهر (غير مخفي بالفلترة) وأنه يحتوي على بيانات
+        if (row.style.display !== 'none' && row.children.length > 1) {
+            // العمود الخامس (index 4) يحتوي على الإجمالي (grandTotal)
+            const totalCell = row.querySelectorAll('td')[4];
+            if (totalCell) {
+                total += parseFloat(totalCell.innerText) || 0;
+            }
+        }
+    });
+
+    // البحث عن عنصر الإجمالي، وإذا لم يكن موجوداً نقوم بإنشائه فوق الجدول
+    let totalDisplay = document.getElementById('reportsTotalDisplay');
+    if (!totalDisplay) {
+        const tableContainer = document.querySelector('#reportsBody').closest('.table-responsive');
+        totalDisplay = document.createElement('div');
+        totalDisplay.id = 'reportsTotalDisplay';
+        totalDisplay.style.cssText = 'background: var(--glass); border: 1px solid var(--primary); color: var(--primary); padding: 15px; border-radius: 12px; margin-bottom: 15px; font-size: 1.2rem; font-weight: bold; text-align: left; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow);';
+        tableContainer.parentNode.insertBefore(totalDisplay, tableContainer);
+    }
+    
+    totalDisplay.innerHTML = `<span>إجمالي الطلبيات المعروضة:</span> <span style="font-size:1.4rem;">${total.toFixed(2)} د.أ</span>`;
+}
+
+// --- فلترة التقارير (مع تحديث الإجمالي) ---
 function filterReportsTable() {
     const repFilter = document.getElementById('filterRep').value.toLowerCase();
     const pharmFilter = document.getElementById('filterPharmacy').value.toLowerCase();
@@ -342,6 +420,9 @@ function filterReportsTable() {
             }
         }
     });
+
+    // تحديث الإجمالي بعد الانتهاء من الفلترة
+    updateFilteredTotal();
 }
 
 document.getElementById('filterRep').oninput = filterReportsTable;
