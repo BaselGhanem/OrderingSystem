@@ -2,7 +2,7 @@ import { db, collection, getDocs, query, where, addDoc, deleteDoc, doc } from '.
 
 // --- تعريف العناصر ---
 const repSelect = document.getElementById('repSelect');
-const pharmacyInput = document.getElementById('pharmacyInput'); // تم التعديل إلى Input
+const pharmacyInput = document.getElementById('pharmacyInput');
 const startOrderBtn = document.getElementById('startOrderBtn');
 const orderBody = document.getElementById('orderBody');
 const addRowBtn = document.getElementById('addRowBtn');
@@ -13,10 +13,11 @@ const modalItemsBody = document.getElementById('modalItemsBody');
 
 let productsList = []; 
 const MAX_ROWS = 20; 
-let isAdmin = false; // متغير للتحقق من وضع المدير
+let isAdmin = false; 
+
 // --- دالة الإكمال التلقائي المخصصة (محسنة للموبايل واللابتوب) ---
 function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) {
-    let currentFocus = -1; // تتبع العنصر المحدد بالكيبورد
+    let currentFocus = -1;
 
     inputEl.addEventListener('input', function() {
         const val = this.value.trim().toLowerCase();
@@ -35,7 +36,6 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
                 const div = document.createElement('div');
                 div.className = 'autocomplete-item';
                 
-                // تمييز النص المطابق بلون مختلف لتسهيل القراءة
                 const matchIndex = item.toLowerCase().indexOf(val);
                 if (matchIndex >= 0) {
                     div.innerHTML = item.substring(0, matchIndex) + 
@@ -45,7 +45,6 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
                     div.innerText = item;
                 }
 
-                // استخدام mousedown بدلاً من click لمنع تعارض الـ blur
                 div.addEventListener('mousedown', function(e) {
                     e.preventDefault(); 
                     inputEl.value = item;
@@ -60,7 +59,6 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
         }
     });
 
-    // --- دعم لوحة المفاتيح (للابتوب) ---
     inputEl.addEventListener('keydown', function(e) {
         let x = suggestionsEl.getElementsByClassName('autocomplete-item');
         if (e.key === 'ArrowDown') {
@@ -73,7 +71,7 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
             e.preventDefault();
             if (currentFocus > -1 && x.length > 0) {
                 x[currentFocus].dispatchEvent(new Event('mousedown'));
-            } else if (x.length === 1) { // إذا كان هناك خيار واحد فقط واضغط Enter
+            } else if (x.length === 1) { 
                 x[0].dispatchEvent(new Event('mousedown'));
             }
         }
@@ -85,7 +83,6 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
         if (currentFocus >= x.length) currentFocus = 0;
         if (currentFocus < 0) currentFocus = (x.length - 1);
         x[currentFocus].classList.add('autocomplete-active');
-        // تمرير القائمة تلقائياً لتظهر العنصر المحدد
         x[currentFocus].scrollIntoView({ block: "nearest" });
     }
 
@@ -95,11 +92,11 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
         }
     }
 
-    // إخفاء القائمة عند فقدان التركيز (مع تأخير بسيط للسماح بتسجيل النقر)
     inputEl.addEventListener('blur', function() {
         setTimeout(() => { suggestionsEl.style.display = 'none'; }, 150);
     });
 }
+
 // --- 1. تحميل المناديب والأصناف عند البداية ---
 async function loadInitialData() {
     try {
@@ -117,7 +114,6 @@ async function loadInitialData() {
         prodSnap.forEach(d => productsList.push({ id: d.id, ...d.data() }));
         productsList.sort((a, b) => a.name.localeCompare(b.name));
 
-        // إنشاء قائمة الأصناف للإكمال التلقائي (Auto-fill)
         const dl = document.createElement('datalist');
         dl.id = 'productsDatalist';
         productsList.forEach(p => {
@@ -140,14 +136,13 @@ document.getElementById('adminModeBtn').onclick = () => {
         document.getElementById('userInfo').style.display = 'flex';
         document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user-gear"></i> <b>المدير العام</b>`;
         document.getElementById('navReportsBtn').classList.add('active');
-        document.getElementById('navOrderBtn').style.display = 'none'; // إخفاء زر الطلبية للمدير
+        document.getElementById('navOrderBtn').style.display = 'none'; 
         loadReports();
     } else if (pass !== null) {
         alert("كلمة المرور خاطئة!");
     }
 };
 
-// --- 2. جلب صيدليات المندوب المختار (مع Auto-fill) ---
 // --- 2. جلب صيدليات المندوب المختار ---
 repSelect.onchange = async (e) => {
     if (!e.target.value) return;
@@ -160,12 +155,11 @@ repSelect.onchange = async (e) => {
     let pharmacyNames = [];
     snap.forEach(d => pharmacyNames.push(d.data().name));
     
-    // تفعيل دالة الإكمال التلقائي للصيدليات
     setupAutocomplete(
         pharmacyInput, 
         document.getElementById('pharmacySuggestions'), 
         pharmacyNames,
-        () => startOrderBtn.disabled = false // تفعيل زر الدخول عند اختيار صيدلية
+        () => startOrderBtn.disabled = false
     );
     
     pharmacyInput.disabled = false;
@@ -173,11 +167,8 @@ repSelect.onchange = async (e) => {
 };
 
 pharmacyInput.oninput = () => {
-    // تفعيل الزر فقط إذا كان الحقل غير فارغ
     startOrderBtn.disabled = !pharmacyInput.value.trim();
 };
-
-pharmacyInput.oninput = () => startOrderBtn.disabled = !pharmacyInput.value;
 
 // --- 3. إدارة التنقل والشاشات ---
 startOrderBtn.onclick = () => {
@@ -206,7 +197,6 @@ document.getElementById('navReportsBtn').onclick = () => {
 
 document.getElementById('logoutBtn').onclick = () => { if(confirm("هل تريد تسجيل الخروج؟")) location.reload(); };
 
-// --- 4. منطق جدول الفاتورة (مع Auto-fill) ---
 // --- 4. منطق جدول الفاتورة ---
 function addNewRow() {
     const tr = document.createElement('tr');
@@ -229,10 +219,8 @@ function addNewRow() {
           p = tr.querySelector('.price-cell'), 
           t = tr.querySelector('.row-total');
 
-    // استخراج أسماء الأصناف فقط للبحث
     const productNames = productsList.map(prod => prod.name);
 
-    // تفعيل دالة الإكمال التلقائي للصنف
     setupAutocomplete(s, sug, productNames, (selectedName) => {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
         const pr = selectedProd ? parseFloat(selectedProd.price) : 0;
@@ -241,7 +229,6 @@ function addNewRow() {
         updateGrandTotal();
     });
 
-    // تحديث السعر عند تغيير الكمية
     q.oninput = () => { 
         t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); 
         updateGrandTotal(); 
@@ -310,7 +297,6 @@ async function loadReports() {
         snap.forEach(d => os.push({ id: d.id, ...d.data() }));
         os.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
 
-        // فلترة وعرض طلبيات المندوب فقط في حال لم يكن مديراً
         if (!isAdmin) {
             const currentRepName = repSelect.options[repSelect.selectedIndex].text;
             os = os.filter(o => o.repName === currentRepName);
@@ -369,19 +355,20 @@ async function loadReports() {
             
             body.appendChild(tr);
         });
+
+        // تحديث الإجمالي بعد جلب البيانات لأول مرة
+        updateFilteredTotal();
+
     } catch (e) { console.error("Error loading reports:", e); }
 }
 
-// --- فلترة التقارير (بحث محلي في الجدول) ---
 // --- دالة لحساب وعرض الإجمالي للتقارير المفلترة ---
 function updateFilteredTotal() {
     const rows = document.querySelectorAll('#reportsBody tr');
     let total = 0;
 
     rows.forEach(row => {
-        // التأكد من أن الصف ظاهر (غير مخفي بالفلترة) وأنه يحتوي على بيانات
         if (row.style.display !== 'none' && row.children.length > 1) {
-            // العمود الخامس (index 4) يحتوي على الإجمالي (grandTotal)
             const totalCell = row.querySelectorAll('td')[4];
             if (totalCell) {
                 total += parseFloat(totalCell.innerText) || 0;
@@ -389,7 +376,6 @@ function updateFilteredTotal() {
         }
     });
 
-    // البحث عن عنصر الإجمالي، وإذا لم يكن موجوداً نقوم بإنشائه فوق الجدول
     let totalDisplay = document.getElementById('reportsTotalDisplay');
     if (!totalDisplay) {
         const tableContainer = document.querySelector('#reportsBody').closest('.table-responsive');
@@ -409,7 +395,7 @@ function filterReportsTable() {
     const rows = document.querySelectorAll('#reportsBody tr');
 
     rows.forEach(row => {
-        if (row.children.length > 1) { // تخطي صف الـ Loading
+        if (row.children.length > 1) { 
             const repName = row.querySelector('.rep-col').innerText.toLowerCase();
             const pharmName = row.querySelector('.pharm-col').innerText.toLowerCase();
             
@@ -421,13 +407,11 @@ function filterReportsTable() {
         }
     });
 
-    // تحديث الإجمالي بعد الانتهاء من الفلترة
     updateFilteredTotal();
 }
 
 document.getElementById('filterRep').oninput = filterReportsTable;
 document.getElementById('filterPharmacy').oninput = filterReportsTable;
-
 
 // --- 7. تصدير البيانات إلى Excel ---
 document.getElementById('exportExcelBtn').onclick = async () => {
@@ -441,14 +425,12 @@ document.getElementById('exportExcelBtn').onclick = async () => {
         let allOrders = [];
         snap.forEach(d => allOrders.push(d.data()));
 
-        // تصدير طلبيات المندوب فقط أو كل الطلبيات حسب الصلاحية
         if (!isAdmin) {
             const currentRepName = repSelect.options[repSelect.selectedIndex].text;
             allOrders = allOrders.filter(o => o.repName === currentRepName);
         }
 
         allOrders.forEach((order, index) => {
-            const orderId = index + 1; // رقم تسلسلي للمرجع 
             const dateStr = order.createdAt.toDate().toLocaleString('ar-JO');
 
             order.items.forEach(item => {
