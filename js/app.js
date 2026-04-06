@@ -14,7 +14,44 @@ const modalItemsBody = document.getElementById('modalItemsBody');
 let productsList = []; 
 const MAX_ROWS = 20; 
 let isAdmin = false; // متغير للتحقق من وضع المدير
+// --- دالة الإكمال التلقائي المخصصة ---
+function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) {
+    inputEl.addEventListener('input', function() {
+        const val = this.value.trim().toLowerCase();
+        suggestionsEl.innerHTML = '';
+        
+        if (!val) {
+            suggestionsEl.style.display = 'none';
+            return;
+        }
 
+        const filtered = dataArray.filter(item => item.toLowerCase().includes(val));
+        
+        if (filtered.length > 0) {
+            filtered.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-item';
+                div.innerText = item;
+                div.onclick = () => {
+                    inputEl.value = item;
+                    suggestionsEl.style.display = 'none';
+                    if (onSelectCallback) onSelectCallback(item);
+                };
+                suggestionsEl.appendChild(div);
+            });
+            suggestionsEl.style.display = 'block';
+        } else {
+            suggestionsEl.style.display = 'none';
+        }
+    });
+
+    // إخفاء القائمة عند النقر خارجها
+    document.addEventListener('click', function(e) {
+        if (e.target !== inputEl) {
+            suggestionsEl.style.display = 'none';
+        }
+    });
+}
 // --- 1. تحميل المناديب والأصناف عند البداية ---
 async function loadInitialData() {
     try {
@@ -63,6 +100,7 @@ document.getElementById('adminModeBtn').onclick = () => {
 };
 
 // --- 2. جلب صيدليات المندوب المختار (مع Auto-fill) ---
+// --- 2. جلب صيدليات المندوب المختار ---
 repSelect.onchange = async (e) => {
     if (!e.target.value) return;
     pharmacyInput.value = '';
@@ -71,16 +109,24 @@ repSelect.onchange = async (e) => {
     const q = query(collection(db, "pharmacies"), where("rep_id", "==", e.target.value));
     const snap = await getDocs(q);
     
-    const pharmacyList = document.getElementById('pharmacyList');
-    pharmacyList.innerHTML = '';
-    snap.forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d.data().name;
-        pharmacyList.appendChild(opt);
-    });
+    let pharmacyNames = [];
+    snap.forEach(d => pharmacyNames.push(d.data().name));
+    
+    // تفعيل دالة الإكمال التلقائي للصيدليات
+    setupAutocomplete(
+        pharmacyInput, 
+        document.getElementById('pharmacySuggestions'), 
+        pharmacyNames,
+        () => startOrderBtn.disabled = false // تفعيل زر الدخول عند اختيار صيدلية
+    );
     
     pharmacyInput.disabled = false;
     pharmacyInput.placeholder = 'ابحث أو اختر الصيدلية...';
+};
+
+pharmacyInput.oninput = () => {
+    // تفعيل الزر فقط إذا كان الحقل غير فارغ
+    startOrderBtn.disabled = !pharmacyInput.value.trim();
 };
 
 pharmacyInput.oninput = () => startOrderBtn.disabled = !pharmacyInput.value;
@@ -113,10 +159,16 @@ document.getElementById('navReportsBtn').onclick = () => {
 document.getElementById('logoutBtn').onclick = () => { if(confirm("هل تريد تسجيل الخروج؟")) location.reload(); };
 
 // --- 4. منطق جدول الفاتورة (مع Auto-fill) ---
+// --- 4. منطق جدول الفاتورة ---
 function addNewRow() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td><input type="text" class="product-input" list="productsDatalist" placeholder="ابحث باسم الصنف..." style="width: 100%;"></td>
+        <td>
+            <div class="autocomplete-wrapper">
+                <input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width: 100%;" autocomplete="off">
+                <div class="autocomplete-list product-suggestions"></div>
+            </div>
+        </td>
         <td><input type="number" class="qty-input" value="1" min="1"></td>
         <td><input type="number" class="bonus-input" value="0" min="0"></td>
         <td class="price-cell">0.00</td><td class="row-total">0.00</td>
@@ -124,18 +176,24 @@ function addNewRow() {
     `;
 
     const s = tr.querySelector('.product-input'), 
+          sug = tr.querySelector('.product-suggestions'),
           q = tr.querySelector('.qty-input'), 
           p = tr.querySelector('.price-cell'), 
           t = tr.querySelector('.row-total');
 
-    s.oninput = () => {
-        const selectedProd = productsList.find(prod => prod.name === s.value);
+    // استخراج أسماء الأصناف فقط للبحث
+    const productNames = productsList.map(prod => prod.name);
+
+    // تفعيل دالة الإكمال التلقائي للصنف
+    setupAutocomplete(s, sug, productNames, (selectedName) => {
+        const selectedProd = productsList.find(prod => prod.name === selectedName);
         const pr = selectedProd ? parseFloat(selectedProd.price) : 0;
         p.innerText = pr.toFixed(2); 
         t.innerText = (pr * q.value).toFixed(2);
         updateGrandTotal();
-    };
+    });
 
+    // تحديث السعر عند تغيير الكمية
     q.oninput = () => { 
         t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); 
         updateGrandTotal(); 
