@@ -1,5 +1,16 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, getDocs, query, where, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { 
+    getFirestore, 
+    collection, 
+    getDocs, 
+    query, 
+    where, 
+    addDoc, 
+    deleteDoc, 
+    doc, 
+    updateDoc,      // ✅ جديد
+    getDoc          // ✅ جديد
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
@@ -13,5 +24,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// تصدير كل الأدوات لكي يراها ملف app.js
-export { db, collection, getDocs, query, where, addDoc, deleteDoc, doc };
+// تصدير كل الأدوات
+export { 
+    db, 
+    collection, 
+    getDocs, 
+    query, 
+    where, 
+    addDoc, 
+    deleteDoc, 
+    doc, 
+    updateDoc,   // ✅ جديد
+    getDoc       // ✅ جديد
+};
