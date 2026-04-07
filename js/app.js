@@ -49,6 +49,7 @@ const pharmacyInput = document.getElementById('pharmacyInput');
 const startOrderBtn = document.getElementById('startOrderBtn');
 const orderBody = document.getElementById('orderBody');
 const addRowBtn = document.getElementById('addRowBtn');
+addRowBtn.onclick = () => addNewRow();
 const grandTotalEl = document.getElementById('grandTotal');
 const submitOrderBtn = document.getElementById('submitOrderBtn');
 const detailsModal = document.getElementById('detailsModal');
