@@ -169,7 +169,6 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-secondary { background: white; border: 1.5px solid var(--primary); color: var(--primary); padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; }
-
 .btn-icon { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: none; padding: 10px; border-radius: 10px; cursor: pointer; }
 
 /* 10. Modals */
@@ -197,49 +196,18 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ========================================= */
-/* 📱 Responsive Design (Layouts per Device) */
-/* ========================================= */
-
-/* Mobile (Default) - Stacked everything, full width buttons */
-
-/* 🍏 Tablet (768px+) */
+/* Responsive Design */
 @media (min-width: 768px) {
     .app-container { padding: 20px; }
-    
-    header {
-        flex-direction: row;
-        justify-content: space-between;
-    }
-    
-    .user-info {
-        flex-direction: row;
-        width: auto;
-        border-top: none;
-        align-items: center;
-    }
-    
+    header { flex-direction: row; justify-content: space-between; }
+    .user-info { flex-direction: row; width: auto; border-top: none; align-items: center; }
     .tabs { width: 300px; }
-    
-    .auth-box {
-        max-width: 450px;
-        margin: 50px auto;
-        text-align: center;
-    }
+    .auth-box { max-width: 450px; margin: 50px auto; text-align: center; }
 }
-
-/* 💻 Laptop/Desktop (1024px+) */
 @media (min-width: 1024px) {
     .app-container { max-width: 1200px; }
-    
     .screen { padding: 40px; }
-    
-    /* جعل صفحة إدخال الطلبية تبدو أفضل */
-    #orderScreen {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 20px;
-    }
+    #orderScreen { display: grid; grid-template-columns: 1fr; gap: 20px; }
 }
 
 /* Status Badges */
@@ -251,101 +219,11 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
     background: rgba(245, 158, 11, 0.1);
     color: var(--warning);
 }
-/* --- Custom Autocomplete Styles --- */
-.autocomplete-wrapper {
-    position: relative;
-    width: 100%;
-}
-
-.autocomplete-list {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: white;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    max-height: 200px;
-    overflow-y: auto;
-    z-index: 9999;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    display: none;
-}
-
-.autocomplete-item {
-    padding: 12px 15px;
-    border-bottom: 1px solid #f1f5f9;
-    cursor: pointer;
-    font-size: 0.95rem;
-    transition: background 0.2s;
-}
-
-.autocomplete-item:last-child {
-    border-bottom: none;
-}
-
-.autocomplete-item:hover, .autocomplete-item:active {
-    background-color: var(--bg-body);
-    color: var(--primary);
-    font-weight: 600;
-}
-/* --- Custom Autocomplete Styles (محدث للموبايل واللابتوب) --- */
-.autocomplete-wrapper {
-    position: relative;
-    width: 100%;
-}
-
-.autocomplete-list {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: white;
-    border: 1px solid var(--primary);
-    border-radius: 8px;
-    max-height: 250px;
-    overflow-y: auto;
-    z-index: 9999;
-    box-shadow: var(--shadow);
-    display: none;
-    scroll-behavior: smooth;
-}
-
-.autocomplete-item {
-    padding: 14px 15px; /* تكبير البادينغ لتسهيل اللمس بالموبايل */
-    border-bottom: 1px solid #f1f5f9;
-    cursor: pointer;
-    font-size: 1rem;
-    transition: background 0.1s, color 0.1s;
-}
-
-.autocomplete-item:last-child {
-    border-bottom: none;
-}
-
-.autocomplete-item strong {
-    color: var(--primary);
-}
-
-/* تأثير التمرير بالماوس أو التحديد بالكيبورد */
-.autocomplete-item:hover, 
-.autocomplete-item:active,
-.autocomplete-active { 
-    background-color: var(--primary);
-    color: white;
-    font-weight: 700;
-}
-
-.autocomplete-active strong,
-.autocomplete-item:hover strong {
-    color: white; /* تغيير لون النص المميز عند التحديد */
-}
-/* إضافة أنماط للحالات */
 .status-badge.pending { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
 .status-badge.approved { background: rgba(16, 185, 129, 0.1); color: #10b981; }
 .status-badge.returned { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
 
-/* أزرار الإجراءات */
+/* Action Buttons */
 .action-btn {
     background: none;
     border: none;
@@ -362,21 +240,11 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
 .action-btn.delete-btn { color: #ef4444; }
 .action-btn:hover { background: rgba(0,0,0,0.05); transform: scale(1.1); }
 
-/* تحسين المودال */
-.modal-content {
-    max-height: 90vh;
-    overflow-y: auto;
-}
-/* ========================================= */
-/* تحسين الإكمال التلقائي (Autocomplete) */
-/* ========================================= */
-
+/* Autocomplete Styles */
 .autocomplete-wrapper {
     position: relative;
     width: 100%;
 }
-
-/* حقل الإدخال */
 .autocomplete-wrapper input {
     width: 100%;
     padding: 12px 15px;
@@ -386,14 +254,11 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
     transition: all 0.2s;
     background: white;
 }
-
 .autocomplete-wrapper input:focus {
     border-color: var(--primary);
     outline: none;
     box-shadow: 0 0 0 3px rgba(0, 74, 153, 0.1);
 }
-
-/* القائمة المنسدلة */
 .autocomplete-list {
     position: absolute;
     top: 100%;
@@ -409,8 +274,6 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
     border: 1px solid #e2e8f0;
     display: none;
 }
-
-/* عناصر القائمة */
 .autocomplete-item {
     padding: 12px 16px;
     cursor: pointer;
@@ -419,42 +282,39 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
     transition: all 0.15s;
     color: #1e293b;
 }
-
-.autocomplete-item:last-child {
-    border-bottom: none;
-}
-
-.autocomplete-item:hover,
-.autocomplete-item.autocomplete-active {
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover, .autocomplete-item.autocomplete-active {
     background: var(--primary);
     color: white;
 }
-
 .autocomplete-item strong {
     color: var(--primary);
     font-weight: 800;
 }
-
-.autocomplete-item:hover strong,
-.autocomplete-item.autocomplete-active strong {
+.autocomplete-item:hover strong, .autocomplete-item.autocomplete-active strong {
     color: white;
 }
+.autocomplete-list::-webkit-scrollbar { width: 6px; }
+.autocomplete-list::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+.autocomplete-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+.autocomplete-list::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
-/* شريط التمرير المخصص (اختياري) */
-.autocomplete-list::-webkit-scrollbar {
-    width: 6px;
+/* Manager sub-tabs */
+.manager-sub-tabs .btn-subtab {
+    background: none;
+    border: none;
+    padding: 8px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    border-radius: 30px;
+    transition: 0.2s;
 }
-
-.autocomplete-list::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 10px;
-}
-
-.autocomplete-list::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 10px;
-}
-
-.autocomplete-list::-webkit-scrollbar-thumb:hover {
+.manager-sub-tabs .btn-subtab.active {
     background: var(--primary);
+    color: white;
+}
+.manager-sub-tabs .btn-subtab:hover:not(.active) {
+    background: #e2e8f0;
 }
