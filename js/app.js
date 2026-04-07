@@ -58,47 +58,102 @@ function getManagerName(repName) {
     return repManagerMap[repName] || "غير محدد";
 }
 
-// دالة الإكمال التلقائي (محسنة)
+// دالة الإكمال التلقائي المطورة (popup سريع وسهل)
 function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) {
     let currentFocus = -1;
-    inputEl.addEventListener('input', function() {
+
+    // عند كتابة النص
+    inputEl.addEventListener('input', function(e) {
         const val = this.value.trim().toLowerCase();
         suggestionsEl.innerHTML = '';
         currentFocus = -1;
-        if (!val) { suggestionsEl.style.display = 'none'; return; }
+
+        if (val === '') {
+            suggestionsEl.style.display = 'none';
+            return;
+        }
+
+        // تصفية العناصر التي تبدأ أو تحتوي على النص المدخل
         const filtered = dataArray.filter(item => item.toLowerCase().includes(val));
+        
         if (filtered.length > 0) {
-            filtered.forEach(item => {
+            filtered.forEach((item, index) => {
                 const div = document.createElement('div');
                 div.className = 'autocomplete-item';
+                
+                // إبراز الجزء المطابق
                 const matchIndex = item.toLowerCase().indexOf(val);
                 if (matchIndex >= 0) {
-                    div.innerHTML = item.substring(0, matchIndex) + "<strong>" + item.substring(matchIndex, matchIndex + val.length) + "</strong>" + item.substring(matchIndex + val.length);
-                } else { div.innerText = item; }
-                div.addEventListener('mousedown', function(e) {
+                    const before = item.substring(0, matchIndex);
+                    const match = item.substring(matchIndex, matchIndex + val.length);
+                    const after = item.substring(matchIndex + val.length);
+                    div.innerHTML = before + '<strong>' + match + '</strong>' + after;
+                } else {
+                    div.innerText = item;
+                }
+                
+                div.addEventListener('click', function(e) {
                     e.preventDefault();
                     inputEl.value = item;
                     suggestionsEl.style.display = 'none';
                     if (onSelectCallback) onSelectCallback(item);
                 });
+                
                 suggestionsEl.appendChild(div);
             });
             suggestionsEl.style.display = 'block';
-        } else { suggestionsEl.style.display = 'none'; }
-    });
-    inputEl.addEventListener('keydown', function(e) {
-        let x = suggestionsEl.getElementsByClassName('autocomplete-item');
-        if (e.key === 'ArrowDown') { currentFocus++; addActive(x); }
-        else if (e.key === 'ArrowUp') { currentFocus--; addActive(x); }
-        else if (e.key === 'Enter') {
-            e.preventDefault();
-            if (currentFocus > -1 && x.length) x[currentFocus].dispatchEvent(new Event('mousedown'));
-            else if (x.length === 1) x[0].dispatchEvent(new Event('mousedown'));
+        } else {
+            suggestionsEl.style.display = 'none';
         }
     });
-    function addActive(x) { if (!x) return; removeActive(x); if (currentFocus >= x.length) currentFocus = 0; if (currentFocus < 0) currentFocus = x.length-1; x[currentFocus]?.classList.add('autocomplete-active'); }
-    function removeActive(x) { for(let i=0; i<x.length; i++) x[i].classList.remove('autocomplete-active'); }
-    inputEl.addEventListener('blur', () => setTimeout(() => suggestionsEl.style.display = 'none', 150));
+
+    // التنقل بالأسهم و Enter
+    inputEl.addEventListener('keydown', function(e) {
+        const items = suggestionsEl.getElementsByClassName('autocomplete-item');
+        
+        if (e.key === 'ArrowDown') {
+            currentFocus++;
+            if (currentFocus >= items.length) currentFocus = 0;
+            setActive(items);
+            e.preventDefault();
+        } 
+        else if (e.key === 'ArrowUp') {
+            currentFocus--;
+            if (currentFocus < 0) currentFocus = items.length - 1;
+            setActive(items);
+            e.preventDefault();
+        } 
+        else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (currentFocus > -1 && items[currentFocus]) {
+                items[currentFocus].click();
+            } else if (items.length === 1) {
+                items[0].click();
+            }
+        }
+    });
+
+    function setActive(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove('autocomplete-active');
+        }
+        if (items[currentFocus]) {
+            items[currentFocus].classList.add('autocomplete-active');
+            items[currentFocus].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
+    // إخفاء القائمة عند النقر خارج الحقل
+    document.addEventListener('click', function(e) {
+        if (!inputEl.contains(e.target) && !suggestionsEl.contains(e.target)) {
+            suggestionsEl.style.display = 'none';
+        }
+    });
+
+    // منع إغلاق القائمة عند النقر داخلها
+    suggestionsEl.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+    });
 }
 
 // تحميل المناديب والأصناف
