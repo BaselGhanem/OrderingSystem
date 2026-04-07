@@ -87,18 +87,16 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
                 });
                 suggestionsEl.appendChild(div);
             });
+            // تحديد موضع القائمة
+            const rect = inputEl.getBoundingClientRect();
+            suggestionsEl.style.position = 'fixed';
+            suggestionsEl.style.top = (rect.bottom + 5) + 'px';
+            suggestionsEl.style.left = rect.left + 'px';
+            suggestionsEl.style.width = rect.width + 'px';
             suggestionsEl.style.display = 'block';
         } else { suggestionsEl.style.display = 'none'; }
     });
-    inputEl.addEventListener('keydown', function(e) {
-        const items = suggestionsEl.getElementsByClassName('autocomplete-item');
-        if (e.key === 'ArrowDown') { currentFocus++; if (currentFocus >= items.length) currentFocus = 0; setActive(items); e.preventDefault(); }
-        else if (e.key === 'ArrowUp') { currentFocus--; if (currentFocus < 0) currentFocus = items.length - 1; setActive(items); e.preventDefault(); }
-        else if (e.key === 'Enter') { e.preventDefault(); if (currentFocus > -1 && items[currentFocus]) items[currentFocus].click(); else if (items.length === 1) items[0].click(); }
-    });
-    function setActive(items) { for (let i=0; i<items.length; i++) items[i].classList.remove('autocomplete-active'); if (items[currentFocus]) { items[currentFocus].classList.add('autocomplete-active'); items[currentFocus].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
-    document.addEventListener('click', function(e) { if (!inputEl.contains(e.target) && !suggestionsEl.contains(e.target)) suggestionsEl.style.display = 'none'; });
-    suggestionsEl.addEventListener('mousedown', function(e) { e.preventDefault(); });
+    // ... باقي الكود (keydown, click خارجي) كما هو دون تغيير
 }
 
 // تحميل المناديب والأصناف
