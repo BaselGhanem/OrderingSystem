@@ -258,26 +258,52 @@ async function loadMyOrders() {
 }
 
 // ------------------- شاشة المدير (طلبيات فريقي) -------------------
+// ------------------- شاشة المدير (طلبيات فريقي) -------------------
 async function loadManagerOrders(selectedRep = '') {
     const tbody = document.getElementById('managerOrdersBody');
+    if (!tbody) {
+        console.error("الجدول managerOrdersBody غير موجود في DOM");
+        return;
+    }
     tbody.innerHTML = '<tr><td colspan="7">جاري التحميل...</td></tr>';
     try {
         let ordersQuery = collection(db, "orders");
         let orders = [];
+
         if (selectedRep && selectedRep !== '') {
+            // إذا تم اختيار مندوب معين من القائمة
             const q = query(ordersQuery, where("repName", "==", selectedRep));
             const snap = await getDocs(q);
             snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
         } else {
+            // جلب جميع الطلبيات ثم تصفية مندوبي هذا المدير فقط
             const repsUnderManager = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
-            if(repsUnderManager.length === 0) { tbody.innerHTML = '<tr><td colspan="7">لا يوجد مناديب تابعين لك</td></tr>'; return; }
+            console.log("مندوبي هذا المدير:", repsUnderManager);
+            
+            if (repsUnderManager.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7">لا يوجد مناديب تابعين لك</td></tr>';
+                return;
+            }
+            
             const allOrdersSnap = await getDocs(ordersQuery);
-            allOrdersSnap.forEach(d => orders.push({ id: d.id, ...d.data() }));
-            orders = orders.filter(o => repsUnderManager.includes(o.repName));
+            const allOrders = [];
+            allOrdersSnap.forEach(d => allOrders.push({ id: d.id, ...d.data() }));
+            
+            // تصفية: تطبيع الأسماء (إزالة المسافات الزائد ومقارنة نصية غير حساسة لحالة الأحرف)
+            const normalizedUnder = repsUnderManager.map(r => r.trim().toLowerCase());
+            orders = allOrders.filter(o => {
+                const repNameNorm = o.repName?.trim().toLowerCase();
+                return repNameNorm && normalizedUnder.includes(repNameNorm);
+            });
+            console.log(`تم العثور على ${orders.length} طلبية للمناديب التابعين`);
         }
-        orders.sort((a,b) => b.updatedAt.toDate() - a.updatedAt.toDate());
+        
+        orders.sort((a, b) => b.updatedAt.toDate() - a.updatedAt.toDate());
         renderManagerOrders(orders);
-    } catch(e) { console.error(e); tbody.innerHTML = '<tr><td colspan="7">خطأ</td></tr>'; }
+    } catch (e) {
+        console.error("خطأ في loadManagerOrders:", e);
+        tbody.innerHTML = `<td><td colspan="7">خطأ: ${e.message}</td></tr>`;
+    }
 }
 function renderManagerOrders(orders) {
     const tbody = document.getElementById('managerOrdersBody');
