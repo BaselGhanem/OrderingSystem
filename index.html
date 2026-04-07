@@ -2,12 +2,15 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>نظام الطلبيات | DAR ALDAWAA</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
 </head>
 <body>
     <div class="bg-shapes">
@@ -38,12 +41,10 @@
                 <i class="ph ph-shield-check auth-icon" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
                 <h2>تسجيل الدخول للنظام</h2>
                 <p>الرجاء تحديد هويتك والصيدلية لبدء الطلبية</p>
-                
                 <div class="input-group">
                     <label>اسم المندوب</label>
                     <select id="repSelect" disabled><option>جاري التحميل...</option></select>
                 </div>
-                
                 <div class="input-group">
                     <label>الصيدلية المستهدفة</label>
                     <div class="autocomplete-wrapper">
@@ -51,11 +52,9 @@
                         <div id="pharmacySuggestions" class="autocomplete-list"></div>
                     </div>
                 </div>
-                
                 <button type="button" id="startOrderBtn" class="btn-primary" disabled>
                     بدء إدخال الطلبية <i class="ph ph-arrow-left"></i>
                 </button>
-
                 <button type="button" id="adminModeBtn" class="btn-secondary" style="margin-top: 15px; width: 100%; border-color: #10b981; color: #10b981;">
                     <i class="ph ph-lock-key"></i> الدخول كمدير
                 </button>
@@ -70,9 +69,7 @@
             </div>
             <div class="table-responsive">
                 <table class="order-table">
-                    <thead>
-                        <tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th><th>حذف</th></tr>
-                    </thead>
+                    <thead><tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th><th>حذف</th></tr></thead>
                     <tbody id="orderBody"></tbody>
                 </table>
             </div>
@@ -116,18 +113,50 @@
             </div>
         </main>
 
-        <!-- شاشة المدير -->
+        <!-- شاشة المدير (تبويب داخلي: فريقي / كل الطلبيات) -->
         <main id="managerScreen" class="screen glass-panel" style="display: none;">
-            <h2><i class="ph ph-users-four"></i> لوحة تحكم المدير - الموافقات</h2>
-            <div class="input-group">
-                <label>فلترة حسب المندوب التابع لي:</label>
-                <select id="managerRepFilter"><option value="">جميع مندوبي</option></select>
+            <h2><i class="ph ph-users-four"></i> لوحة تحكم المدير</h2>
+            <div class="manager-sub-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                <button id="managerMyTeamBtn" class="btn-subtab active">طلبيات فريقي</button>
+                <button id="managerAllOrdersBtn" class="btn-subtab">جميع طلبيات الشركة</button>
             </div>
-            <div class="table-responsive">
-                <table class="order-table" id="managerOrdersTable">
-                    <thead><tr><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
-                    <tbody id="managerOrdersBody"></tbody>
-                </table>
+            <!-- قسم طلبيات فريقي -->
+            <div id="teamOrdersSection">
+                <div class="input-group">
+                    <label>فلترة حسب المندوب التابع لي:</label>
+                    <select id="managerRepFilter"><option value="">جميع مندوبي</option></select>
+                </div>
+                <div class="table-responsive">
+                    <table class="order-table" id="managerOrdersTable">
+                        <thead><tr><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
+                        <tbody id="managerOrdersBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- قسم جميع طلبيات الشركة (يظهر عند اختيار التبويب) -->
+            <div id="allOrdersSection" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                    <h3><i class="ph ph-building-office"></i> جميع طلبيات الشركة</h3>
+                    <button type="button" id="exportAllOrdersBtn" class="btn-secondary" style="background:#107c41; color:white; border:none;">
+                        <i class="ph ph-file-xls"></i> تصدير جميع الطلبيات
+                    </button>
+                </div>
+                <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <input type="text" id="filterAllRep" placeholder="تصفية باسم المندوب..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+                    <input type="text" id="filterAllPharmacy" placeholder="تصفية باسم الصيدلية..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+                    <select id="filterAllStatus" style="flex: 0.5; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+                        <option value="">جميع الحالات</option>
+                        <option value="pending">قيد الموافقة</option>
+                        <option value="approved">موافق عليه</option>
+                        <option value="returned">مرتجع</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table class="order-table" id="allOrdersTable">
+                        <thead><tr><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
+                        <tbody id="allOrdersBody"></tbody>
+                    </table>
+                </div>
             </div>
         </main>
     </div>
@@ -155,6 +184,6 @@
         </div>
     </div>
 
-    <script type="module" src="js/app.js?v=202604071"></script>
+    <script type="module" src="js/app.js?v=20260408"></script>
 </body>
 </html>
