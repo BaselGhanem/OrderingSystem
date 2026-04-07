@@ -340,3 +340,30 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
 .autocomplete-item:hover strong {
     color: white; /* تغيير لون النص المميز عند التحديد */
 }
+/* إضافة أنماط للحالات */
+.status-badge.pending { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.status-badge.approved { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+.status-badge.returned { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+/* أزرار الإجراءات */
+.action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    margin: 0 4px;
+    padding: 5px;
+    border-radius: 8px;
+    transition: 0.2s;
+}
+.action-btn.edit-btn { color: var(--primary); }
+.action-btn.approve-btn { color: #10b981; }
+.action-btn.reject-btn { color: #ef4444; }
+.action-btn.delete-btn { color: #ef4444; }
+.action-btn:hover { background: rgba(0,0,0,0.05); transform: scale(1.1); }
+
+/* تحسين المودال */
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}
