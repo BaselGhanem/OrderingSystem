@@ -22,8 +22,9 @@
                 <h1>نظام الطلبيات المؤقت</h1>
             </div>
             <div class="user-info" id="userInfo" style="display: none;">
-                <div class="tabs">
+                <div class="tabs" id="mainTabs">
                     <button type="button" id="navOrderBtn" class="btn-tab active">طلب جديد</button>
+                    <button type="button" id="navMyOrdersBtn" class="btn-tab">طلبياتي</button>
                     <button type="button" id="navReportsBtn" class="btn-tab">التقارير</button>
                 </div>
                 <span id="currentRepName"><i class="ph ph-user"></i> المندوب: <b>-</b></span>
@@ -31,6 +32,7 @@
             </div>
         </header>
 
+        <!-- شاشة تسجيل الدخول -->
         <main id="loginScreen" class="screen active glass-panel">
             <div class="auth-box">
                 <i class="ph ph-shield-check auth-icon" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
@@ -60,6 +62,7 @@
             </div>
         </main>
 
+        <!-- شاشة إدخال طلبية جديدة -->
         <main id="orderScreen" class="screen glass-panel" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
                 <h2><i class="ph ph-shopping-cart"></i> إدخال طلبية جديدة</h2>
@@ -68,14 +71,7 @@
             <div class="table-responsive">
                 <table class="order-table">
                     <thead>
-                        <tr>
-                            <th>الصنف</th>
-                            <th>الكمية</th>
-                            <th>البونص</th>
-                            <th>السعر</th>
-                            <th>المجموع</th>
-                            <th>حذف</th>
-                        </tr>
+                        <tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th><th>حذف</th></tr>
                     </thead>
                     <tbody id="orderBody"></tbody>
                 </table>
@@ -89,6 +85,18 @@
             </button>
         </main>
 
+        <!-- شاشة طلبياتي (للمندوب) -->
+        <main id="myOrdersScreen" class="screen glass-panel" style="display: none;">
+            <h2><i class="ph ph-list-checks"></i> طلبياتي (المعلقة / المرتجعة)</h2>
+            <div class="table-responsive">
+                <table class="order-table" id="myOrdersTable">
+                    <thead><tr><th>رقم المرجع</th><th>التاريخ</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
+                    <tbody id="myOrdersBody"></tbody>
+                </table>
+            </div>
+        </main>
+
+        <!-- شاشة التقارير (سجل جميع الطلبيات) -->
         <main id="reportsScreen" class="screen glass-panel" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
                 <h2><i class="ph ph-briefcase"></i> سجل الطلبيات المستلمة</h2>
@@ -96,60 +104,57 @@
                     <i class="ph ph-file-xls"></i> تصدير للإكسل
                 </button>
             </div>
-
             <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
                 <input type="text" id="filterRep" placeholder="تصفية باسم المندوب..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
                 <input type="text" id="filterPharmacy" placeholder="تصفية باسم الصيدلية..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
             </div>
-
             <div class="table-responsive">
                 <table class="order-table" id="reportsTable">
-                    <thead>
-                        <tr>
-                            <th>رقم المرجع</th>
-                            <th>التاريخ</th>
-                            <th>المندوب</th>
-                            <th>الصيدلية</th>
-                            <th>الإجمالي</th>
-                            <th>الحالة</th>
-                            <th>الإجراءات</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
                     <tbody id="reportsBody"></tbody>
+                </table>
+            </div>
+        </main>
+
+        <!-- شاشة المدير -->
+        <main id="managerScreen" class="screen glass-panel" style="display: none;">
+            <h2><i class="ph ph-users-four"></i> لوحة تحكم المدير - الموافقات</h2>
+            <div class="input-group">
+                <label>فلترة حسب المندوب التابع لي:</label>
+                <select id="managerRepFilter"><option value="">جميع مندوبي</option></select>
+            </div>
+            <div class="table-responsive">
+                <table class="order-table" id="managerOrdersTable">
+                    <thead><tr><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
+                    <tbody id="managerOrdersBody"></tbody>
                 </table>
             </div>
         </main>
     </div>
 
+    <!-- مودال عرض التفاصيل -->
     <div id="detailsModal" class="modal-overlay" style="display: none;">
         <div class="modal-content glass-panel">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
-                <div>
-                    <h3 style="color: var(--primary); margin: 0;"><i class="ph ph-receipt"></i> تفاصيل الفاتورة</h3>
-                    <small id="modalPharmacySubtitle" style="color: var(--secondary); font-weight: 600; display: block; margin-top: 5px;"></small>
-                </div>
-                <button type="button" class="close-modal" onclick="closeModal()" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger); transition: 0.3s;">
-                    <i class="ph ph-x-circle"></i>
-                </button>
+                <div><h3 style="color: var(--primary); margin: 0;"><i class="ph ph-receipt"></i> تفاصيل الفاتورة</h3><small id="modalPharmacySubtitle" style="color: var(--secondary); font-weight: 600; display: block; margin-top: 5px;"></small></div>
+                <button type="button" class="close-modal" onclick="closeModal()" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger);"><i class="ph ph-x-circle"></i></button>
             </div>
-            
-            <div class="table-responsive">
-                <table class="order-table">
-                    <thead>
-                        <tr>
-                            <th>الصنف</th>
-                            <th>الكمية</th>
-                            <th>البونص</th>
-                            <th>السعر</th>
-                            <th>المجموع</th>
-                        </tr>
-                    </thead>
-                    <tbody id="modalItemsBody"></tbody>
-                </table>
+            <div class="table-responsive"><table class="order-table"><thead><tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th></tr></thead><tbody id="modalItemsBody"></tbody></table></div>
+        </div>
+    </div>
+
+    <!-- مودال تعديل الطلبية (للمندوب أو المدير) -->
+    <div id="editOrderModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content glass-panel" style="max-width: 1200px;">
+            <div class="modal-header"><h3><i class="ph ph-pencil"></i> تعديل الطلبية</h3><button type="button" class="close-modal" onclick="closeEditModal()"><i class="ph ph-x-circle"></i></button></div>
+            <div id="editOrderContainer"></div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button id="saveEditOrderBtn" class="btn-primary">حفظ التعديلات وإرسال للموافقة</button>
+                <button onclick="closeEditModal()" class="btn-secondary">إلغاء</button>
             </div>
         </div>
     </div>
 
-    <script type="module" src="js/app.js?v=61"></script>
+    <script type="module" src="js/app.js?v=62"></script>
 </body>
 </html>
