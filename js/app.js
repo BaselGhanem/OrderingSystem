@@ -97,7 +97,16 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
             suggestionsEl.style.display = 'block';
         } else { suggestionsEl.style.display = 'none'; }
     });
-    // ... باقي الكود (keydown, click خارجي) كما هو دون تغيير
+    // التنقل بالأسهم و Enter
+    inputEl.addEventListener('keydown', function(e) {
+        const items = suggestionsEl.getElementsByClassName('autocomplete-item');
+        if (e.key === 'ArrowDown') { currentFocus++; if (currentFocus >= items.length) currentFocus = 0; setActive(items); e.preventDefault(); }
+        else if (e.key === 'ArrowUp') { currentFocus--; if (currentFocus < 0) currentFocus = items.length - 1; setActive(items); e.preventDefault(); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (currentFocus > -1 && items[currentFocus]) items[currentFocus].click(); else if (items.length === 1) items[0].click(); }
+    });
+    function setActive(items) { for (let i=0; i<items.length; i++) items[i].classList.remove('autocomplete-active'); if (items[currentFocus]) { items[currentFocus].classList.add('autocomplete-active'); items[currentFocus].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
+    document.addEventListener('click', function(e) { if (!inputEl.contains(e.target) && !suggestionsEl.contains(e.target)) suggestionsEl.style.display = 'none'; });
+    suggestionsEl.addEventListener('mousedown', function(e) { e.preventDefault(); });
 }
 
 // تحميل المناديب والأصناف
@@ -312,7 +321,7 @@ async function loadAllCompanyOrders() {
 function renderAllOrders(orders) {
     const tbody = document.getElementById('allOrdersBody');
     tbody.innerHTML = '';
-    if(orders.length === 0) { tbody.innerHTML = '<tr><td colspan="7">لا توجد طلبيات</td></tr>'; return; }
+    if(orders.length === 0) { tbody.innerHTML = '<tr><td colspan="7">لا توجد طلبيات</td></tr>'; updateAllOrdersStats(orders); return; }
     orders.forEach(order => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -323,13 +332,21 @@ function renderAllOrders(orders) {
             <td>${order.grandTotal.toFixed(2)}</td>
             <td><span class="status-badge ${order.status === 'approved' ? 'approved' : (order.status === 'pending' ? 'pending' : 'returned')}">${order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
             <td><button class="action-btn edit-btn" data-id="${order.id}" title="تعديل"><i class="ph ph-pencil"></i></button>
-                <button class="btn-view" data-id="${order.id}" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
-            </td>
+                <button class="btn-view" data-id="${order.id}" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
         `;
         tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'all');
         tr.querySelector('.btn-view').onclick = () => showOrderDetails(order);
         tbody.appendChild(tr);
     });
+    updateAllOrdersStats(orders);
+}
+function updateAllOrdersStats(orders) {
+    const count = orders.length;
+    const total = orders.reduce((sum, order) => sum + order.grandTotal, 0);
+    const countElem = document.getElementById('totalOrdersCount');
+    const sumElem = document.getElementById('totalOrdersSum');
+    if (countElem) countElem.innerText = count;
+    if (sumElem) sumElem.innerText = total.toFixed(2);
 }
 function showOrderDetails(order) {
     modalItemsBody.innerHTML = '';
