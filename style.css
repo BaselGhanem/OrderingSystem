@@ -367,3 +367,94 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
     max-height: 90vh;
     overflow-y: auto;
 }
+/* ========================================= */
+/* تحسين الإكمال التلقائي (Autocomplete) */
+/* ========================================= */
+
+.autocomplete-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+/* حقل الإدخال */
+.autocomplete-wrapper input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 1rem;
+    transition: all 0.2s;
+    background: white;
+}
+
+.autocomplete-wrapper input:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 74, 153, 0.1);
+}
+
+/* القائمة المنسدلة */
+.autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 9999;
+    margin-top: 5px;
+    border: 1px solid #e2e8f0;
+    display: none;
+}
+
+/* عناصر القائمة */
+.autocomplete-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    border-bottom: 1px solid #f1f5f9;
+    transition: all 0.15s;
+    color: #1e293b;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.autocomplete-active {
+    background: var(--primary);
+    color: white;
+}
+
+.autocomplete-item strong {
+    color: var(--primary);
+    font-weight: 800;
+}
+
+.autocomplete-item:hover strong,
+.autocomplete-item.autocomplete-active strong {
+    color: white;
+}
+
+/* شريط التمرير المخصص (اختياري) */
+.autocomplete-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.autocomplete-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+
+.autocomplete-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+.autocomplete-list::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
