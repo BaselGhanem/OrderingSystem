@@ -140,6 +140,17 @@
                     <button type="button" id="exportAllOrdersBtn" class="btn-secondary" style="background:#107c41; color:white; border:none;">
                         <i class="ph ph-file-xls"></i> تصدير جميع الطلبيات
                     </button>
+                    <!-- داخل allOrdersSection، بعد زر التصدير وقبل الفلاتر -->
+<div id="allOrdersStats" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+    <div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow); flex: 1; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 800; color: var(--primary);" id="totalOrdersCount">0</div>
+        <div style="color: var(--secondary);">عدد الطلبيات</div>
+    </div>
+    <div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow); flex: 1; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 800; color: var(--primary);" id="totalOrdersSum">0.00</div>
+        <div style="color: var(--secondary);">إجمالي المبلغ (د.أ)</div>
+    </div>
+</div>
                 </div>
                 <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
                     <input type="text" id="filterAllRep" placeholder="تصفية باسم المندوب..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
