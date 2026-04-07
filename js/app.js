@@ -20,8 +20,27 @@ let currentRepName = null;
 let currentPharmacyName = null;
 let isAdmin = false;
 let currentManagerName = null;
-let editingOrderId = null;   // عند التعديل
-let editingCallback = null;   // دالة تستدعى بعد حفظ التعديل
+let editingOrderId = null;
+
+// ------------------- دوال الجلسة (Session Storage) -------------------
+function saveRepSession(repId, repName) {
+    sessionStorage.setItem('repId', repId);
+    sessionStorage.setItem('repName', repName);
+}
+function loadRepSession() {
+    const id = sessionStorage.getItem('repId');
+    const name = sessionStorage.getItem('repName');
+    if (id && name) {
+        currentRepId = id;
+        currentRepName = name;
+        return true;
+    }
+    return false;
+}
+function clearRepSession() {
+    sessionStorage.removeItem('repId');
+    sessionStorage.removeItem('repName');
+}
 
 // ------------------- عناصر DOM -------------------
 const repSelect = document.getElementById('repSelect');
@@ -39,7 +58,7 @@ function getManagerName(repName) {
     return repManagerMap[repName] || "غير محدد";
 }
 
-// دالة الإكمال التلقائي (نفس السابقة مع تحسينات)
+// دالة الإكمال التلقائي (محسنة)
 function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) {
     let currentFocus = -1;
     inputEl.addEventListener('input', function() {
@@ -145,6 +164,7 @@ pharmacyInput.oninput = () => { startOrderBtn.disabled = !pharmacyInput.value.tr
 startOrderBtn.onclick = () => {
     currentRepId = repSelect.value;
     currentRepName = repSelect.options[repSelect.selectedIndex].text;
+    saveRepSession(currentRepId, currentRepName);
     currentPharmacyName = pharmacyInput.value;
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('orderScreen').style.display = 'block';
@@ -152,7 +172,6 @@ startOrderBtn.onclick = () => {
     document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${currentRepName}</b>`;
     document.getElementById('orderPharmacyName').innerText = currentPharmacyName;
     if (orderBody.children.length === 0) addNewRow();
-    // إخفاء تبويب طلبياتي والتقارير إذا كان مدير؟ لا، يبقى للمندوب
     document.getElementById('navMyOrdersBtn').style.display = 'inline-block';
     document.getElementById('navReportsBtn').style.display = 'inline-block';
 };
@@ -185,18 +204,25 @@ submitOrderBtn.onclick = async () => {
             status: "pending"
         });
         alert("✅ تم إرسال الطلبية بنجاح، في انتظار موافقة المدير.");
-        // تصفير الواجهة
         orderBody.innerHTML = '';
         grandTotalEl.innerText = '0.00';
         addNewRow();
         submitOrderBtn.disabled = false;
-        // العودة لشاشة تسجيل الدخول أو طلبياتي
-        location.reload(); // أو عرض طلبياتي
+        // الانتقال إلى شاشة طلبياتي بدلاً من إعادة التحميل
+        document.getElementById('orderScreen').style.display = 'none';
+        document.getElementById('myOrdersScreen').style.display = 'block';
+        loadMyOrders();
+        document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+        document.getElementById('navMyOrdersBtn').classList.add('active');
     } catch(e) { alert("خطأ في الإرسال"); submitOrderBtn.disabled = false; }
 };
 
 // ------------------- شاشة طلبياتي (للمندوب) -------------------
 async function loadMyOrders() {
+    if (!currentRepId && !loadRepSession()) {
+        alert("الرجاء تسجيل الدخول أولاً");
+        return;
+    }
     const tbody = document.getElementById('myOrdersBody');
     tbody.innerHTML = '<tr><td colspan="6">جاري التحميل...</td></tr>';
     try {
@@ -205,14 +231,13 @@ async function loadMyOrders() {
         let orders = [];
         snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
         orders.sort((a,b) => b.updatedAt.toDate() - a.updatedAt.toDate());
-        // عرض فقط المعلقة والمرتجعة
         orders = orders.filter(o => o.status === 'pending' || o.status === 'returned');
         tbody.innerHTML = '';
         if(orders.length === 0) { tbody.innerHTML = '<tr><td colspan="6">لا توجد طلبيات معلقة أو مرتجعة</td></tr>'; return; }
         orders.forEach(order => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${order.id.substring(0,6).toUpperCase()}</td>
+                <td>${order.id.substring(0,6).toUpperCase()} </td>
                 <td>${order.createdAt.toDate().toLocaleString('ar-JO')}</td>
                 <td>${order.pharmacyName}</td>
                 <td>${order.grandTotal.toFixed(2)}</td>
@@ -240,25 +265,18 @@ async function loadManagerOrders(selectedRep = '') {
     tbody.innerHTML = '<tr><td colspan="7">جاري التحميل...</td></tr>';
     try {
         let ordersQuery = collection(db, "orders");
-        let q;
-        if(selectedRep && selectedRep !== '') {
-            q = query(ordersQuery, where("repId", "==", selectedRep));
+        let orders = [];
+        if (selectedRep && selectedRep !== '') {
+            const q = query(ordersQuery, where("repName", "==", selectedRep));
+            const snap = await getDocs(q);
+            snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
         } else {
-            // جلب جميع طلبيات المناديب التابعين لهذا المدير
             const repsUnderManager = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
             if(repsUnderManager.length === 0) { tbody.innerHTML = '<tr><td colspan="7">لا يوجد مناديب تابعين لك</td></tr>'; return; }
-            // استعلام مركب لا يدعم "in" بشكل مباشر، نأخذ الكل ونفلتر
             const allOrdersSnap = await getDocs(ordersQuery);
-            let orders = [];
             allOrdersSnap.forEach(d => orders.push({ id: d.id, ...d.data() }));
             orders = orders.filter(o => repsUnderManager.includes(o.repName));
-            orders.sort((a,b) => b.updatedAt.toDate() - a.updatedAt.toDate());
-            renderManagerOrders(orders);
-            return;
         }
-        const snap = await getDocs(q);
-        let orders = [];
-        snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
         orders.sort((a,b) => b.updatedAt.toDate() - a.updatedAt.toDate());
         renderManagerOrders(orders);
     } catch(e) { console.error(e); tbody.innerHTML = '<tr><td colspan="7">خطأ</td></tr>'; }
@@ -269,6 +287,7 @@ function renderManagerOrders(orders) {
     tbody.innerHTML = '';
     if(orders.length === 0) { tbody.innerHTML = '<tr><td colspan="7">لا توجد طلبيات</td></tr>'; return; }
     orders.forEach(order => {
+        const isApproved = order.status === 'approved';
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${order.id.substring(0,6).toUpperCase()}</td>
@@ -279,23 +298,25 @@ function renderManagerOrders(orders) {
             <td><span class="status-badge ${order.status === 'pending' ? 'pending' : (order.status === 'returned' ? 'returned' : 'approved')}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
             <td>
                 <button class="action-btn edit-btn" data-id="${order.id}" title="تعديل"><i class="ph ph-pencil"></i></button>
-                <button class="action-btn approve-btn" data-id="${order.id}" title="موافقة وترحيل"><i class="ph ph-check-circle"></i></button>
-                <button class="action-btn reject-btn" data-id="${order.id}" title="رفض وإرجاع للمندوب"><i class="ph ph-x-circle"></i></button>
+                ${!isApproved ? `<button class="action-btn approve-btn" data-id="${order.id}" title="موافقة وترحيل"><i class="ph ph-check-circle"></i></button>` : ''}
+                ${!isApproved ? `<button class="action-btn reject-btn" data-id="${order.id}" title="رفض وإرجاع للمندوب"><i class="ph ph-x-circle"></i></button>` : ''}
             </td>
         `;
         tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'manager');
-        tr.querySelector('.approve-btn').onclick = async () => {
-            if(confirm("الموافقة على الطلبية؟ سيتم ترحيلها.")) {
-                await updateDoc(doc(db, "orders", order.id), { status: "approved", updatedAt: new Date() });
-                loadManagerOrders(document.getElementById('managerRepFilter').value);
-            }
-        };
-        tr.querySelector('.reject-btn').onclick = async () => {
-            if(confirm("رفض الطلبية وإرجاعها للمندوب؟")) {
-                await updateDoc(doc(db, "orders", order.id), { status: "returned", updatedAt: new Date() });
-                loadManagerOrders(document.getElementById('managerRepFilter').value);
-            }
-        };
+        if (!isApproved) {
+            tr.querySelector('.approve-btn').onclick = async () => {
+                if(confirm("الموافقة على الطلبية؟ سيتم ترحيلها.")) {
+                    await updateDoc(doc(db, "orders", order.id), { status: "approved", updatedAt: new Date() });
+                    loadManagerOrders(document.getElementById('managerRepFilter').value);
+                }
+            };
+            tr.querySelector('.reject-btn').onclick = async () => {
+                if(confirm("رفض الطلبية وإرجاعها للمندوب؟")) {
+                    await updateDoc(doc(db, "orders", order.id), { status: "returned", updatedAt: new Date() });
+                    loadManagerOrders(document.getElementById('managerRepFilter').value);
+                }
+            };
+        }
         tbody.appendChild(tr);
     });
 }
@@ -306,7 +327,6 @@ async function openEditOrder(orderId, userType) {
     if(!orderDoc.exists()) return alert("الطلب غير موجود");
     const order = orderDoc.data();
     editingOrderId = orderId;
-    // بناء واجهة تعديل شبيهة بجدول الطلبية
     const container = document.getElementById('editOrderContainer');
     container.innerHTML = `
         <h4>تعديل طلبية: ${order.pharmacyName}</h4>
@@ -328,7 +348,7 @@ async function openEditOrder(orderId, userType) {
     function addEditRow(productName = '', qty = 1, bonus = 0, price = 0, rowTotal = 0) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName}" style="width:100%"><div class="autocomplete-list product-suggestions"></div></div></td>
+            <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%"><div class="autocomplete-list product-suggestions"></div></div></td>
             <td><input type="number" class="qty-input" value="${qty}" min="1"></td>
             <td><input type="number" class="bonus-input" value="${bonus}" min="0"></td>
             <td class="price-cell">${parseFloat(price).toFixed(2)}</td>
@@ -349,12 +369,10 @@ async function openEditOrder(orderId, userType) {
         editBody.appendChild(tr);
         updateEditTotal();
     }
-    // تحميل الأصناف الحالية
     order.items.forEach(item => {
         addEditRow(item.name, item.qty, item.bonus, item.price, item.total);
     });
     document.getElementById('editAddRowBtn').onclick = () => addEditRow();
-    // حفظ التعديلات
     const saveBtn = document.getElementById('saveEditOrderBtn');
     const newSaveBtn = saveBtn.cloneNode(true);
     saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
@@ -381,7 +399,6 @@ async function openEditOrder(orderId, userType) {
         });
         alert("تم تحديث الطلبية وإعادة إرسالها للموافقة.");
         closeEditModal();
-        // تحديث الشاشة المناسبة
         if(userType === 'rep') loadMyOrders();
         else if(userType === 'manager') loadManagerOrders(document.getElementById('managerRepFilter').value);
     };
@@ -394,7 +411,7 @@ function closeEditModal() {
 }
 window.closeEditModal = closeEditModal;
 
-// ------------------- التقارير (كما هي مع إضافة عمود الحالة) -------------------
+// ------------------- التقارير -------------------
 async function loadReports() {
     const body = document.getElementById('reportsBody');
     body.innerHTML = '<tr><td colspan="7">جاري جلب البيانات...</td></tr>';
@@ -495,7 +512,7 @@ document.getElementById('navReportsBtn').onclick = () => {
     document.getElementById('navReportsBtn').classList.add('active');
     loadReports();
 };
-document.getElementById('logoutBtn').onclick = () => { if(confirm("تسجيل الخروج؟")) location.reload(); };
+document.getElementById('logoutBtn').onclick = () => { clearRepSession(); if(confirm("تسجيل الخروج؟")) location.reload(); };
 
 // دخول المدير
 document.getElementById('adminModeBtn').onclick = () => {
@@ -508,14 +525,11 @@ document.getElementById('adminModeBtn').onclick = () => {
             return;
         }
         currentManagerName = managerName;
-        // تعبئة فلتر المناديب
         const repsUnder = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === managerName);
         const filterSelect = document.getElementById('managerRepFilter');
         filterSelect.innerHTML = '<option value="">جميع مندوبي</option>';
         for(let rep of repsUnder) {
             const opt = document.createElement('option');
-            opt.value = rep; // أو id? نحتاج id. سنبحث عن id المندوب من اسمه
-            // نأخذ id من الـ select الأصلي
             const repOption = Array.from(repSelect.options).find(opt => opt.textContent === rep);
             if(repOption) opt.value = repOption.value;
             else opt.value = rep;
