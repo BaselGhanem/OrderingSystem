@@ -796,6 +796,54 @@ document.getElementById('adminModeBtn').onclick = () => {
         alert("كلمة المرور خاطئة!");
     }
 };
+const addPharmacyModal = document.getElementById('addPharmacyModal');
+const openAddPharmacyModalBtn = document.getElementById('openAddPharmacyModalBtn');
+const newPharmacyRepSelect = document.getElementById('newPharmacyRepSelect');
+const newPharmacyName = document.getElementById('newPharmacyName');
+const saveNewPharmacyBtn = document.getElementById('saveNewPharmacyBtn');
 
+// فتح الشاشة وتعبئة قائمة المناديب
+openAddPharmacyModalBtn.onclick = () => {
+    // نسخ قائمة المناديب من القائمة الرئيسية الموجودة مسبقاً
+    newPharmacyRepSelect.innerHTML = repSelect.innerHTML;
+    newPharmacyName.value = '';
+    addPharmacyModal.style.display = 'flex';
+};
+
+// حفظ الصيدلية في فايربيس
+saveNewPharmacyBtn.onclick = async () => {
+    const repId = newPharmacyRepSelect.value;
+    const repName = newPharmacyRepSelect.options[newPharmacyRepSelect.selectedIndex]?.text;
+    const pharmName = newPharmacyName.value.trim();
+
+    if (!repId) return alert("الرجاء اختيار المندوب");
+    if (!pharmName) return alert("الرجاء كتابة اسم الصيدلية");
+
+    saveNewPharmacyBtn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري الحفظ...";
+    saveNewPharmacyBtn.disabled = true;
+
+    try {
+        // إضافة الصيدلية إلى كوليكشن pharmacies وتخصيصها لمندوب واحد
+        await addDoc(collection(db, "pharmacies"), {
+            name: pharmName,
+            rep_id: repId
+        });
+
+        alert("تم إضافة الصيدلية بنجاح!");
+        addPharmacyModal.style.display = 'none';
+
+        // تحديث قائمة الصيدليات فوراً إذا كان المندوب المختار هو نفس المندوب النشط حالياً في الشاشة الرئيسية
+        if (repSelect.value === repId) {
+            repSelect.dispatchEvent(new Event('change'));
+        }
+
+    } catch (error) {
+        console.error("خطأ في إضافة الصيدلية:", error);
+        alert("حدث خطأ أثناء الحفظ");
+    } finally {
+        saveNewPharmacyBtn.innerHTML = "حفظ الصيدلية";
+        saveNewPharmacyBtn.disabled = false;
+    }
+};
 window.closeModal = () => detailsModal.style.display = 'none';
 loadInitialData();
