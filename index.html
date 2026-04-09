@@ -50,6 +50,9 @@
                         <input type="text" id="pharmacyInput" placeholder="اختر المندوب اولا..." autocomplete="off" disabled>
                         <div id="pharmacySuggestions" class="autocomplete-list"></div>
                     </div>
+                    <button type="button" id="openAddPharmacyModalBtn" class="btn-secondary" style="margin-top: 15px; width: 100%;">
+    <i class="ph ph-plus"></i> إضافة صيدلية جديدة
+</button>
                 </div>
                 <button type="button" id="startOrderBtn" class="btn-primary" disabled>
                     بدء ادخال الطلبية <i class="ph ph-arrow-left"></i>
@@ -216,7 +219,27 @@
             </div>
         </div>
     </div>
-
-    <script type="module" src="js/app.js?v=20260409-3"></script>
+<div id="addPharmacyModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content glass-panel" style="max-width: 500px;">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+            <h3><i class="ph ph-storefront"></i> إضافة صيدلية جديدة</h3>
+            <button type="button" class="close-modal" onclick="document.getElementById('addPharmacyModal').style.display='none'" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger);"><i class="ph ph-x-circle"></i></button>
+        </div>
+        <div class="input-group">
+            <label>اختر المندوب</label>
+            <select id="newPharmacyRepSelect">
+                <option value="">-- اختر المندوب --</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>اسم الصيدلية</label>
+            <input type="text" id="newPharmacyName" placeholder="أدخل اسم الصيدلية...">
+        </div>
+        <button type="button" id="saveNewPharmacyBtn" class="btn-primary" style="width: 100%; margin-top: 15px;">
+            حفظ الصيدلية
+        </button>
+    </div>
+</div>
+    <script type="module" src="js/app.js?v=20260409-4"></script>
 </body>
 </html>
