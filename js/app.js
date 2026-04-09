@@ -1,6 +1,24 @@
 import { db, collection, getDocs, query, where, addDoc, deleteDoc, doc, updateDoc, getDoc } from './firebase.js';
+// remmember password
+window.addEventListener('DOMContentLoaded', () => {
+    const isAdminSaved = localStorage.getItem('isAdminLoggedIn');
+    const savedManagerName = localStorage.getItem('managerName');
+
+    if (isAdminSaved === 'true' && savedManagerName) {
+        // تأخير بسيط لضمان تحميل البيانات الأولية (loadInitialData)
+        setTimeout(() => {
+            isAdmin = true;
+            currentManagerName = savedManagerName;
+            
+            // استدعاء منطق دخول المدير تلقائياً
+            initializeManagerView(savedManagerName);
+            console.log("تم تسجيل الدخول تلقائيا كمدير: " + savedManagerName);
+        }, 800); 
+    }
+});
 
 // ------------------- جدول المراسلات (مندوب -> مدير) -------------------
+
 const repManagerMap = {
     "مراد عمر": "محمد طوالبه",
     "مؤيد الزعبي": "محمد طوالبه",
