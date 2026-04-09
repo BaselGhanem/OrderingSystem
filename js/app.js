@@ -327,70 +327,85 @@ async function loadMyOrders() {
 
 // ------------------- شاشة المدير (طلبيات فريقي) -------------------
 // ------------------- شاشة المدير (طلبيات فريقي) -------------------
+// ------------------- شاشة المدير (طلبيات فريقي) -------------------
 async function loadManagerOrders(selectedRep = '') {
     const tbody = document.getElementById('managerOrdersBody');
-    if (!tbody) {
-        console.error("الجدول managerOrdersBody غير موجود في DOM");
-        return;
-    }
+    if (!tbody) return;
+    
     tbody.innerHTML = '<tr><td colspan="7">جاري التحميل...</td></tr>';
+    
     try {
         let ordersQuery = collection(db, "orders");
-        let orders = [];
+        let snap = await getDocs(ordersQuery);
+        let allOrders = [];
+        
+        snap.forEach(d => {
+            const data = d.data();
+            // حماية: التأكد من وجود التواريخ قبل الإضافة
+            if (data.updatedAt && data.createdAt) {
+                allOrders.push({ id: d.id, ...data });
+            } else {
+                console.warn(`الطلبية ${d.id} تحتوي على تواريخ ناقصة`);
+            }
+        });
+
+        let filteredOrders = [];
+        const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
 
         if (selectedRep && selectedRep !== '') {
-            // إذا تم اختيار مندوب معين من القائمة
-            const q = query(ordersQuery, where("repName", "==", selectedRep));
-            const snap = await getDocs(q);
-            snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
+            // فلترة حسب مندوب محدد
+            filteredOrders = allOrders.filter(o => o.repId === selectedRep);
         } else {
-            // جلب جميع الطلبيات ثم تصفية مندوبي هذا المدير فقط
-            const repsUnderManager = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
-            console.log("مندوبي هذا المدير:", repsUnderManager);
-            
-            if (repsUnderManager.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7">لا يوجد مناديب تابعين لك</td></tr>';
-                return;
-            }
-            
-            const allOrdersSnap = await getDocs(ordersQuery);
-            const allOrders = [];
-            allOrdersSnap.forEach(d => allOrders.push({ id: d.id, ...d.data() }));
-            
-            // تصفية: تطبيع الأسماء (إزالة المسافات الزائد ومقارنة نصية غير حساسة لحالة الأحرف)
-            const normalizedUnder = repsUnderManager.map(r => r.trim().toLowerCase());
-            orders = allOrders.filter(o => {
+            // فلترة جميع مندوبي هذا المدير
+            const normalizedUnder = managerReps.map(r => r.trim().toLowerCase());
+            filteredOrders = allOrders.filter(o => {
                 const repNameNorm = o.repName?.trim().toLowerCase();
                 return repNameNorm && normalizedUnder.includes(repNameNorm);
             });
-            console.log(`تم العثور على ${orders.length} طلبية للمناديب التابعين`);
         }
-        
-        orders.sort((a, b) => b.updatedAt.toDate() - a.updatedAt.toDate());
-        renderManagerOrders(orders);
+
+        // ترتيب الطلبيات حسب الأحدث مع حماية إضافية
+        filteredOrders.sort((a, b) => {
+            const dateA = a.updatedAt?.toDate ? a.updatedAt.toDate() : 0;
+            const dateB = b.updatedAt?.toDate ? b.updatedAt.toDate() : 0;
+            return dateB - dateA;
+        });
+
+        renderManagerOrders(filteredOrders);
     } catch (e) {
         console.error("خطأ في loadManagerOrders:", e);
-        tbody.innerHTML = `<td><td colspan="7">خطأ: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="color:red;">خطأ في تحميل البيانات: ${e.message}</td></tr>`;
     }
 }
 function renderManagerOrders(orders) {
     const tbody = document.getElementById('managerOrdersBody');
     tbody.innerHTML = '';
-    if(orders.length === 0) { tbody.innerHTML = '<tr><td colspan="7">لا توجد طلبيات</td></tr>'; return; }
+    
+    if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7">لا توجد طلبيات لفريقك حالياً</td></tr>';
+        return;
+    }
+
     orders.forEach(order => {
         const isApproved = order.status === 'approved';
+        // حماية التاريخ عند العرض
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('ar-JO') : "تاريخ غير معروف";
+        
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${order.id.substring(0,6).toUpperCase()}</td>
-            <td>${order.createdAt.toDate().toLocaleString('ar-JO')}</td>
-            <td>${order.repName}</td><td>${order.pharmacyName}</td>
-            <td>${order.grandTotal.toFixed(2)}</td>
-            <td><span class="status-badge ${order.status === 'pending' ? 'pending' : (order.status === 'returned' ? 'returned' : 'approved')}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
-            <td><button class="action-btn edit-btn" data-id="${order.id}" title="تعديل"><i class="ph ph-pencil"></i></button>
-                ${!isApproved ? `<button class="action-btn approve-btn" data-id="${order.id}" title="موافقة وترحيل"><i class="ph ph-check-circle"></i></button>` : ''}
-                ${!isApproved ? `<button class="action-btn reject-btn" data-id="${order.id}" title="رفض وإرجاع"><i class="ph ph-x-circle"></i></button>` : ''}
+            <td>${order.id.substring(0, 6).toUpperCase()}</td>
+            <td>${displayDate}</td>
+            <td>${order.repName}</td>
+            <td>${order.pharmacyName}</td>
+            <td>${(order.grandTotal || 0).toFixed(2)}</td>
+            <td><span class="status-badge ${order.status}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
+            <td>
+                <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
+                ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
+                ${!isApproved ? `<button class="action-btn reject-btn" title="رفض"><i class="ph ph-x-circle"></i></button>` : ''}
             </td>
         `;
+        
         tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'manager');
         if (!isApproved) {
             tr.querySelector('.approve-btn').onclick = async () => { if(confirm("الموافقة على الطلبية؟")) { await updateDoc(doc(db, "orders", order.id), { status: "approved", updatedAt: new Date() }); loadManagerOrders(document.getElementById('managerRepFilter').value); } };
@@ -403,30 +418,54 @@ function renderManagerOrders(orders) {
 // ------------------- جميع طلبيات الشركة -------------------
 async function loadAllCompanyOrders() {
     const tbody = document.getElementById('allOrdersBody');
+    if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="7">جاري تحميل جميع الطلبيات...</td></tr>';
     try {
         const snap = await getDocs(collection(db, "orders"));
         allOrdersData = [];
-        snap.forEach(d => allOrdersData.push({ id: d.id, ...d.data() }));
-        allOrdersData.sort((a,b) => b.createdAt.toDate() - a.createdAt.toDate());
+        snap.forEach(d => {
+            const data = d.data();
+            // حماية: إضافة الطلبية فقط إذا كان التاريخ موجوداً
+            if (data.createdAt) {
+                allOrdersData.push({ id: d.id, ...data });
+            }
+        });
+
+        // ترتيب محمي: استخدام القيمة 0 إذا لم ينجح تحويل التاريخ
+        allOrdersData.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+            return dateB - dateA;
+        });
+
         renderAllOrders(allOrdersData);
-    } catch(e) { console.error(e); tbody.innerHTML = '<tr><td colspan="7">خطأ في التحميل</td></tr>'; }
+    } catch(e) { 
+        console.error(e); 
+        tbody.innerHTML = '<tr><td colspan="7">خطأ في التحميل</td></tr>'; 
+    }
 }
 function renderAllOrders(orders) {
     const tbody = document.getElementById('allOrdersBody');
     tbody.innerHTML = '';
-    if(orders.length === 0) { tbody.innerHTML = '<tr><td colspan="7">لا توجد طلبيات</td></tr>'; updateAllOrdersStats(orders); return; }
+    if(orders.length === 0) { 
+        tbody.innerHTML = '<tr><td colspan="7">لا توجد طلبيات</td></tr>'; 
+        updateAllOrdersStats(orders); 
+        return; 
+    }
     orders.forEach(order => {
         const tr = document.createElement('tr');
+        // حماية التاريخ عند العرض
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('ar-JO') : "تاريخ غير متوفر";
+        
         tr.innerHTML = `
             <td>${order.id.substring(0,6).toUpperCase()}</td>
-            <td>${order.createdAt.toDate().toLocaleString('ar-JO')}</td>
-            <td class="all-rep-col">${order.repName}</td>
-            <td class="all-pharm-col">${order.pharmacyName}</td>
-            <td>${order.grandTotal.toFixed(2)}</td>
-            <td><span class="status-badge ${order.status === 'approved' ? 'approved' : (order.status === 'pending' ? 'pending' : 'returned')}">${order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
-            <td><button class="action-btn edit-btn" data-id="${order.id}" title="تعديل"><i class="ph ph-pencil"></i></button>
-                <button class="btn-view" data-id="${order.id}" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
+            <td>${displayDate}</td>
+            <td class="all-rep-col">${order.repName || '-'}</td>
+            <td class="all-pharm-col">${order.pharmacyName || '-'}</td>
+            <td>${(order.grandTotal || 0).toFixed(2)}</td>
+            <td><span class="status-badge ${order.status}">${order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
+            <td><button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
+                <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
         `;
         tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'all');
         tr.querySelector('.btn-view').onclick = () => showOrderDetails(order);
