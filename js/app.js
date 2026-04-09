@@ -26,7 +26,6 @@ function initializeManagerView(managerName) {
         filterSelect.appendChild(opt);
     }
 
-    
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('managerScreen').style.display = 'block';
     document.getElementById('userInfo').style.display = 'flex';
@@ -458,68 +457,6 @@ async function handleBulkAction(actionType) {
 
 document.getElementById('bulkApproveBtn')?.addEventListener('click', () => handleBulkAction('approve'));
 document.getElementById('bulkDeleteBtn')?.addEventListener('click', () => handleBulkAction('delete'));
-        let filteredOrders = [];
-        const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
-
-        if (selectedRep && selectedRep !== '') {
-            filteredOrders = allOrders.filter(o => o.repId === selectedRep);
-        } else {
-            const normalizedUnder = managerReps.map(r => r.trim().toLowerCase());
-            filteredOrders = allOrders.filter(o => {
-                const repNameNorm = o.repName?.trim().toLowerCase();
-                return repNameNorm && normalizedUnder.includes(repNameNorm);
-            });
-        }
-
-        filteredOrders.sort((a, b) => {
-            const dateA = a.updatedAt?.toDate ? a.updatedAt.toDate() : 0;
-            const dateB = b.updatedAt?.toDate ? b.updatedAt.toDate() : 0;
-            return dateB - dateA;
-        });
-
-        renderManagerOrders(filteredOrders);
-    } catch (e) {
-        console.error("خطا في loadManagerOrders:", e);
-        tbody.innerHTML = `<tr><td colspan="7" style="color:red;">خطا في تحميل البيانات: ${e.message}</td></tr>`;
-    }
-}
-
-function renderManagerOrders(orders) {
-    const tbody = document.getElementById('managerOrdersBody');
-    tbody.innerHTML = '';
-    
-    if (orders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7">لا توجد طلبيات لفريقك حاليا</td></tr>';
-        return;
-    }
-
-    orders.forEach(order => {
-        const isApproved = order.status === 'approved';
-        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('ar-JO') : "تاريخ غير معروف";
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${order.id.substring(0, 6).toUpperCase()}</td>
-            <td>${displayDate}</td>
-            <td>${order.repName}</td>
-            <td>${order.pharmacyName}</td>
-            <td>${(order.grandTotal || 0).toFixed(2)}</td>
-            <td><span class="status-badge ${order.status}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
-            <td>
-                <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
-                ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
-                ${!isApproved ? `<button class="action-btn reject-btn" title="رفض"><i class="ph ph-x-circle"></i></button>` : ''}
-            </td>
-        `;
-        
-        tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'manager');
-        if (!isApproved) {
-            tr.querySelector('.approve-btn').onclick = async () => { if(confirm("الموافقة على الطلبية؟")) { await updateDoc(doc(db, "orders", order.id), { status: "approved", updatedAt: new Date() }); loadManagerOrders(document.getElementById('managerRepFilter').value); } };
-            tr.querySelector('.reject-btn').onclick = async () => { if(confirm("رفض الطلبية وارجاعها؟")) { await updateDoc(doc(db, "orders", order.id), { status: "returned", updatedAt: new Date() }); loadManagerOrders(document.getElementById('managerRepFilter').value); } };
-        }
-        tbody.appendChild(tr);
-    });
-}
 
 async function loadAllCompanyOrders() {
     const tbody = document.getElementById('allOrdersBody');
