@@ -177,6 +177,10 @@
                             <div style="font-size: 2rem; font-weight: 800; color: var(--primary);" id="totalOrdersSum">0.00</div>
                             <div style="color: var(--secondary);">اجمالي المبلغ (د.ا)</div>
                         </div>
+                         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <button id="bulkApproveAllBtn" class="btn-success" style="padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;">موافقة على المحدد</button>
+                            <button id="bulkDeleteAllBtn" class="btn-danger" style="padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;">حذف المحدد</button>
+                        </div>
                     </div>
                 </div>
                 <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
@@ -191,8 +195,7 @@
                 </div>
                 <div class="table-responsive">
                     <table class="order-table" id="allOrdersTable">
-                        <thead><tr><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراات</th></tr></thead>
-                        <tbody id="allOrdersBody"></tbody>
+                        <thead><tr><th><input type="checkbox" id="selectAllAllOrders"></th><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراات</th></tr></thead>                        <tbody id="allOrdersBody"></tbody>
                     </table>
                 </div>
             </div>
