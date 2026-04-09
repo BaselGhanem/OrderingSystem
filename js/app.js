@@ -425,11 +425,25 @@ async function loadAllCompanyOrders() {
         allOrdersData = [];
         snap.forEach(d => {
             const data = d.data();
-            // حماية: إضافة الطلبية فقط إذا كان التاريخ موجوداً
+            // حماية: إذا لا يوجد تاريخ، لا تضف الطلبية أو تعامل معها بحذر
             if (data.createdAt) {
                 allOrdersData.push({ id: d.id, ...data });
             }
         });
+
+        // ترتيب محمي
+        allOrdersData.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+            return dateB - dateA;
+        });
+
+        renderAllOrders(allOrdersData);
+    } catch(e) { 
+        console.error("خطأ في تحميل كل الطلبيات:", e); 
+        tbody.innerHTML = '<tr><td colspan="7">خطأ في التحميل</td></tr>'; 
+    }
+}
 
         // ترتيب محمي: استخدام القيمة 0 إذا لم ينجح تحويل التاريخ
         allOrdersData.sort((a, b) => {
@@ -505,7 +519,20 @@ function filterAllOrders() {
 document.getElementById('filterAllRep').oninput = filterAllOrders;
 document.getElementById('filterAllPharmacy').oninput = filterAllOrders;
 document.getElementById('filterAllStatus').onchange = filterAllOrders;
-document.getElementById('exportAllOrdersBtn').onclick = async () => {
+// ابحث عن هذا الجزء داخل exportAllOrdersBtn.onclick
+snap.forEach(d => { 
+    const order = d.data(); 
+    // التعديل هنا: استخدام ? و فحص toDate
+    const dateStr = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('ar-JO') : "غير متوفر";
+    
+    order.items.forEach(item => { 
+        flatData.push({ 
+            "التاريخ": dateStr, 
+            "المندوب": order.repName, 
+            // ... باقي الحقول كما هي
+        }); 
+    }); 
+});    
     const btn = document.getElementById('exportAllOrdersBtn');
     btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري...";
     try {
