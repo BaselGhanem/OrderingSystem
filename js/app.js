@@ -535,14 +535,22 @@ function showOrderDetails(order) {
 }
 
 function filterAllOrders() {
-    const repFilter = document.getElementById('filterAllRep').value.toLowerCase();
-    const pharmFilter = document.getElementById('filterAllPharmacy').value.toLowerCase();
-    const statusFilter = document.getElementById('filterAllStatus').value;
+    // جلب قيم الفلاتر مع تنظيفها من الفراغات
+    const repFilter = (document.getElementById('filterAllRep').value || '').toLowerCase().trim();
+    const pharmFilter = (document.getElementById('filterAllPharmacy').value || '').toLowerCase().trim();
+    const statusFilter = (document.getElementById('filterAllStatus').value || '').trim();
+
     const filtered = allOrdersData.filter(order => {
-        return order.repName.toLowerCase().includes(repFilter) &&
-               order.pharmacyName.toLowerCase().includes(pharmFilter) &&
-               (statusFilter === '' || order.status === statusFilter);
+        // تجهيز بيانات الطلبية مع وضع قيمة افتراضية '' لتجنب توقف الكود
+        const repName = (order.repName || '').toLowerCase();
+        const pharmName = (order.pharmacyName || '').toLowerCase();
+        const orderStatus = (order.status || '').trim();
+
+        return repName.includes(repFilter) &&
+               pharmName.includes(pharmFilter) &&
+               (statusFilter === '' || orderStatus === statusFilter);
     });
+
     renderAllOrders(filtered);
 }
 
