@@ -48,22 +48,28 @@ function initializeManagerView(managerName) {
     const teamSection = document.getElementById('teamOrdersSection');
     const allSection = document.getElementById('allOrdersSection');
 
-    myTeamBtn.onclick = () => { /* ... كود التبديل الخاص بك ... */ };
-    allOrdersBtn.onclick = () => { /* ... كود التبديل الخاص بك ... */ };
+    myTeamBtn.onclick = () => { 
+        myTeamBtn.classList.add('active'); 
+        allOrdersBtn.classList.remove('active'); 
+        teamSection.style.display = 'block'; 
+        allSection.style.display = 'none'; 
+        loadManagerOrders(); 
+    };
+
+    allOrdersBtn.onclick = () => { 
+        myTeamBtn.classList.remove('active'); 
+        allOrdersBtn.classList.add('active'); 
+        teamSection.style.display = 'none'; 
+        allSection.style.display = 'block'; 
+        loadAllCompanyOrders(); 
+    };
 
     teamSection.style.display = 'block';
     allSection.style.display = 'none';
     myTeamBtn.classList.add('active');
     loadManagerOrders();
 }
-document.getElementById('logoutBtn').onclick = () => {
-    if(confirm("تسجيل الخروج؟")) {
-        clearRepSession();
-        localStorage.removeItem('isAdminLoggedIn'); // مسح بيانات التذكر
-        localStorage.removeItem('managerName');
-        location.reload();
-    }
-};
+
 // ------------------- جدول المراسلات (مندوب -> مدير) -------------------
 
 const repManagerMap = {
