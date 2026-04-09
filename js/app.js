@@ -1,19 +1,16 @@
 import { db, collection, getDocs, query, where, addDoc, deleteDoc, doc, updateDoc, getDoc } from './firebase.js';
 // remmember password
 window.addEventListener('DOMContentLoaded', () => {
-    const isAdminSaved = localStorage.getItem('isAdminLoggedIn');
     const savedManagerName = localStorage.getItem('managerName');
+    const savedPass = localStorage.getItem('adminPassword');
 
-    if (isAdminSaved === 'true' && savedManagerName) {
-        // تأخير بسيط لضمان تحميل البيانات الأولية (loadInitialData)
-        setTimeout(() => {
-            isAdmin = true;
-            currentManagerName = savedManagerName;
-            
-            // استدعاء منطق دخول المدير تلقائياً
-            initializeManagerView(savedManagerName);
-            console.log("تم تسجيل الدخول تلقائيا كمدير: " + savedManagerName);
-        }, 800); 
+    if (savedManagerName && savedPass) {
+        // نضع البيانات في متغيرات مؤقتة بانتظار ضغطة الزر
+        console.log("تم استرجاع بيانات المدير محلياً (جاهزة للتعبئة)");
+        // نقوم بتحديد الـ checkbox تلقائياً
+        if(document.getElementById('rememberMe')) {
+            document.getElementById('rememberMe').checked = true;
+        }
     }
 });
 function initializeManagerView(managerName) {
@@ -605,27 +602,54 @@ document.getElementById('logoutBtn').onclick = () => { clearRepSession(); if(con
 
 // دخول المدير
 document.getElementById('adminModeBtn').onclick = () => {
-    const pass = prompt("كلمة مرور المدير:");
-    if(pass === "202604") {
-        const managerName = prompt("أدخل اسمك كمدير (مثال: محمد طوالبه أو عبدالله الناطور):");
-        if(!managerName || (managerName !== "محمد طوالبه" && managerName !== "عبدالله الناطور")) { 
-            alert("اسم المدير غير معروف"); 
-            return; 
+    const savedPass = localStorage.getItem('adminPassword');
+    const savedName = localStorage.getItem('managerName');
+
+    let pass;
+    if (savedPass) {
+        // إذا البيانات مخزنة، بنسأله بس إذا حابب يدخل بالباسورد المحفوظ
+        if (confirm(`هل تريد الدخول كمدير باسم: ${savedName}؟`)) {
+            pass = savedPass;
+        } else {
+            // إذا حكى إلغاء، بنطلب الباسورد يدوي (عشان لو مندوب ثاني)
+            pass = prompt("كلمة مرور المدير:");
+        }
+    } else {
+        pass = prompt("كلمة مرور المدير:");
+    }
+
+    if (pass === "202604") {
+        let managerName = savedName;
+        
+        // لو ما في اسم محفوظ أو اختار يدخل يدوي
+        if (!managerName) {
+            managerName = prompt("أدخل اسمك كمدير (محمد طوالبه أو عبدالله الناطور):");
         }
 
-        // --- إضافة أسطر التذكر هنا ---
+        if (!managerName || (managerName !== "محمد طوالبه" && managerName !== "عبدالله الناطور")) {
+            alert("اسم المدير غير معروف");
+            return;
+        }
+
+        // حفظ البيانات للمرة الجاية لو كبس "تذكرني"
         const rememberMe = document.getElementById('rememberMe').checked;
         if (rememberMe) {
-            localStorage.setItem('isAdminLoggedIn', 'true');
+            localStorage.setItem('isAdminLoggedIn', 'true'); // اختيارية
             localStorage.setItem('managerName', managerName);
+            localStorage.setItem('adminPassword', pass);
+        } else {
+            // لو شال الصح، بنمسح القديم
+            localStorage.removeItem('managerName');
+            localStorage.removeItem('adminPassword');
         }
-        // ---------------------------
 
         isAdmin = true;
         currentManagerName = managerName;
-        initializeManagerView(managerName); // استدعاء الوظيفة التي أنشأتها
-        
-    } else if(pass !== null) alert("كلمة المرور خاطئة!");
+        initializeManagerView(managerName);
+
+    } else if (pass !== null) {
+        alert("كلمة المرور خاطئة!");
+    }
 };
 window.closeModal = () => detailsModal.style.display = 'none';
 loadInitialData();
