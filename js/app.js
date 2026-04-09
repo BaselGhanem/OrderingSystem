@@ -16,7 +16,54 @@ window.addEventListener('DOMContentLoaded', () => {
         }, 800); 
     }
 });
+function initializeManagerView(managerName) {
+    const repsUnder = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === managerName);
+    const filterSelect = document.getElementById('managerRepFilter');
+    
+    filterSelect.innerHTML = '<option value="">جميع مندوبي</option>';
+    
+    // ملاحظة: تأكد أن repSelect محملة بالبيانات قبل الوصول لهذه الخطوة
+    for(let rep of repsUnder) {
+        const repOption = Array.from(repSelect.options).find(opt => opt.textContent === rep);
+        const opt = document.createElement('option');
+        opt.value = repOption ? repOption.value : rep;
+        opt.textContent = rep;
+        filterSelect.appendChild(opt);
+    }
 
+    filterSelect.onchange = () => loadManagerOrders(filterSelect.value);
+    
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('managerScreen').style.display = 'block';
+    document.getElementById('userInfo').style.display = 'flex';
+    document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user-gear"></i> <b>المدير: ${managerName}</b>`;
+    
+    document.getElementById('navOrderBtn').style.display = 'none';
+    document.getElementById('navMyOrdersBtn').style.display = 'none';
+    document.getElementById('navReportsBtn').style.display = 'none';
+
+    // تهيئة التبويبات
+    const myTeamBtn = document.getElementById('managerMyTeamBtn');
+    const allOrdersBtn = document.getElementById('managerAllOrdersBtn');
+    const teamSection = document.getElementById('teamOrdersSection');
+    const allSection = document.getElementById('allOrdersSection');
+
+    myTeamBtn.onclick = () => { /* ... كود التبديل الخاص بك ... */ };
+    allOrdersBtn.onclick = () => { /* ... كود التبديل الخاص بك ... */ };
+
+    teamSection.style.display = 'block';
+    allSection.style.display = 'none';
+    myTeamBtn.classList.add('active');
+    loadManagerOrders();
+}
+document.getElementById('logoutBtn').onclick = () => {
+    if(confirm("تسجيل الخروج؟")) {
+        clearRepSession();
+        localStorage.removeItem('isAdminLoggedIn'); // مسح بيانات التذكر
+        localStorage.removeItem('managerName');
+        location.reload();
+    }
+};
 // ------------------- جدول المراسلات (مندوب -> مدير) -------------------
 
 const repManagerMap = {
@@ -554,43 +601,25 @@ document.getElementById('logoutBtn').onclick = () => { clearRepSession(); if(con
 document.getElementById('adminModeBtn').onclick = () => {
     const pass = prompt("كلمة مرور المدير:");
     if(pass === "202604") {
-        isAdmin = true;
         const managerName = prompt("أدخل اسمك كمدير (مثال: محمد طوالبه أو عبدالله الناطور):");
-        if(!managerName || (managerName !== "محمد طوالبه" && managerName !== "عبدالله الناطور")) { alert("اسم المدير غير معروف"); return; }
-        currentManagerName = managerName;
-        const repsUnder = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === managerName);
-        const filterSelect = document.getElementById('managerRepFilter');
-        filterSelect.innerHTML = '<option value="">جميع مندوبي</option>';
-        for(let rep of repsUnder) {
-            const repOption = Array.from(repSelect.options).find(opt => opt.textContent === rep);
-            const opt = document.createElement('option');
-            opt.value = repOption ? repOption.value : rep;
-            opt.textContent = rep;
-            filterSelect.appendChild(opt);
+        if(!managerName || (managerName !== "محمد طوالبه" && managerName !== "عبدالله الناطور")) { 
+            alert("اسم المدير غير معروف"); 
+            return; 
         }
-        filterSelect.onchange = () => loadManagerOrders(filterSelect.value);
-        document.getElementById('loginScreen').style.display = 'none';
-        document.getElementById('managerScreen').style.display = 'block';
-        document.getElementById('userInfo').style.display = 'flex';
-        document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user-gear"></i> <b>المدير: ${managerName}</b>`;
-        document.getElementById('navOrderBtn').style.display = 'none';
-        document.getElementById('navMyOrdersBtn').style.display = 'none';
-        document.getElementById('navReportsBtn').style.display = 'none';
-        // تهيئة التبويبات الداخلية
-        const myTeamBtn = document.getElementById('managerMyTeamBtn');
-        const allOrdersBtn = document.getElementById('managerAllOrdersBtn');
-        const teamSection = document.getElementById('teamOrdersSection');
-        const allSection = document.getElementById('allOrdersSection');
-        myTeamBtn.onclick = () => { myTeamBtn.classList.add('active'); allOrdersBtn.classList.remove('active'); teamSection.style.display = 'block'; allSection.style.display = 'none'; loadManagerOrders(filterSelect.value); };
-        allOrdersBtn.onclick = () => { myTeamBtn.classList.remove('active'); allOrdersBtn.classList.add('active'); teamSection.style.display = 'none'; allSection.style.display = 'block'; loadAllCompanyOrders(); };
-        // عرض الفريق أولاً
-        teamSection.style.display = 'block';
-        allSection.style.display = 'none';
-        myTeamBtn.classList.add('active');
-        allOrdersBtn.classList.remove('active');
-        loadManagerOrders();
+
+        // --- إضافة أسطر التذكر هنا ---
+        const rememberMe = document.getElementById('rememberMe').checked;
+        if (rememberMe) {
+            localStorage.setItem('isAdminLoggedIn', 'true');
+            localStorage.setItem('managerName', managerName);
+        }
+        // ---------------------------
+
+        isAdmin = true;
+        currentManagerName = managerName;
+        initializeManagerView(managerName); // استدعاء الوظيفة التي أنشأتها
+        
     } else if(pass !== null) alert("كلمة المرور خاطئة!");
 };
-
 window.closeModal = () => detailsModal.style.display = 'none';
 loadInitialData();
