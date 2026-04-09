@@ -425,12 +425,23 @@ async function loadAllCompanyOrders() {
         allOrdersData = [];
         snap.forEach(d => {
             const data = d.data();
-            // حماية: إذا لا يوجد تاريخ، لا تضف الطلبية أو تعامل معها بحذر
             if (data.createdAt) {
                 allOrdersData.push({ id: d.id, ...data });
             }
         });
 
+        allOrdersData.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+            return dateB - dateA;
+        });
+
+        renderAllOrders(allOrdersData);
+    } catch(e) { 
+        console.error(e); 
+        tbody.innerHTML = '<tr><td colspan="7">خطأ في التحميل</td></tr>'; 
+    }
+}
         // ترتيب محمي
         allOrdersData.sort((a, b) => {
             const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
@@ -533,18 +544,44 @@ snap.forEach(d => {
         }); 
     }); 
 });    
+  document.getElementById('exportAllOrdersBtn').onclick = async () => {
     const btn = document.getElementById('exportAllOrdersBtn');
     btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري...";
     try {
         const snap = await getDocs(collection(db, "orders"));
         let flatData = [];
-        snap.forEach(d => { const order = d.data(); order.items.forEach(item => { flatData.push({ "التاريخ": order.createdAt.toDate().toLocaleString('ar-JO'), "المندوب": order.repName, "الصيدلية": order.pharmacyName, "الصنف": item.name, "الكمية": item.qty, "البونص": item.bonus, "السعر": item.price, "المجموع الفرعي": item.total, "الإجمالي الكلي": order.grandTotal, "الحالة": order.status }); }); });
-        if(flatData.length===0) { alert("لا توجد بيانات"); return; }
+        snap.forEach(d => { 
+            const order = d.data(); 
+            const dateStr = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('ar-JO') : "غير متوفر";
+            
+            if (order.items && Array.isArray(order.items)) {
+                order.items.forEach(item => { 
+                    flatData.push({ 
+                        "التاريخ": dateStr, 
+                        "المندوب": order.repName || "غير معروف", 
+                        "الصيدلية": order.pharmacyName || "غير معروف", 
+                        "الصنف": item.name || "-", 
+                        "الكمية": item.qty || 0, 
+                        "البونص": item.bonus || 0, 
+                        "السعر": item.price || 0, 
+                        "المجموع الفرعي": item.total || 0, 
+                        "الإجمالي الكلي": order.grandTotal || 0, 
+                        "الحالة": order.status || "pending" 
+                    }); 
+                }); 
+            }
+        });
+        if(flatData.length === 0) { alert("لا توجد بيانات"); return; }
         const ws = XLSX.utils.json_to_sheet(flatData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "جميع_الطلبيات");
         XLSX.writeFile(wb, "جميع_طلبيات_الشركة.xlsx");
-    } catch(e) { alert("خطأ"); } finally { btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير جميع الطلبيات"; }
+    } catch(e) { 
+        console.error(e);
+        alert("خطأ في التصدير"); 
+    } finally { 
+        btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير جميع الطلبيات"; 
+    }
 };
 
 // ------------------- تعديل الطلبية (مودال مشترك) -------------------
