@@ -489,7 +489,7 @@ function renderAllOrders(orders) {
     const tbody = document.getElementById('allOrdersBody');
     tbody.innerHTML = '';
     if(orders.length === 0) { 
-        tbody.innerHTML = '<tr><td colspan="7">لا توجد طلبيات</td></tr>'; 
+        tbody.innerHTML = '<tr><td colspan="8">لا توجد طلبيات</td></tr>'; 
         updateAllOrdersStats(orders); 
         return; 
     }
@@ -498,6 +498,7 @@ function renderAllOrders(orders) {
         const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "تاريخ غير متوفر";
         
         tr.innerHTML = `
+            <td><input type="checkbox" class="all-order-checkbox" value="${order.id}"></td>
             <td>${order.id.substring(0,6).toUpperCase()}</td>
             <td>${displayDate}</td>
             <td class="all-rep-col">${order.repName || '-'}</td>
@@ -811,6 +812,7 @@ openAddPharmacyModalBtn.onclick = () => {
 };
 
 // حفظ الصيدلية في فايربيس
+// حفظ الصيدلية في فايربيس
 saveNewPharmacyBtn.onclick = async () => {
     const repId = newPharmacyRepSelect.value;
     const repName = newPharmacyRepSelect.options[newPharmacyRepSelect.selectedIndex]?.text;
@@ -844,6 +846,51 @@ saveNewPharmacyBtn.onclick = async () => {
         saveNewPharmacyBtn.innerHTML = "حفظ الصيدلية";
         saveNewPharmacyBtn.disabled = false;
     }
-};
+}; // <-- هذا القوس هو الذي كان مفقوداً في المكان الصحيح!
+
+// --- كود الإجراءات الجماعية لشاشة جميع طلبيات الشركة ---
+
+// تحديد الكل
+document.getElementById('selectAllAllOrders')?.addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('.all-order-checkbox');
+    checkboxes.forEach(cb => cb.checked = this.checked);
+});
+
+// تنفيذ الإجراءات
+async function handleAllOrdersBulkAction(actionType) {
+    const selectedCheckboxes = document.querySelectorAll('.all-order-checkbox:checked');
+    const orderIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+    
+    if (orderIds.length === 0) {
+        alert("الرجاء تحديد طلبية واحدة على الأقل");
+        return;
+    }
+
+    const actionText = actionType === 'approve' ? 'الموافقة على' : 'حذف';
+    if (!confirm(`هل أنت متأكد من ${actionText} ${orderIds.length} طلبية؟`)) return;
+
+    try {
+        const promises = orderIds.map(id => {
+            if (actionType === 'approve') {
+                return updateDoc(doc(db, "orders", id), { status: "approved", updatedAt: new Date() });
+            } else {
+                return deleteDoc(doc(db, "orders", id));
+            }
+        });
+        
+        await Promise.all(promises);
+        alert(`تمت العملية بنجاح`);
+        if(document.getElementById('selectAllAllOrders')) document.getElementById('selectAllAllOrders').checked = false;
+        loadAllCompanyOrders(); // إعادة تحميل الجدول
+    } catch (error) {
+        console.error(error);
+        alert("حدث خطأ أثناء التنفيذ");
+    }
+}
+
+// ربط الأزرار بالدالة
+document.getElementById('bulkApproveAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('approve'));
+document.getElementById('bulkDeleteAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('delete'));
+    
 window.closeModal = () => detailsModal.style.display = 'none';
 loadInitialData();
