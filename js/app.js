@@ -693,27 +693,52 @@ document.getElementById('exportExcelBtn').onclick = async () => {
         let flatData = [];
         let allOrders = [];
         snap.forEach(d => allOrders.push(d.data()));
-        if(!isAdmin && currentRepName) allOrders = allOrders.filter(o => o.repName === currentRepName);
-allOrders.forEach(order => {
-    // هذا السطر يحول التاريخ لصيغة (يوم/شهر/سنة) فقط وبأرقام واضحة
-    const dateStr = order.createdAt.toDate().toLocaleDateString('en-GB'); 
+        
+        if (!isAdmin && currentRepName) {
+            allOrders = allOrders.filter(o => o.repName === currentRepName);
+        }
 
-    order.items.forEach(item => { 
-        flatData.push({ 
-            "التاريخ": dateStr, 
-            "المندوب": order.repName, 
-            "الصيدلية": order.pharmacyName, 
-            "الصنف": item.name, 
-            "الكمية": item.qty, 
-            "البونص": item.bonus, 
-            "السعر": item.price, 
-            "المجموع الفرعي": item.total, 
-            "الاجمالي الكلي": order.grandTotal, 
-            "الحالة": order.status 
-        }); 
-    });
-});
-document.getElementById('navOrderBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('orderScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navOrderBtn').classList.add('active'); };
+        allOrders.forEach(order => {
+            // التعديل الذي طلبته: التاريخ فقط بدون وقت
+            const dateStr = order.createdAt.toDate().toLocaleDateString('en-GB'); 
+
+            order.items.forEach(item => { 
+                flatData.push({ 
+                    "التاريخ": dateStr, 
+                    "المندوب": order.repName, 
+                    "الصيدلية": order.pharmacyName, 
+                    "الصنف": item.name, 
+                    "الكمية": item.qty, 
+                    "البونص": item.bonus, 
+                    "السعر": item.price, 
+                    "المجموع الفرعي": item.total, 
+                    "الاجمالي الكلي": order.grandTotal, 
+                    "الحالة": order.status 
+                }); 
+            });
+        });
+
+        if (flatData.length === 0) { alert("لا توجد بيانات"); return; }
+        const ws = XLSX.utils.json_to_sheet(flatData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "الطلبيات");
+        XLSX.writeFile(wb, "تقرير_طلبيات.xlsx");
+        
+    } catch (e) {
+        console.error(e);
+        alert("خطأ في التصدير");
+    } finally {
+        btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير للاكسل";
+    }
+};
+
+// باقي الأوامر (تأكد أنها خارج قوس الـ onclick السابق)
+document.getElementById('navOrderBtn').onclick = () => {
+    document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+    document.getElementById('orderScreen').style.display = 'block';
+    document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById('navOrderBtn').classList.add('active'); 
+};
 document.getElementById('navMyOrdersBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('myOrdersScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navMyOrdersBtn').classList.add('active'); loadMyOrders(); };
 document.getElementById('navReportsBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('reportsScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navReportsBtn').classList.add('active'); loadReports(); };
 document.getElementById('logoutBtn').onclick = () => { clearRepSession(); if(confirm("تسجيل الخروج؟")) location.reload(); };
