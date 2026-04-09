@@ -297,7 +297,7 @@ async function loadMyOrders() {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${order.id.substring(0,6).toUpperCase()}</td>
-                <td>${order.createdAt.toDate().toLocaleString('ar-JO')}</td>
+                <td>${order.createdAt.toDate().toLocaleString('en-GB')}</td>
                 <td>${order.pharmacyName}</td>
                 <td>${order.grandTotal.toFixed(2)}</td>
                 <td><span class="status-badge ${order.status === 'pending' ? 'pending' : 'returned'}">${order.status === 'pending' ? 'قيد الموافقة' : 'مرفوض/مرتجع'}</span></td>
@@ -389,7 +389,7 @@ function renderManagerOrders(orders) {
 
     orders.forEach(order => {
         const isApproved = order.status === 'approved';
-        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('ar-JO') : "غير متوفر";
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -495,7 +495,7 @@ function renderAllOrders(orders) {
     }
     orders.forEach(order => {
         const tr = document.createElement('tr');
-        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('ar-JO') : "تاريخ غير متوفر";
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "تاريخ غير متوفر";
         
         tr.innerHTML = `
             <td>${order.id.substring(0,6).toUpperCase()}</td>
@@ -559,7 +559,7 @@ document.getElementById('exportAllOrdersBtn').onclick = async () => {
         
         snap.forEach(d => { 
             const order = d.data(); 
-            const dateStr = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('ar-JO') : "غير متوفر";
+            const dateStr = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
             
             if (order.items && Array.isArray(order.items)) {
                 order.items.forEach(item => { 
@@ -659,7 +659,7 @@ async function loadReports() {
         body.innerHTML = '';
         os.forEach(o => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><b>${o.id.substring(0,5).toUpperCase()}</b></td><td>${o.createdAt.toDate().toLocaleString('ar-JO')}</td><td class="rep-col">${o.repName}</td><td class="pharm-col">${o.pharmacyName}</td><td>${o.grandTotal.toFixed(2)}</td><td><span class="status-badge ${o.status === 'approved' ? 'approved' : (o.status === 'pending' ? 'pending' : 'returned')}">${o.status === 'approved' ? 'موافق عليه' : (o.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td><td><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>`;
+            tr.innerHTML = `<td><b>${o.id.substring(0,5).toUpperCase()}</b></td><td>${o.createdAt.toDate().toLocaleString('en-GB')}</td><td class="rep-col">${o.repName}</td><td class="pharm-col">${o.pharmacyName}</td><td>${o.grandTotal.toFixed(2)}</td><td><span class="status-badge ${o.status === 'approved' ? 'approved' : (o.status === 'pending' ? 'pending' : 'returned')}">${o.status === 'approved' ? 'موافق عليه' : (o.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td><td><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>`;
             tr.querySelector('.btn-view').onclick = () => {
                 modalItemsBody.innerHTML = '';
                 document.getElementById('modalPharmacySubtitle').innerText = `الصيدلية: ${o.pharmacyName}`;
@@ -694,18 +694,25 @@ document.getElementById('exportExcelBtn').onclick = async () => {
         let allOrders = [];
         snap.forEach(d => allOrders.push(d.data()));
         if(!isAdmin && currentRepName) allOrders = allOrders.filter(o => o.repName === currentRepName);
-        allOrders.forEach(order => {
-            const dateStr = order.createdAt.toDate().toLocaleString('ar-JO');
-            order.items.forEach(item => { flatData.push({ "التاريخ": dateStr, "المندوب": order.repName, "الصيدلية": order.pharmacyName, "الصنف": item.name, "الكمية": item.qty, "البونص": item.bonus, "السعر": item.price, "المجموع الفرعي": item.total, "الاجمالي الكلي": order.grandTotal, "الحالة": order.status }); });
-        });
-        if(flatData.length===0) { alert("لا توجد بيانات"); return; }
-        const ws = XLSX.utils.json_to_sheet(flatData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "الطلبيات");
-        XLSX.writeFile(wb, "تقرير_طلبيات.xlsx");
-    } catch(e) { alert("خطا"); } finally { btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير للاكسل"; }
-};
+allOrders.forEach(order => {
+    // هذا السطر يحول التاريخ لصيغة (يوم/شهر/سنة) فقط وبأرقام واضحة
+    const dateStr = order.createdAt.toDate().toLocaleDateString('en-GB'); 
 
+    order.items.forEach(item => { 
+        flatData.push({ 
+            "التاريخ": dateStr, 
+            "المندوب": order.repName, 
+            "الصيدلية": order.pharmacyName, 
+            "الصنف": item.name, 
+            "الكمية": item.qty, 
+            "البونص": item.bonus, 
+            "السعر": item.price, 
+            "المجموع الفرعي": item.total, 
+            "الاجمالي الكلي": order.grandTotal, 
+            "الحالة": order.status 
+        }); 
+    });
+});
 document.getElementById('navOrderBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('orderScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navOrderBtn').classList.add('active'); };
 document.getElementById('navMyOrdersBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('myOrdersScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navMyOrdersBtn').classList.add('active'); loadMyOrders(); };
 document.getElementById('navReportsBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('reportsScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navReportsBtn').classList.add('active'); loadReports(); };
