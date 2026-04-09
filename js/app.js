@@ -26,7 +26,6 @@ function initializeManagerView(managerName) {
         filterSelect.appendChild(opt);
     }
 
-    filterSelect.onchange = () => loadManagerOrders(filterSelect.value);
     
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('managerScreen').style.display = 'block';
@@ -313,26 +312,152 @@ async function loadMyOrders() {
     } catch(e) { console.error(e); tbody.innerHTML = '<tr><td colspan="6">خطا في التحميل</td></tr>'; }
 }
 
-async function loadManagerOrders(selectedRep = '') {
+let managerOrdersData = [];
+
+async function loadManagerOrders() {
     const tbody = document.getElementById('managerOrdersBody');
     if (!tbody) return;
-    
-    tbody.innerHTML = '<tr><td colspan="7">جاري التحميل...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8">جاري التحميل...</td></tr>';
     
     try {
-        let ordersQuery = collection(db, "orders");
-        let snap = await getDocs(ordersQuery);
+        let snap = await getDocs(collection(db, "orders"));
         let allOrders = [];
         
         snap.forEach(d => {
             const data = d.data();
             if (data.updatedAt && data.createdAt) {
                 allOrders.push({ id: d.id, ...data });
-            } else {
-                console.warn(`الطلبية ${d.id} تحتوي على تواريخ ناقصة`);
             }
         });
 
+        const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
+        const normalizedUnder = managerReps.map(r => r.trim().toLowerCase());
+
+        managerOrdersData = allOrders.filter(o => {
+            const repNameNorm = o.repName?.trim().toLowerCase();
+            return repNameNorm && normalizedUnder.includes(repNameNorm);
+        });
+
+        managerOrdersData.sort((a, b) => {
+            const dateA = a.updatedAt?.toDate ? a.updatedAt.toDate() : 0;
+            const dateB = b.updatedAt?.toDate ? b.updatedAt.toDate() : 0;
+            return dateB - dateA;
+        });
+
+        applyManagerFilters();
+    } catch (e) {
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="8" style="color:red;">خطا في التحميل</td></tr>`;
+    }
+}
+
+function applyManagerFilters() {
+    const repFilter = document.getElementById('managerRepFilter')?.value || '';
+    const pharmFilter = document.getElementById('managerPharmacyFilter')?.value.toLowerCase() || '';
+    const statusFilter = document.getElementById('managerStatusFilter')?.value || '';
+
+    let filtered = managerOrdersData.filter(o => {
+        const matchRep = repFilter === '' || o.repName === repFilter || o.repId === repFilter;
+        const matchPharm = pharmFilter === '' || (o.pharmacyName && o.pharmacyName.toLowerCase().includes(pharmFilter));
+        const matchStatus = statusFilter === '' || o.status === statusFilter;
+        return matchRep && matchPharm && matchStatus;
+    });
+
+    const count = filtered.length;
+    const total = filtered.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
+    
+    const countEl = document.getElementById('managerOrdersCount');
+    const totalEl = document.getElementById('managerOrdersTotal');
+    
+    if(countEl) countEl.innerText = count;
+    if(totalEl) totalEl.innerText = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    renderManagerOrders(filtered);
+}
+
+document.getElementById('managerRepFilter')?.addEventListener('change', applyManagerFilters);
+document.getElementById('managerPharmacyFilter')?.addEventListener('input', applyManagerFilters);
+document.getElementById('managerStatusFilter')?.addEventListener('change', applyManagerFilters);
+
+function renderManagerOrders(orders) {
+    const tbody = document.getElementById('managerOrdersBody');
+    tbody.innerHTML = '';
+    
+    if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8">لا توجد طلبيات مطابقة</td></tr>';
+        return;
+    }
+
+    orders.forEach(order => {
+        const isApproved = order.status === 'approved';
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('ar-JO') : "غير متوفر";
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="checkbox" class="order-checkbox" value="${order.id}"></td>
+            <td>${order.id.substring(0, 6).toUpperCase()}</td>
+            <td>${displayDate}</td>
+            <td>${order.repName}</td>
+            <td>${order.pharmacyName}</td>
+            <td>${(order.grandTotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td><span class="status-badge ${order.status}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
+            <td>
+                <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
+                ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
+            </td>
+        `;
+        
+        tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'manager');
+        if (!isApproved) {
+            tr.querySelector('.approve-btn').onclick = async () => { 
+                if(confirm("الموافقة على الطلبية؟")) { 
+                    await updateDoc(doc(db, "orders", order.id), { status: "approved", updatedAt: new Date() }); 
+                    loadManagerOrders(); 
+                } 
+            };
+        }
+        tbody.appendChild(tr);
+    });
+}
+
+document.getElementById('selectAllOrders')?.addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('.order-checkbox');
+    checkboxes.forEach(cb => cb.checked = this.checked);
+});
+
+async function handleBulkAction(actionType) {
+    const selectedCheckboxes = document.querySelectorAll('.order-checkbox:checked');
+    const orderIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+    
+    if (orderIds.length === 0) {
+        alert("الرجا تحديد طلبية واحدة على الاقل");
+        return;
+    }
+
+    const actionText = actionType === 'approve' ? 'الموافقة على' : 'حذف';
+    if (!confirm(`هل انت متاكد من ${actionText} ${orderIds.length} طلبية؟`)) return;
+
+    try {
+        const promises = orderIds.map(id => {
+            if (actionType === 'approve') {
+                return updateDoc(doc(db, "orders", id), { status: "approved", updatedAt: new Date() });
+            } else {
+                return deleteDoc(doc(db, "orders", id));
+            }
+        });
+        
+        await Promise.all(promises);
+        alert(`تم العملية بنجاح`);
+        if(document.getElementById('selectAllOrders')) document.getElementById('selectAllOrders').checked = false;
+        loadManagerOrders();
+    } catch (error) {
+        console.error(error);
+        alert("حدث خطا اثنا التنفيذ");
+    }
+}
+
+document.getElementById('bulkApproveBtn')?.addEventListener('click', () => handleBulkAction('approve'));
+document.getElementById('bulkDeleteBtn')?.addEventListener('click', () => handleBulkAction('delete'));
         let filteredOrders = [];
         const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
 
