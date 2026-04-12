@@ -12,13 +12,19 @@
         .btn:hover { background: #003a7a; }
         input[type="file"] { padding: 10px; border: 1px solid #ccc; border-radius: 8px; width: 100%; margin-top: 15px;}
         #status { margin-top: 20px; font-size: 1.1rem; font-weight: bold; }
+        .info-box { background: #e0f2fe; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: right; font-size: 0.9rem; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2 style="color: #004a99;">تحديث قائمة الصيدليات (نسخة مستقلة)</h2>
-        <p>اختر ملف الإكسل الجديد الذي يحتوي على (name, rep_id, pharmacy_code)</p>
+        <h2 style="color: #004a99;">تحديث قائمة الصيدليات المطور</h2>
         
+        <div class="info-box">
+            <strong>ملاحظة هامة:</strong> يجب أن يحتوي ملف الإكسل على الأعمدة التالية تماماً:
+            <br>
+            (Name, rep_id, pharmacy_code, Supervisor, Area)
+        </div>
+
         <input type="file" id="excelFile" accept=".xlsx, .xls">
         <br>
         <button id="startImportBtn" class="btn">بدء تحديث قاعدة البيانات</button>
@@ -26,11 +32,9 @@
     </div>
 
     <script type="module">
-        // 1. استدعاء مكتبات فايربيس مباشرة من جوجل
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, getDocs, deleteDoc, doc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // 2. إعدادات قاعدة البيانات الخاصة بك
         const firebaseConfig = {
             apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
             authDomain: "dad-ordering-system.firebaseapp.com",
@@ -40,18 +44,16 @@
             appId: "1:43886677849:web:de5f80c06e1b743c948648"
         };
 
-        // 3. تهيئة الاتصال
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // 4. كود القراءة والرفع
         document.getElementById('startImportBtn').onclick = async () => {
             const file = document.getElementById('excelFile').files[0];
             if (!file) return alert("الرجاء اختيار ملف إكسل أولاً");
 
             const status = document.getElementById('status');
             status.innerText = "جاري قراءة الملف...";
-            status.style.color = "#f59e0b"; // لون برتقالي
+            status.style.color = "#f59e0b";
 
             const reader = new FileReader();
             reader.onload = async (e) => {
@@ -67,7 +69,7 @@
                 }
 
                 try {
-                    status.innerText = "جاري حذف الصيدليات القديمة (الرجاء الانتظار)...";
+                    status.innerText = "جاري حذف الصيدليات القديمة...";
                     const snap = await getDocs(collection(db, "pharmacies"));
                     const deletePromises = [];
                     snap.forEach(d => {
@@ -75,25 +77,29 @@
                     });
                     await Promise.all(deletePromises);
 
-                    status.innerText = `تم الحذف. جاري إضافة ${excelData.length} صيدلية جديدة...`;
+                    status.innerText = `جاري إضافة ${excelData.length} صيدلية جديدة...`;
                     const addPromises = [];
+                    
                     excelData.forEach(row => {
-                        // التأكد من وجود اسم الصيدلية والمندوب في الصف
-                        if(row.name && row.rep_id) {
+                        // التحقق من الأعمدة المطلوبة (مع مراعاة حالة الأحرف في الإكسل)
+                        if(row.Name && row.rep_id) {
                             addPromises.push(addDoc(collection(db, "pharmacies"), {
-                                name: String(row.name),
-                                rep_id: String(row.rep_id),
-                                pharmacy_code: String(row.pharmacy_code || "-")
+                                name: String(row.Name).trim(),
+                                rep_id: String(row.rep_id).trim(),
+                                pharmacy_code: String(row.pharmacy_code || "-").trim(),
+                                supervisor: String(row.Supervisor || "-").trim(),
+                                area: String(row.Area || "-").trim()
                             }));
                         }
                     });
+
                     await Promise.all(addPromises);
                     
-                    status.innerText = "✅ تم تحديث قاعدة البيانات بنجاح!";
-                    status.style.color = "#10b981"; // لون أخضر
+                    status.innerText = "✅ تم التحديث بنجاح مع كافة البيانات الإضافية!";
+                    status.style.color = "#10b981";
                 } catch (error) {
                     console.error("Error during import:", error);
-                    status.innerText = "❌ حدث خطأ أثناء التحديث. الرجاء المحاولة مرة أخرى.";
+                    status.innerText = "❌ حدث خطأ أثناء التحديث.";
                     status.style.color = "red";
                 }
             };
