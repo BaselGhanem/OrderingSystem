@@ -82,6 +82,8 @@ let isAdmin = false;
 let currentManagerName = null;
 let editingOrderId = null;
 let allOrdersData = [];
+let currentPharmacyCode = null;
+let currentPharmaciesData = [];
 
 function saveRepSession(repId, repName) {
     sessionStorage.setItem('repId', repId);
@@ -214,7 +216,11 @@ repSelect.onchange = async (e) => {
         const q = query(collection(db, "pharmacies"), where("rep_id", "==", e.target.value));
         const snap = await getDocs(q);
         let pharmacyNames = [];
-        snap.forEach(d => pharmacyNames.push(d.data().name));
+        currentPharmaciesData = []; // حفظ بيانات الصيدليات كاملة
+        snap.forEach(d => {
+            currentPharmaciesData.push(d.data()); // <-- هذا السطر اللي كان ناقص
+            pharmacyNames.push(d.data().name);
+        });
         setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => startOrderBtn.disabled = false);
         pharmacyInput.disabled = false;
         pharmacyInput.placeholder = 'ابحث او اختر الصيدلية...';
@@ -231,6 +237,8 @@ startOrderBtn.onclick = () => {
     currentRepName = repSelect.options[repSelect.selectedIndex].text;
     saveRepSession(currentRepId, currentRepName);
     currentPharmacyName = pharmacyInput.value;
+    const selectedPharm = currentPharmaciesData.find(p => p.name === currentPharmacyName);
+    currentPharmacyCode = selectedPharm ? (selectedPharm.pharmacy_code || "-") : "-";
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('orderScreen').style.display = 'block';
     document.getElementById('userInfo').style.display = 'flex';
@@ -261,6 +269,7 @@ submitOrderBtn.onclick = async () => {
             repName: currentRepName,
             managerName: getManagerName(currentRepName),
             pharmacyName: currentPharmacyName,
+            pharmacyCode: currentPharmacyCode, // <-- تمت الإضافة هنا
             items: items,
             grandTotal: parseFloat(grandTotalEl.innerText),
             createdAt: new Date(),
@@ -575,6 +584,7 @@ document.getElementById('exportAllOrdersBtn').onclick = async () => {
                     flatData.push({ 
                         "التاريخ": dateStr, 
                         "المندوب": order.repName || "غير معروف", 
+                        "كود الصيدلية": order.pharmacyCode || "-", // <-- تمت الإضافة هنا
                         "الصيدلية": order.pharmacyName || "غير معروف", 
                         "الصنف": item.name || "-", 
                         "الكمية": item.qty || 0, 
@@ -715,6 +725,7 @@ document.getElementById('exportExcelBtn').onclick = async () => {
                 flatData.push({ 
                     "التاريخ": dateStr, 
                     "المندوب": order.repName, 
+                    "كود الصيدلية": order.pharmacyCode || "-", // <-- تمت الإضافة هنا
                     "الصيدلية": order.pharmacyName, 
                     "الصنف": item.name, 
                     "الكمية": item.qty, 
@@ -797,56 +808,6 @@ document.getElementById('adminModeBtn').onclick = () => {
         alert("كلمة المرور خاطئة!");
     }
 };
-const addPharmacyModal = document.getElementById('addPharmacyModal');
-const openAddPharmacyModalBtn = document.getElementById('openAddPharmacyModalBtn');
-const newPharmacyRepSelect = document.getElementById('newPharmacyRepSelect');
-const newPharmacyName = document.getElementById('newPharmacyName');
-const saveNewPharmacyBtn = document.getElementById('saveNewPharmacyBtn');
-
-// فتح الشاشة وتعبئة قائمة المناديب
-openAddPharmacyModalBtn.onclick = () => {
-    // نسخ قائمة المناديب من القائمة الرئيسية الموجودة مسبقاً
-    newPharmacyRepSelect.innerHTML = repSelect.innerHTML;
-    newPharmacyName.value = '';
-    addPharmacyModal.style.display = 'flex';
-};
-
-// حفظ الصيدلية في فايربيس
-// حفظ الصيدلية في فايربيس
-saveNewPharmacyBtn.onclick = async () => {
-    const repId = newPharmacyRepSelect.value;
-    const repName = newPharmacyRepSelect.options[newPharmacyRepSelect.selectedIndex]?.text;
-    const pharmName = newPharmacyName.value.trim();
-
-    if (!repId) return alert("الرجاء اختيار المندوب");
-    if (!pharmName) return alert("الرجاء كتابة اسم الصيدلية");
-
-    saveNewPharmacyBtn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري الحفظ...";
-    saveNewPharmacyBtn.disabled = true;
-
-    try {
-        // إضافة الصيدلية إلى كوليكشن pharmacies وتخصيصها لمندوب واحد
-        await addDoc(collection(db, "pharmacies"), {
-            name: pharmName,
-            rep_id: repId
-        });
-
-        alert("تم إضافة الصيدلية بنجاح!");
-        addPharmacyModal.style.display = 'none';
-
-        // تحديث قائمة الصيدليات فوراً إذا كان المندوب المختار هو نفس المندوب النشط حالياً في الشاشة الرئيسية
-        if (repSelect.value === repId) {
-            repSelect.dispatchEvent(new Event('change'));
-        }
-
-    } catch (error) {
-        console.error("خطأ في إضافة الصيدلية:", error);
-        alert("حدث خطأ أثناء الحفظ");
-    } finally {
-        saveNewPharmacyBtn.innerHTML = "حفظ الصيدلية";
-        saveNewPharmacyBtn.disabled = false;
-    }
-}; // <-- هذا القوس هو الذي كان مفقوداً في المكان الصحيح!
 
 // --- كود الإجراءات الجماعية لشاشة جميع طلبيات الشركة ---
 
