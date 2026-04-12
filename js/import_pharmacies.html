@@ -3,29 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <title>تحديث قاعدة بيانات الصيدليات</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Cairo', sans-serif; padding: 50px; text-align: center; }
-        .btn { padding: 10px 20px; background: #004a99; color: white; border: none; cursor: pointer; border-radius: 5px;}
+        body { font-family: 'Cairo', sans-serif; padding: 50px; text-align: center; background-color: #f1f5f9; color: #1e293b; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+        .btn { padding: 12px 25px; background: #004a99; color: white; border: none; cursor: pointer; border-radius: 8px; font-size: 1rem; font-weight: bold; margin-top: 15px; transition: 0.3s;}
+        .btn:hover { background: #003a7a; }
+        input[type="file"] { padding: 10px; border: 1px solid #ccc; border-radius: 8px; width: 100%; margin-top: 15px;}
+        #status { margin-top: 20px; font-size: 1.1rem; font-weight: bold; }
     </style>
 </head>
 <body>
-    <h2>تحديث قائمة الصيدليات</h2>
-    <p>اختر ملف الإكسل الجديد لحذف الصيدليات القديمة وإضافة الجديدة.</p>
-    <input type="file" id="excelFile" accept=".xlsx, .xls">
-    <br><br>
-    <button id="startImportBtn" class="btn">بدء التحديث</button>
-    <div id="status" style="margin-top: 20px; font-weight: bold;"></div>
+    <div class="container">
+        <h2 style="color: #004a99;">تحديث قائمة الصيدليات (نسخة مستقلة)</h2>
+        <p>اختر ملف الإكسل الجديد الذي يحتوي على (name, rep_id, pharmacy_code)</p>
+        
+        <input type="file" id="excelFile" accept=".xlsx, .xls">
+        <br>
+        <button id="startImportBtn" class="btn">بدء تحديث قاعدة البيانات</button>
+        <div id="status"></div>
+    </div>
 
     <script type="module">
-        import { db, collection, getDocs, deleteDoc, doc, addDoc } from './js/firebase.js'; // تأكد من مسار ملف firebase.js
+        // 1. استدعاء مكتبات فايربيس مباشرة من جوجل
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, deleteDoc, doc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+        // 2. إعدادات قاعدة البيانات الخاصة بك
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
+            authDomain: "dad-ordering-system.firebaseapp.com",
+            projectId: "dad-ordering-system",
+            storageBucket: "dad-ordering-system.firebasestorage.app",
+            messagingSenderId: "43886677849",
+            appId: "1:43886677849:web:de5f80c06e1b743c948648"
+        };
+
+        // 3. تهيئة الاتصال
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // 4. كود القراءة والرفع
         document.getElementById('startImportBtn').onclick = async () => {
             const file = document.getElementById('excelFile').files[0];
             if (!file) return alert("الرجاء اختيار ملف إكسل أولاً");
 
             const status = document.getElementById('status');
             status.innerText = "جاري قراءة الملف...";
+            status.style.color = "#f59e0b"; // لون برتقالي
 
             const reader = new FileReader();
             reader.onload = async (e) => {
@@ -34,7 +60,11 @@
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const excelData = XLSX.utils.sheet_to_json(firstSheet);
 
-                if(excelData.length === 0) return alert("الملف فارغ!");
+                if(excelData.length === 0) {
+                    status.innerText = "الملف فارغ أو الترويسة غير صحيحة!";
+                    status.style.color = "red";
+                    return;
+                }
 
                 try {
                     status.innerText = "جاري حذف الصيدليات القديمة (الرجاء الانتظار)...";
@@ -48,6 +78,7 @@
                     status.innerText = `تم الحذف. جاري إضافة ${excelData.length} صيدلية جديدة...`;
                     const addPromises = [];
                     excelData.forEach(row => {
+                        // التأكد من وجود اسم الصيدلية والمندوب في الصف
                         if(row.name && row.rep_id) {
                             addPromises.push(addDoc(collection(db, "pharmacies"), {
                                 name: String(row.name),
@@ -58,11 +89,11 @@
                     });
                     await Promise.all(addPromises);
                     
-                    status.innerText = "تم تحديث قاعدة البيانات بنجاح!";
-                    status.style.color = "green";
+                    status.innerText = "✅ تم تحديث قاعدة البيانات بنجاح!";
+                    status.style.color = "#10b981"; // لون أخضر
                 } catch (error) {
-                    console.error(error);
-                    status.innerText = "حدث خطأ أثناء التحديث. راجع الـ Console.";
+                    console.error("Error during import:", error);
+                    status.innerText = "❌ حدث خطأ أثناء التحديث. الرجاء المحاولة مرة أخرى.";
                     status.style.color = "red";
                 }
             };
