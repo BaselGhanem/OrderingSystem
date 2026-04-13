@@ -590,14 +590,14 @@ document.getElementById('exportAllOrdersBtn').onclick = async () => {
                     flatData.push({ 
                         "التاريخ": dateStr, 
                         "المندوب": order.repName || "غير معروف", 
-                        "كود الصيدلية": order.pharmacyCode || "-", // <-- تمت الإضافة هنا
+                        "كود الصيدلية": order.pharmacyCode || "-", 
                         "الصيدلية": order.pharmacyName || "غير معروف", 
                         "الصنف": item.name || "-", 
-                        "الكمية": item.qty || 0, 
-                        "البونص": item.bonus || 0, 
-                        "السعر": item.price || 0, 
-                        "المجموع الفرعي": item.total || 0, 
-                        "الاجمالي الكلي": order.grandTotal || 0, 
+                        "الكمية": parseInt(item.qty, 10) || 0, 
+                        "البونص": parseInt(item.bonus, 10) || 0, 
+                        "السعر": parseFloat(item.price) || 0, 
+                        "المجموع الفرعي": parseFloat(item.total) || 0, 
+                        "الاجمالي الكلي": parseFloat(order.grandTotal) || 0, 
                         "الحالة": order.status || "pending" 
                     }); 
                 }); 
@@ -731,14 +731,14 @@ document.getElementById('exportExcelBtn').onclick = async () => {
                 flatData.push({ 
                     "التاريخ": dateStr, 
                     "المندوب": order.repName, 
-                    "كود الصيدلية": order.pharmacyCode || "-", // <-- تمت الإضافة هنا
+                    "كود الصيدلية": order.pharmacyCode || "-", 
                     "الصيدلية": order.pharmacyName, 
                     "الصنف": item.name, 
-                    "الكمية": item.qty, 
-                    "البونص": item.bonus, 
-                    "السعر": item.price, 
-                    "المجموع الفرعي": item.total, 
-                    "الاجمالي الكلي": order.grandTotal, 
+                    "الكمية": parseInt(item.qty, 10) || 0, 
+                    "البونص": parseInt(item.bonus, 10) || 0, 
+                    "السعر": parseFloat(item.price) || 0, 
+                    "المجموع الفرعي": parseFloat(item.total) || 0, 
+                    "الاجمالي الكلي": parseFloat(order.grandTotal) || 0, 
                     "الحالة": order.status 
                 }); 
             });
