@@ -333,25 +333,26 @@ async function loadManagerOrders() {
         
         snap.forEach(d => {
             const data = d.data();
-            // التعديل هنا: جلب الطلبيات بناءً على تاريخ الإنشاء فقط (نفس شرط صفحة الشركة)
+            // نفس كود جميع طلبيات الشركة لضمان جلب نفس البيانات 100%
             if (data.createdAt) {
                 allOrders.push({ id: d.id, ...data });
             }
+        });
+
+        // الفرز نفس جميع طلبيات الشركة تماما
+        allOrders.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+            return dateB - dateA;
         });
 
         const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
         const normalizedUnder = managerReps.map(r => r.trim().toLowerCase());
 
         managerOrdersData = allOrders.filter(o => {
-            const repNameNorm = o.repName?.trim().toLowerCase();
-            return repNameNorm && normalizedUnder.includes(repNameNorm);
-        });
-
-        managerOrdersData.sort((a, b) => {
-            // استخدام updatedAt إذا وجد، وإلا نستخدم createdAt
-            const dateA = a.updatedAt?.toDate ? a.updatedAt.toDate() : (a.createdAt?.toDate ? a.createdAt.toDate() : 0);
-            const dateB = b.updatedAt?.toDate ? b.updatedAt.toDate() : (b.createdAt?.toDate ? b.createdAt.toDate() : 0);
-            return dateB - dateA;
+            const repNameNorm = (o.repName || '').trim().toLowerCase();
+            // البحث المرن: يكفي ان يحتوي اسم المندوب في الطلبية على اسم المندوب في القائمة (نفس آلية بحث الشركة)
+            return normalizedUnder.some(rep => repNameNorm.includes(rep));
         });
 
         applyManagerFilters();
@@ -362,13 +363,20 @@ async function loadManagerOrders() {
 }
 
 function applyManagerFilters() {
-    const repFilter = document.getElementById('managerRepFilter')?.value.trim() || '';
+    // جلب نص الخيار المحدد بدلاً من القيمة، لعمل بحث نصي مرن (includes)
+    const repDropdown = document.getElementById('managerRepFilter');
+    let repFilterText = '';
+    if (repDropdown && repDropdown.selectedIndex > 0) {
+        repFilterText = repDropdown.options[repDropdown.selectedIndex].text.trim().toLowerCase();
+    }
+
     const pharmFilter = document.getElementById('managerPharmacyFilter')?.value.trim().toLowerCase() || '';
     const statusFilter = document.getElementById('managerStatusFilter')?.value || '';
 
     let filtered = managerOrdersData.filter(o => {
-        const repNameClean = o.repName ? o.repName.trim() : ''; 
-        const matchRep = repFilter === '' || repNameClean === repFilter || o.repId === repFilter;
+        const repNameClean = (o.repName || '').toLowerCase();
+        // تطبيق الفلترة باستخدام includes بدلا من === لمنع مشاكل المسافات والأخطاء القديمة
+        const matchRep = repFilterText === '' || repNameClean.includes(repFilterText);
         
         const matchPharm = pharmFilter === '' || (o.pharmacyName && o.pharmacyName.toLowerCase().includes(pharmFilter));
         const matchStatus = statusFilter === '' || o.status === statusFilter;
@@ -531,7 +539,6 @@ function renderAllOrders(orders) {
 
 function updateAllOrdersStats(orders) {
     const count = orders.length;
-    // التعديل هنا لضمان دقة جمع كل الطلبيات
     const total = orders.reduce((sum, order) => sum + (parseFloat(order.grandTotal) || 0), 0);
     const countElem = document.getElementById('totalOrdersCount');
     const sumElem = document.getElementById('totalOrdersSum');
@@ -792,7 +799,6 @@ document.getElementById('adminModeBtn').onclick = () => {
             return;
         }
 
-        // إزالة أي مسافات زائدة من اسم المدير المدخل لتجنب أخطاء الفلترة
         managerName = managerName.trim();
 
         if (managerName !== "محمد طوالبه" && managerName !== "عبدالله الناطور") {
