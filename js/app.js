@@ -216,9 +216,9 @@ repSelect.onchange = async (e) => {
         const q = query(collection(db, "pharmacies"), where("rep_id", "==", e.target.value));
         const snap = await getDocs(q);
         let pharmacyNames = [];
-        currentPharmaciesData = []; // حفظ بيانات الصيدليات كاملة
+        currentPharmaciesData = []; 
         snap.forEach(d => {
-            currentPharmaciesData.push(d.data()); // <-- هذا السطر اللي كان ناقص
+            currentPharmaciesData.push(d.data()); 
             pharmacyNames.push(d.data().name);
         });
         setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => startOrderBtn.disabled = false);
@@ -269,7 +269,7 @@ submitOrderBtn.onclick = async () => {
             repName: currentRepName,
             managerName: getManagerName(currentRepName),
             pharmacyName: currentPharmacyName,
-            pharmacyCode: currentPharmacyCode, // <-- تمت الإضافة هنا
+            pharmacyCode: currentPharmacyCode, 
             items: items,
             grandTotal: parseFloat(grandTotalEl.innerText),
             createdAt: new Date(),
@@ -308,7 +308,7 @@ async function loadMyOrders() {
                 <td>${order.id.substring(0,6).toUpperCase()}</td>
                 <td>${order.createdAt.toDate().toLocaleString('en-GB')}</td>
                 <td>${order.pharmacyName}</td>
-                <td>${order.grandTotal.toFixed(2)}</td>
+                <td>${parseFloat(order.grandTotal).toFixed(2)}</td>
                 <td><span class="status-badge ${order.status === 'pending' ? 'pending' : 'returned'}">${order.status === 'pending' ? 'قيد الموافقة' : 'مرفوض/مرتجع'}</span></td>
                 <td><button class="action-btn edit-btn" data-id="${order.id}" title="تعديل"><i class="ph ph-pencil"></i></button>
                     <button class="action-btn delete-btn" data-id="${order.id}" title="حذف"><i class="ph ph-trash"></i></button></td>
@@ -333,7 +333,8 @@ async function loadManagerOrders() {
         
         snap.forEach(d => {
             const data = d.data();
-            if (data.updatedAt && data.createdAt) {
+            // التعديل هنا: جلب الطلبيات بناءً على تاريخ الإنشاء فقط (نفس شرط صفحة الشركة)
+            if (data.createdAt) {
                 allOrders.push({ id: d.id, ...data });
             }
         });
@@ -347,8 +348,9 @@ async function loadManagerOrders() {
         });
 
         managerOrdersData.sort((a, b) => {
-            const dateA = a.updatedAt?.toDate ? a.updatedAt.toDate() : 0;
-            const dateB = b.updatedAt?.toDate ? b.updatedAt.toDate() : 0;
+            // استخدام updatedAt إذا وجد، وإلا نستخدم createdAt
+            const dateA = a.updatedAt?.toDate ? a.updatedAt.toDate() : (a.createdAt?.toDate ? a.createdAt.toDate() : 0);
+            const dateB = b.updatedAt?.toDate ? b.updatedAt.toDate() : (b.createdAt?.toDate ? b.createdAt.toDate() : 0);
             return dateB - dateA;
         });
 
@@ -360,13 +362,11 @@ async function loadManagerOrders() {
 }
 
 function applyManagerFilters() {
-    // تنظيف الفلاتر من المسافات الزائدة
     const repFilter = document.getElementById('managerRepFilter')?.value.trim() || '';
     const pharmFilter = document.getElementById('managerPharmacyFilter')?.value.trim().toLowerCase() || '';
     const statusFilter = document.getElementById('managerStatusFilter')?.value || '';
 
     let filtered = managerOrdersData.filter(o => {
-        // تنظيف اسم المندوب في الطلبية من أي مسافات لتتطابق بشكل صحيح 100%
         const repNameClean = o.repName ? o.repName.trim() : ''; 
         const matchRep = repFilter === '' || repNameClean === repFilter || o.repId === repFilter;
         
@@ -377,7 +377,6 @@ function applyManagerFilters() {
     });
 
     const count = filtered.length;
-    // إضافة parseFloat لإجبار الكود على الجمع الحسابي (Math) ومنع تداخل النصوص (String Concatenation)
     const total = filtered.reduce((sum, o) => sum + (parseFloat(o.grandTotal) || 0), 0);
     
     const countEl = document.getElementById('managerOrdersCount');
@@ -413,7 +412,7 @@ function renderManagerOrders(orders) {
             <td>${displayDate}</td>
             <td>${order.repName}</td>
             <td>${order.pharmacyName}</td>
-            <td>${(order.grandTotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td><span class="status-badge ${order.status}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
             <td>
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
@@ -518,7 +517,7 @@ function renderAllOrders(orders) {
             <td>${displayDate}</td>
             <td class="all-rep-col">${order.repName || '-'}</td>
             <td class="all-pharm-col">${order.pharmacyName || '-'}</td>
-            <td>${(order.grandTotal || 0).toFixed(2)}</td>
+            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td><span class="status-badge ${order.status}">${order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
             <td><button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
@@ -532,11 +531,12 @@ function renderAllOrders(orders) {
 
 function updateAllOrdersStats(orders) {
     const count = orders.length;
-    const total = orders.reduce((sum, order) => sum + order.grandTotal, 0);
+    // التعديل هنا لضمان دقة جمع كل الطلبيات
+    const total = orders.reduce((sum, order) => sum + (parseFloat(order.grandTotal) || 0), 0);
     const countElem = document.getElementById('totalOrdersCount');
     const sumElem = document.getElementById('totalOrdersSum');
     if (countElem) countElem.innerText = count;
-    if (sumElem) sumElem.innerText = total.toFixed(2);
+    if (sumElem) sumElem.innerText = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function showOrderDetails(order) {
@@ -551,13 +551,11 @@ function showOrderDetails(order) {
 }
 
 function filterAllOrders() {
-    // جلب قيم الفلاتر مع تنظيفها من الفراغات
     const repFilter = (document.getElementById('filterAllRep').value || '').toLowerCase().trim();
     const pharmFilter = (document.getElementById('filterAllPharmacy').value || '').toLowerCase().trim();
     const statusFilter = (document.getElementById('filterAllStatus').value || '').trim();
 
     const filtered = allOrdersData.filter(order => {
-        // تجهيز بيانات الطلبية مع وضع قيمة افتراضية '' لتجنب توقف الكود
         const repName = (order.repName || '').toLowerCase();
         const pharmName = (order.pharmacyName || '').toLowerCase();
         const orderStatus = (order.status || '').trim();
@@ -684,7 +682,7 @@ async function loadReports() {
         body.innerHTML = '';
         os.forEach(o => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><b>${o.id.substring(0,5).toUpperCase()}</b></td><td>${o.createdAt.toDate().toLocaleString('en-GB')}</td><td class="rep-col">${o.repName}</td><td class="pharm-col">${o.pharmacyName}</td><td>${o.grandTotal.toFixed(2)}</td><td><span class="status-badge ${o.status === 'approved' ? 'approved' : (o.status === 'pending' ? 'pending' : 'returned')}">${o.status === 'approved' ? 'موافق عليه' : (o.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td><td><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>`;
+            tr.innerHTML = `<td><b>${o.id.substring(0,5).toUpperCase()}</b></td><td>${o.createdAt.toDate().toLocaleString('en-GB')}</td><td class="rep-col">${o.repName}</td><td class="pharm-col">${o.pharmacyName}</td><td>${parseFloat(o.grandTotal).toFixed(2)}</td><td><span class="status-badge ${o.status === 'approved' ? 'approved' : (o.status === 'pending' ? 'pending' : 'returned')}">${o.status === 'approved' ? 'موافق عليه' : (o.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td><td><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>`;
             tr.querySelector('.btn-view').onclick = () => {
                 modalItemsBody.innerHTML = '';
                 document.getElementById('modalPharmacySubtitle').innerText = `الصيدلية: ${o.pharmacyName}`;
@@ -724,7 +722,6 @@ document.getElementById('exportExcelBtn').onclick = async () => {
         }
 
         allOrders.forEach(order => {
-            // التعديل الذي طلبته: التاريخ فقط بدون وقت
             const dateStr = order.createdAt.toDate().toLocaleDateString('en-GB'); 
 
             order.items.forEach(item => { 
@@ -758,7 +755,6 @@ document.getElementById('exportExcelBtn').onclick = async () => {
     }
 };
 
-// باقي الأوامر (تأكد أنها خارج قوس الـ onclick السابق)
 document.getElementById('navOrderBtn').onclick = () => {
     document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
     document.getElementById('orderScreen').style.display = 'block';
@@ -791,7 +787,15 @@ document.getElementById('adminModeBtn').onclick = () => {
             managerName = prompt("ادخل اسمك كمدير (محمد طوالبه او عبدالله الناطور):");
         }
 
-        if (!managerName || (managerName !== "محمد طوالبه" && managerName !== "عبدالله الناطور")) {
+        if (!managerName) {
+            alert("اسم المدير غير معروف");
+            return;
+        }
+
+        // إزالة أي مسافات زائدة من اسم المدير المدخل لتجنب أخطاء الفلترة
+        managerName = managerName.trim();
+
+        if (managerName !== "محمد طوالبه" && managerName !== "عبدالله الناطور") {
             alert("اسم المدير غير معروف");
             return;
         }
@@ -815,15 +819,11 @@ document.getElementById('adminModeBtn').onclick = () => {
     }
 };
 
-// --- كود الإجراءات الجماعية لشاشة جميع طلبيات الشركة ---
-
-// تحديد الكل
 document.getElementById('selectAllAllOrders')?.addEventListener('change', function() {
     const checkboxes = document.querySelectorAll('.all-order-checkbox');
     checkboxes.forEach(cb => cb.checked = this.checked);
 });
 
-// تنفيذ الإجراءات
 async function handleAllOrdersBulkAction(actionType) {
     const selectedCheckboxes = document.querySelectorAll('.all-order-checkbox:checked');
     const orderIds = Array.from(selectedCheckboxes).map(cb => cb.value);
@@ -848,14 +848,13 @@ async function handleAllOrdersBulkAction(actionType) {
         await Promise.all(promises);
         alert(`تمت العملية بنجاح`);
         if(document.getElementById('selectAllAllOrders')) document.getElementById('selectAllAllOrders').checked = false;
-        loadAllCompanyOrders(); // إعادة تحميل الجدول
+        loadAllCompanyOrders(); 
     } catch (error) {
         console.error(error);
         alert("حدث خطأ أثناء التنفيذ");
     }
 }
 
-// ربط الأزرار بالدالة
 document.getElementById('bulkApproveAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('approve'));
 document.getElementById('bulkDeleteAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('delete'));
     
