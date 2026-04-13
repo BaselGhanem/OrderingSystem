@@ -360,19 +360,25 @@ async function loadManagerOrders() {
 }
 
 function applyManagerFilters() {
-    const repFilter = document.getElementById('managerRepFilter')?.value || '';
-    const pharmFilter = document.getElementById('managerPharmacyFilter')?.value.toLowerCase() || '';
+    // تنظيف الفلاتر من المسافات الزائدة
+    const repFilter = document.getElementById('managerRepFilter')?.value.trim() || '';
+    const pharmFilter = document.getElementById('managerPharmacyFilter')?.value.trim().toLowerCase() || '';
     const statusFilter = document.getElementById('managerStatusFilter')?.value || '';
 
     let filtered = managerOrdersData.filter(o => {
-        const matchRep = repFilter === '' || o.repName === repFilter || o.repId === repFilter;
+        // تنظيف اسم المندوب في الطلبية من أي مسافات لتتطابق بشكل صحيح 100%
+        const repNameClean = o.repName ? o.repName.trim() : ''; 
+        const matchRep = repFilter === '' || repNameClean === repFilter || o.repId === repFilter;
+        
         const matchPharm = pharmFilter === '' || (o.pharmacyName && o.pharmacyName.toLowerCase().includes(pharmFilter));
         const matchStatus = statusFilter === '' || o.status === statusFilter;
+        
         return matchRep && matchPharm && matchStatus;
     });
 
     const count = filtered.length;
-    const total = filtered.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
+    // إضافة parseFloat لإجبار الكود على الجمع الحسابي (Math) ومنع تداخل النصوص (String Concatenation)
+    const total = filtered.reduce((sum, o) => sum + (parseFloat(o.grandTotal) || 0), 0);
     
     const countEl = document.getElementById('managerOrdersCount');
     const totalEl = document.getElementById('managerOrdersTotal');
