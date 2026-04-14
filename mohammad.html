@@ -19,7 +19,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
         .stat-card {
             background: var(--glass);
@@ -40,6 +40,38 @@
             color: var(--secondary);
             font-weight: 600;
             font-size: 1.1rem;
+        }
+
+        /* تنسيق شريط الفلاتر */
+        .filters-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+            align-items: end;
+        }
+        .filter-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+            color: var(--secondary);
+            font-size: 0.95rem;
+        }
+        .filter-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            background: white;
+            outline: none;
+            transition: all 0.3s;
+            font-family: 'Cairo', sans-serif;
+            color: #1e293b;
+        }
+        .filter-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(0, 74, 153, 0.1);
         }
 
         /* تنسيقات شبكة بطاقات التقارير (التصميم الجديد) */
@@ -87,13 +119,10 @@
             color: white;
             transform: scale(1.1);
         }
-
-        /* تنسيق خاص ببطاقة الطلبيات المكررة */
         .report-card-menu.danger-card i { color: #ef4444; background: rgba(239, 68, 68, 0.05); }
         .report-card-menu.danger-card:hover { border-color: #ef4444; box-shadow: 0 12px 30px rgba(239, 68, 68, 0.15); }
         .report-card-menu.danger-card:hover i { background: #ef4444; color: white; }
 
-        /* الأزرار العلوية */
         .btn-primary, .btn-secondary, .btn-action {
             transition: all 0.3s ease;
             border-radius: 10px;
@@ -112,63 +141,30 @@
             padding: 10px 20px;
             box-shadow: 0 4px 15px rgba(0, 74, 153, 0.3);
         }
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0, 74, 153, 0.4);
-        }
-        .btn-secondary {
-            background: white;
-            color: var(--primary);
-            border: 2px solid var(--primary);
-            padding: 10px 20px;
-        }
-        .btn-secondary:hover {
-            background: rgba(0, 74, 153, 0.05);
-            transform: translateY(-2px);
-        }
-        .export-excel {
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-            border: none;
-            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
-        }
-        .export-excel:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-        }
-
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0, 74, 153, 0.4); }
+        .btn-secondary { background: white; color: var(--primary); border: 2px solid var(--primary); padding: 10px 20px; }
+        .btn-secondary:hover { background: rgba(0, 74, 153, 0.05); transform: translateY(-2px); }
+        .export-excel { background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); }
+        .export-excel:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4); }
         .btn-action { padding: 8px 16px; font-size: 0.9rem; border-radius: 8px; color: white; }
         .btn-edit { background: linear-gradient(135deg, #f59e0b, #d97706); }
         .btn-delete { background: linear-gradient(135deg, #ef4444, #dc2626); }
         .btn-action:hover { opacity: 0.9; transform: scale(1.05); }
 
-        .report-section {
-            display: none;
-            animation: fadeIn 0.4s ease-in-out;
-        }
+        .report-section { display: none; animation: fadeIn 0.4s ease-in-out; }
         .report-section.active { display: block; }
         .report-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 15px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #e2e8f0;
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; flex-wrap: wrap; gap: 15px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0;
         }
         
-        tfoot tr td {
-            font-size: 1.1rem;
-            border-top: 3px solid var(--primary);
-        }
+        tfoot tr td { font-size: 1.1rem; border-top: 3px solid var(--primary); }
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* تنسيق النافذة المنبثقة للتعديل */
         .modal-overlay {
             position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7);
             backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center;
@@ -178,9 +174,7 @@
             background: white; width: 100%; max-width: 900px; max-height: 90vh;
             overflow-y: auto; border-radius: 20px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
         }
-        .form-control-edit {
-            width: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; text-align: center;
-        }
+        .form-control-edit { width: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; text-align: center; }
     </style>
 </head>
 <body>
@@ -215,16 +209,43 @@
             <div class="dashboard-cards">
                 <div class="stat-card">
                     <div class="value" id="cardOrdersCount">0</div>
-                    <div class="label"><i class="ph ph-shopping-cart"></i> عدد الطلبيات الكلي</div>
+                    <div class="label"><i class="ph ph-shopping-cart"></i> عدد الطلبيات</div>
                 </div>
                 <div class="stat-card">
                     <div class="value" id="cardCustomersCount">0</div>
-                    <div class="label"><i class="ph ph-users"></i> عدد العملاء (الصيدليات)</div>
+                    <div class="label"><i class="ph ph-users"></i> عدد الصيدليات</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="cardTotalValue">0.00</div>
+                    <div class="label"><i class="ph ph-currency-circle-dollar"></i> إجمالي القيمة (د.أ)</div>
+                </div>
+            </div>
+
+            <div class="glass-panel filters-container">
+                <div class="filter-group">
+                    <label><i class="ph ph-user-gear"></i> المشرف</label>
+                    <select id="filterManager" class="filter-select"></select>
+                </div>
+                <div class="filter-group">
+                    <label><i class="ph ph-user"></i> المندوب</label>
+                    <select id="filterRep" class="filter-select"></select>
+                </div>
+                <div class="filter-group">
+                    <label><i class="ph ph-storefront"></i> الصيدلية</label>
+                    <select id="filterPharmacy" class="filter-select"></select>
+                </div>
+                <div class="filter-group">
+                    <label><i class="ph ph-pill"></i> الصنف</label>
+                    <select id="filterItem" class="filter-select"></select>
+                </div>
+                <div class="filter-group" style="display: flex; gap: 10px;">
+                    <button id="resetFiltersBtn" class="btn-secondary" style="width: 100%; height: 50px;">
+                        <i class="ph ph-arrow-counter-clockwise"></i> تصفير
+                    </button>
                 </div>
             </div>
 
             <div class="glass-panel">
-                
                 <div id="reportsGridContainer">
                     <h2 style="margin-bottom: 25px; text-align: center; color: var(--secondary);">الرجاء اختيار التقرير المطلوب</h2>
                     <div class="report-cards-grid">
@@ -343,6 +364,13 @@
         import { db, collection, getDocs, doc, updateDoc, deleteDoc } from './js/firebase.js';
 
         let allOrders = [];
+        
+        // خريطة المشرفين المساعدة في حال كانت الطلبية لا تحتوي على اسم المشرف
+        const repManagerMap = {
+            "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
+            "محمد الفاعوري": "عبدالله الناطور", "اجود التلهوني": "عبدالله الناطور", "يزيد الرقب": "محمد طوالبه",
+            "تامر عقل": "محمد طوالبه", "محمد ابو يامين": "عبدالله الناطور", "مراد الظاهر": "عبدالله الناطور"
+        };
 
         window.addEventListener('DOMContentLoaded', async () => {
             try {
@@ -350,10 +378,17 @@
                 snap.forEach(document => {
                     let data = document.data();
                     data.id = document.id; 
+                    
+                    // ضمان وجود المشرف
+                    if(!data.managerName) {
+                        data.managerName = repManagerMap[data.repName] || "غير محدد";
+                    }
+
                     allOrders.push(data);
                 });
                 
-                processReports();
+                populateFilterDropdowns();
+                processReports(allOrders); // المعالجة المبدئية بكل البيانات
                 
                 document.getElementById('loadingScreen').style.display = 'none';
                 document.getElementById('dashboardContent').style.display = 'block';
@@ -363,9 +398,80 @@
             }
         });
 
-        function processReports() {
+        // تعبئة القوائم المنسدلة للفلترة
+        function populateFilterDropdowns() {
+            let managers = new Set(), reps = new Set(), pharmacies = new Set(), items = new Set();
+
+            allOrders.forEach(o => {
+                if(o.managerName) managers.add(o.managerName);
+                if(o.repName) reps.add(o.repName);
+                if(o.pharmacyName) pharmacies.add(o.pharmacyName);
+                if(o.items) o.items.forEach(i => items.add(i.name));
+            });
+
+            const fillSelect = (id, set, defaultText) => {
+                const sel = document.getElementById(id);
+                sel.innerHTML = `<option value="">${defaultText}</option>`;
+                Array.from(set).sort().forEach(val => {
+                    sel.innerHTML += `<option value="${val}">${val}</option>`;
+                });
+                // ربط حدث التغيير
+                sel.addEventListener('change', applyFilters);
+            };
+
+            fillSelect('filterManager', managers, 'الكل');
+            fillSelect('filterRep', reps, 'الكل');
+            fillSelect('filterPharmacy', pharmacies, 'الكل');
+            fillSelect('filterItem', items, 'الكل');
+        }
+
+        // تطبيق الفلاتر
+        function applyFilters() {
+            const fMan = document.getElementById('filterManager').value;
+            const fRep = document.getElementById('filterRep').value;
+            const fPharm = document.getElementById('filterPharmacy').value;
+            const fItem = document.getElementById('filterItem').value;
+
+            let filteredOrders = [];
+
+            allOrders.forEach(order => {
+                let matchMan = fMan === "" || order.managerName === fMan;
+                let matchRep = fRep === "" || order.repName === fRep;
+                let matchPharm = fPharm === "" || order.pharmacyName === fPharm;
+
+                if (matchMan && matchRep && matchPharm) {
+                    // اذا تم تحديد صنف معين، نقوم بفلترة الأصناف داخل الطلبية وحساب المجموع الجديد لها فقط
+                    if (fItem !== "") {
+                        let matchedItems = (order.items || []).filter(i => i.name === fItem);
+                        if (matchedItems.length > 0) {
+                            let orderClone = JSON.parse(JSON.stringify(order));
+                            orderClone.items = matchedItems;
+                            orderClone.grandTotal = matchedItems.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+                            filteredOrders.push(orderClone);
+                        }
+                    } else {
+                        filteredOrders.push(order);
+                    }
+                }
+            });
+
+            processReports(filteredOrders);
+        }
+
+        // تصفير الفلاتر
+        document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+            document.getElementById('filterManager').value = "";
+            document.getElementById('filterRep').value = "";
+            document.getElementById('filterPharmacy').value = "";
+            document.getElementById('filterItem').value = "";
+            processReports(allOrders);
+        });
+
+        // معالجة وبناء التقارير بناء على البيانات الممررة (المفلترة أو الكلية)
+        function processReports(dataToProcess) {
             let uniqueCustomers = new Set();
-            let totalOrdersCount = allOrders.length;
+            let totalOrdersCount = dataToProcess.length;
+            let grandTotalSum = 0;
             
             let itemValueMap = {}; 
             let itemRepQtyMap = {}; 
@@ -373,10 +479,9 @@
             let repOrdersCountMap = {};
             let repOrdersValueMap = {};
             let areaOrdersCountMap = {}; 
-            
             let duplicatesMap = {};
 
-            allOrders.forEach(order => {
+            dataToProcess.forEach(order => {
                 let pharmName = order.pharmacyName || 'غير معروف';
                 uniqueCustomers.add(pharmName);
                 areaOrdersCountMap[pharmName] = (areaOrdersCountMap[pharmName] || 0) + 1;
@@ -384,7 +489,10 @@
                 let repName = order.repName || 'غير محدد';
                 allRepsSet.add(repName);
                 repOrdersCountMap[repName] = (repOrdersCountMap[repName] || 0) + 1;
-                repOrdersValueMap[repName] = (repOrdersValueMap[repName] || 0) + (parseFloat(order.grandTotal) || 0);
+                
+                let orderTotal = parseFloat(order.grandTotal) || 0;
+                repOrdersValueMap[repName] = (repOrdersValueMap[repName] || 0) + orderTotal;
+                grandTotalSum += orderTotal;
 
                 if (order.items && Array.isArray(order.items)) {
                     order.items.forEach(item => {
@@ -408,12 +516,13 @@
                 }
             });
 
+            // تحديث البطاقات العلوية الثلاثة
             document.getElementById('cardOrdersCount').innerText = totalOrdersCount;
             document.getElementById('cardCustomersCount').innerText = uniqueCustomers.size;
+            document.getElementById('cardTotalValue').innerText = grandTotalSum.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-            let r1Data = Object.entries(itemValueMap)
-                .sort((a, b) => b[1] - a[1])
-                .map(([name, val]) => [name, val]);
+            // تحديث الجداول
+            let r1Data = Object.entries(itemValueMap).sort((a, b) => b[1] - a[1]).map(([name, val]) => [name, val]);
             buildHtmlTable('table-rep1', ['الصنف', 'اجمالي قيمة المبيعات (د.ا)'], r1Data, true);
 
             let repsArray = Array.from(allRepsSet).sort();
@@ -571,36 +680,23 @@
             }
         };
 
-        // --- نظام التنقل الجديد باستخدام البطاقات ---
-        
-        // عند الضغط على أي بطاقة تقرير
+        // نظام التنقل بين البطاقات والتقارير
         document.querySelectorAll('.report-card-menu').forEach(card => {
             card.addEventListener('click', (e) => {
                 const targetId = e.currentTarget.getAttribute('data-target');
-                
-                // إخفاء شبكة البطاقات
                 document.getElementById('reportsGridContainer').style.display = 'none';
-                
-                // إخفاء جميع التقارير (احتياطياً)
                 document.querySelectorAll('.report-section').forEach(s => s.classList.remove('active'));
-                
-                // إظهار التقرير المطلوب
                 document.getElementById(targetId).classList.add('active');
             });
         });
 
-        // عند الضغط على زر "رجوع للتقارير" داخل أي تقرير
         document.querySelectorAll('.back-to-grid-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                // إخفاء التقرير الحالي
                 document.querySelectorAll('.report-section').forEach(s => s.classList.remove('active'));
-                
-                // إظهار شبكة البطاقات من جديد
                 document.getElementById('reportsGridContainer').style.display = 'block';
             });
         });
 
-        // تصدير الإكسل
         document.querySelectorAll('.export-excel').forEach(btn => {
             btn.addEventListener('click', function() {
                 const tableId = this.getAttribute('data-table');
@@ -611,7 +707,6 @@
             });
         });
 
-        // تصدير الـ PDF
         document.getElementById('exportAllPdfBtn').addEventListener('click', () => {
             const btn = document.getElementById('exportAllPdfBtn');
             const originalText = btn.innerHTML;
@@ -620,13 +715,8 @@
             const container = document.getElementById('dashboardContent');
             const sections = document.querySelectorAll('.report-section');
             
-            // إخفاء شبكة البطاقات
             document.getElementById('reportsGridContainer').style.display = 'none';
-            // فرض ظهور كل الجداول للمتصفح ليقوم بتصويرها
-            sections.forEach(s => {
-                s.classList.add('active');
-                s.style.display = 'block';
-            });
+            sections.forEach(s => { s.classList.add('active'); s.style.display = 'block'; });
 
             setTimeout(() => {
                 const opt = {
@@ -639,11 +729,7 @@
                 };
 
                 html2pdf().set(opt).from(container).save().then(() => {
-                    // بعد التحميل: إخفاء الجداول وإعادة إظهار شبكة البطاقات
-                    sections.forEach(s => {
-                        s.classList.remove('active');
-                        s.style.display = ''; 
-                    });
+                    sections.forEach(s => { s.classList.remove('active'); s.style.display = ''; });
                     document.getElementById('reportsGridContainer').style.display = 'block';
                     btn.innerHTML = originalText;
                 });
