@@ -14,7 +14,6 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* تنسيقات البطاقات العلوية للإحصائيات */
         .dashboard-cards {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -42,10 +41,10 @@
             font-size: 1.1rem;
         }
 
-        /* تنسيق شريط الفلاتر */
+        /* تنسيق شريط الفلاتر الشامل (تم تعديل المقاسات لتستوعب الفلاتر الجديدة) */
         .filters-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: 15px;
             margin-bottom: 30px;
             align-items: end;
@@ -62,7 +61,7 @@
             padding: 12px;
             border: 2px solid #e2e8f0;
             border-radius: 10px;
-            font-size: 1rem;
+            font-size: 0.95rem;
             background: white;
             outline: none;
             transition: all 0.3s;
@@ -74,7 +73,6 @@
             box-shadow: 0 0 0 4px rgba(0, 74, 153, 0.1);
         }
 
-        /* تنسيقات شبكة بطاقات التقارير (التصميم الجديد) */
         .report-cards-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -83,64 +81,28 @@
             animation: fadeIn 0.4s ease-in-out;
         }
         .report-card-menu {
-            background: white;
-            border: 2px solid transparent;
-            border-radius: 20px;
-            padding: 30px 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
+            background: white; border: 2px solid transparent; border-radius: 20px;
+            padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; flex-direction: column;
+            align-items: center; gap: 15px;
         }
         .report-card-menu i {
-            font-size: 3.5rem;
-            color: var(--primary);
-            background: rgba(0, 74, 153, 0.05);
-            padding: 20px;
-            border-radius: 50%;
-            transition: all 0.3s ease;
+            font-size: 3.5rem; color: var(--primary); background: rgba(0, 74, 153, 0.05);
+            padding: 20px; border-radius: 50%; transition: all 0.3s ease;
         }
-        .report-card-menu span {
-            font-size: 1.2rem;
-            font-weight: 800;
-            color: #1e293b;
-        }
-        .report-card-menu:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 12px 30px rgba(0, 74, 153, 0.15);
-            border-color: var(--primary);
-        }
-        .report-card-menu:hover i {
-            background: var(--primary);
-            color: white;
-            transform: scale(1.1);
-        }
+        .report-card-menu span { font-size: 1.2rem; font-weight: 800; color: #1e293b; }
+        .report-card-menu:hover { transform: translateY(-8px); box-shadow: 0 12px 30px rgba(0, 74, 153, 0.15); border-color: var(--primary); }
+        .report-card-menu:hover i { background: var(--primary); color: white; transform: scale(1.1); }
         .report-card-menu.danger-card i { color: #ef4444; background: rgba(239, 68, 68, 0.05); }
         .report-card-menu.danger-card:hover { border-color: #ef4444; box-shadow: 0 12px 30px rgba(239, 68, 68, 0.15); }
         .report-card-menu.danger-card:hover i { background: #ef4444; color: white; }
 
         .btn-primary, .btn-secondary, .btn-action {
-            transition: all 0.3s ease;
-            border-radius: 10px;
-            font-family: inherit;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-weight: 700;
-            border: none;
+            transition: all 0.3s ease; border-radius: 10px; font-family: inherit;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+            gap: 8px; font-weight: 700; border: none;
         }
-        .btn-primary {
-            background: linear-gradient(135deg, #004a99, #0066cc);
-            color: white;
-            padding: 10px 20px;
-            box-shadow: 0 4px 15px rgba(0, 74, 153, 0.3);
-        }
+        .btn-primary { background: linear-gradient(135deg, #004a99, #0066cc); color: white; padding: 10px 20px; box-shadow: 0 4px 15px rgba(0, 74, 153, 0.3); }
         .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0, 74, 153, 0.4); }
         .btn-secondary { background: white; color: var(--primary); border: 2px solid var(--primary); padding: 10px 20px; }
         .btn-secondary:hover { background: rgba(0, 74, 153, 0.05); transform: translateY(-2px); }
@@ -223,6 +185,14 @@
 
             <div class="glass-panel filters-container">
                 <div class="filter-group">
+                    <label><i class="ph ph-calendar"></i> من تاريخ</label>
+                    <input type="date" id="filterDateFrom" class="filter-select">
+                </div>
+                <div class="filter-group">
+                    <label><i class="ph ph-calendar"></i> إلى تاريخ</label>
+                    <input type="date" id="filterDateTo" class="filter-select">
+                </div>
+                <div class="filter-group">
                     <label><i class="ph ph-user-gear"></i> المشرف</label>
                     <select id="filterManager" class="filter-select"></select>
                 </div>
@@ -232,14 +202,16 @@
                 </div>
                 <div class="filter-group">
                     <label><i class="ph ph-storefront"></i> الصيدلية</label>
-                    <select id="filterPharmacy" class="filter-select"></select>
+                    <input type="text" id="filterPharmacy" list="pharmacyDatalist" class="filter-select" placeholder="اختر أو اكتب هنا...">
+                    <datalist id="pharmacyDatalist"></datalist>
                 </div>
                 <div class="filter-group">
                     <label><i class="ph ph-pill"></i> الصنف</label>
-                    <select id="filterItem" class="filter-select"></select>
+                    <input type="text" id="filterItem" list="itemDatalist" class="filter-select" placeholder="اختر أو اكتب هنا...">
+                    <datalist id="itemDatalist"></datalist>
                 </div>
                 <div class="filter-group" style="display: flex; gap: 10px;">
-                    <button id="resetFiltersBtn" class="btn-secondary" style="width: 100%; height: 50px;">
+                    <button id="resetFiltersBtn" class="btn-secondary" style="width: 100%; height: 48px;">
                         <i class="ph ph-arrow-counter-clockwise"></i> تصفير
                     </button>
                 </div>
@@ -365,7 +337,6 @@
 
         let allOrders = [];
         
-        // خريطة المشرفين المساعدة في حال كانت الطلبية لا تحتوي على اسم المشرف
         const repManagerMap = {
             "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
             "محمد الفاعوري": "عبدالله الناطور", "اجود التلهوني": "عبدالله الناطور", "يزيد الرقب": "محمد طوالبه",
@@ -378,17 +349,13 @@
                 snap.forEach(document => {
                     let data = document.data();
                     data.id = document.id; 
-                    
-                    // ضمان وجود المشرف
                     if(!data.managerName) {
                         data.managerName = repManagerMap[data.repName] || "غير محدد";
                     }
-
                     allOrders.push(data);
                 });
                 
-                populateFilterDropdowns();
-                processReports(allOrders); // المعالجة المبدئية بكل البيانات
+                applyFilters(); // يقوم بتهيئة الفلاتر والتقارير لأول مرة
                 
                 document.getElementById('loadingScreen').style.display = 'none';
                 document.getElementById('dashboardContent').style.display = 'block';
@@ -398,76 +365,113 @@
             }
         });
 
-        // تعبئة القوائم المنسدلة للفلترة
-        function populateFilterDropdowns() {
-            let managers = new Set(), reps = new Set(), pharmacies = new Set(), items = new Set();
-
-            allOrders.forEach(o => {
-                if(o.managerName) managers.add(o.managerName);
-                if(o.repName) reps.add(o.repName);
-                if(o.pharmacyName) pharmacies.add(o.pharmacyName);
-                if(o.items) o.items.forEach(i => items.add(i.name));
-            });
-
-            const fillSelect = (id, set, defaultText) => {
-                const sel = document.getElementById(id);
-                sel.innerHTML = `<option value="">${defaultText}</option>`;
-                Array.from(set).sort().forEach(val => {
-                    sel.innerHTML += `<option value="${val}">${val}</option>`;
-                });
-                // ربط حدث التغيير
-                sel.addEventListener('change', applyFilters);
-            };
-
-            fillSelect('filterManager', managers, 'الكل');
-            fillSelect('filterRep', reps, 'الكل');
-            fillSelect('filterPharmacy', pharmacies, 'الكل');
-            fillSelect('filterItem', items, 'الكل');
-        }
-
-        // تطبيق الفلاتر
+        // ==========================================
+        // محرك الفلترة الذكي (Cascading Engine)
+        // ==========================================
         function applyFilters() {
             const fMan = document.getElementById('filterManager').value;
             const fRep = document.getElementById('filterRep').value;
-            const fPharm = document.getElementById('filterPharmacy').value;
-            const fItem = document.getElementById('filterItem').value;
+            const fPharm = document.getElementById('filterPharmacy').value.trim();
+            const fItem = document.getElementById('filterItem').value.trim();
+            const fDateFrom = document.getElementById('filterDateFrom').value;
+            const fDateTo = document.getElementById('filterDateTo').value;
 
             let filteredOrders = [];
+            let managers = new Set(), reps = new Set(), pharmacies = new Set(), items = new Set();
 
             allOrders.forEach(order => {
+                // التحقق من المطابقة لكل فلتر
                 let matchMan = fMan === "" || order.managerName === fMan;
                 let matchRep = fRep === "" || order.repName === fRep;
-                let matchPharm = fPharm === "" || order.pharmacyName === fPharm;
+                let matchPharm = fPharm === "" || (order.pharmacyName && order.pharmacyName.includes(fPharm));
+                
+                let matchDate = true;
+                if (order.createdAt && order.createdAt.toDate) {
+                    let orderDate = order.createdAt.toDate();
+                    orderDate.setHours(0,0,0,0);
+                    if (fDateFrom) { let from = new Date(fDateFrom); from.setHours(0,0,0,0); if (orderDate < from) matchDate = false; }
+                    if (fDateTo) { let to = new Date(fDateTo); to.setHours(0,0,0,0); if (orderDate > to) matchDate = false; }
+                }
 
-                if (matchMan && matchRep && matchPharm) {
-                    // اذا تم تحديد صنف معين، نقوم بفلترة الأصناف داخل الطلبية وحساب المجموع الجديد لها فقط
+                let matchItem = true;
+                if (fItem !== "") {
+                    matchItem = (order.items || []).some(i => i.name && i.name.includes(fItem));
+                }
+
+                // --- 1. بناء قوائم الفلاتر الذكية ---
+                // القائمة تظهر الخيارات المتاحة بناءً على الفلاتر الأخرى فقط (لتجنب الاختفاء عند التحديد)
+                if (matchRep && matchPharm && matchItem && matchDate) managers.add(order.managerName || "غير محدد");
+                if (matchMan && matchPharm && matchItem && matchDate) reps.add(order.repName || "غير محدد");
+                if (matchMan && matchRep && matchItem && matchDate) pharmacies.add(order.pharmacyName || "غير معروف");
+                if (matchMan && matchRep && matchPharm && matchDate) {
+                    (order.items || []).forEach(i => items.add(i.name));
+                }
+
+                // --- 2. بناء بيانات التقارير المفلترة ---
+                if (matchMan && matchRep && matchPharm && matchDate && matchItem) {
                     if (fItem !== "") {
-                        let matchedItems = (order.items || []).filter(i => i.name === fItem);
-                        if (matchedItems.length > 0) {
-                            let orderClone = JSON.parse(JSON.stringify(order));
-                            orderClone.items = matchedItems;
-                            orderClone.grandTotal = matchedItems.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
-                            filteredOrders.push(orderClone);
-                        }
+                        // إذا تم اختيار صنف معين، نحسب قيمة هذا الصنف فقط داخل الطلبية
+                        let matchedItems = (order.items || []).filter(i => i.name && i.name.includes(fItem));
+                        let orderClone = JSON.parse(JSON.stringify(order));
+                        orderClone.items = matchedItems;
+                        orderClone.grandTotal = matchedItems.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+                        filteredOrders.push(orderClone);
                     } else {
                         filteredOrders.push(order);
                     }
                 }
             });
 
+            // تحديث واجهة الفلاتر دون فقدان القيمة المحددة حالياً
+            updateSelect('filterManager', managers, fMan, 'الكل');
+            updateSelect('filterRep', reps, fRep, 'الكل');
+            updateDatalist('pharmacyDatalist', pharmacies);
+            updateDatalist('itemDatalist', items);
+
+            // إرسال البيانات المفلترة لتحديث الجداول والبطاقات العلوية
             processReports(filteredOrders);
         }
 
-        // تصفير الفلاتر
+        // دوال مساعدة لتحديث القوائم المنسدلة
+        function updateSelect(id, set, selectedVal, defaultText) {
+            const sel = document.getElementById(id);
+            sel.innerHTML = `<option value="">${defaultText}</option>`;
+            Array.from(set).sort().forEach(val => {
+                let isSelected = val === selectedVal ? 'selected' : '';
+                sel.innerHTML += `<option value="${val}" ${isSelected}>${val}</option>`;
+            });
+        }
+
+        function updateDatalist(id, set) {
+            const dl = document.getElementById(id);
+            dl.innerHTML = '';
+            Array.from(set).sort().forEach(val => {
+                dl.innerHTML += `<option value="${val}">`;
+            });
+        }
+
+        // ربط الأحداث بمحرك الفلترة
+        ['filterManager', 'filterRep', 'filterDateFrom', 'filterDateTo'].forEach(id => {
+            document.getElementById(id).addEventListener('change', applyFilters);
+        });
+        ['filterPharmacy', 'filterItem'].forEach(id => {
+            document.getElementById(id).addEventListener('input', applyFilters);
+        });
+
         document.getElementById('resetFiltersBtn').addEventListener('click', () => {
             document.getElementById('filterManager').value = "";
             document.getElementById('filterRep').value = "";
             document.getElementById('filterPharmacy').value = "";
             document.getElementById('filterItem').value = "";
-            processReports(allOrders);
+            document.getElementById('filterDateFrom').value = "";
+            document.getElementById('filterDateTo').value = "";
+            applyFilters();
         });
 
-        // معالجة وبناء التقارير بناء على البيانات الممررة (المفلترة أو الكلية)
+
+        // ==========================================
+        // معالجة وبناء التقارير
+        // ==========================================
         function processReports(dataToProcess) {
             let uniqueCustomers = new Set();
             let totalOrdersCount = dataToProcess.length;
@@ -516,12 +520,12 @@
                 }
             });
 
-            // تحديث البطاقات العلوية الثلاثة
+            // تحديث البطاقات العلوية
             document.getElementById('cardOrdersCount').innerText = totalOrdersCount;
             document.getElementById('cardCustomersCount').innerText = uniqueCustomers.size;
             document.getElementById('cardTotalValue').innerText = grandTotalSum.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-            // تحديث الجداول
+            // الجداول
             let r1Data = Object.entries(itemValueMap).sort((a, b) => b[1] - a[1]).map(([name, val]) => [name, val]);
             buildHtmlTable('table-rep1', ['الصنف', 'اجمالي قيمة المبيعات (د.ا)'], r1Data, true);
 
@@ -597,12 +601,14 @@
             table.innerHTML = thead + tbody + tfoot;
         }
 
+        // ==========================================
+        // الإجراءات والواجهات الجانبية
+        // ==========================================
         let currentEditingOrder = null;
 
         window.openOrderModal = function(orderId) {
             let order = allOrders.find(o => o.id === orderId);
             if (!order) return alert('خطا: الطلبية غير موجودة');
-            
             currentEditingOrder = JSON.parse(JSON.stringify(order));
             renderModalTable();
             document.getElementById('editDuplicateModal').style.display = 'flex';
@@ -680,7 +686,6 @@
             }
         };
 
-        // نظام التنقل بين البطاقات والتقارير
         document.querySelectorAll('.report-card-menu').forEach(card => {
             card.addEventListener('click', (e) => {
                 const targetId = e.currentTarget.getAttribute('data-target');
