@@ -26,7 +26,7 @@
             border: 1px solid rgba(255, 255, 255, 0.5);
             border-radius: 16px;
             padding: 20px;
-            box-shadow: var(--shadow);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
             text-align: center;
             backdrop-filter: blur(10px);
         }
@@ -41,35 +41,123 @@
             font-weight: 600;
             font-size: 1.1rem;
         }
+
+        /* تحسين الأزرار العلوية وأزرار التصدير لتكون جميلة جدا */
+        .btn-primary, .btn-secondary, .btn-subtab, .btn-action {
+            transition: all 0.3s ease;
+            border-radius: 10px;
+            font-family: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 700;
+            border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #004a99, #0066cc);
+            color: white;
+            padding: 12px 24px;
+            box-shadow: 0 4px 15px rgba(0, 74, 153, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 74, 153, 0.4);
+        }
+        .btn-secondary {
+            background: white;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            padding: 10px 20px;
+        }
+        .btn-secondary:hover {
+            background: rgba(0, 74, 153, 0.05);
+            transform: translateY(-2px);
+        }
+        .export-excel {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        .export-excel:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
         .reports-nav {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             overflow-x: auto;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
             border-bottom: 2px solid #e2e8f0;
         }
-        .reports-nav button {
+        .btn-subtab {
+            background: #f1f5f9;
+            color: #64748b;
+            padding: 12px 22px;
             white-space: nowrap;
+            font-size: 1rem;
         }
+        .btn-subtab.active {
+            background: linear-gradient(135deg, #004a99, #0066cc);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 74, 153, 0.3);
+        }
+        .btn-subtab:hover:not(.active) {
+            background: #e2e8f0;
+            color: var(--primary);
+        }
+
+        /* أزرار الإجراءات داخل الجدول */
+        .btn-action {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            color: white;
+        }
+        .btn-edit { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .btn-delete { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .btn-action:hover { opacity: 0.9; transform: scale(1.05); }
+
         .report-section {
             display: none;
             animation: fadeIn 0.4s ease-in-out;
         }
-        .report-section.active {
-            display: block;
-        }
+        .report-section.active { display: block; }
         .report-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             flex-wrap: wrap;
             gap: 10px;
         }
+        
+        tfoot tr td {
+            font-size: 1.1rem;
+            border-top: 3px solid var(--primary);
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* تنسيق النافذة المنبثقة للتعديل */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center;
+            z-index: 1000; padding: 20px;
+        }
+        .modal-content {
+            background: white; width: 100%; max-width: 900px; max-height: 90vh;
+            overflow-y: auto; border-radius: 20px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .form-control-edit {
+            width: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; text-align: center;
         }
     </style>
 </head>
@@ -86,7 +174,7 @@
                 <h1>لوحة التقارير الشاملة</h1>
             </div>
             <div style="display: flex; gap: 10px;">
-                <button type="button" id="exportAllPdfBtn" class="btn-primary" style="background: #e11d48;">
+                <button type="button" id="exportAllPdfBtn" class="btn-primary" style="background: linear-gradient(135deg, #e11d48, #be123c);">
                     <i class="ph ph-file-pdf"></i> تحميل جميع التقارير (PDF)
                 </button>
                 <a href="index.html" class="btn-secondary" style="text-decoration: none; display: flex; align-items: center; gap: 5px;">
@@ -116,75 +204,91 @@
             <div class="glass-panel">
                 <div class="reports-nav" id="reportsNav">
                     <button class="btn-subtab active" data-target="rep1">قيمة المبيعات لكل صنف</button>
-                    <button class="btn-subtab" data-target="rep2">الكميات (صنف / مندوب)</button>
+                    <button class="btn-subtab" data-target="rep2">الكميات (صنف - مندوب)</button>
                     <button class="btn-subtab" data-target="rep5">عدد الطلبيات لكل مندوب</button>
                     <button class="btn-subtab" data-target="rep6">قيمة الطلبيات لكل مندوب</button>
-                    <button class="btn-subtab" data-target="rep7">الطلبيات لكل منطقة (صيدلية)</button>
+                    <button class="btn-subtab" data-target="rep7">الطلبيات لكل منطقة</button>
+                    <button class="btn-subtab" data-target="rep-dup" style="color:#ef4444; border-color:#ef4444;"><i class="ph ph-warning"></i> الطلبيات المكررة</button>
                 </div>
 
                 <div id="rep1" class="report-section active">
                     <div class="report-header">
                         <h2><i class="ph ph-chart-bar"></i> قيمة المبيعات لكل صنف</h2>
-                        <button class="btn-secondary export-excel" data-table="table-rep1" data-name="قيمة_المبيعات_لكل_صنف"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                        <button class="export-excel btn-primary" data-table="table-rep1" data-name="قيمة_المبيعات_لكل_صنف"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
                     </div>
-                    <div class="table-responsive">
-                        <table class="order-table" id="table-rep1"></table>
-                    </div>
+                    <div class="table-responsive"><table class="order-table" id="table-rep1"></table></div>
                 </div>
 
                 <div id="rep2" class="report-section">
                     <div class="report-header">
                         <h2><i class="ph ph-matrix-logo"></i> كمية المبيعات (الأصناف مقابل المندوبين)</h2>
-                        <button class="btn-secondary export-excel" data-table="table-rep2" data-name="مصفوفة_الكميات"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                        <button class="export-excel btn-primary" data-table="table-rep2" data-name="مصفوفة_الكميات"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
                     </div>
-                    <div class="table-responsive">
-                        <table class="order-table" id="table-rep2"></table>
-                    </div>
+                    <div class="table-responsive"><table class="order-table" id="table-rep2"></table></div>
                 </div>
 
                 <div id="rep5" class="report-section">
                     <div class="report-header">
                         <h2><i class="ph ph-user-list"></i> عدد الطلبيات لكل مندوب</h2>
-                        <button class="btn-secondary export-excel" data-table="table-rep5" data-name="عدد_الطلبيات_للمندوبين"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                        <button class="export-excel btn-primary" data-table="table-rep5" data-name="عدد_الطلبيات_للمندوبين"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
                     </div>
-                    <div class="table-responsive">
-                        <table class="order-table" id="table-rep5"></table>
-                    </div>
+                    <div class="table-responsive"><table class="order-table" id="table-rep5"></table></div>
                 </div>
 
                 <div id="rep6" class="report-section">
                     <div class="report-header">
                         <h2><i class="ph ph-currency-circle-dollar"></i> قيمة الطلبيات لكل مندوب</h2>
-                        <button class="btn-secondary export-excel" data-table="table-rep6" data-name="قيمة_الطلبيات_للمندوبين"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                        <button class="export-excel btn-primary" data-table="table-rep6" data-name="قيمة_الطلبيات_للمندوبين"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
                     </div>
-                    <div class="table-responsive">
-                        <table class="order-table" id="table-rep6"></table>
-                    </div>
+                    <div class="table-responsive"><table class="order-table" id="table-rep6"></table></div>
                 </div>
 
                 <div id="rep7" class="report-section">
                     <div class="report-header">
                         <h2><i class="ph ph-map-pin"></i> عدد الطلبيات لكل منطقة (صيدلية)</h2>
-                        <button class="btn-secondary export-excel" data-table="table-rep7" data-name="الطلبيات_حسب_المنطقة"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                        <button class="export-excel btn-primary" data-table="table-rep7" data-name="الطلبيات_حسب_المنطقة"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
                     </div>
-                    <div class="table-responsive">
-                        <table class="order-table" id="table-rep7"></table>
-                    </div>
+                    <div class="table-responsive"><table class="order-table" id="table-rep7"></table></div>
                 </div>
+
+                <div id="rep-dup" class="report-section">
+                    <div class="report-header">
+                        <h2 style="color: #ef4444;"><i class="ph ph-warning-circle"></i> تقرير الطلبيات المكررة محتملة</h2>
+                        <button class="export-excel btn-primary" data-table="table-rep-dup" data-name="الطلبيات_المكررة"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                    </div>
+                    <div class="table-responsive"><table class="order-table" id="table-rep-dup"></table></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="editDuplicateModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:2px solid #eee; padding-bottom:10px;">
+                <h2 style="color: var(--primary);"><i class="ph ph-pencil-simple"></i> اتخاذ اجراء على الطلبية</h2>
+                <button type="button" onclick="closeEditModal()" style="background:none; border:none; font-size:2rem; cursor:pointer; color:#ef4444;">&times;</button>
+            </div>
+            <div id="duplicateEditContainer" class="table-responsive"></div>
+            <div style="display:flex; justify-content:space-between; margin-top:25px;">
+                <button id="saveOrderBtn" class="btn-primary"><i class="ph ph-floppy-disk"></i> حفظ التعديلات</button>
+                <button id="deleteEntireOrderBtn" class="btn-action btn-delete"><i class="ph ph-trash"></i> حذف الطلبية بالكامل</button>
             </div>
         </div>
     </div>
 
     <script type="module">
-import { db, collection, getDocs } from './js/firebase.js';
+        import { db, collection, getDocs, doc, updateDoc, deleteDoc } from './js/firebase.js';
+
         let allOrders = [];
 
-        // 1. جلب البيانات عند تحميل الصفحة
         window.addEventListener('DOMContentLoaded', async () => {
             try {
                 const snap = await getDocs(collection(db, "orders"));
-                snap.forEach(doc => {
-                    allOrders.push(doc.data());
+                snap.forEach(document => {
+                    let data = document.data();
+                    data.id = document.id; // حفظ المعرف مهم جدا للتعديل
+                    allOrders.push(data);
                 });
                 
                 processReports();
@@ -192,12 +296,11 @@ import { db, collection, getDocs } from './js/firebase.js';
                 document.getElementById('loadingScreen').style.display = 'none';
                 document.getElementById('dashboardContent').style.display = 'block';
             } catch (error) {
-                console.error("خطأ في جلب البيانات:", error);
-                document.getElementById('loadingScreen').innerHTML = `<h3 style="color:red;">حدث خطأ أثناء تحميل البيانات. تأكد من الاتصال بقاعدة البيانات.</h3>`;
+                console.error("خطا في جلب البيانات:", error);
+                document.getElementById('loadingScreen').innerHTML = `<h3 style="color:red;">حدث خطا اثناء تحميل البيانات.</h3>`;
             }
         });
 
-        // 2. معالجة البيانات وبناء التقارير
         function processReports() {
             let uniqueCustomers = new Set();
             let totalOrdersCount = allOrders.length;
@@ -208,148 +311,264 @@ import { db, collection, getDocs } from './js/firebase.js';
             let repOrdersCountMap = {};
             let repOrdersValueMap = {};
             let areaOrdersCountMap = {}; 
+            
+            let duplicatesMap = {};
 
             allOrders.forEach(order => {
-                // تجميع العملاء (الصيدليات) والمناطق
                 let pharmName = order.pharmacyName || 'غير معروف';
                 uniqueCustomers.add(pharmName);
                 areaOrdersCountMap[pharmName] = (areaOrdersCountMap[pharmName] || 0) + 1;
 
-                // تجميع بيانات المندوبين
                 let repName = order.repName || 'غير محدد';
                 allRepsSet.add(repName);
                 repOrdersCountMap[repName] = (repOrdersCountMap[repName] || 0) + 1;
                 repOrdersValueMap[repName] = (repOrdersValueMap[repName] || 0) + (parseFloat(order.grandTotal) || 0);
 
-                // تجميع بيانات الأصناف
                 if (order.items && Array.isArray(order.items)) {
                     order.items.forEach(item => {
                         let itemName = item.name || 'غير معروف';
                         let val = parseFloat(item.total) || 0;
                         let qty = parseInt(item.qty, 10) || 0;
 
-                        // Report 1
                         itemValueMap[itemName] = (itemValueMap[itemName] || 0) + val;
 
-                        // Report 2
                         if (!itemRepQtyMap[itemName]) itemRepQtyMap[itemName] = {};
                         itemRepQtyMap[itemName][repName] = (itemRepQtyMap[itemName][repName] || 0) + qty;
+
+                        // بناء مفتاح لتتبع التكرار (الزبون + الصنف + الكمية)
+                        let key = `${pharmName}_${itemName}_${qty}`;
+                        if (!duplicatesMap[key]) duplicatesMap[key] = [];
+                        duplicatesMap[key].push({
+                            orderId: order.id,
+                            repName: order.repName,
+                            date: order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-GB') : '-'
+                        });
                     });
                 }
             });
 
-            // تعبئة الكروت (Reports 3 & 4)
             document.getElementById('cardOrdersCount').innerText = totalOrdersCount;
             document.getElementById('cardCustomersCount').innerText = uniqueCustomers.size;
 
-            // Report 1: Sales value per item
             let r1Data = Object.entries(itemValueMap)
-                .sort((a, b) => b[1] - a[1]) // ترتيب تنازلي حسب القيمة
-                .map(([name, val]) => [name, val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })]);
-            buildHtmlTable('table-rep1', ['الصنف', 'إجمالي قيمة المبيعات (د.ا)'], r1Data);
+                .sort((a, b) => b[1] - a[1])
+                .map(([name, val]) => [name, val]);
+            buildHtmlTable('table-rep1', ['الصنف', 'اجمالي قيمة المبيعات (د.ا)'], r1Data, true);
 
-            // Report 2: Matrix (Items rows x Reps columns)
             let repsArray = Array.from(allRepsSet).sort();
             let r2Headers = ['الصنف', ...repsArray];
             let r2Data = Object.keys(itemRepQtyMap).sort().map(itemName => {
                 let row = [itemName];
-                repsArray.forEach(rep => {
-                    row.push(itemRepQtyMap[itemName][rep] || 0);
-                });
+                repsArray.forEach(rep => row.push(itemRepQtyMap[itemName][rep] || 0));
                 return row;
             });
-            buildHtmlTable('table-rep2', r2Headers, r2Data);
+            buildHtmlTable('table-rep2', r2Headers, r2Data, true);
 
-            // Report 5: Orders count per rep
-            let r5Data = Object.entries(repOrdersCountMap)
-                .sort((a, b) => b[1] - a[1])
-                .map(([rep, count]) => [rep, count]);
-            buildHtmlTable('table-rep5', ['اسم المندوب', 'عدد الطلبيات'], r5Data);
+            let r5Data = Object.entries(repOrdersCountMap).sort((a, b) => b[1] - a[1]).map(([rep, count]) => [rep, count]);
+            buildHtmlTable('table-rep5', ['اسم المندوب', 'عدد الطلبيات'], r5Data, true);
 
-            // Report 6: Orders value per rep
-            let r6Data = Object.entries(repOrdersValueMap)
-                .sort((a, b) => b[1] - a[1])
-                .map(([rep, val]) => [rep, val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })]);
-            buildHtmlTable('table-rep6', ['اسم المندوب', 'إجمالي قيمة الطلبيات (د.ا)'], r6Data);
+            let r6Data = Object.entries(repOrdersValueMap).sort((a, b) => b[1] - a[1]).map(([rep, val]) => [rep, val]);
+            buildHtmlTable('table-rep6', ['اسم المندوب', 'اجمالي قيمة الطلبيات (د.ا)'], r6Data, true);
 
-            // Report 7: Orders count per area (Pharmacy)
-            let r7Data = Object.entries(areaOrdersCountMap)
-                .sort((a, b) => b[1] - a[1])
-                .map(([area, count]) => [area, count]);
-            buildHtmlTable('table-rep7', ['المنطقة / اسم الصيدلية', 'عدد الطلبيات'], r7Data);
+            let r7Data = Object.entries(areaOrdersCountMap).sort((a, b) => b[1] - a[1]).map(([area, count]) => [area, count]);
+            buildHtmlTable('table-rep7', ['المنطقة / اسم الصيدلية', 'عدد الطلبيات'], r7Data, true);
+
+            // معالجة تقرير المكررات
+            let duplicatesData = [];
+            Object.keys(duplicatesMap).forEach(key => {
+                if (duplicatesMap[key].length > 1) { // اذا تكرر المفتاح اكثر من مرة
+                    let parts = key.split('_');
+                    duplicatesMap[key].forEach(dup => {
+                        let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${dup.orderId}')"><i class="ph ph-pencil"></i> مشاهدة واجراء</button>`;
+                        duplicatesData.push([parts[0], parts[1], parts[2], dup.repName, dup.orderId.substring(0,6).toUpperCase(), dup.date, btnHtml]);
+                    });
+                }
+            });
+            buildHtmlTable('table-rep-dup', ['الصيدلية', 'الصنف', 'الكمية', 'المندوب', 'رقم المرجع', 'التاريخ', 'الاجراات'], duplicatesData, false);
         }
 
-        // دالة مساعدة لبناء الجداول
-        function buildHtmlTable(tableId, headers, rows) {
+        // دالة بناء الجداول مع اضافة صف المجموع اختياريا
+        function buildHtmlTable(tableId, headers, rows, addTotals = true) {
             const table = document.getElementById(tableId);
             let thead = '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
             let tbody = '<tbody>';
+            
+            let columnTotals = new Array(headers.length).fill(0);
+            let hasNumbers = false;
+
             if (rows.length === 0) {
                 tbody += `<tr><td colspan="${headers.length}" style="text-align:center;">لا توجد بيانات</td></tr>`;
             } else {
                 rows.forEach(row => {
-                    tbody += '<tr>' + row.map((cell, index) => {
-                        // إضافة تنسيق للأرقام
-                        return `<td ${index > 0 ? 'style="font-weight:600; color:var(--primary);"' : ''}>${cell}</td>`;
-                    }).join('') + '</tr>';
+                    tbody += '<tr>';
+                    row.forEach((cell, index) => {
+                        // جمع الارقام اذا كانت القيمة رقمية او تقبل التحويل
+                        if (addTotals && index > 0 && typeof cell === 'number') {
+                            columnTotals[index] += cell;
+                            hasNumbers = true;
+                        }
+                        // تنسيق العرض للمستخدم
+                        let displayVal = (typeof cell === 'number' && cell % 1 !== 0) ? cell.toLocaleString('en-US', {minimumFractionDigits: 2}) : cell;
+                        tbody += `<td ${index > 0 ? 'style="font-weight:600; color:var(--primary);"' : ''}>${displayVal}</td>`;
+                    });
+                    tbody += '</tr>';
                 });
             }
             tbody += '</tbody>';
-            table.innerHTML = thead + tbody;
+
+            let tfoot = '';
+            if (addTotals && hasNumbers && rows.length > 0) {
+                tfoot = '<tfoot style="background:#f8fafc; font-weight:800;"><tr>';
+                tfoot += `<td>المجموع الكلي</td>`;
+                for(let i=1; i<headers.length; i++) {
+                    let tVal = columnTotals[i];
+                    let tDisp = (tVal % 1 !== 0) ? tVal.toLocaleString('en-US', {minimumFractionDigits: 2}) : tVal;
+                    tfoot += `<td style="color:var(--primary);">${tVal === 0 ? '-' : tDisp}</td>`;
+                }
+                tfoot += '</tr></tfoot>';
+            }
+
+            table.innerHTML = thead + tbody + tfoot;
         }
 
-        // 3. نظام التنقل بين التبويبات (Tabs)
+        // منطق التعامل مع نافذة الطلبيات المكررة
+        let currentEditingOrder = null;
+
+        window.openOrderModal = function(orderId) {
+            let order = allOrders.find(o => o.id === orderId);
+            if (!order) return alert('خطا: الطلبية غير موجودة');
+            
+            // اخذ نسخة عميقة من الطلبية لتعديلها
+            currentEditingOrder = JSON.parse(JSON.stringify(order));
+            renderModalTable();
+            document.getElementById('editDuplicateModal').style.display = 'flex';
+        }
+
+        window.closeEditModal = function() {
+            document.getElementById('editDuplicateModal').style.display = 'none';
+        }
+
+        function renderModalTable() {
+            let html = `<table class="order-table"><thead><tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>الاجراء</th></tr></thead><tbody>`;
+            currentEditingOrder.items.forEach((item, index) => {
+                html += `<tr>
+                    <td>${item.name}</td>
+                    <td><input type="number" class="form-control-edit item-qty" data-idx="${index}" value="${item.qty}" min="1"></td>
+                    <td><input type="number" class="form-control-edit item-bonus" data-idx="${index}" value="${item.bonus || 0}" min="0"></td>
+                    <td>${parseFloat(item.price || 0).toFixed(2)}</td>
+                    <td><button class="btn-action btn-delete" onclick="removeRowFromModal(${index})"><i class="ph ph-trash"></i> حذف سطر</button></td>
+                </tr>`;
+            });
+            html += `</tbody></table>`;
+            document.getElementById('duplicateEditContainer').innerHTML = html;
+        }
+
+        window.removeRowFromModal = function(index) {
+            if (currentEditingOrder.items.length === 1) {
+                alert("لا يمكن حذف الصنف الوحيد، قم بحذف الطلبية بالكامل بدلا من ذلك.");
+                return;
+            }
+            currentEditingOrder.items.splice(index, 1);
+            renderModalTable();
+        }
+
+        // حفظ التعديلات في فايربيس
+        document.getElementById('saveOrderBtn').onclick = async () => {
+            document.querySelectorAll('.item-qty').forEach(inp => {
+                let idx = inp.getAttribute('data-idx');
+                let newQty = parseInt(inp.value) || 0;
+                currentEditingOrder.items[idx].qty = newQty;
+                currentEditingOrder.items[idx].total = parseFloat(currentEditingOrder.items[idx].price || 0) * newQty;
+            });
+            document.querySelectorAll('.item-bonus').forEach(inp => {
+                let idx = inp.getAttribute('data-idx');
+                currentEditingOrder.items[idx].bonus = parseInt(inp.value) || 0;
+            });
+
+            // تحديث المجموع الكلي
+            let newGrandTotal = 0;
+            currentEditingOrder.items.forEach(i => newGrandTotal += parseFloat(i.total));
+            currentEditingOrder.grandTotal = newGrandTotal;
+
+            try {
+                const orderRef = doc(db, "orders", currentEditingOrder.id);
+                await updateDoc(orderRef, {
+                    items: currentEditingOrder.items,
+                    grandTotal: newGrandTotal,
+                    updatedAt: new Date()
+                });
+                alert("تم حفظ التعديلات بنجاح");
+                location.reload(); // تحديث فوري للصفحة لتعكس البيانات
+            } catch (error) {
+                console.error(error);
+                alert("حدث خطا اثناء الحفظ");
+            }
+        };
+
+        // حذف الطلبية بالكامل
+        document.getElementById('deleteEntireOrderBtn').onclick = async () => {
+            if (!confirm("هل انت متاكد من رغبتك في حذف هذه الطلبية نهاييا؟ هذا الاجراء لا يمكن التراجع عنه.")) return;
+            try {
+                const orderRef = doc(db, "orders", currentEditingOrder.id);
+                await deleteDoc(orderRef);
+                alert("تم حذف الطلبية بنجاح");
+                location.reload();
+            } catch (error) {
+                console.error(error);
+                alert("حدث خطا اثناء الحذف");
+            }
+        };
+
         document.querySelectorAll('.reports-nav .btn-subtab').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                // إزالة التفعيل من كل الأزرار والتقارير
                 document.querySelectorAll('.reports-nav .btn-subtab').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.report-section').forEach(s => s.classList.remove('active'));
                 
-                // تفعيل الزر والتقرير المختار
                 e.target.classList.add('active');
                 document.getElementById(e.target.getAttribute('data-target')).classList.add('active');
             });
         });
 
-        // 4. تصدير Excel لكل جدول بشكل منفصل
         document.querySelectorAll('.export-excel').forEach(btn => {
             btn.addEventListener('click', function() {
                 const tableId = this.getAttribute('data-table');
                 const fileName = this.getAttribute('data-name');
                 const table = document.getElementById(tableId);
-                
                 const wb = XLSX.utils.table_to_book(table, { sheet: "التقرير" });
                 XLSX.writeFile(wb, `${fileName}.xlsx`);
             });
         });
 
-        // 5. تصدير كل التقارير كملف PDF واحد
+        // حل مشكلة الصفحات الفارغة في PDF باستخدام Timeout
         document.getElementById('exportAllPdfBtn').addEventListener('click', () => {
             const btn = document.getElementById('exportAllPdfBtn');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> جاري التجهيز...';
             
-            // إظهار جميع التقارير مؤقتاً لطباعتها
+            const container = document.getElementById('dashboardContent');
             const sections = document.querySelectorAll('.report-section');
-            sections.forEach(s => s.style.display = 'block');
-            document.getElementById('reportsNav').style.display = 'none'; // إخفاء الأزرار العلوية
-
-            const element = document.getElementById('dashboardContent');
             
-            const opt = {
-                margin:       10,
-                filename:     'تقارير_المبيعات_الكاملة.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
-            };
+            // فرض ظهور كل العناصر للمتصفح
+            sections.forEach(s => s.style.display = 'block');
+            document.getElementById('reportsNav').style.display = 'none';
 
-            html2pdf().set(opt).from(element).save().then(() => {
-                // إعادة الوضع كما كان بعد التحميل
-                sections.forEach(s => s.style.display = '');
-                document.getElementById('reportsNav').style.display = 'flex';
-                btn.innerHTML = originalText;
-            });
+            // اعطاء المتصفح وقت لرسم الجداول قبل التصوير
+            setTimeout(() => {
+                const opt = {
+                    margin:       10,
+                    filename:     'تقارير_المبيعات_الكاملة.pdf',
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true, windowWidth: container.scrollWidth },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
+                    pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+                };
+
+                html2pdf().set(opt).from(container).save().then(() => {
+                    sections.forEach(s => s.style.display = ''); 
+                    document.getElementById('reportsNav').style.display = 'flex';
+                    btn.innerHTML = originalText;
+                });
+            }, 500); 
         });
     </script>
 </body>
