@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* تنسيقات إضافية خاصة بلوحة التقارير */
+        /* تنسيقات البطاقات العلوية للإحصائيات */
         .dashboard-cards {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -42,8 +42,59 @@
             font-size: 1.1rem;
         }
 
-        /* تحسين الأزرار العلوية وأزرار التصدير لتكون جميلة جدا */
-        .btn-primary, .btn-secondary, .btn-subtab, .btn-action {
+        /* تنسيقات شبكة بطاقات التقارير (التصميم الجديد) */
+        .report-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            animation: fadeIn 0.4s ease-in-out;
+        }
+        .report-card-menu {
+            background: white;
+            border: 2px solid transparent;
+            border-radius: 20px;
+            padding: 30px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .report-card-menu i {
+            font-size: 3.5rem;
+            color: var(--primary);
+            background: rgba(0, 74, 153, 0.05);
+            padding: 20px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        .report-card-menu span {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #1e293b;
+        }
+        .report-card-menu:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 30px rgba(0, 74, 153, 0.15);
+            border-color: var(--primary);
+        }
+        .report-card-menu:hover i {
+            background: var(--primary);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        /* تنسيق خاص ببطاقة الطلبيات المكررة */
+        .report-card-menu.danger-card i { color: #ef4444; background: rgba(239, 68, 68, 0.05); }
+        .report-card-menu.danger-card:hover { border-color: #ef4444; box-shadow: 0 12px 30px rgba(239, 68, 68, 0.15); }
+        .report-card-menu.danger-card:hover i { background: #ef4444; color: white; }
+
+        /* الأزرار العلوية */
+        .btn-primary, .btn-secondary, .btn-action {
             transition: all 0.3s ease;
             border-radius: 10px;
             font-family: inherit;
@@ -58,7 +109,7 @@
         .btn-primary {
             background: linear-gradient(135deg, #004a99, #0066cc);
             color: white;
-            padding: 12px 24px;
+            padding: 10px 20px;
             box-shadow: 0 4px 15px rgba(0, 74, 153, 0.3);
         }
         .btn-primary:hover {
@@ -86,38 +137,7 @@
             box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
         }
 
-        .reports-nav {
-            display: flex;
-            gap: 12px;
-            overflow-x: auto;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-            border-bottom: 2px solid #e2e8f0;
-        }
-        .btn-subtab {
-            background: #f1f5f9;
-            color: #64748b;
-            padding: 12px 22px;
-            white-space: nowrap;
-            font-size: 1rem;
-        }
-        .btn-subtab.active {
-            background: linear-gradient(135deg, #004a99, #0066cc);
-            color: white;
-            box-shadow: 0 4px 15px rgba(0, 74, 153, 0.3);
-        }
-        .btn-subtab:hover:not(.active) {
-            background: #e2e8f0;
-            color: var(--primary);
-        }
-
-        /* أزرار الإجراءات داخل الجدول */
-        .btn-action {
-            padding: 8px 16px;
-            font-size: 0.9rem;
-            border-radius: 8px;
-            color: white;
-        }
+        .btn-action { padding: 8px 16px; font-size: 0.9rem; border-radius: 8px; color: white; }
         .btn-edit { background: linear-gradient(135deg, #f59e0b, #d97706); }
         .btn-delete { background: linear-gradient(135deg, #ef4444, #dc2626); }
         .btn-action:hover { opacity: 0.9; transform: scale(1.05); }
@@ -133,7 +153,9 @@
             align-items: center;
             margin-bottom: 20px;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
         }
         
         tfoot tr td {
@@ -142,7 +164,7 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
@@ -168,17 +190,17 @@
     </div>
 
     <div class="app-container">
-        <header class="glass-panel" style="flex-direction: row; justify-content: space-between;">
+        <header class="glass-panel" style="flex-direction: row; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
             <div class="logo-area">
                 <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="Dar Al Dawaa Logo" class="logo">
                 <h1>لوحة التقارير الشاملة</h1>
             </div>
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 <button type="button" id="exportAllPdfBtn" class="btn-primary" style="background: linear-gradient(135deg, #e11d48, #be123c);">
-                    <i class="ph ph-file-pdf"></i> تحميل جميع التقارير (PDF)
+                    <i class="ph ph-file-pdf"></i> تصدير الكل (PDF)
                 </button>
-                <a href="index.html" class="btn-secondary" style="text-decoration: none; display: flex; align-items: center; gap: 5px;">
-                    <i class="ph ph-house"></i> العودة للنظام
+                <a href="index.html" class="btn-secondary" style="text-decoration: none;">
+                    <i class="ph ph-house"></i> الرئيسية
                 </a>
             </div>
         </header>
@@ -202,59 +224,99 @@
             </div>
 
             <div class="glass-panel">
-                <div class="reports-nav" id="reportsNav">
-                    <button class="btn-subtab active" data-target="rep1">قيمة المبيعات لكل صنف</button>
-                    <button class="btn-subtab" data-target="rep2">الكميات (صنف - مندوب)</button>
-                    <button class="btn-subtab" data-target="rep5">عدد الطلبيات لكل مندوب</button>
-                    <button class="btn-subtab" data-target="rep6">قيمة الطلبيات لكل مندوب</button>
-                    <button class="btn-subtab" data-target="rep7">الطلبيات لكل منطقة</button>
-                    <button class="btn-subtab" data-target="rep-dup" style="color:#ef4444; border-color:#ef4444;"><i class="ph ph-warning"></i> الطلبيات المكررة</button>
+                
+                <div id="reportsGridContainer">
+                    <h2 style="margin-bottom: 25px; text-align: center; color: var(--secondary);">الرجاء اختيار التقرير المطلوب</h2>
+                    <div class="report-cards-grid">
+                        <div class="report-card-menu" data-target="rep1">
+                            <i class="ph ph-chart-bar"></i>
+                            <span>المبيعات لكل صنف</span>
+                        </div>
+                        <div class="report-card-menu" data-target="rep2">
+                            <i class="ph ph-matrix-logo"></i>
+                            <span>مصفوفة الأصناف والمندوبين</span>
+                        </div>
+                        <div class="report-card-menu" data-target="rep5">
+                            <i class="ph ph-user-list"></i>
+                            <span>عدد الطلبيات للمندوبين</span>
+                        </div>
+                        <div class="report-card-menu" data-target="rep6">
+                            <i class="ph ph-currency-circle-dollar"></i>
+                            <span>قيمة الطلبيات للمندوبين</span>
+                        </div>
+                        <div class="report-card-menu" data-target="rep7">
+                            <i class="ph ph-map-pin"></i>
+                            <span>الطلبيات لكل صيدلية</span>
+                        </div>
+                        <div class="report-card-menu danger-card" data-target="rep-dup">
+                            <i class="ph ph-warning"></i>
+                            <span>الطلبيات المكررة محتملة</span>
+                        </div>
+                    </div>
                 </div>
 
-                <div id="rep1" class="report-section active">
+                <div id="rep1" class="report-section">
                     <div class="report-header">
-                        <h2><i class="ph ph-chart-bar"></i> قيمة المبيعات لكل صنف</h2>
-                        <button class="export-excel btn-primary" data-table="table-rep1" data-name="قيمة_المبيعات_لكل_صنف"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                        <h2><i class="ph ph-chart-bar"></i> المبيعات لكل صنف</h2>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="export-excel btn-primary" data-table="table-rep1" data-name="المبيعات_لكل_صنف"><i class="ph ph-file-xls"></i> إكسل</button>
+                            <button class="btn-secondary back-to-grid-btn"><i class="ph ph-arrow-right"></i> رجوع للتقارير</button>
+                        </div>
                     </div>
                     <div class="table-responsive"><table class="order-table" id="table-rep1"></table></div>
                 </div>
 
                 <div id="rep2" class="report-section">
                     <div class="report-header">
-                        <h2><i class="ph ph-matrix-logo"></i> كمية المبيعات (الأصناف مقابل المندوبين)</h2>
-                        <button class="export-excel btn-primary" data-table="table-rep2" data-name="مصفوفة_الكميات"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                        <h2><i class="ph ph-matrix-logo"></i> مصفوفة الأصناف والمندوبين</h2>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="export-excel btn-primary" data-table="table-rep2" data-name="مصفوفة_الكميات"><i class="ph ph-file-xls"></i> إكسل</button>
+                            <button class="btn-secondary back-to-grid-btn"><i class="ph ph-arrow-right"></i> رجوع للتقارير</button>
+                        </div>
                     </div>
                     <div class="table-responsive"><table class="order-table" id="table-rep2"></table></div>
                 </div>
 
                 <div id="rep5" class="report-section">
                     <div class="report-header">
-                        <h2><i class="ph ph-user-list"></i> عدد الطلبيات لكل مندوب</h2>
-                        <button class="export-excel btn-primary" data-table="table-rep5" data-name="عدد_الطلبيات_للمندوبين"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                        <h2><i class="ph ph-user-list"></i> عدد الطلبيات للمندوبين</h2>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="export-excel btn-primary" data-table="table-rep5" data-name="عدد_الطلبيات"><i class="ph ph-file-xls"></i> إكسل</button>
+                            <button class="btn-secondary back-to-grid-btn"><i class="ph ph-arrow-right"></i> رجوع للتقارير</button>
+                        </div>
                     </div>
                     <div class="table-responsive"><table class="order-table" id="table-rep5"></table></div>
                 </div>
 
                 <div id="rep6" class="report-section">
                     <div class="report-header">
-                        <h2><i class="ph ph-currency-circle-dollar"></i> قيمة الطلبيات لكل مندوب</h2>
-                        <button class="export-excel btn-primary" data-table="table-rep6" data-name="قيمة_الطلبيات_للمندوبين"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                        <h2><i class="ph ph-currency-circle-dollar"></i> قيمة الطلبيات للمندوبين</h2>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="export-excel btn-primary" data-table="table-rep6" data-name="قيمة_الطلبيات"><i class="ph ph-file-xls"></i> إكسل</button>
+                            <button class="btn-secondary back-to-grid-btn"><i class="ph ph-arrow-right"></i> رجوع للتقارير</button>
+                        </div>
                     </div>
                     <div class="table-responsive"><table class="order-table" id="table-rep6"></table></div>
                 </div>
 
                 <div id="rep7" class="report-section">
                     <div class="report-header">
-                        <h2><i class="ph ph-map-pin"></i> عدد الطلبيات لكل منطقة (صيدلية)</h2>
-                        <button class="export-excel btn-primary" data-table="table-rep7" data-name="الطلبيات_حسب_المنطقة"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                        <h2><i class="ph ph-map-pin"></i> الطلبيات لكل صيدلية</h2>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="export-excel btn-primary" data-table="table-rep7" data-name="الطلبيات_حسب_المنطقة"><i class="ph ph-file-xls"></i> إكسل</button>
+                            <button class="btn-secondary back-to-grid-btn"><i class="ph ph-arrow-right"></i> رجوع للتقارير</button>
+                        </div>
                     </div>
                     <div class="table-responsive"><table class="order-table" id="table-rep7"></table></div>
                 </div>
 
                 <div id="rep-dup" class="report-section">
                     <div class="report-header">
-                        <h2 style="color: #ef4444;"><i class="ph ph-warning-circle"></i> تقرير الطلبيات المكررة محتملة</h2>
-                        <button class="export-excel btn-primary" data-table="table-rep-dup" data-name="الطلبيات_المكررة"><i class="ph ph-file-xls"></i> تصدير إكسل</button>
+                        <h2 style="color: #ef4444;"><i class="ph ph-warning-circle"></i> الطلبيات المكررة محتملة</h2>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="export-excel btn-primary" data-table="table-rep-dup" data-name="الطلبيات_المكررة"><i class="ph ph-file-xls"></i> إكسل</button>
+                            <button class="btn-secondary back-to-grid-btn"><i class="ph ph-arrow-right"></i> رجوع للتقارير</button>
+                        </div>
                     </div>
                     <div class="table-responsive"><table class="order-table" id="table-rep-dup"></table></div>
                 </div>
@@ -287,7 +349,7 @@
                 const snap = await getDocs(collection(db, "orders"));
                 snap.forEach(document => {
                     let data = document.data();
-                    data.id = document.id; // حفظ المعرف مهم جدا للتعديل
+                    data.id = document.id; 
                     allOrders.push(data);
                 });
                 
@@ -335,7 +397,6 @@
                         if (!itemRepQtyMap[itemName]) itemRepQtyMap[itemName] = {};
                         itemRepQtyMap[itemName][repName] = (itemRepQtyMap[itemName][repName] || 0) + qty;
 
-                        // بناء مفتاح لتتبع التكرار (الزبون + الصنف + الكمية)
                         let key = `${pharmName}_${itemName}_${qty}`;
                         if (!duplicatesMap[key]) duplicatesMap[key] = [];
                         duplicatesMap[key].push({
@@ -373,10 +434,9 @@
             let r7Data = Object.entries(areaOrdersCountMap).sort((a, b) => b[1] - a[1]).map(([area, count]) => [area, count]);
             buildHtmlTable('table-rep7', ['المنطقة / اسم الصيدلية', 'عدد الطلبيات'], r7Data, true);
 
-            // معالجة تقرير المكررات
             let duplicatesData = [];
             Object.keys(duplicatesMap).forEach(key => {
-                if (duplicatesMap[key].length > 1) { // اذا تكرر المفتاح اكثر من مرة
+                if (duplicatesMap[key].length > 1) { 
                     let parts = key.split('_');
                     duplicatesMap[key].forEach(dup => {
                         let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${dup.orderId}')"><i class="ph ph-pencil"></i> مشاهدة واجراء</button>`;
@@ -387,7 +447,6 @@
             buildHtmlTable('table-rep-dup', ['الصيدلية', 'الصنف', 'الكمية', 'المندوب', 'رقم المرجع', 'التاريخ', 'الاجراات'], duplicatesData, false);
         }
 
-        // دالة بناء الجداول مع اضافة صف المجموع اختياريا
         function buildHtmlTable(tableId, headers, rows, addTotals = true) {
             const table = document.getElementById(tableId);
             let thead = '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
@@ -402,12 +461,10 @@
                 rows.forEach(row => {
                     tbody += '<tr>';
                     row.forEach((cell, index) => {
-                        // جمع الارقام اذا كانت القيمة رقمية او تقبل التحويل
                         if (addTotals && index > 0 && typeof cell === 'number') {
                             columnTotals[index] += cell;
                             hasNumbers = true;
                         }
-                        // تنسيق العرض للمستخدم
                         let displayVal = (typeof cell === 'number' && cell % 1 !== 0) ? cell.toLocaleString('en-US', {minimumFractionDigits: 2}) : cell;
                         tbody += `<td ${index > 0 ? 'style="font-weight:600; color:var(--primary);"' : ''}>${displayVal}</td>`;
                     });
@@ -431,14 +488,12 @@
             table.innerHTML = thead + tbody + tfoot;
         }
 
-        // منطق التعامل مع نافذة الطلبيات المكررة
         let currentEditingOrder = null;
 
         window.openOrderModal = function(orderId) {
             let order = allOrders.find(o => o.id === orderId);
             if (!order) return alert('خطا: الطلبية غير موجودة');
             
-            // اخذ نسخة عميقة من الطلبية لتعديلها
             currentEditingOrder = JSON.parse(JSON.stringify(order));
             renderModalTable();
             document.getElementById('editDuplicateModal').style.display = 'flex';
@@ -472,7 +527,6 @@
             renderModalTable();
         }
 
-        // حفظ التعديلات في فايربيس
         document.getElementById('saveOrderBtn').onclick = async () => {
             document.querySelectorAll('.item-qty').forEach(inp => {
                 let idx = inp.getAttribute('data-idx');
@@ -485,7 +539,6 @@
                 currentEditingOrder.items[idx].bonus = parseInt(inp.value) || 0;
             });
 
-            // تحديث المجموع الكلي
             let newGrandTotal = 0;
             currentEditingOrder.items.forEach(i => newGrandTotal += parseFloat(i.total));
             currentEditingOrder.grandTotal = newGrandTotal;
@@ -498,14 +551,13 @@
                     updatedAt: new Date()
                 });
                 alert("تم حفظ التعديلات بنجاح");
-                location.reload(); // تحديث فوري للصفحة لتعكس البيانات
+                location.reload(); 
             } catch (error) {
                 console.error(error);
                 alert("حدث خطا اثناء الحفظ");
             }
         };
 
-        // حذف الطلبية بالكامل
         document.getElementById('deleteEntireOrderBtn').onclick = async () => {
             if (!confirm("هل انت متاكد من رغبتك في حذف هذه الطلبية نهاييا؟ هذا الاجراء لا يمكن التراجع عنه.")) return;
             try {
@@ -519,16 +571,36 @@
             }
         };
 
-        document.querySelectorAll('.reports-nav .btn-subtab').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.reports-nav .btn-subtab').forEach(b => b.classList.remove('active'));
+        // --- نظام التنقل الجديد باستخدام البطاقات ---
+        
+        // عند الضغط على أي بطاقة تقرير
+        document.querySelectorAll('.report-card-menu').forEach(card => {
+            card.addEventListener('click', (e) => {
+                const targetId = e.currentTarget.getAttribute('data-target');
+                
+                // إخفاء شبكة البطاقات
+                document.getElementById('reportsGridContainer').style.display = 'none';
+                
+                // إخفاء جميع التقارير (احتياطياً)
                 document.querySelectorAll('.report-section').forEach(s => s.classList.remove('active'));
                 
-                e.target.classList.add('active');
-                document.getElementById(e.target.getAttribute('data-target')).classList.add('active');
+                // إظهار التقرير المطلوب
+                document.getElementById(targetId).classList.add('active');
             });
         });
 
+        // عند الضغط على زر "رجوع للتقارير" داخل أي تقرير
+        document.querySelectorAll('.back-to-grid-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // إخفاء التقرير الحالي
+                document.querySelectorAll('.report-section').forEach(s => s.classList.remove('active'));
+                
+                // إظهار شبكة البطاقات من جديد
+                document.getElementById('reportsGridContainer').style.display = 'block';
+            });
+        });
+
+        // تصدير الإكسل
         document.querySelectorAll('.export-excel').forEach(btn => {
             btn.addEventListener('click', function() {
                 const tableId = this.getAttribute('data-table');
@@ -539,7 +611,7 @@
             });
         });
 
-        // حل مشكلة الصفحات الفارغة في PDF باستخدام Timeout
+        // تصدير الـ PDF
         document.getElementById('exportAllPdfBtn').addEventListener('click', () => {
             const btn = document.getElementById('exportAllPdfBtn');
             const originalText = btn.innerHTML;
@@ -548,11 +620,14 @@
             const container = document.getElementById('dashboardContent');
             const sections = document.querySelectorAll('.report-section');
             
-            // فرض ظهور كل العناصر للمتصفح
-            sections.forEach(s => s.style.display = 'block');
-            document.getElementById('reportsNav').style.display = 'none';
+            // إخفاء شبكة البطاقات
+            document.getElementById('reportsGridContainer').style.display = 'none';
+            // فرض ظهور كل الجداول للمتصفح ليقوم بتصويرها
+            sections.forEach(s => {
+                s.classList.add('active');
+                s.style.display = 'block';
+            });
 
-            // اعطاء المتصفح وقت لرسم الجداول قبل التصوير
             setTimeout(() => {
                 const opt = {
                     margin:       10,
@@ -564,8 +639,12 @@
                 };
 
                 html2pdf().set(opt).from(container).save().then(() => {
-                    sections.forEach(s => s.style.display = ''); 
-                    document.getElementById('reportsNav').style.display = 'flex';
+                    // بعد التحميل: إخفاء الجداول وإعادة إظهار شبكة البطاقات
+                    sections.forEach(s => {
+                        s.classList.remove('active');
+                        s.style.display = ''; 
+                    });
+                    document.getElementById('reportsGridContainer').style.display = 'block';
                     btn.innerHTML = originalText;
                 });
             }, 500); 
