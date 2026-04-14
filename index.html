@@ -120,7 +120,26 @@
                 <button id="managerMyTeamBtn" class="btn-subtab active">طلبيات فريقي</button>
                 <button id="managerAllOrdersBtn" class="btn-subtab">جميع طلبيات الشركة</button>
             </div>
-            
+            <div class="glass-panel" id="managerDateFilters" style="margin-bottom: 20px; padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0;">
+                <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+                    <div style="flex: 1; min-width: 140px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: var(--secondary);"><i class="ph ph-calendar"></i> من تاريخ</label>
+                        <input type="date" id="managerFilterFrom" style="width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #cbd5e1; outline: none; font-family: inherit;">
+                    </div>
+                    <div style="flex: 1; min-width: 140px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: var(--secondary);"><i class="ph ph-calendar"></i> إلى تاريخ</label>
+                        <input type="date" id="managerFilterTo" style="width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #cbd5e1; outline: none; font-family: inherit;">
+                    </div>
+                    <div style="display: flex; gap: 10px; flex: 2; min-width: 250px;">
+                        <button type="button" id="btnTodayOrders" class="btn-primary" style="flex: 1; height: 45px; border-radius: 8px;">
+                            <i class="ph ph-calendar-star"></i> طلبيات اليوم
+                        </button>
+                        <button type="button" id="btnClearManagerFilter" class="btn-secondary" style="flex: 1; height: 45px; border-radius: 8px;">
+                            <i class="ph ph-arrow-counter-clockwise"></i> تصفير التاريخ
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div id="teamOrdersSection">
                 <div id="managerControls" style="margin-bottom: 20px;">
                     <div style="display: flex; gap: 15px; margin-bottom: 15px;">
