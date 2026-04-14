@@ -363,7 +363,6 @@ async function loadManagerOrders() {
 }
 
 function applyManagerFilters() {
-    // جلب نص الخيار المحدد بدلاً من القيمة، لعمل بحث نصي مرن (includes)
     const repDropdown = document.getElementById('managerRepFilter');
     let repFilterText = '';
     if (repDropdown && repDropdown.selectedIndex > 0) {
@@ -373,15 +372,28 @@ function applyManagerFilters() {
     const pharmFilter = document.getElementById('managerPharmacyFilter')?.value.trim().toLowerCase() || '';
     const statusFilter = document.getElementById('managerStatusFilter')?.value || '';
 
+    // قراءة قيم التاريخ
+    const fromVal = document.getElementById('managerFilterFrom')?.value;
+    const toVal = document.getElementById('managerFilterTo')?.value;
+
     let filtered = managerOrdersData.filter(o => {
         const repNameClean = (o.repName || '').toLowerCase();
-        // تطبيق الفلترة باستخدام includes بدلا من === لمنع مشاكل المسافات والأخطاء القديمة
         const matchRep = repFilterText === '' || repNameClean.includes(repFilterText);
         
         const matchPharm = pharmFilter === '' || (o.pharmacyName && o.pharmacyName.toLowerCase().includes(pharmFilter));
         const matchStatus = statusFilter === '' || o.status === statusFilter;
         
-        return matchRep && matchPharm && matchStatus;
+        // التحقق من التاريخ
+        let matchDate = true;
+        if (o.createdAt && o.createdAt.toDate) {
+            let oDate = o.createdAt.toDate();
+            oDate.setHours(0,0,0,0);
+            
+            if (fromVal) { let dFrom = new Date(fromVal); dFrom.setHours(0,0,0,0); if (oDate < dFrom) matchDate = false; }
+            if (toVal) { let dTo = new Date(toVal); dTo.setHours(0,0,0,0); if (oDate > dTo) matchDate = false; }
+        }
+
+        return matchRep && matchPharm && matchStatus && matchDate;
     });
 
     const count = filtered.length;
@@ -562,14 +574,29 @@ function filterAllOrders() {
     const pharmFilter = (document.getElementById('filterAllPharmacy').value || '').toLowerCase().trim();
     const statusFilter = (document.getElementById('filterAllStatus').value || '').trim();
 
+    // قراءة قيم التاريخ
+    const fromVal = document.getElementById('managerFilterFrom')?.value;
+    const toVal = document.getElementById('managerFilterTo')?.value;
+
     const filtered = allOrdersData.filter(order => {
         const repName = (order.repName || '').toLowerCase();
         const pharmName = (order.pharmacyName || '').toLowerCase();
         const orderStatus = (order.status || '').trim();
 
+        // التحقق من التاريخ
+        let matchDate = true;
+        if (order.createdAt && order.createdAt.toDate) {
+            let oDate = order.createdAt.toDate();
+            oDate.setHours(0,0,0,0);
+            
+            if (fromVal) { let dFrom = new Date(fromVal); dFrom.setHours(0,0,0,0); if (oDate < dFrom) matchDate = false; }
+            if (toVal) { let dTo = new Date(toVal); dTo.setHours(0,0,0,0); if (oDate > dTo) matchDate = false; }
+        }
+
         return repName.includes(repFilter) &&
                pharmName.includes(pharmFilter) &&
-               (statusFilter === '' || orderStatus === statusFilter);
+               (statusFilter === '' || orderStatus === statusFilter) &&
+               matchDate;
     });
 
     renderAllOrders(filtered);
@@ -878,3 +905,44 @@ document.getElementById('bulkDeleteAllBtn')?.addEventListener('click', () => han
     
 window.closeModal = () => detailsModal.style.display = 'none';
 loadInitialData();
+// ==========================================
+// برمجة فلاتر التاريخ (للمدير)
+// ==========================================
+const managerFilterFrom = document.getElementById('managerFilterFrom');
+const managerFilterTo = document.getElementById('managerFilterTo');
+const btnTodayOrders = document.getElementById('btnTodayOrders');
+const btnClearManagerFilter = document.getElementById('btnClearManagerFilter');
+
+// تحديث الفلاتر عند تغيير التاريخ يدوياً
+managerFilterFrom?.addEventListener('change', () => { 
+    applyManagerFilters(); 
+    filterAllOrders(); 
+});
+managerFilterTo?.addEventListener('change', () => { 
+    applyManagerFilters(); 
+    filterAllOrders(); 
+});
+
+// زر طلبيات اليوم
+btnTodayOrders?.addEventListener('click', () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    
+    managerFilterFrom.value = todayStr;
+    managerFilterTo.value = todayStr;
+    
+    applyManagerFilters();
+    filterAllOrders();
+});
+
+// زر التصفير
+btnClearManagerFilter?.addEventListener('click', () => {
+    managerFilterFrom.value = '';
+    managerFilterTo.value = '';
+    
+    applyManagerFilters();
+    filterAllOrders();
+});
