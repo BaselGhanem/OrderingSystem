@@ -823,7 +823,7 @@ document.getElementById('confirmAdminLoginBtn').onclick = () => {
         // توجيه حسب الاختيار
         if (selectedAdminType === 'reports') {
             // تحويل إلى صفحة التقارير المنفصلة
-            window.location.href = 'Mohammad.html';
+            window.location.href = 'mohammad.html';
         } else {
             // الدخول كمدير مبيعات لاعتماد الطلبيات (محمد أو عبدالله)
             isAdmin = true;
