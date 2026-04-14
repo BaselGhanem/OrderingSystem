@@ -818,11 +818,32 @@ document.querySelectorAll('.btn-admin-opt').forEach(btn => {
 });
 
 // عند الضغط على الدخول كمدير من الشاشة الرئيسية، افتح النافذة
+// عند الضغط على الدخول كمدير من الشاشة الرئيسية، افتح النافذة مع الرسالة الترحيبية
 document.getElementById('adminModeBtn').onclick = () => {
-    document.getElementById('adminLoginModal').style.display = 'flex';
-    document.getElementById('adminPasswordInput').value = ''; // تصفير كلمة المرور
+    // التحقق من التخزين المحلي لضمان ظهور الرسالة مرة واحدة فقط
+    const isNoticeShown = localStorage.getItem('systemUpdate_v1');
+    
+    if (!isNoticeShown) {
+        // إظهار رسالة التحديثات أولاً
+        document.getElementById('updateNoticeModal').style.display = 'flex';
+        
+        // عند الضغط على زر المتابعة
+        document.getElementById('closeUpdateNoticeBtn').onclick = () => {
+            document.getElementById('updateNoticeModal').style.display = 'none';
+            localStorage.setItem('systemUpdate_v1', 'true'); // تسجيل أنه شاهدها
+            openAdminLoginBox();
+        };
+    } else {
+        // إذا كان قد شاهدها مسبقاً، افتح نافذة الدخول مباشرة
+        openAdminLoginBox();
+    }
 };
 
+// دالة مساعدة لفتح نافذة تسجيل الدخول
+function openAdminLoginBox() {
+    document.getElementById('adminLoginModal').style.display = 'flex';
+    document.getElementById('adminPasswordInput').value = ''; 
+}
 // عند الضغط على زر "دخول" داخل النافذة
 document.getElementById('confirmAdminLoginBtn').onclick = () => {
     if (!selectedAdminType) {
