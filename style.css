@@ -370,3 +370,68 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
     border-radius: 12px;
     background: rgba(0, 0, 0, 0.02);
 }
+/* تحسين شكل صندوق تسجيل الدخول ليكون متجاوب وجميل على الموبايل */
+.auth-box {
+    max-width: 100%;
+    margin: 0 auto;
+    text-align: center;
+    padding: 20px 15px;
+}
+@media (min-width: 480px) {
+    .auth-box {
+        max-width: 450px;
+        padding: 40px;
+    }
+}
+
+/* تنسيق أزرار الإدارة الجديدة */
+.admin-options-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.btn-admin-opt {
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    color: var(--secondary);
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s ease;
+}
+
+.btn-admin-opt:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.btn-admin-opt.active {
+    background: linear-gradient(135deg, #004a99, #0066cc);
+    border-color: #004a99;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 74, 153, 0.3);
+    transform: scale(1.02);
+}
+
+.btn-admin-opt i {
+    font-size: 1.3rem;
+}
+
+/* تحسين حقول الإدخال لتكون أسهل للمس على الموبايل */
+input, select {
+    min-height: 48px; /* ارتفاع مناسب للإصبع على الموبايل */
+    font-size: 1rem;
+}
+
+.remember-container label {
+    margin-bottom: 0;
+    font-weight: 600;
+    color: var(--secondary);
+}
