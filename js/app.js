@@ -772,55 +772,67 @@ document.getElementById('navMyOrdersBtn').onclick = () => { document.querySelect
 document.getElementById('navReportsBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('reportsScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navReportsBtn').classList.add('active'); loadReports(); };
 document.getElementById('logoutBtn').onclick = () => { clearRepSession(); if(confirm("تسجيل الخروج؟")) location.reload(); };
 
-document.getElementById('adminModeBtn').onclick = () => {
-    const savedPass = localStorage.getItem('adminPassword');
-    const savedName = localStorage.getItem('managerName');
+// المتغيرات لحفظ اختيار المدير
+let selectedAdminType = null;
+let selectedAdminName = null;
 
-    let pass;
-    if (savedPass) {
-        if (confirm(`هل تريد الدخول كمدير باسم: ${savedName}؟`)) {
-            pass = savedPass;
-        } else {
-            pass = prompt("كلمة مرور المدير:");
-        }
-    } else {
-        pass = prompt("كلمة مرور المدير:");
-    }
-
-    if (pass === "202604") {
-        let managerName = savedName;
+// تفعيل اختيار أحد الأزرار الثلاثة
+document.querySelectorAll('.btn-admin-opt').forEach(btn => {
+    btn.onclick = (e) => {
+        // إزالة التحديد عن كل الأزرار
+        document.querySelectorAll('.btn-admin-opt').forEach(b => b.classList.remove('active'));
+        // إضافة التحديد للزر المختار
+        const targetBtn = e.currentTarget;
+        targetBtn.classList.add('active');
         
-        if (!managerName) {
-            managerName = prompt("ادخل اسمك كمدير (محمد طوالبه او عبدالله الناطور):");
-        }
+        selectedAdminType = targetBtn.getAttribute('data-type');
+        selectedAdminName = targetBtn.getAttribute('data-name');
+    };
+});
 
-        if (!managerName) {
-            alert("اسم المدير غير معروف");
-            return;
-        }
+// عند الضغط على الدخول كمدير من الشاشة الرئيسية، افتح النافذة
+document.getElementById('adminModeBtn').onclick = () => {
+    document.getElementById('adminLoginModal').style.display = 'flex';
+    document.getElementById('adminPasswordInput').value = ''; // تصفير كلمة المرور
+};
 
-        managerName = managerName.trim();
-
-        if (managerName !== "محمد طوالبه" && managerName !== "عبدالله الناطور") {
-            alert("اسم المدير غير معروف");
-            return;
-        }
-
-        const rememberMe = document.getElementById('rememberMe').checked;
+// عند الضغط على زر "دخول" داخل النافذة
+document.getElementById('confirmAdminLoginBtn').onclick = () => {
+    if (!selectedAdminType) {
+        return alert("الرجاء اختيار الحساب أولاً (محمد، عبدالله، أو لوحة التقارير)");
+    }
+    
+    const pass = document.getElementById('adminPasswordInput').value;
+    
+    if (pass === "202604") {
+        const rememberMe = document.getElementById('rememberAdmin').checked;
+        
+        // حفظ الدخول إذا طلب المستخدم
         if (rememberMe) {
             localStorage.setItem('isAdminLoggedIn', 'true');
-            localStorage.setItem('managerName', managerName);
+            localStorage.setItem('managerName', selectedAdminName);
             localStorage.setItem('adminPassword', pass);
+            localStorage.setItem('adminType', selectedAdminType);
         } else {
+            localStorage.removeItem('isAdminLoggedIn');
             localStorage.removeItem('managerName');
             localStorage.removeItem('adminPassword');
+            localStorage.removeItem('adminType');
         }
 
-        isAdmin = true;
-        currentManagerName = managerName;
-        initializeManagerView(managerName);
-
-    } else if (pass !== null) {
+        // توجيه حسب الاختيار
+        if (selectedAdminType === 'reports') {
+            // تحويل إلى صفحة التقارير المنفصلة
+            window.location.href = 'Mohammad.html';
+        } else {
+            // الدخول كمدير مبيعات لاعتماد الطلبيات (محمد أو عبدالله)
+            isAdmin = true;
+            currentManagerName = selectedAdminName;
+            document.getElementById('adminLoginModal').style.display = 'none';
+            initializeManagerView(selectedAdminName);
+        }
+        
+    } else {
         alert("كلمة المرور خاطئة!");
     }
 };
