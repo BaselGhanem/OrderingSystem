@@ -198,6 +198,20 @@ function addNewRow() {
         t.innerText = (pr * q.value).toFixed(2);
         updateGrandTotal();
     });
+    // أضف هذا الكود داخل الدوال التي تنشئ أسطر جديدة
+s.addEventListener('blur', function() {
+    const val = this.value.trim();
+    if (val === "") return;
+    
+    const isValid = productsList.some(p => p.name === val);
+    if (!isValid) {
+        this.style.border = "2px solid red";
+        this.style.backgroundColor = "#fff0f0";
+    } else {
+        this.style.border = "";
+        this.style.backgroundColor = "";
+    }
+});
     q.oninput = () => { t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); updateGrandTotal(); };
     tr.querySelector('.del-row').onclick = () => { tr.remove(); updateGrandTotal(); };
     orderBody.appendChild(tr);
@@ -251,16 +265,34 @@ startOrderBtn.onclick = () => {
 
 submitOrderBtn.onclick = async () => {
     const items = [];
+    let invalidItem = false; // متغير للتحقق من صحة الأصناف
+
     document.querySelectorAll('#orderBody tr').forEach(r => {
         const s = r.querySelector('.product-input');
-        if (s && s.value) items.push({
-            name: s.value,
-            qty: r.querySelector('.qty-input').value,
-            bonus: r.querySelector('.bonus-input').value || 0,
-            price: r.querySelector('.price-cell').innerText,
-            total: r.querySelector('.row-total').innerText
-        });
+        if (s && s.value.trim() !== "") {
+            // التحقق: هل الاسم المكتوب مطابق تماماً لأي صنف في القائمة؟
+            const isValid = productsList.some(prod => prod.name === s.value.trim());
+            
+            if (!isValid) {
+                invalidItem = true;
+                s.style.border = "2px solid red"; // تمييز الخطأ بصرياً
+            } else {
+                s.style.border = ""; 
+                items.push({
+                    name: s.value,
+                    qty: r.querySelector('.qty-input').value,
+                    bonus: r.querySelector('.bonus-input').value || 0,
+                    price: r.querySelector('.price-cell').innerText,
+                    total: r.querySelector('.row-total').innerText
+                });
+            }
+        }
     });
+
+    if (invalidItem) {
+        return alert("يوجد أصناف معدلة أو غير صحيحة، يرجى اختيار الصنف من القائمة المنسدلة حصراً.");
+    }
+
     if (items.length === 0) return alert("الفاتورة فارغة!");
     try {
         submitOrderBtn.disabled = true;
@@ -679,28 +711,76 @@ async function openEditOrder(orderId, userType) {
         editBody.appendChild(tr);
         updateEditTotal();
     }
+    // أضف هذا الكود داخل الدوال التي تنشئ أسطر جديدة
+s.addEventListener('blur', function() {
+    const val = this.value.trim();
+    if (val === "") return;
+    
+    const isValid = productsList.some(p => p.name === val);
+    if (!isValid) {
+        this.style.border = "2px solid red";
+        this.style.backgroundColor = "#fff0f0";
+    } else {
+        this.style.border = "";
+        this.style.backgroundColor = "";
+    }
+});
     order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total); });
     document.getElementById('editAddRowBtn').onclick = () => addEditRow();
     const saveBtn = document.getElementById('saveEditOrderBtn');
     const newSaveBtn = saveBtn.cloneNode(true);
     saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-    newSaveBtn.onclick = async () => {
-        const items = [];
-        document.querySelectorAll('#editOrderBody tr').forEach(r => {
-            const inp = r.querySelector('.product-input');
-            if(inp && inp.value) items.push({ name: inp.value, qty: r.querySelector('.qty-input').value, bonus: r.querySelector('.bonus-input').value || 0, price: r.querySelector('.price-cell').innerText, total: r.querySelector('.row-total').innerText });
-        });
-        const newGrandTotal = parseFloat(document.getElementById('editGrandTotal').innerText);
-        await updateDoc(doc(db, "orders", editingOrderId), { items: items, grandTotal: newGrandTotal, status: "pending", updatedAt: new Date() });
-        alert("تم تحديث الطلبية واعادة ارسالها للموافقة.");
-        closeEditModal();
-        if(userType === 'rep') loadMyOrders();
-        else if(userType === 'manager') loadManagerOrders(document.getElementById('managerRepFilter').value);
-        else if(userType === 'all') loadAllCompanyOrders();
-    };
-    document.getElementById('editOrderModal').style.display = 'flex';
-}
+newSaveBtn.onclick = async () => {
+    const items = [];
+    let invalidItem = false;
 
+    document.querySelectorAll('#editOrderBody tr').forEach(r => {
+        const inp = r.querySelector('.product-input');
+        if (inp && inp.value.trim() !== "") {
+            const isValid = productsList.some(prod => prod.name === inp.value.trim());
+            
+            if (!isValid) {
+                invalidItem = true;
+                inp.style.border = "2px solid red";
+            } else {
+                inp.style.border = "";
+                items.push({ 
+                    name: inp.value, 
+                    qty: r.querySelector('.qty-input').value, 
+                    bonus: r.querySelector('.bonus-input').value || 0, 
+                    price: r.querySelector('.price-cell').innerText, 
+                    total: r.querySelector('.row-total').innerText 
+                });
+            }
+        }
+    });
+
+    if (invalidItem) {
+        return alert("يرجى التأكد من اختيار الأصناف الصحيحة من القائمة قبل الحفظ.");
+    }
+
+    if (items.length === 0) return alert("لا يمكن حفظ طلبية فارغة!");
+
+    try {
+        const newGrandTotal = parseFloat(document.getElementById('editGrandTotal').innerText);
+        await updateDoc(doc(db, "orders", editingOrderId), { 
+            items: items, 
+            grandTotal: newGrandTotal, 
+            status: "pending", 
+            updatedAt: new Date() 
+        });
+        alert("تم تحديث الطلبية بنجاح.");
+        closeEditModal();
+        
+        // تحديث الشاشة المناسبة حسب نوع المستخدم
+        if(userType === 'rep') loadMyOrders();
+        else if(userType === 'manager') loadManagerOrders();
+        else if(userType === 'all') loadAllCompanyOrders();
+    } catch (e) {
+        console.error(e);
+        alert("حدث خطأ أثناء التحديث");
+    }
+};
 function closeEditModal() { document.getElementById('editOrderModal').style.display = 'none'; editingOrderId = null; }
 window.closeEditModal = closeEditModal;
 
