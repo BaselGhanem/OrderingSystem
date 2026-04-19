@@ -807,6 +807,7 @@ newSaveBtn.onclick = async () => {
         alert("حدث خطأ أثناء التحديث");
     }
 };
+}
 function closeEditModal() { document.getElementById('editOrderModal').style.display = 'none'; editingOrderId = null; }
 window.closeEditModal = closeEditModal;
 
