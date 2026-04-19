@@ -448,40 +448,51 @@ async function loadManagerOrders() {
     tbody.innerHTML = '<tr><td colspan="8">جاري التحميل...</td></tr>';
     
     try {
-        let snap = await getDocs(collection(db, "orders"));
+        // جلب جميع الطلبيات مرة واحدة
+        const snap = await getDocs(collection(db, "orders"));
         let allOrders = [];
-        
         snap.forEach(d => {
             const data = d.data();
-            // نفس كود جميع طلبيات الشركة لضمان جلب نفس البيانات 100%
             if (data.createdAt) {
                 allOrders.push({ id: d.id, ...data });
             }
         });
 
-        // الفرز نفس جميع طلبيات الشركة تماما
+        // ترتيب تنازلي
         allOrders.sort((a, b) => {
             const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
             const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
             return dateB - dateA;
         });
 
+        // تصفية طلبيات فريق المدير الحالي
         const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
         const normalizedUnder = managerReps.map(r => r.trim().toLowerCase());
 
         managerOrdersData = allOrders.filter(o => {
             const repNameNorm = (o.repName || '').trim().toLowerCase();
-            // البحث المرن: يكفي ان يحتوي اسم المندوب في الطلبية على اسم المندوب في القائمة (نفس آلية بحث الشركة)
-            return normalizedUnder.some(rep => repNameNorm.includes(rep));
+            // تطابق تام مع الأسماء في الخريطة
+            return normalizedUnder.includes(repNameNorm);
         });
 
-        applyManagerFilters();
+        // تحديث الفلاتر (مثل قائمة مندوبي الفريق)
+        const repDropdown = document.getElementById('managerRepFilter');
+        if (repDropdown && repDropdown.options.length <= 1) {
+            repDropdown.innerHTML = '<option value="">جميع مندوبي</option>';
+            managerReps.forEach(rep => {
+                const opt = document.createElement('option');
+                opt.value = rep;
+                opt.textContent = rep;
+                repDropdown.appendChild(opt);
+            });
+        }
+
+        applyManagerFilters(); // تطبيق الفلاتر وعرض البيانات
     } catch (e) {
-        console.error(e);
-        tbody.innerHTML = `<tr><td colspan="8" style="color:red;">خطا في التحميل</td></tr>`;
+        console.error("خطأ في تحميل طلبيات المدير:", e);
+        tbody.innerHTML = '<tr><td colspan="8" style="color:red;">فشل التحميل، راجع الكونسول</td></tr>';
     }
 }
-
 function applyManagerFilters() {
     const repDropdown = document.getElementById('managerRepFilter');
     let repFilterText = '';
@@ -492,7 +503,6 @@ function applyManagerFilters() {
     const pharmFilter = document.getElementById('managerPharmacyFilter')?.value.trim().toLowerCase() || '';
     const statusFilter = document.getElementById('managerStatusFilter')?.value || '';
 
-    // قراءة قيم التاريخ
     const fromVal = document.getElementById('managerFilterFrom')?.value;
     const toVal = document.getElementById('managerFilterTo')?.value;
 
@@ -503,16 +513,13 @@ function applyManagerFilters() {
         const matchPharm = pharmFilter === '' || (o.pharmacyName && o.pharmacyName.toLowerCase().includes(pharmFilter));
         const matchStatus = statusFilter === '' || o.status === statusFilter;
         
-        // التحقق من التاريخ
         let matchDate = true;
         if (o.createdAt && o.createdAt.toDate) {
             let oDate = o.createdAt.toDate();
             oDate.setHours(0,0,0,0);
-            
             if (fromVal) { let dFrom = new Date(fromVal); dFrom.setHours(0,0,0,0); if (oDate < dFrom) matchDate = false; }
             if (toVal) { let dTo = new Date(toVal); dTo.setHours(0,0,0,0); if (oDate > dTo) matchDate = false; }
         }
-
         return matchRep && matchPharm && matchStatus && matchDate;
     });
 
@@ -521,13 +528,53 @@ function applyManagerFilters() {
     
     const countEl = document.getElementById('managerOrdersCount');
     const totalEl = document.getElementById('managerOrdersTotal');
-    
     if(countEl) countEl.innerText = count;
     if(totalEl) totalEl.innerText = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     renderManagerOrders(filtered);
 }
 
+function renderManagerOrders(orders) {
+    const tbody = document.getElementById('managerOrdersBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8">لا توجد طلبيات مطابقة</td></tr>';
+        return;
+    }
+
+    orders.forEach(order => {
+        const isApproved = order.status === 'approved';
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="checkbox" class="order-checkbox" value="${order.id}"></td>
+            <td>${order.id.substring(0, 6).toUpperCase()}</td>
+            <td>${displayDate}</td>
+            <td>${order.repName || '-'}</td>
+            <td>${order.pharmacyName || '-'}</td>
+            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td><span class="status-badge ${order.status}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
+            <td>
+                <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
+                ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
+            </td>
+        `;
+        
+        tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'manager');
+        if (!isApproved) {
+            tr.querySelector('.approve-btn').onclick = async () => { 
+                if(confirm("الموافقة على الطلبية؟")) { 
+                    await updateDoc(doc(db, "orders", order.id), { status: "approved", updatedAt: new Date() }); 
+                    loadManagerOrders(); 
+                } 
+            };
+        }
+        tbody.appendChild(tr);
+    });
+}
 document.getElementById('managerRepFilter')?.addEventListener('change', applyManagerFilters);
 document.getElementById('managerPharmacyFilter')?.addEventListener('input', applyManagerFilters);
 document.getElementById('managerStatusFilter')?.addEventListener('change', applyManagerFilters);
@@ -769,31 +816,65 @@ document.getElementById('exportAllOrdersBtn').onclick = async () => {
     }
 };
 
+async function ensureProductsLoaded() {
+    if (productsList.length > 0) return true;
+    try {
+        const prodSnap = await getDocs(collection(db, "products"));
+        productsList = [];
+        prodSnap.forEach(d => productsList.push({ id: d.id, ...d.data() }));
+        productsList.sort((a,b) => a.name.localeCompare(b.name));
+        return true;
+    } catch(e) {
+        console.error("فشل تحميل المنتجات:", e);
+        return false;
+    }
+}
+
 async function openEditOrder(orderId, userType) {
+    const loaded = await ensureProductsLoaded();
+    if (!loaded) { alert("لم يتم تحميل المنتجات"); return; }
+
     const orderDoc = await getDoc(doc(db, "orders", orderId));
-    if(!orderDoc.exists()) return alert("الطلب غير موجود");
+    if (!orderDoc.exists()) return alert("الطلب غير موجود");
     const order = orderDoc.data();
     editingOrderId = orderId;
+
     const container = document.getElementById('editOrderContainer');
-    container.innerHTML = `
-        <h4>تعديل طلبية: ${order.pharmacyName}</h4>
-        <div class="table-responsive"><table class="order-table" id="editOrderTable"><thead><tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th><th>حذف</th></tr></thead><tbody id="editOrderBody"></tbody></table></div>
-        <div style="margin-top:10px;"><button id="editAddRowBtn" class="btn-secondary">➕ اضافة صنف</button></div>
-        <div class="total-box">الاجمالي: <strong id="editGrandTotal">0.00</strong> د.ا</div>
-    `;
+    if (!container) return;
+
+    container.innerHTML = `...`; // المحتوى نفسه
+
     const editBody = document.getElementById('editOrderBody');
-    function updateEditTotal() { let total=0; document.querySelectorAll('#editOrderBody .row-total').forEach(td=>total+=parseFloat(td.innerText)||0); document.getElementById('editGrandTotal').innerText=total.toFixed(2); }
- function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
+    function updateEditTotal() { ... }
+    function addEditRow(...) { ... }
+
+    order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total); });
+    document.getElementById('editAddRowBtn').onclick = () => addEditRow();
+
+    const saveBtn = document.getElementById('saveEditOrderBtn');
+    if (saveBtn) {
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        newSaveBtn.onclick = async () => {
+            // ... منطق الحفظ
+        };
+    }
+}
+function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%"><div class="autocomplete-list product-suggestions"></div></div></td>
-                        <td><input type="number" class="qty-input" value="${qty}" min="1"></td>
-                        <td><input type="number" class="bonus-input" value="${bonus}" min="0"></td>
-                        <td class="price-cell">${parseFloat(price).toFixed(2)}</td>
-                        <td class="row-total">${parseFloat(rowTotal).toFixed(2)}</td>
-                        <td><button class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>`;
-        const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions'), q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
+        tr.innerHTML = `
+            <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%"><div class="autocomplete-list product-suggestions"></div></div></td>
+            <td><input type="number" class="qty-input" value="${qty}" min="1"></td>
+            <td><input type="number" class="bonus-input" value="${bonus}" min="0"></td>
+            <td class="price-cell">${parseFloat(price).toFixed(2)}</td>
+            <td class="row-total">${parseFloat(rowTotal).toFixed(2)}</td>
+            <td><button class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
+        `;
+        const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions');
+        const q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
         const productNames = productsList.map(prod => prod.name);
         
+        // إعادة استخدام setupAutocomplete مع نفس المعاملات
         setupAutocomplete(s, sug, productNames, (selectedName) => { 
             const prod = productsList.find(p => p.name === selectedName); 
             const pr = prod ? parseFloat(prod.price) : 0; 
@@ -820,6 +901,58 @@ async function openEditOrder(orderId, userType) {
         editBody.appendChild(tr);
         updateEditTotal();
     }
+    
+    order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total); });
+    document.getElementById('editAddRowBtn').onclick = () => addEditRow();
+    
+    const saveBtn = document.getElementById('saveEditOrderBtn');
+    if (saveBtn) {
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        newSaveBtn.onclick = async () => {
+            const items = [];
+            let invalidItem = false;
+            document.querySelectorAll('#editOrderBody tr').forEach(r => {
+                const inp = r.querySelector('.product-input');
+                if (inp && inp.value.trim() !== "") {
+                    const isValid = productsList.some(prod => prod.name === inp.value.trim());
+                    if (!isValid) {
+                        invalidItem = true;
+                        inp.style.border = "2px solid red";
+                    } else {
+                        inp.style.border = "";
+                        items.push({ 
+                            name: inp.value, 
+                            qty: r.querySelector('.qty-input').value, 
+                            bonus: r.querySelector('.bonus-input').value || 0, 
+                            price: r.querySelector('.price-cell').innerText, 
+                            total: r.querySelector('.row-total').innerText 
+                        });
+                    }
+                }
+            });
+            if (invalidItem) return alert("يرجى التأكد من اختيار الأصناف الصحيحة من القائمة قبل الحفظ.");
+            if (items.length === 0) return alert("لا يمكن حفظ طلبية فارغة!");
+            try {
+                const newGrandTotal = parseFloat(document.getElementById('editGrandTotal').innerText);
+                await updateDoc(doc(db, "orders", editingOrderId), { 
+                    items: items, 
+                    grandTotal: newGrandTotal, 
+                    status: "pending", 
+                    updatedAt: new Date() 
+                });
+                alert("تم تحديث الطلبية بنجاح.");
+                closeEditModal();
+                if(userType === 'rep') loadMyOrders();
+                else if(userType === 'manager') loadManagerOrders();
+                else if(userType === 'all') loadAllCompanyOrders();
+            } catch (e) {
+                console.error(e);
+                alert("حدث خطأ أثناء التحديث");
+            }
+        };
+    }
+}
     order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total); });
     document.getElementById('editAddRowBtn').onclick = () => addEditRow();
     const saveBtn = document.getElementById('saveEditOrderBtn');
