@@ -1,144 +1,184 @@
-/* 1. Root Variables & Base */
+/* 1. Root Variables & Base - Enhanced Design System */
 :root {
-    --primary: #004a99;
-    --primary-light: #0066cc;
-    --secondary: #64748b;
-    --success: #10b981;
-    --danger: #ef4444;
-    --warning: #f59e0b;
-    --bg-body: #f1f5f9;
-    --glass: rgba(255, 255, 255, 0.85);
-    --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+    --primary: #0f3b5c;
+    --primary-dark: #0a2a42;
+    --primary-light: #1a5a8a;
+    --secondary: #4a627a;
+    --secondary-light: #6c86a0;
+    --success: #2c7a4d;
+    --success-light: #3b9b62;
+    --danger: #c2412c;
+    --danger-light: #e05a44;
+    --warning: #d97706;
+    --warning-light: #f59e0b;
+    --bg-body: #eef2f6;
+    --glass: rgba(255, 255, 255, 0.92);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+    --shadow-focus: 0 0 0 4px rgba(15, 59, 92, 0.2);
+    --border-radius-sm: 8px;
+    --border-radius-md: 12px;
+    --border-radius-lg: 20px;
+    --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: 'Cairo', sans-serif;
-    transition: all 0.3s ease;
+    font-family: 'Cairo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
     background: var(--bg-body);
     background-image: 
-        radial-gradient(at 0% 0%, rgba(0, 74, 153, 0.05) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(0, 74, 153, 0.05) 0px, transparent 50%);
-    color: #1e293b;
+        radial-gradient(circle at 0% 0%, rgba(15, 59, 92, 0.03) 0px, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(44, 122, 77, 0.03) 0px, transparent 50%);
+    color: #1e2a3a;
     min-height: 100vh;
+    line-height: 1.5;
 }
 
-/* 2. Background Shapes */
+/* 2. Background Shapes - Refined */
 .bg-shapes {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
     z-index: -1;
     overflow: hidden;
+    pointer-events: none;
 }
 .shape {
     position: absolute;
     border-radius: 50%;
-    filter: blur(80px);
+    filter: blur(100px);
+    opacity: 0.4;
 }
-.shape-1 { width: 300px; height: 300px; background: rgba(0, 74, 153, 0.1); top: -100px; right: -100px; }
-.shape-2 { width: 250px; height: 250px; background: rgba(16, 185, 129, 0.05); bottom: -50px; left: -50px; }
+.shape-1 { width: 350px; height: 350px; background: rgba(15, 59, 92, 0.15); top: -120px; right: -80px; }
+.shape-2 { width: 280px; height: 280px; background: rgba(44, 122, 77, 0.1); bottom: -60px; left: -60px; }
 
-/* 3. Reusable Glass Panel */
+/* 3. Reusable Glass Panel - Modern */
 .glass-panel {
     background: var(--glass);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    border-radius: 20px;
-    box-shadow: var(--shadow);
-    padding: 20px;
-    margin-bottom: 20px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 24px;
+    margin-bottom: 24px;
+    transition: var(--transition);
 }
 
 /* 4. Layout Container */
 .app-container {
     width: 100%;
-    max-width: 1400px;
-    margin: auto;
-    padding: 10px;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 16px;
 }
 
-/* 5. Header Section */
+/* 5. Header Section - Improved spacing */
 header {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 20px;
     align-items: center;
+    margin-bottom: 8px;
 }
 
 .logo-area {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 16px;
 }
-.logo { height: 50px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
-.logo-area h1 { font-size: 1.4rem; color: var(--primary); font-weight: 800; }
+.logo { height: 52px; filter: drop-shadow(var(--shadow-sm)); }
+.logo-area h1 { font-size: 1.6rem; color: var(--primary); font-weight: 800; letter-spacing: -0.3px; }
 
 .user-info {
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(0,0,0,0.05);
+    gap: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-/* 6. Navigation Tabs */
+/* 6. Navigation Tabs - Clear active state */
 .tabs {
     display: flex;
-    background: rgba(0,0,0,0.05);
-    padding: 5px;
-    border-radius: 12px;
-    gap: 5px;
+    background: rgba(0, 0, 0, 0.04);
+    padding: 6px;
+    border-radius: 14px;
+    gap: 8px;
 }
 .btn-tab {
     flex: 1;
-    padding: 10px;
+    padding: 12px 16px;
     border: none;
-    border-radius: 10px;
+    border-radius: 12px;
     background: transparent;
     cursor: pointer;
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 0.95rem;
     color: var(--secondary);
+    transition: var(--transition);
 }
 .btn-tab.active {
     background: white;
     color: var(--primary);
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow-sm);
+    font-weight: 800;
+}
+.btn-tab:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--primary-dark);
 }
 
-/* 7. Forms & Inputs */
-.input-group { margin-bottom: 15px; }
-.input-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: var(--secondary); }
+/* 7. Forms & Inputs - High readability */
+.input-group { margin-bottom: 20px; }
+.input-group label { 
+    display: block; 
+    margin-bottom: 8px; 
+    font-weight: 700; 
+    font-size: 0.9rem; 
+    color: var(--secondary);
+    letter-spacing: -0.2px;
+}
 select, input {
     width: 100%;
-    padding: 12px;
-    border: 1.5px solid rgba(0,0,0,0.1);
-    border-radius: 10px;
+    padding: 12px 16px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: var(--border-radius-md);
     outline: none;
     background: white;
+    font-size: 1rem;
+    transition: var(--transition);
 }
-select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(0, 74, 153, 0.1); }
+select:focus, input:focus { 
+    border-color: var(--primary); 
+    box-shadow: var(--shadow-focus);
+}
+select:hover, input:hover {
+    border-color: var(--secondary-light);
+}
 
-/* تحسين شكل الـ Checkbox الخاص بـ "تذكرني" */
+/* Checkbox "تذكرني" - Improved */
 #rememberMe {
     width: 18px;
     height: 18px;
     cursor: pointer;
-    accent-color: var(--success); /* اللون الأخضر عند التحديد */
+    accent-color: var(--success);
+    transform: scale(1.05);
 }
 
-/* 8. Tables */
+/* 8. Tables - Clean and readable */
 .table-responsive {
     width: 100%;
     overflow-x: auto;
-    border-radius: 15px;
+    border-radius: var(--border-radius-lg);
     background: white;
+    box-shadow: var(--shadow-sm);
 }
 .order-table {
     width: 100%;
@@ -147,44 +187,96 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
 }
 .order-table th {
     background: #f8fafc;
-    padding: 15px;
+    padding: 18px 16px;
     text-align: right;
     font-size: 0.85rem;
+    font-weight: 700;
     color: var(--secondary);
     text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #eef2f6;
 }
 .order-table td {
-    padding: 15px;
-    border-bottom: 1px solid #f1f5f9;
+    padding: 16px;
+    border-bottom: 1px solid #f0f2f5;
+    color: #1e2a3a;
 }
-.row-total { font-weight: 800; color: var(--primary); }
+.order-table tr:hover td {
+    background-color: #fafcff;
+}
+.row-total { font-weight: 800; color: var(--primary); font-size: 1.05rem; }
 
-/* 9. Buttons */
+/* 9. Buttons - Strong visual hierarchy */
 .btn-primary {
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
     color: white;
-    padding: 14px 24px;
+    padding: 14px 28px;
     border: none;
-    border-radius: 12px;
-    font-weight: 700;
+    border-radius: var(--border-radius-md);
+    font-weight: 800;
+    font-size: 1rem;
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 10px;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
 }
-.btn-primary:hover:not(:disabled) { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 74, 153, 0.2); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary:hover:not(:disabled) { 
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+    transform: translateY(-2px); 
+    box-shadow: var(--shadow-md);
+}
+.btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+}
+.btn-primary:disabled { 
+    opacity: 0.5; 
+    cursor: not-allowed;
+    filter: grayscale(0.05);
+}
 
-.btn-secondary { background: white; border: 1.5px solid var(--primary); color: var(--primary); padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; }
-.btn-icon { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: none; padding: 10px; border-radius: 10px; cursor: pointer; }
+.btn-secondary { 
+    background: transparent; 
+    border: 2px solid var(--primary); 
+    color: var(--primary); 
+    padding: 12px 24px; 
+    border-radius: var(--border-radius-md); 
+    cursor: pointer; 
+    font-weight: 700;
+    font-size: 0.95rem;
+    transition: var(--transition);
+}
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(15, 59, 92, 0.08);
+    transform: translateY(-1px);
+}
+.btn-secondary:active:not(:disabled) {
+    transform: translateY(0);
+}
 
-/* 10. Modals */
+.btn-icon { 
+    background: rgba(194, 65, 44, 0.1); 
+    color: var(--danger); 
+    border: none; 
+    padding: 10px 14px; 
+    border-radius: var(--border-radius-md); 
+    cursor: pointer;
+    font-weight: 600;
+    transition: var(--transition);
+}
+.btn-icon:hover {
+    background: rgba(194, 65, 44, 0.2);
+    transform: scale(1.02);
+}
+
+/* 10. Modals - Smooth and accessible */
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(5px);
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(6px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -193,63 +285,72 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
 }
 .modal-content {
     width: 100%;
-    max-width: 900px;
+    max-width: 920px;
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
-    animation: modalSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: modalSlide 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
 }
 @keyframes modalSlide {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Responsive Design */
+/* Responsive Design - Keep original breakpoints but enhanced */
 @media (min-width: 768px) {
-    .app-container { padding: 20px; }
+    .app-container { padding: 24px; }
     header { flex-direction: row; justify-content: space-between; }
-    .user-info { flex-direction: row; width: auto; border-top: none; align-items: center; }
-    .tabs { width: 300px; }
-    .auth-box { max-width: 450px; margin: 50px auto; text-align: center; }
+    .user-info { flex-direction: row; width: auto; border-top: none; align-items: center; gap: 24px; }
+    .tabs { width: 320px; }
+    .auth-box { max-width: 480px; margin: 60px auto; text-align: center; }
 }
 @media (min-width: 1024px) {
-    .app-container { max-width: 1200px; }
-    .screen { padding: 40px; }
-    #orderScreen { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    .app-container { max-width: 1280px; }
+    .screen { padding: 32px; }
+    #orderScreen { display: grid; grid-template-columns: 1fr; gap: 24px; }
 }
 
-/* Status Badges */
+/* Status Badges - Clear and distinct */
 .status-badge {
-    padding: 5px 12px;
-    border-radius: 20px;
+    padding: 6px 14px;
+    border-radius: 40px;
     font-size: 0.8rem;
-    font-weight: 600;
-    background: rgba(245, 158, 11, 0.1);
-    color: var(--warning);
+    font-weight: 700;
+    display: inline-block;
+    text-align: center;
+    letter-spacing: -0.2px;
 }
-.status-badge.pending { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
-.status-badge.approved { background: rgba(16, 185, 129, 0.1); color: #10b981; }
-.status-badge.returned { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+.status-badge.pending { background: rgba(217, 119, 6, 0.12); color: #b45309; }
+.status-badge.approved { background: rgba(44, 122, 77, 0.12); color: #1e6f42; }
+.status-badge.returned { background: rgba(194, 65, 44, 0.12); color: #b91c1c; }
 
-/* Action Buttons */
+/* Action Buttons - Improved tap targets */
 .action-btn {
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 1.2rem;
-    margin: 0 4px;
-    padding: 5px;
-    border-radius: 8px;
-    transition: 0.2s;
+    font-size: 1.25rem;
+    margin: 0 6px;
+    padding: 8px;
+    border-radius: 10px;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .action-btn.edit-btn { color: var(--primary); }
-.action-btn.approve-btn { color: #10b981; }
-.action-btn.reject-btn { color: #ef4444; }
-.action-btn.delete-btn { color: #ef4444; }
-.action-btn:hover { background: rgba(0,0,0,0.05); transform: scale(1.1); }
+.action-btn.approve-btn { color: var(--success); }
+.action-btn.reject-btn, .action-btn.delete-btn { color: var(--danger); }
+.action-btn:hover { 
+    background: rgba(0, 0, 0, 0.06); 
+    transform: scale(1.1);
+}
+.action-btn:active {
+    transform: scale(0.98);
+}
 
 /* ========================================= */
-/* تحسين الإكمال التلقائي - ظهور واضح جداً */
+/* Autocomplete - High visibility, robust */
 /* ========================================= */
 
 .autocomplete-wrapper {
@@ -259,18 +360,18 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
 
 .autocomplete-wrapper input {
     width: 100%;
-    padding: 12px 15px;
+    padding: 12px 16px;
     border: 1.5px solid #e2e8f0;
-    border-radius: 12px;
+    border-radius: var(--border-radius-md);
     font-size: 1rem;
     background: white;
-    transition: all 0.2s;
+    transition: var(--transition);
 }
 
 .autocomplete-wrapper input:focus {
     border-color: var(--primary);
     outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 74, 153, 0.1);
+    box-shadow: var(--shadow-focus);
 }
 
 .autocomplete-list {
@@ -278,25 +379,26 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
     top: auto !important;
     left: auto !important;
     background: white !important;
-    border-radius: 16px !important;
-    box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.3) !important;
-    max-height: 300px !important;
+    border-radius: var(--border-radius-lg) !important;
+    box-shadow: var(--shadow-lg) !important;
+    max-height: 320px !important;
     overflow-y: auto !important;
     z-index: 99999 !important;
     border: 2px solid var(--primary) !important;
-    min-width: 250px !important;
+    min-width: 260px !important;
     width: auto !important;
     display: none;
+    margin-top: 6px;
 }
 
 .autocomplete-item {
-    padding: 14px 18px !important;
+    padding: 14px 20px !important;
     cursor: pointer !important;
     font-size: 1rem !important;
-    border-bottom: 1px solid #e2e8f0 !important;
+    border-bottom: 1px solid #edf2f7 !important;
     background: white !important;
-    color: #1e293b !important;
-    transition: 0.1s;
+    color: #1e2a3a !important;
+    transition: background 0.1s ease;
 }
 
 .autocomplete-item:last-child {
@@ -330,108 +432,124 @@ select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px 
     border-radius: 10px;
 }
 
-/* Manager sub-tabs */
+/* Manager sub-tabs - Clear selection */
+.manager-sub-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
 .manager-sub-tabs .btn-subtab {
-    background: none;
+    background: transparent;
     border: none;
-    padding: 8px 20px;
+    padding: 10px 24px;
     font-size: 1rem;
-    font-weight: 600;
-    color: #64748b;
+    font-weight: 700;
+    color: var(--secondary);
     cursor: pointer;
-    border-radius: 30px;
-    transition: 0.2s;
+    border-radius: 40px;
+    transition: var(--transition);
 }
 .manager-sub-tabs .btn-subtab.active {
     background: var(--primary);
     color: white;
+    box-shadow: var(--shadow-sm);
 }
 .manager-sub-tabs .btn-subtab:hover:not(.active) {
-    background: #e2e8f0;
+    background: #e9eef3;
+    color: var(--primary-dark);
 }
 
-/* تحسين إضافي لتوسيط شاشة الدخول */
+/* Auth box - Centered and clean */
 .auth-box {
     display: flex;
     flex-direction: column;
     align-items: center;
     width: 100%;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border-radius: var(--border-radius-lg);
+    padding: 32px 24px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid rgba(255,255,255,0.6);
 }
 
-/* جعل خيار تذكرني يظهر بشكل متناسق أسفل الأزرار */
+/* Remember me container */
 .remember-container {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    margin-top: 15px;
+    gap: 12px;
+    margin-top: 20px;
     width: 100%;
-    padding: 10px;
-    border-radius: 12px;
+    padding: 12px;
+    border-radius: var(--border-radius-md);
     background: rgba(0, 0, 0, 0.02);
 }
-/* تحسين شكل صندوق تسجيل الدخول ليكون متجاوب وجميل على الموبايل */
-.auth-box {
-    max-width: 100%;
-    margin: 0 auto;
-    text-align: center;
-    padding: 20px 15px;
+.remember-container label {
+    margin-bottom: 0;
+    font-weight: 600;
+    color: var(--secondary);
+    cursor: pointer;
 }
+
+/* Responsive auth box */
 @media (min-width: 480px) {
     .auth-box {
-        max-width: 450px;
-        padding: 40px;
+        max-width: 460px;
+        padding: 40px 36px;
     }
 }
 
-/* تنسيق أزرار الإدارة الجديدة */
+/* Admin options grid - Improved buttons */
 .admin-options-grid {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
 }
 
 .btn-admin-opt {
-    background: #f8fafc;
-    border: 2px solid #e2e8f0;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
     color: var(--secondary);
-    padding: 14px;
-    border-radius: 12px;
+    padding: 16px;
+    border-radius: var(--border-radius-md);
     font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    transition: all 0.3s ease;
+    gap: 12px;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
 }
-
 .btn-admin-opt:hover {
-    background: #f1f5f9;
-    border-color: #cbd5e1;
+    background: #f8fafc;
+    border-color: var(--primary-light);
+    transform: translateY(-1px);
 }
-
 .btn-admin-opt.active {
-    background: linear-gradient(135deg, #004a99, #0066cc);
-    border-color: #004a99;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    border-color: var(--primary);
     color: white;
-    box-shadow: 0 4px 15px rgba(0, 74, 153, 0.3);
+    box-shadow: var(--shadow-md);
     transform: scale(1.02);
 }
-
 .btn-admin-opt i {
-    font-size: 1.3rem;
+    font-size: 1.4rem;
 }
 
-/* تحسين حقول الإدخال لتكون أسهل للمس على الموبايل */
+/* Inputs - Better touch targets */
 input, select {
-    min-height: 48px; /* ارتفاع مناسب للإصبع على الموبايل */
+    min-height: 48px;
     font-size: 1rem;
 }
 
-.remember-container label {
-    margin-bottom: 0;
-    font-weight: 600;
-    color: var(--secondary);
+/* Focus visible for accessibility */
+button:focus-visible, 
+input:focus-visible, 
+select:focus-visible,
+.btn-tab:focus-visible {
+    outline: 3px solid var(--primary-light);
+    outline-offset: 2px;
 }
