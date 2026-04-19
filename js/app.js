@@ -820,7 +820,29 @@ async function openEditOrder(orderId, userType) {
         };
     }
 }
-function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
+async function openEditOrder(orderId, userType) {
+    const loaded = await ensureProductsLoaded();
+    if (!loaded) { alert("لم يتم تحميل المنتجات"); return; }
+
+    const orderDoc = await getDoc(doc(db, "orders", orderId));
+    if (!orderDoc.exists()) return alert("الطلب غير موجود");
+    const order = orderDoc.data();
+    editingOrderId = orderId;
+
+    const container = document.getElementById('editOrderContainer');
+    if (!container) return;
+
+    const editBody = document.getElementById('editOrderBody');
+    if (editBody) editBody.innerHTML = ''; 
+
+    function updateEditTotal() {
+        let total = 0;
+        document.querySelectorAll('#editOrderBody .row-total').forEach(td => total += parseFloat(td.innerText) || 0);
+        const grandTotalEl = document.getElementById('editGrandTotal');
+        if (grandTotalEl) grandTotalEl.innerText = total.toFixed(2);
+    }
+
+    function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%"><div class="autocomplete-list product-suggestions"></div></div></td>
@@ -834,9 +856,8 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
         const q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
         const productNames = productsList.map(prod => prod.name);
         
-        // إعادة استخدام setupAutocomplete مع نفس المعاملات
         setupAutocomplete(s, sug, productNames, (selectedName) => { 
-            const prod = productsList.find(p => p.name === selectedName); 
+            const prod = productsList.find(pr => pr.name === selectedName); 
             const pr = prod ? parseFloat(prod.price) : 0; 
             p.innerText = pr.toFixed(2); 
             t.innerText = (pr * q.value).toFixed(2); 
@@ -846,7 +867,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
         s.addEventListener('blur', function() {
             const val = this.value.trim();
             if (val === "") return;
-            const isValid = productsList.some(p => p.name === val);
+            const isValid = productsList.some(pr => pr.name === val);
             if (!isValid) {
                 this.style.border = "2px solid red";
                 this.style.backgroundColor = "#fff0f0";
@@ -858,12 +879,15 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
 
         q.oninput = () => { t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); updateEditTotal(); };
         tr.querySelector('.del-row').onclick = () => { tr.remove(); updateEditTotal(); };
-        editBody.appendChild(tr);
+        
+        if (editBody) editBody.appendChild(tr);
         updateEditTotal();
     }
     
     order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total); });
-    document.getElementById('editAddRowBtn').onclick = () => addEditRow();
+    
+    const addRowBtn = document.getElementById('editAddRowBtn');
+    if (addRowBtn) addRowBtn.onclick = () => addEditRow();
     
     const saveBtn = document.getElementById('saveEditOrderBtn');
     if (saveBtn) {
@@ -872,10 +896,12 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
         newSaveBtn.onclick = async () => {
             const items = [];
             let invalidItem = false;
+
             document.querySelectorAll('#editOrderBody tr').forEach(r => {
                 const inp = r.querySelector('.product-input');
                 if (inp && inp.value.trim() !== "") {
                     const isValid = productsList.some(prod => prod.name === inp.value.trim());
+                    
                     if (!isValid) {
                         invalidItem = true;
                         inp.style.border = "2px solid red";
@@ -891,10 +917,17 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
                     }
                 }
             });
-            if (invalidItem) return alert("يرجى التأكد من اختيار الأصناف الصحيحة من القائمة قبل الحفظ.");
+
+            if (invalidItem) {
+                return alert("يرجى التأكد من اختيار الأصناف الصحيحة من القائمة قبل الحفظ.");
+            }
+
             if (items.length === 0) return alert("لا يمكن حفظ طلبية فارغة!");
+
             try {
-                const newGrandTotal = parseFloat(document.getElementById('editGrandTotal').innerText);
+                const grandTotalEl = document.getElementById('editGrandTotal');
+                const newGrandTotal = grandTotalEl ? parseFloat(grandTotalEl.innerText) : 0;
+                
                 await updateDoc(doc(db, "orders", editingOrderId), { 
                     items: items, 
                     grandTotal: newGrandTotal, 
@@ -903,9 +936,11 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
                 });
                 alert("تم تحديث الطلبية بنجاح.");
                 closeEditModal();
+                
                 if(userType === 'rep') loadMyOrders();
                 else if(userType === 'manager') loadManagerOrders();
                 else if(userType === 'all') loadAllCompanyOrders();
+                
             } catch (e) {
                 console.error(e);
                 alert("حدث خطأ أثناء التحديث");
@@ -913,7 +948,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
         };
     }
 }
-    order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total); });
+order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total); });
     document.getElementById('editAddRowBtn').onclick = () => addEditRow();
     const saveBtn = document.getElementById('saveEditOrderBtn');
     const newSaveBtn = saveBtn.cloneNode(true);
