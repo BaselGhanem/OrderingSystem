@@ -799,9 +799,49 @@ async function openEditOrder(orderId, userType) {
     const order = orderDoc.data();
     editingOrderId = orderId;
 
-    // إظهار نافذة التعديل (هذا هو السطر الذي كان مفقوداً)
+    // 1. إظهار نافذة التعديل
     const editModal = document.getElementById('editOrderModal');
     if (editModal) editModal.style.display = 'flex';
+
+    // 2. بناء محتوى النافذة (الذي كان مفقوداً بسبب الاختصار ...)
+    const container = document.getElementById('editOrderContainer');
+    if (!container) {
+        console.error("حاوية editOrderContainer غير موجودة");
+        return;
+    }
+
+    container.innerHTML = `
+        <div style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
+            <h3 style="margin: 0 0 10px 0; color: #004a99;"><i class="ph ph-pencil-simple"></i> تعديل طلبية</h3>
+            <p style="margin: 0; font-size: 15px;">الصيدلية: <strong style="color:#d32f2f;">${order.pharmacyName || '-'}</strong> | المندوب: <strong>${order.repName || '-'}</strong></p>
+        </div>
+        
+        <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>الصنف</th>
+                        <th style="width: 80px;">الكمية</th>
+                        <th style="width: 80px;">البونص</th>
+                        <th style="width: 100px;">السعر</th>
+                        <th style="width: 100px;">المجموع</th>
+                        <th style="width: 50px;">حذف</th>
+                    </tr>
+                </thead>
+                <tbody id="editOrderBody"></tbody>
+            </table>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+            <button type="button" id="editAddRowBtn" class="btn-secondary" style="padding: 8px 15px;"><i class="ph ph-plus"></i> إضافة صنف</button>
+            <h3 style="margin: 0; color: #d32f2f;">الإجمالي: <span id="editGrandTotal">${parseFloat(order.grandTotal).toFixed(2)}</span></h3>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button type="button" class="btn-secondary" onclick="closeEditModal()">إلغاء</button>
+            <button type="button" id="saveEditOrderBtn" class="btn-primary"><i class="ph ph-floppy-disk"></i> حفظ التعديلات</button>
+        </div>
+    `;
 
     const editBody = document.getElementById('editOrderBody');
     if (editBody) editBody.innerHTML = ''; 
@@ -855,7 +895,12 @@ async function openEditOrder(orderId, userType) {
         updateEditTotal();
     }
     
-    order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total); });
+    // تعبئة الأصناف المحفوظة
+    if (order.items && order.items.length > 0) {
+        order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total); });
+    } else {
+        addEditRow();
+    }
     
     const addRowBtn = document.getElementById('editAddRowBtn');
     if (addRowBtn) addRowBtn.onclick = () => addEditRow();
