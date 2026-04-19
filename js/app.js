@@ -536,45 +536,45 @@ function applyManagerFilters() {
 }
 
 function renderManagerOrders(orders) {
-    const tbody = document.getElementById('managerOrdersBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-    
-    if (orders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8">لا توجد طلبيات مطابقة</td></tr>';
-        return;
-    }
+    const tbody = document.getElementById('managerOrdersBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8">لا توجد طلبيات مطابقة</td></tr>';
+        return;
+    }
 
-    orders.forEach(order => {
-        const isApproved = order.status === 'approved';
-        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><input type="checkbox" class="order-checkbox" value="${order.id}"></td>
-            <td>${order.id.substring(0, 6).toUpperCase()}</td>
-            <td>${displayDate}</td>
-            <td>${order.repName || '-'}</td>
-            <td>${order.pharmacyName || '-'}</td>
-            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
-            <td>
-                <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
-                ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
-            </td>
-        `;
-        
-        tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'manager');
-        if (!isApproved) {
-            tr.querySelector('.approve-btn').onclick = async () => { 
-                if(confirm("الموافقة على الطلبية؟")) { 
-                    await updateDoc(doc(db, "orders", order.id), { status: "approved", updatedAt: new Date() }); 
-                    loadManagerOrders(); 
-                } 
-            };
-        }
-        tbody.appendChild(tr);
-    });
+    orders.forEach(order => {
+        const isApproved = order.status === 'approved';
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="checkbox" class="order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
+            <td>${order.id.substring(0, 6).toUpperCase()}</td>
+            <td>${displayDate}</td>
+            <td>${order.repName || '-'}</td>
+            <td>${order.pharmacyName || '-'}</td>
+            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td><span class="status-badge ${order.status}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
+            <td>
+                <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
+                ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
+            </td>
+        `;
+        
+        tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'manager');
+        if (!isApproved) {
+            tr.querySelector('.approve-btn').onclick = async () => { 
+                if(confirm("الموافقة على الطلبية؟")) { 
+                    await updateDoc(doc(db, "orders", order.id), { status: "approved", updatedAt: new Date() }); 
+                    loadManagerOrders(); 
+                } 
+            };
+        }
+        tbody.appendChild(tr);
+    });
 }
 document.getElementById('managerRepFilter')?.addEventListener('change', applyManagerFilters);
 document.getElementById('managerPharmacyFilter')?.addEventListener('input', applyManagerFilters);
@@ -648,35 +648,34 @@ async function loadAllCompanyOrders() {
 }
 
 function renderAllOrders(orders) {
-    const tbody = document.getElementById('allOrdersBody');
-    tbody.innerHTML = '';
-    if(orders.length === 0) { 
-        tbody.innerHTML = '<tr><td colspan="8">لا توجد طلبيات</td></tr>'; 
-        updateAllOrdersStats(orders); 
-        return; 
-    }
-    orders.forEach(order => {
-        const tr = document.createElement('tr');
-        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "تاريخ غير متوفر";
-        
-        tr.innerHTML = `
-            <td><input type="checkbox" class="all-order-checkbox" value="${order.id}"></td>
-            <td>${order.id.substring(0,6).toUpperCase()}</td>
-            <td>${displayDate}</td>
-            <td class="all-rep-col">${order.repName || '-'}</td>
-            <td class="all-pharm-col">${order.pharmacyName || '-'}</td>
-            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status}">${order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
-            <td><button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
-                <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
-        `;
-        tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'all');
-        tr.querySelector('.btn-view').onclick = () => showOrderDetails(order);
-        tbody.appendChild(tr);
-    });
-    updateAllOrdersStats(orders);
+    const tbody = document.getElementById('allOrdersBody');
+    tbody.innerHTML = '';
+    if(orders.length === 0) { 
+        tbody.innerHTML = '<tr><td colspan="8">لا توجد طلبيات</td></tr>'; 
+        updateAllOrdersStats(orders); 
+        return; 
+    }
+    orders.forEach(order => {
+        const tr = document.createElement('tr');
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "تاريخ غير متوفر";
+        
+        tr.innerHTML = `
+            <td><input type="checkbox" class="all-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
+            <td>${order.id.substring(0,6).toUpperCase()}</td>
+            <td>${displayDate}</td>
+            <td class="all-rep-col">${order.repName || '-'}</td>
+            <td class="all-pharm-col">${order.pharmacyName || '-'}</td>
+            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td><span class="status-badge ${order.status}">${order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
+            <td><button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
+                <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
+        `;
+        tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'all');
+        tr.querySelector('.btn-view').onclick = () => showOrderDetails(order);
+        tbody.appendChild(tr);
+    });
+    updateAllOrdersStats(orders);
 }
-
 function updateAllOrdersStats(orders) {
     const count = orders.length;
     const total = orders.reduce((sum, order) => sum + (parseFloat(order.grandTotal) || 0), 0);
@@ -800,8 +799,9 @@ async function openEditOrder(orderId, userType) {
     const order = orderDoc.data();
     editingOrderId = orderId;
 
-    const container = document.getElementById('editOrderContainer');
-    if (!container) return;
+    // إظهار نافذة التعديل (هذا هو السطر الذي كان مفقوداً)
+    const editModal = document.getElementById('editOrderModal');
+    if (editModal) editModal.style.display = 'flex';
 
     const editBody = document.getElementById('editOrderBody');
     if (editBody) editBody.innerHTML = ''; 
@@ -919,7 +919,6 @@ async function openEditOrder(orderId, userType) {
         };
     }
 }
-
 function closeEditModal() { document.getElementById('editOrderModal').style.display = 'none'; editingOrderId = null; }
 window.closeEditModal = closeEditModal;
 
