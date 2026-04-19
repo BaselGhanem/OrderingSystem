@@ -579,46 +579,6 @@ document.getElementById('managerRepFilter')?.addEventListener('change', applyMan
 document.getElementById('managerPharmacyFilter')?.addEventListener('input', applyManagerFilters);
 document.getElementById('managerStatusFilter')?.addEventListener('change', applyManagerFilters);
 
-function renderManagerOrders(orders) {
-    const tbody = document.getElementById('managerOrdersBody');
-    tbody.innerHTML = '';
-    
-    if (orders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8">لا توجد طلبيات مطابقة</td></tr>';
-        return;
-    }
-
-    orders.forEach(order => {
-        const isApproved = order.status === 'approved';
-        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><input type="checkbox" class="order-checkbox" value="${order.id}"></td>
-            <td>${order.id.substring(0, 6).toUpperCase()}</td>
-            <td>${displayDate}</td>
-            <td>${order.repName}</td>
-            <td>${order.pharmacyName}</td>
-            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
-            <td>
-                <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
-                ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
-            </td>
-        `;
-        
-        tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'manager');
-        if (!isApproved) {
-            tr.querySelector('.approve-btn').onclick = async () => { 
-                if(confirm("الموافقة على الطلبية؟")) { 
-                    await updateDoc(doc(db, "orders", order.id), { status: "approved", updatedAt: new Date() }); 
-                    loadManagerOrders(); 
-                } 
-            };
-        }
-        tbody.appendChild(tr);
-    });
-}
 
 document.getElementById('selectAllOrders')?.addEventListener('change', function() {
     const checkboxes = document.querySelectorAll('.order-checkbox');
