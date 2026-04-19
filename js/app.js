@@ -167,18 +167,38 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
 
 async function loadInitialData() {
     try {
+        // عرض حالة التحميل داخل القائمة
+        repSelect.innerHTML = '<option value="">⏳ جاري تحميل المندوبين...</option>';
+        repSelect.disabled = true; // تعطيل القائمة أثناء التحميل
+
         const repsSnap = await getDocs(collection(db, "reps"));
+        
+        // إعادة بناء القائمة
         repSelect.innerHTML = '<option value="">-- اختر المندوب --</option>';
-        repsSnap.forEach(d => { const opt = document.createElement('option'); opt.value = d.id; opt.textContent = d.data().name; repSelect.appendChild(opt); });
-        repSelect.disabled = false;
+        repsSnap.forEach(d => { 
+            const opt = document.createElement('option'); 
+            opt.value = d.id; 
+            opt.textContent = d.data().name; 
+            repSelect.appendChild(opt); 
+        });
+        
+        // تحميل المنتجات بشكل متوازٍ
         const prodSnap = await getDocs(collection(db, "products"));
         productsList = [];
         prodSnap.forEach(d => productsList.push({ id: d.id, ...d.data() }));
         productsList.sort((a,b) => a.name.localeCompare(b.name));
-        console.log(`تم تحميل ${productsList.length} منتج`);
-    } catch(e) { console.error(e); }
+        
+        console.log(`تم تحميل ${productsList.length} منتج و ${repSelect.options.length - 1} مندوب`);
+        
+    } catch(e) { 
+        console.error("خطأ في تحميل البيانات الأولية:", e);
+        repSelect.innerHTML = '<option value="">❌ فشل التحميل، حاول تحديث الصفحة</option>';
+        alert("حدث خطأ في تحميل بيانات المندوبين. يرجى تحديث الصفحة والتأكد من الاتصال بالإنترنت.");
+    } finally {
+        // في كل الأحوال (نجاح أو فشل) نجعل القائمة قابلة للاستخدام
+        repSelect.disabled = false;
+    }
 }
-
 function addNewRow() {
     if (productsList.length === 0) { setTimeout(() => addNewRow(), 500); return; }
     const tr = document.createElement('tr');
