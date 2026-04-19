@@ -264,24 +264,93 @@ repSelect.onchange = async (e) => {
 };
 pharmacyInput.oninput = () => { startOrderBtn.disabled = !pharmacyInput.value.trim(); };
 
+// دالة مساعدة للتحقق من صحة اسم الصيدلية وتحديث حالة الزر
+function validatePharmacyInput() {
+    const pharmacyName = pharmacyInput.value.trim();
+    const isValid = pharmacyName !== "" && currentPharmaciesData.some(p => p.name === pharmacyName);
+    
+    if (!isValid && pharmacyName !== "") {
+        pharmacyInput.style.border = "2px solid red";
+        pharmacyInput.style.backgroundColor = "#fff0f0";
+        startOrderBtn.disabled = true;
+        startOrderBtn.title = "الرجاء اختيار صيدلية صحيحة من القائمة";
+    } else if (pharmacyName === "") {
+        pharmacyInput.style.border = "";
+        pharmacyInput.style.backgroundColor = "";
+        startOrderBtn.disabled = true;
+        startOrderBtn.title = "الرجاء إدخال اسم الصيدلية";
+    } else {
+        pharmacyInput.style.border = "";
+        pharmacyInput.style.backgroundColor = "";
+        startOrderBtn.disabled = false;
+        startOrderBtn.title = "بدء الطلب";
+    }
+    return isValid;
+}
+
+// ربط حدث التحقق عند الخروج من حقل الصيدلية أو عند تغيير محتواه
+pharmacyInput.addEventListener('blur', validatePharmacyInput);
+pharmacyInput.addEventListener('input', function() {
+    // عند الكتابة، نعيد تمكين الزر فقط إذا أصبح الاسم صحيحاً لاحقاً
+    const isValid = currentPharmaciesData.some(p => p.name === this.value.trim());
+    if (isValid) {
+        this.style.border = "";
+        this.style.backgroundColor = "";
+        startOrderBtn.disabled = false;
+    } else {
+        startOrderBtn.disabled = true;
+    }
+});
+
+// تعديل حدث بدء الطلب مع التحقق من صحة الصيدلية
 startOrderBtn.onclick = () => {
-    if (productsList.length === 0) { alert("الرجا الانتظار... يتم تحميل المنتجات."); return; }
+    if (productsList.length === 0) { 
+        alert("الرجاء الانتظار... يتم تحميل المنتجات."); 
+        return; 
+    }
+    
+    // التحقق من صحة الصيدلية قبل المتابعة (نفس منطق التحقق من الصنف)
+    const pharmacyName = pharmacyInput.value.trim();
+    const selectedPharm = currentPharmaciesData.find(p => p.name === pharmacyName);
+    
+    if (!selectedPharm) {
+        pharmacyInput.style.border = "2px solid red";
+        pharmacyInput.style.backgroundColor = "#fff0f0";
+        alert("الصيدلية غير موجودة في قائمة الصيدليات الخاصة بك. الرجاء اختيار صيدلية صحيحة من القائمة المنسدلة حصراً.");
+        return;
+    }
+    
     currentRepId = repSelect.value;
     currentRepName = repSelect.options[repSelect.selectedIndex].text;
     saveRepSession(currentRepId, currentRepName);
-    currentPharmacyName = pharmacyInput.value;
-    const selectedPharm = currentPharmaciesData.find(p => p.name === currentPharmacyName);
-    currentPharmacyCode = selectedPharm ? (selectedPharm.pharmacy_code || "-") : "-";
+    currentPharmacyName = pharmacyName;
+    currentPharmacyCode = selectedPharm.pharmacy_code || "-";
+    
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('orderScreen').style.display = 'block';
     document.getElementById('userInfo').style.display = 'flex';
     document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${currentRepName}</b>`;
     document.getElementById('orderPharmacyName').innerText = currentPharmacyName;
+    
     if (orderBody.children.length === 0) addNewRow();
     document.getElementById('navMyOrdersBtn').style.display = 'inline-block';
     document.getElementById('navReportsBtn').style.display = 'inline-block';
 };
 
+// عند تغيير المندوب، تأكد من إعادة تعيين حالة الزر وحقل الصيدلية
+const originalRepOnChange = repSelect.onchange;
+repSelect.onchange = async (e) => {
+    if (originalRepOnChange) await originalRepOnChange(e);
+    // إعادة تعيين حالة الزر بعد تحميل الصيدليات الجديدة
+    startOrderBtn.disabled = true;
+    pharmacyInput.style.border = "";
+    pharmacyInput.style.backgroundColor = "";
+    // بعد اكتمال تحميل الصيدليات (داخل الـ onchange الأصلي)، نعيد التحقق
+    // لكن الـ setupAutocomplete لا يعطي إشارة اكتمال، لذا نستخدم setTimeout بسيط
+    setTimeout(() => {
+        validatePharmacyInput();
+    }, 100);
+};
 submitOrderBtn.onclick = async () => {
     const items = [];
     let invalidItem = false; // متغير للتحقق من صحة الأصناف
