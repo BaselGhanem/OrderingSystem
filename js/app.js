@@ -191,27 +191,26 @@ function addNewRow() {
     `;
     const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions'), q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
     const productNames = productsList.map(prod => prod.name);
-    setupAutocomplete(s, sug, productNames, (selectedName) => {
+setupAutocomplete(s, sug, productNames, (selectedName) => {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
         const pr = selectedProd ? parseFloat(selectedProd.price) : 0;
         p.innerText = pr.toFixed(2);
         t.innerText = (pr * q.value).toFixed(2);
         updateGrandTotal();
     });
-    // أضف هذا الكود داخل الدوال التي تنشئ أسطر جديدة
-s.addEventListener('blur', function() {
-    const val = this.value.trim();
-    if (val === "") return;
-    
-    const isValid = productsList.some(p => p.name === val);
-    if (!isValid) {
-        this.style.border = "2px solid red";
-        this.style.backgroundColor = "#fff0f0";
-    } else {
-        this.style.border = "";
-        this.style.backgroundColor = "";
-    }
-});
+
+    s.addEventListener('blur', function() {
+        const val = this.value.trim();
+        if (val === "") return;
+        const isValid = productsList.some(p => p.name === val);
+        if (!isValid) {
+            this.style.border = "2px solid red";
+            this.style.backgroundColor = "#fff0f0";
+        } else {
+            this.style.border = "";
+            this.style.backgroundColor = "";
+        }
+    });
     q.oninput = () => { t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); updateGrandTotal(); };
     tr.querySelector('.del-row').onclick = () => { tr.remove(); updateGrandTotal(); };
     orderBody.appendChild(tr);
@@ -695,7 +694,7 @@ async function openEditOrder(orderId, userType) {
     `;
     const editBody = document.getElementById('editOrderBody');
     function updateEditTotal() { let total=0; document.querySelectorAll('#editOrderBody .row-total').forEach(td=>total+=parseFloat(td.innerText)||0); document.getElementById('editGrandTotal').innerText=total.toFixed(2); }
-    function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
+ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%"><div class="autocomplete-list product-suggestions"></div></div></td>
                         <td><input type="number" class="qty-input" value="${qty}" min="1"></td>
@@ -705,26 +704,33 @@ async function openEditOrder(orderId, userType) {
                         <td><button class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>`;
         const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions'), q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
         const productNames = productsList.map(prod => prod.name);
-        setupAutocomplete(s, sug, productNames, (selectedName) => { const prod = productsList.find(p => p.name === selectedName); const pr = prod ? parseFloat(prod.price) : 0; p.innerText = pr.toFixed(2); t.innerText = (pr * q.value).toFixed(2); updateEditTotal(); });
+        
+        setupAutocomplete(s, sug, productNames, (selectedName) => { 
+            const prod = productsList.find(p => p.name === selectedName); 
+            const pr = prod ? parseFloat(prod.price) : 0; 
+            p.innerText = pr.toFixed(2); 
+            t.innerText = (pr * q.value).toFixed(2); 
+            updateEditTotal(); 
+        });
+
+        s.addEventListener('blur', function() {
+            const val = this.value.trim();
+            if (val === "") return;
+            const isValid = productsList.some(p => p.name === val);
+            if (!isValid) {
+                this.style.border = "2px solid red";
+                this.style.backgroundColor = "#fff0f0";
+            } else {
+                this.style.border = "";
+                this.style.backgroundColor = "";
+            }
+        });
+
         q.oninput = () => { t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); updateEditTotal(); };
         tr.querySelector('.del-row').onclick = () => { tr.remove(); updateEditTotal(); };
         editBody.appendChild(tr);
         updateEditTotal();
     }
-    // أضف هذا الكود داخل الدوال التي تنشئ أسطر جديدة
-s.addEventListener('blur', function() {
-    const val = this.value.trim();
-    if (val === "") return;
-    
-    const isValid = productsList.some(p => p.name === val);
-    if (!isValid) {
-        this.style.border = "2px solid red";
-        this.style.backgroundColor = "#fff0f0";
-    } else {
-        this.style.border = "";
-        this.style.backgroundColor = "";
-    }
-});
     order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total); });
     document.getElementById('editAddRowBtn').onclick = () => addEditRow();
     const saveBtn = document.getElementById('saveEditOrderBtn');
