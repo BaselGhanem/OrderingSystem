@@ -147,6 +147,10 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
                 suggestionsEl.appendChild(div);
             });
             const rect = inputEl.getBoundingClientRect();
+            // إخراج القائمة لجسم الصفحة الرئيسي لتجنب مشاكل القص والظهور خارج الشاشة
+if (suggestionsEl.parentNode !== document.body) {
+    document.body.appendChild(suggestionsEl);
+}
             suggestionsEl.style.position = 'fixed';
             suggestionsEl.style.top = (rect.bottom + 5) + 'px';
             suggestionsEl.style.left = rect.left + 'px';
@@ -204,12 +208,13 @@ function addNewRow() {
     if (productsList.length === 0) { setTimeout(() => addNewRow(), 500); return; }
 const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%; min-width:220px;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
-        <td><input type="number" class="qty-input" value="1" min="1" style="width: 80px; text-align: center; padding: 8px;"></td>
-        <td><input type="number" class="bonus-input" value="0" min="0" style="width: 80px; text-align: center; padding: 8px;"></td>
-        <td class="price-cell">0.00</td><td class="row-total">0.00</td>
-        <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
-    `;
+<td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." autocomplete="off" style="width:100%; min-width:220px;"><div class="autocomplete-list product-suggestions"></div></div></td>
+        <td style="text-align: center;"><input type="number" class="qty-input" value="1" min="1" style="width: 80px; text-align: center; padding: 8px;"></td>
+        <td style="text-align: center;"><input type="number" class="bonus-input" value="0" min="0" style="width: 80px; text-align: center; padding: 8px;"></td>
+        <td class="price-cell" style="text-align: center; font-weight: bold;">0.00</td>
+        <td class="row-total" style="text-align: center; font-weight: bold;">0.00</td>
+        <td style="text-align: center;"><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
+        `;
     const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions'), q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
     const productNames = productsList.map(prod => prod.name);
 setupAutocomplete(s, sug, productNames, (selectedName) => {
@@ -816,22 +821,21 @@ async function openEditOrder(orderId, userType) {
             <p style="margin: 0; font-size: 15px;">الصيدلية: <strong style="color:#d32f2f;">${order.pharmacyName || '-'}</strong> | المندوب: <strong>${order.repName || '-'}</strong></p>
         </div>
         
-        <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-            <table class="table">
+<div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+            <table class="order-table">
                 <thead>
                     <tr>
-                        <th>الصنف</th>
-                        <th style="width: 80px;">الكمية</th>
-                        <th style="width: 80px;">البونص</th>
-                        <th style="width: 100px;">السعر</th>
-                        <th style="width: 100px;">المجموع</th>
-                        <th style="width: 50px;">حذف</th>
+                        <th style="width: 35%; text-align: right;">الصنف</th>
+                        <th style="width: 13%; text-align: center;">الكمية</th>
+                        <th style="width: 13%; text-align: center;">البونص</th>
+                        <th style="width: 13%; text-align: center;">السعر</th>
+                        <th style="width: 16%; text-align: center;">المجموع</th>
+                        <th style="width: 10%; text-align: center;">حذف</th>
                     </tr>
                 </thead>
                 <tbody id="editOrderBody"></tbody>
             </table>
         </div>
-
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
             <button type="button" id="editAddRowBtn" class="btn-secondary" style="padding: 8px 15px;"><i class="ph ph-plus"></i> إضافة صنف</button>
             <h3 style="margin: 0; color: #d32f2f;">الإجمالي: <span id="editGrandTotal">${parseFloat(order.grandTotal).toFixed(2)}</span></h3>
@@ -855,13 +859,13 @@ async function openEditOrder(orderId, userType) {
 
     function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%"><div class="autocomplete-list product-suggestions"></div></div></td>
-            <td><input type="number" class="qty-input" value="${qty}" min="1"></td>
-            <td><input type="number" class="bonus-input" value="${bonus}" min="0"></td>
-            <td class="price-cell">${parseFloat(price).toFixed(2)}</td>
-            <td class="row-total">${parseFloat(rowTotal).toFixed(2)}</td>
-            <td><button class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
+tr.innerHTML = `
+<td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" placeholder="ابحث باسم الصنف..." autocomplete="off" style="width:100%; min-width:220px;"><div class="autocomplete-list product-suggestions"></div></div></td>
+        <td style="text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 80px; text-align: center; padding: 8px;"></td>
+        <td style="text-align: center;"><input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 80px; text-align: center; padding: 8px;"></td>
+        <td class="price-cell" style="text-align: center; font-weight: bold;">${parseFloat(price).toFixed(2)}</td>
+        <td class="row-total" style="text-align: center; font-weight: bold;">${parseFloat(rowTotal).toFixed(2)}</td>
+        <td style="text-align: center;"><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
         `;
         const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions');
         const q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
@@ -889,8 +893,7 @@ async function openEditOrder(orderId, userType) {
         });
 
         q.oninput = () => { t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); updateEditTotal(); };
-        tr.querySelector('.del-row').onclick = () => { tr.remove(); updateEditTotal(); };
-        
+tr.querySelector('.del-row').onclick = () => { tr.remove(); sug.remove(); updateEditTotal(); };        
         if (editBody) editBody.appendChild(tr);
         updateEditTotal();
     }
@@ -964,7 +967,12 @@ async function openEditOrder(orderId, userType) {
         };
     }
 }
-function closeEditModal() { document.getElementById('editOrderModal').style.display = 'none'; editingOrderId = null; }
+function closeEditModal() { 
+    document.getElementById('editOrderModal').style.display = 'none'; 
+    editingOrderId = null; 
+    // تنظيف القوائم المنسدلة العالقة عند إغلاق النافذة
+    document.querySelectorAll('body > .autocomplete-list').forEach(el => el.remove());
+}
 window.closeEditModal = closeEditModal;
 
 async function loadReports() {
