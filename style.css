@@ -22,6 +22,9 @@
     --border-radius-lg: 20px;
     --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
+html {
+    scroll-behavior: smooth;
+}
 
 * {
     box-sizing: border-box;
@@ -80,13 +83,12 @@ body {
 
 /* 5. Header Section - Improved spacing */
 header {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    align-items: center;
-    margin-bottom: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
 }
-
 .logo-area {
     display: flex;
     align-items: center;
@@ -176,6 +178,7 @@ select:hover, input:hover {
 .table-responsive {
     width: 100%;
     overflow-x: auto;
+    overflow-y: visible; /* مهم */
     border-radius: var(--border-radius-lg);
     background: white;
     box-shadow: var(--shadow-sm);
@@ -206,6 +209,12 @@ select:hover, input:hover {
 }
 .order-table tr:hover td {
     background-color: #fafcff;
+}
+.order-table thead th {
+    position: sticky;
+    top: 80px; /* نفس ارتفاع الهيدر تقريباً */
+    z-index: 5;
+    background: #f8fafc;
 }
 .row-total { font-weight: 800; color: var(--primary); font-size: 1.05rem; }
 
@@ -378,7 +387,7 @@ select:hover, input:hover {
 }
 
 .autocomplete-list {
-    position: fixed !important;
+    position: absolute !important;
     top: auto !important;
     left: auto !important;
     background: white !important;
