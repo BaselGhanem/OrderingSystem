@@ -175,10 +175,18 @@ select:hover, input:hover {
 /* 8. Tables - Clean and readable */
 .table-responsive {
     width: 100%;
-    overflow-x: auto;
+    overflow: visible !important; /* هذا السطر هو الأهم لمنع القص */
     border-radius: var(--border-radius-lg);
     background: white;
     box-shadow: var(--shadow-sm);
+}
+
+/* للحفاظ على سكرول الجدول في الموبايل مع إعطاء مساحة للقائمة لكي لا تُقص */
+@media (max-width: 768px) {
+    .table-responsive {
+        overflow-x: auto !important;
+        padding-bottom: 220px; /* مساحة إضافية سفلية لتفتح القائمة براحتها */
+    }
 }
 .order-table {
     width: 100%;
@@ -354,10 +362,10 @@ select:hover, input:hover {
 /* ========================================= */
 
 .autocomplete-wrapper {
-    position: relative !important; /* This is crucial for absolute positioning to work correctly */
+    position: relative !important;
     width: 100%;
+    z-index: 99999 !important; /* تمت إضافة هذا السطر */
 }
-
 .autocomplete-wrapper input {
     width: 100%;
     padding: 12px 16px;
