@@ -287,8 +287,11 @@ async function loadInitialData() {
     }
 }
 
-if (productsList.length === 0) { setTimeout(() => addNewRow(), 500); return; }
-    const tr = document.createElement('tr');
+if (productsList.length === 0) { 
+        setTimeout(() => addNewRow(), 500); 
+        return; // هنا الـ return قانونية لأنها داخل دالة
+    }
+const tr = document.createElement('tr');
     tr.innerHTML = `
         <td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
         <td><input type="number" class="qty-input" value="1" min="1"></td>
