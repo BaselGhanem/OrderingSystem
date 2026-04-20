@@ -146,17 +146,18 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
                 });
                 suggestionsEl.appendChild(div);
             });
-            const rect = inputEl.getBoundingClientRect();
+const rect = inputEl.getBoundingClientRect();
             // إخراج القائمة لجسم الصفحة الرئيسي لتجنب مشاكل القص والظهور خارج الشاشة
-if (suggestionsEl.parentNode !== document.body) {
-    document.body.appendChild(suggestionsEl);
-}
-            suggestionsEl.style.position = 'fixed';
-            suggestionsEl.style.top = (rect.bottom + 5) + 'px';
-            suggestionsEl.style.left = rect.left + 'px';
-            suggestionsEl.style.width = rect.width + 'px';
-            suggestionsEl.style.display = 'block';
-        } else { suggestionsEl.style.display = 'none'; }
+            if (suggestionsEl.parentNode !== document.body) {
+                document.body.appendChild(suggestionsEl);
+            }
+            suggestionsEl.style.position = 'fixed';
+            suggestionsEl.style.top = (rect.bottom + 5) + 'px';
+            suggestionsEl.style.left = rect.left + 'px';
+            suggestionsEl.style.width = rect.width + 'px';
+            suggestionsEl.style.zIndex = '999999'; // هذا هو السطر السحري لرفع القائمة فوق كل النوافذ
+            suggestionsEl.style.display = 'block';
+        } else { suggestionsEl.style.display = 'none'; }
     });
     inputEl.addEventListener('keydown', function(e) {
         const items = suggestionsEl.getElementsByClassName('autocomplete-item');
