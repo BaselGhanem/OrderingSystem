@@ -287,10 +287,44 @@ async function loadInitialData() {
     }
 }
 
-if (productsList.length === 0) { 
+function addNewRow() {
+    // التحقق يجب أن يكون هنا داخل الدالة
+    if (productsList.length === 0) { 
         setTimeout(() => addNewRow(), 500); 
         return; // هنا الـ return قانونية لأنها داخل دالة
     }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+        <td><input type="number" class="qty-input" value="1" min="1"></td>
+        <td><input type="number" class="bonus-input" value="0" min="0"></td>
+        <td class="price-cell">0.00</td>
+        <td class="row-total">0.00</td>
+        <td><input type="text" class="item-note-input" placeholder="ملاحظة..." style="width:100%; padding: 8px;"></td> <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
+    `;
+    
+    // باقي كود الدالة...
+    const s = tr.querySelector('.product-input'), 
+          sug = tr.querySelector('.product-suggestions'), 
+          q = tr.querySelector('.qty-input'), 
+          p = tr.querySelector('.price-cell'), 
+          t = tr.querySelector('.row-total');
+          
+    const productNames = productsList.map(prod => prod.name);
+    
+    setupAutocomplete(s, sug, productNames, (selectedName) => {
+        const selectedProd = productsList.find(prod => prod.name === selectedName);
+        const pr = selectedProd ? parseFloat(selectedProd.price) : 0;
+        p.innerText = pr.toFixed(2);
+        t.innerText = (pr * q.value).toFixed(2);
+        updateGrandTotal();
+    });
+
+    q.oninput = () => { t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); updateGrandTotal(); };
+    tr.querySelector('.del-row').onclick = () => { tr.remove(); updateGrandTotal(); };
+    orderBody.appendChild(tr);
+}
 const tr = document.createElement('tr');
     tr.innerHTML = `
         <td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
