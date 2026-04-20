@@ -230,9 +230,9 @@ max-height: calc(100vh - 220px);
 .order-table th:first-child {
     position: sticky;
     right: 0;
-    z-index: 7;
+    z-index: 20;
     background: #fff;
-    box-shadow: -2px 0 6px rgba(0,0,0,0.05);
+    box-shadow: 2px 0 8px rgba(0,0,0,0.08);
 }
 .order-table td {
     padding: 16px;
@@ -245,10 +245,9 @@ max-height: calc(100vh - 220px);
     background-color: #fafcff;
 }
 .order-table thead th {
-        box-shadow: 0 2px 0 rgba(0,0,0,0.05);
     position: sticky;
-    top: 0; /* صار داخل الجدول */
-    z-index: 10;
+    top: 0;
+    z-index: 30;
     background: #f8fafc;
 }
 .row-total { font-weight: 800; color: var(--primary); font-size: 1.05rem; }
