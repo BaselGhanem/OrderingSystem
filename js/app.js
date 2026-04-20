@@ -1177,20 +1177,21 @@ function openAdminLoginBox() {
     document.getElementById('adminPasswordInput').value = ''; 
 }
 // عند الضغط على زر "دخول" داخل النافذة
-document.getElementById('confirmAdminLoginBtn').onclick = () => {
-    if (!selectedAdminType) {
-        return alert("الرجاء اختيار الحساب أولاً (محمد، عبدالله، أو لوحة التقارير)");
-    }
-    // تفعيل الدخول باستخدام زر Enter في حقل الباسوورد
+// تفعيل الدخول باستخدام زر Enter في حقل الباسوورد
 document.getElementById('adminPasswordInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
         e.preventDefault();
         document.getElementById('confirmAdminLoginBtn').click();
     }
 });
+
+// عند الضغط على زر "دخول" داخل النافذة
+document.getElementById('confirmAdminLoginBtn').onclick = () => {
+    if (!selectedAdminType) {
+        return alert("الرجاء اختيار الحساب أولاً (محمد، عبدالله، أو لوحة التقارير)");
+    }
     
-    const pass = document.getElementById('adminPasswordInput').value;
-    
+    const pass = document.getElementById('adminPasswordInput').value;    
     if (pass === "202604") {
         const rememberMe = document.getElementById('rememberAdmin').checked;
         
