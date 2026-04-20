@@ -22,9 +22,6 @@
     --border-radius-lg: 20px;
     --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-html {
-    scroll-behavior: smooth;
-}
 
 * {
     box-sizing: border-box;
@@ -35,7 +32,6 @@ html {
 
 body {
     background: var(--bg-body);
-    scroll-padding-top: 90px;
     background-image: 
         radial-gradient(circle at 0% 0%, rgba(15, 59, 92, 0.03) 0px, transparent 50%),
         radial-gradient(circle at 100% 100%, rgba(44, 122, 77, 0.03) 0px, transparent 50%);
@@ -84,14 +80,13 @@ body {
 
 /* 5. Header Section - Improved spacing */
 header {
-    position: sticky;
-    top: 0;
-    width: 100%;
-    z-index: 1000;
-    background: var(--glass);
-    box-shadow: var(--shadow-sm);
-    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 8px;
 }
+
 .logo-area {
     display: flex;
     align-items: center;
@@ -179,31 +174,11 @@ select:hover, input:hover {
 
 /* 8. Tables - Clean and readable */
 .table-responsive {
-    will-change: transform;
-    -webkit-overflow-scrolling: touch;
     width: 100%;
-    max-height: calc(100vh - 220px);
-    overflow-y: auto;
     overflow-x: auto;
-    overscroll-behavior: contain;
     border-radius: var(--border-radius-lg);
     background: white;
     box-shadow: var(--shadow-sm);
-}
-.table-responsive::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
-.table-responsive::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 10px;
-}
-.table-responsive::-webkit-scrollbar-thumb {
-    background: var(--primary);
-    border-radius: 10px;
-}
-.table-responsive::-webkit-scrollbar-thumb:hover {
-    background: var(--primary-dark);
 }
 .order-table {
     width: 100%;
@@ -220,31 +195,14 @@ select:hover, input:hover {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border-bottom: 2px solid #eef2f6;
-    white-space: nowrap;
-}
-.order-table td:first-child,
-.order-table th:first-child {
-    position: sticky;
-    right: 0;
-    z-index: 20;
-    background: #fff;
-    box-shadow: 2px 0 8px rgba(0,0,0,0.08);
 }
 .order-table td {
     padding: 16px;
     border-bottom: 1px solid #f0f2f5;
     color: #1e2a3a;
-    vertical-align: middle;
-    white-space: nowrap;
 }
 .order-table tr:hover td {
     background-color: #fafcff;
-}
-.order-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    background: #f8fafc;
 }
 .row-total { font-weight: 800; color: var(--primary); font-size: 1.05rem; }
 
@@ -330,8 +288,6 @@ select:hover, input:hover {
     max-width: 920px;
     max-height: 90vh;
     overflow-y: auto;
-    overflow-x: hidden;
-    overscroll-behavior: contain;
     position: relative;
     animation: modalSlide 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
 }
@@ -394,11 +350,11 @@ select:hover, input:hover {
 }
 
 /* ========================================= */
-/* Autocomplete - High visibility, robust */
+/* Autocomplete - Fixed & Responsive         */
 /* ========================================= */
 
 .autocomplete-wrapper {
-    position: relative !important; /* Fixed: Changed from fixed to relative */
+    position: relative !important; /* This is crucial for absolute positioning to work correctly */
     width: 100%;
 }
 
@@ -419,67 +375,46 @@ select:hover, input:hover {
 }
 
 .autocomplete-list {
-    position: absolute !important;
-    top: calc(100% + 8px) !important; /* Fixed: Drops downwards naturally */
+    position: absolute !important; /* Keep it attached directly beneath the input */
+    top: calc(100% + 4px) !important;
     left: 0 !important;
     right: 0 !important;
-    background: rgba(255, 255, 255, 0.98) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: 16px !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.12) !important;
-    border: 1px solid rgba(15, 59, 92, 0.15) !important;
-    max-height: 260px !important; /* Fixed: Proper height management */
+    width: 100% !important;
+    background: white !important;
+    border-radius: var(--border-radius-lg) !important;
+    box-shadow: var(--shadow-lg) !important;
+    max-height: 320px !important;
     overflow-y: auto !important;
     z-index: 99999 !important;
-    transform-origin: top center;
-    animation: dropdownFade 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    padding: 8px !important; /* Added padding to wrapper instead of huge margins */
+    border: 2px solid var(--primary) !important;
+    display: none; /* Controlled by Javascript */
     margin: 0 !important;
-}
-
-@keyframes dropdownFade {
-    from {
-        opacity: 0;
-        transform: translateY(-8px) scale(0.98);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+    padding: 0 !important;
 }
 
 .autocomplete-item {
-    transition: all 0.15s ease !important;
-    border-radius: 10px !important;
-    margin-bottom: 4px !important;
-    padding: 14px 16px !important;
+    padding: 14px 20px !important;
     cursor: pointer !important;
     font-size: 1rem !important;
     border-bottom: 1px solid #edf2f7 !important;
-    background: transparent !important;
+    background: white !important;
     color: #1e2a3a !important;
-    display: block;
+    transition: all 0.15s ease !important;
 }
 
 .autocomplete-item:last-child {
     border-bottom: none !important;
-    margin-bottom: 0 !important;
 }
 
 .autocomplete-item:hover,
 .autocomplete-item.autocomplete-active {
-    background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
+    background: var(--primary) !important;
     color: white !important;
-    transform: scale(1.01) !important; /* Fixed: Better than translateX for both Arabic(RTL) and English(LTR) */
-    box-shadow: var(--shadow-sm) !important;
-    border-color: transparent !important;
 }
 
 .autocomplete-item strong {
     color: var(--primary);
     font-weight: 800;
-    transition: color 0.15s ease;
 }
 
 .autocomplete-item:hover strong,
@@ -488,18 +423,15 @@ select:hover, input:hover {
 }
 
 .autocomplete-list::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
 }
 .autocomplete-list::-webkit-scrollbar-track {
-    background: transparent;
-    margin: 8px 0;
-}
-.autocomplete-list::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: #f1f5f9;
     border-radius: 10px;
 }
-.autocomplete-list::-webkit-scrollbar-thumb:hover {
-    background: var(--primary-light);
+.autocomplete-list::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
 }
 
 /* Manager sub-tabs - Clear selection */
