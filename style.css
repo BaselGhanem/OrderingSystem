@@ -195,11 +195,14 @@ select:hover, input:hover {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border-bottom: 2px solid #eef2f6;
+    white-space: nowrap; /* يمنع نزول النص لسطر جديد */
 }
 .order-table td {
     padding: 16px;
     border-bottom: 1px solid #f0f2f5;
     color: #1e2a3a;
+    vertical-align: middle;
+    white-space: nowrap; /* يجبر الحقول على البقاء بجانب بعضها أفقياً */
 }
 .order-table tr:hover td {
     background-color: #fafcff;
