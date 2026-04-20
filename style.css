@@ -402,9 +402,9 @@ overflow-x: hidden;
 /* ========================================= */
 
 .autocomplete-wrapper {
-    position: relative;
+    position: fixed !important;
     width: 100%;
-    z-index: 1;
+    z-index: 9999;
 }
 .autocomplete-wrapper input {
     width: 100%;
