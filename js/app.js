@@ -120,56 +120,117 @@ function getManagerName(repName) {
 }
 
 function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) {
-    let currentFocus = -1;
-    inputEl.addEventListener('input', function(e) {
-        const val = this.value.trim().toLowerCase();
-        suggestionsEl.innerHTML = '';
-        currentFocus = -1;
-        if (!val) { suggestionsEl.style.display = 'none'; return; }
-        const filtered = dataArray.filter(item => item.toLowerCase().includes(val));
-        if (filtered.length > 0) {
-            filtered.forEach((item) => {
-                const div = document.createElement('div');
-                div.className = 'autocomplete-item';
-                const matchIndex = item.toLowerCase().indexOf(val);
-                if (matchIndex >= 0) {
-                    const before = item.substring(0, matchIndex);
-                    const match = item.substring(matchIndex, matchIndex + val.length);
-                    const after = item.substring(matchIndex + val.length);
-                    div.innerHTML = before + '<strong>' + match + '</strong>' + after;
-                } else { div.innerText = item; }
-                div.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    inputEl.value = item;
-                    suggestionsEl.style.display = 'none';
-                    if (onSelectCallback) onSelectCallback(item);
-                });
-                suggestionsEl.appendChild(div);
-            });
-const rect = inputEl.getBoundingClientRect();
-            // إخراج القائمة لجسم الصفحة الرئيسي لتجنب مشاكل القص والظهور خارج الشاشة
-            if (suggestionsEl.parentNode !== document.body) {
-                document.body.appendChild(suggestionsEl);
-            }
-            suggestionsEl.style.position = 'fixed';
-            suggestionsEl.style.top = (rect.bottom + 5) + 'px';
-            suggestionsEl.style.left = rect.left + 'px';
-            suggestionsEl.style.width = rect.width + 'px';
-            suggestionsEl.style.zIndex = '999999'; // هذا هو السطر السحري لرفع القائمة فوق كل النوافذ
-            suggestionsEl.style.display = 'block';
-        } else { suggestionsEl.style.display = 'none'; }
-    });
-    inputEl.addEventListener('keydown', function(e) {
-        const items = suggestionsEl.getElementsByClassName('autocomplete-item');
-        if (e.key === 'ArrowDown') { currentFocus++; if (currentFocus >= items.length) currentFocus = 0; setActive(items); e.preventDefault(); }
-        else if (e.key === 'ArrowUp') { currentFocus--; if (currentFocus < 0) currentFocus = items.length - 1; setActive(items); e.preventDefault(); }
-        else if (e.key === 'Enter') { e.preventDefault(); if (currentFocus > -1 && items[currentFocus]) items[currentFocus].click(); else if (items.length === 1) items[0].click(); }
-    });
-    function setActive(items) { for (let i=0; i<items.length; i++) items[i].classList.remove('autocomplete-active'); if (items[currentFocus]) { items[currentFocus].classList.add('autocomplete-active'); items[currentFocus].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
-    document.addEventListener('click', function(e) { if (!inputEl.contains(e.target) && !suggestionsEl.contains(e.target)) suggestionsEl.style.display = 'none'; });
-    suggestionsEl.addEventListener('mousedown', function(e) { e.preventDefault(); });
-}
+    // 1. تحديث البيانات المربوطة بالحقل (لمنع تضارب الأحداث عند تغيير المندوب)
+    inputEl._autocompleteData = dataArray;
+    inputEl._autocompleteCallback = onSelectCallback;
+    inputEl._suggestionsEl = suggestionsEl;
 
+    // 2. إذا كان الحقل مبرمجاً مسبقاً، نتوقف هنا لكي لا نكرر الكود
+    if (inputEl._hasAutocomplete) return;
+    inputEl._hasAutocomplete = true;
+
+    let currentFocus = -1;
+
+    inputEl.addEventListener('input', function(e) {
+        const data = this._autocompleteData; 
+        const sugEl = this._suggestionsEl;
+        const cb = this._autocompleteCallback;
+        
+        const val = this.value.trim().toLowerCase();
+        sugEl.innerHTML = '';
+        currentFocus = -1;
+        
+        if (!val) { sugEl.style.display = 'none'; return; }
+        
+        const filtered = data.filter(item => item.toLowerCase().includes(val));
+        
+        if (filtered.length > 0) {
+            filtered.forEach((item) => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-item';
+                
+                // 3. إجبار التنسيقات والألوان (السر في ظهورها الأنيق)
+                div.style.padding = '10px';
+                div.style.cursor = 'pointer';
+                div.style.borderBottom = '1px solid #eee';
+                div.style.backgroundColor = '#ffffff';
+                div.style.color = '#000000';
+                div.style.fontSize = '14px';
+                div.style.textAlign = 'right';
+                
+                div.onmouseover = () => div.style.backgroundColor = '#f0f8ff';
+                div.onmouseout = () => { if (!div.classList.contains('autocomplete-active')) div.style.backgroundColor = '#ffffff'; };
+
+                const matchIndex = item.toLowerCase().indexOf(val);
+                if (matchIndex >= 0) {
+                    const before = item.substring(0, matchIndex);
+                    const match = item.substring(matchIndex, matchIndex + val.length);
+                    const after = item.substring(matchIndex + val.length);
+                    div.innerHTML = before + '<strong style="color:#004a99;">' + match + '</strong>' + after;
+                } else { div.innerText = item; }
+                
+                div.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    inputEl.value = item;
+                    sugEl.style.display = 'none';
+                    if (cb) cb(item);
+                    inputEl.dispatchEvent(new Event('input')); // لتحديث زر الحفظ والأسعار
+                });
+                sugEl.appendChild(div);
+            });
+            
+            const rect = inputEl.getBoundingClientRect();
+            if (sugEl.parentNode !== document.body) {
+                document.body.appendChild(sugEl);
+            }
+            
+            // 4. إجبار صندوق القائمة على الطفو فوق النوافذ بأعلى طبقة
+            sugEl.style.position = 'fixed';
+            sugEl.style.top = (rect.bottom + 2) + 'px';
+            sugEl.style.left = rect.left + 'px';
+            sugEl.style.width = rect.width + 'px';
+            sugEl.style.zIndex = '9999999';
+            sugEl.style.backgroundColor = '#ffffff';
+            sugEl.style.border = '1px solid #004a99';
+            sugEl.style.borderRadius = '5px';
+            sugEl.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)';
+            sugEl.style.maxHeight = '220px';
+            sugEl.style.overflowY = 'auto';
+            sugEl.style.display = 'block';
+            
+        } else { 
+            sugEl.style.display = 'none'; 
+        }
+    });
+    
+    inputEl.addEventListener('keydown', function(e) {
+        const sugEl = this._suggestionsEl;
+        const items = sugEl.getElementsByClassName('autocomplete-item');
+        if (e.key === 'ArrowDown') { currentFocus++; if (currentFocus >= items.length) currentFocus = 0; setActive(items); e.preventDefault(); }
+        else if (e.key === 'ArrowUp') { currentFocus--; if (currentFocus < 0) currentFocus = items.length - 1; setActive(items); e.preventDefault(); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (currentFocus > -1 && items[currentFocus]) items[currentFocus].click(); else if (items.length === 1) items[0].click(); }
+    });
+    
+    function setActive(items) { 
+        for (let i=0; i<items.length; i++) {
+            items[i].classList.remove('autocomplete-active'); 
+            items[i].style.backgroundColor = '#ffffff';
+        }
+        if (items[currentFocus]) { 
+            items[currentFocus].classList.add('autocomplete-active'); 
+            items[currentFocus].style.backgroundColor = '#e6f2ff';
+            items[currentFocus].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); 
+        } 
+    }
+    
+    document.addEventListener('click', function(e) { 
+        if (!inputEl.contains(e.target) && inputEl._suggestionsEl && !inputEl._suggestionsEl.contains(e.target)) {
+            inputEl._suggestionsEl.style.display = 'none'; 
+        }
+    });
+    
+    suggestionsEl.addEventListener('mousedown', function(e) { e.preventDefault(); });
+}
 async function loadInitialData() {
     try {
         // عرض حالة التحميل داخل القائمة
