@@ -35,6 +35,8 @@ html {
 
 body {
     background: var(--bg-body);
+        scroll-padding-top: 90px;
+
     background-image: 
         radial-gradient(circle at 0% 0%, rgba(15, 59, 92, 0.03) 0px, transparent 50%),
         radial-gradient(circle at 100% 100%, rgba(44, 122, 77, 0.03) 0px, transparent 50%);
@@ -85,9 +87,11 @@ body {
 header {
     position: sticky;
     top: 0;
+    width: 100%;
     z-index: 1000;
     background: var(--glass);
-    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-sm);
+    padding: 12px 16px;
 }
 .logo-area {
     display: flex;
@@ -176,12 +180,34 @@ select:hover, input:hover {
 
 /* 8. Tables - Clean and readable */
 .table-responsive {
+        will-change: transform;
+    -webkit-overflow-scrolling: touch;
     width: 100%;
+max-height: calc(100vh - 220px);
+    overflow-y: auto; /* سكروول داخلي */
     overflow-x: auto;
-    overflow-y: visible; /* مهم */
+    overscroll-behavior: contain;
     border-radius: var(--border-radius-lg);
     background: white;
     box-shadow: var(--shadow-sm);
+}
+.table-responsive::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
 }
 .order-table {
     width: 100%;
@@ -200,6 +226,14 @@ select:hover, input:hover {
     border-bottom: 2px solid #eef2f6;
     white-space: nowrap; /* يمنع نزول النص لسطر جديد */
 }
+.order-table td:first-child,
+.order-table th:first-child {
+    position: sticky;
+    right: 0;
+    z-index: 7;
+    background: #fff;
+    box-shadow: -2px 0 6px rgba(0,0,0,0.05);
+}
 .order-table td {
     padding: 16px;
     border-bottom: 1px solid #f0f2f5;
@@ -211,9 +245,10 @@ select:hover, input:hover {
     background-color: #fafcff;
 }
 .order-table thead th {
+        box-shadow: 0 2px 0 rgba(0,0,0,0.05);
     position: sticky;
-    top: 80px; /* نفس ارتفاع الهيدر تقريباً */
-    z-index: 5;
+    top: 0; /* صار داخل الجدول */
+    z-index: 10;
     background: #f8fafc;
 }
 .row-total { font-weight: 800; color: var(--primary); font-size: 1.05rem; }
@@ -299,7 +334,8 @@ select:hover, input:hover {
     width: 100%;
     max-width: 920px;
     max-height: 90vh;
-    overflow-y: auto;
+overflow-y: auto;
+overflow-x: hidden;
     position: relative;
     animation: modalSlide 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
 }
@@ -395,7 +431,7 @@ select:hover, input:hover {
     box-shadow: var(--shadow-lg) !important;
     max-height: 320px !important;
     overflow-y: auto !important;
-    z-index: 99999 !important;
+    z-index: 1000 !important;
     border: 2px solid var(--primary) !important;
     min-width: 260px !important;
     width: auto !important;
