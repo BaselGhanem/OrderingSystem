@@ -336,6 +336,7 @@ max-height: calc(100vh - 220px);
     max-height: 90vh;
 overflow-y: auto;
 overflow-x: hidden;
+    overscroll-behavior: contain;
     position: relative;
     animation: modalSlide 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
 }
