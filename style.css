@@ -404,8 +404,8 @@ overflow-x: hidden;
 .autocomplete-wrapper {
     position: relative;
     width: 100%;
+    z-index: 1;
 }
-
 .autocomplete-wrapper input {
     width: 100%;
     padding: 12px 16px;
@@ -424,22 +424,40 @@ overflow-x: hidden;
 
 .autocomplete-list {
     position: absolute !important;
-    top: auto !important;
-    left: auto !important;
-    background: white !important;
-    border-radius: var(--border-radius-lg) !important;
-    box-shadow: var(--shadow-lg) !important;
+    top: calc(100% + 8px) !important;
+    left: 0 !important;
+    right: 0 !important;
+
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    border-radius: 16px !important;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.15) !important;
+
+    border: 1px solid rgba(15, 59, 92, 0.15) !important;
+
     max-height: 320px !important;
     overflow-y: auto !important;
-    z-index: 1000 !important;
-    border: 2px solid var(--primary) !important;
-    min-width: 260px !important;
-    width: auto !important;
-    display: none;
-    margin-top: 6px;
-}
 
+    z-index: 99999 !important;
+
+    transform-origin: top;
+    animation: dropdownFade 0.18s ease-out;
+}
+@keyframes dropdownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
 .autocomplete-item {
+        border-radius: 10px;
+    margin: 4px 8px;
     padding: 14px 20px !important;
     cursor: pointer !important;
     font-size: 1rem !important;
@@ -455,8 +473,9 @@ overflow-x: hidden;
 
 .autocomplete-item:hover,
 .autocomplete-item.autocomplete-active {
-    background: var(--primary) !important;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
     color: white !important;
+    transform: translateX(4px);
 }
 
 .autocomplete-item strong {
