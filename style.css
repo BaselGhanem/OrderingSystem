@@ -438,7 +438,7 @@ top: auto !important;
 
     border: 1px solid rgba(15, 59, 92, 0.15) !important;
 
-    max-height: 320px !important;
+max-height: calc(52px * 5 + 20px) !important;
     overflow-y: auto !important;
 
     z-index: 99999 !important;
@@ -457,9 +457,10 @@ top: auto !important;
     }
 }
 .autocomplete-item {
-        border-radius: 10px;
+    transition: all 0.15s ease;
+    border-radius: 10px;
     margin: 4px 8px;
-    padding: 14px 20px !important;
+    padding: 16px 20px !important;
     cursor: pointer !important;
     font-size: 1rem !important;
     border-bottom: 1px solid #edf2f7 !important;
@@ -476,9 +477,10 @@ top: auto !important;
 .autocomplete-item.autocomplete-active {
     background: linear-gradient(135deg, var(--primary), var(--primary-light)) !important;
     color: white !important;
-    transform: translateX(4px);
-}
 
+    transform: translateX(6px);
+    transition: all 0.15s ease;
+}
 .autocomplete-item strong {
     color: var(--primary);
     font-weight: 800;
