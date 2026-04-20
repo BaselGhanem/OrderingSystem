@@ -287,13 +287,16 @@ async function loadInitialData() {
     }
 }
 
+// --- استبدل الكود من السطر 214 وحتى بداية دالة repSelect.onchange بهذا المقطع ---
+
 function addNewRow() {
-    // التحقق يجب أن يكون هنا داخل الدالة
+    // 1. التحقق من تحميل البيانات
     if (productsList.length === 0) { 
         setTimeout(() => addNewRow(), 500); 
-        return; // هنا الـ return قانونية لأنها داخل دالة
+        return; 
     }
 
+    // 2. إنشاء سطر الجدول
     const tr = document.createElement('tr');
     tr.innerHTML = `
         <td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
@@ -301,10 +304,11 @@ function addNewRow() {
         <td><input type="number" class="bonus-input" value="0" min="0"></td>
         <td class="price-cell">0.00</td>
         <td class="row-total">0.00</td>
-        <td><input type="text" class="item-note-input" placeholder="ملاحظة..." style="width:100%; padding: 8px;"></td> <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
+        <td><input type="text" class="item-note-input" placeholder="ملاحظة..." style="width:100%; padding: 8px;"></td> 
+        <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
     `;
     
-    // باقي كود الدالة...
+    // 3. تعريف المتغيرات داخل السطر
     const s = tr.querySelector('.product-input'), 
           sug = tr.querySelector('.product-suggestions'), 
           q = tr.querySelector('.qty-input'), 
@@ -313,6 +317,7 @@ function addNewRow() {
           
     const productNames = productsList.map(prod => prod.name);
     
+    // 4. إعداد الإكمال التلقائي للصنف
     setupAutocomplete(s, sug, productNames, (selectedName) => {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
         const pr = selectedProd ? parseFloat(selectedProd.price) : 0;
@@ -321,30 +326,7 @@ function addNewRow() {
         updateGrandTotal();
     });
 
-    q.oninput = () => { t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); updateGrandTotal(); };
-    tr.querySelector('.del-row').onclick = () => { tr.remove(); updateGrandTotal(); };
-    orderBody.appendChild(tr);
-}
-const tr = document.createElement('tr');
-    tr.innerHTML = `
-        <td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
-        <td><input type="number" class="qty-input" value="1" min="1"></td>
-        <td><input type="number" class="bonus-input" value="0" min="0"></td>
-        <td class="price-cell">0.00</td>
-        <td class="row-total">0.00</td>
-        <td><input type="text" class="item-note-input" placeholder="ملاحظة..." style="width:100%; padding: 8px;"></td> <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
-    `;
-    const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions'), q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
-    const productNames = productsList.map(prod => prod.name);
-    
-    setupAutocomplete(s, sug, productNames, (selectedName) => {
-        const selectedProd = productsList.find(prod => prod.name === selectedName);
-        const pr = selectedProd ? parseFloat(selectedProd.price) : 0;
-        p.innerText = pr.toFixed(2);
-        t.innerText = (pr * q.value).toFixed(2);
-        updateGrandTotal();
-    });
-
+    // 5. التحقق عند الخروج من الحقل (Blur)
     s.addEventListener('blur', function() {
         const val = this.value.trim();
         if (val === "") return;
@@ -357,16 +339,32 @@ const tr = document.createElement('tr');
             this.style.backgroundColor = "";
         }
     });
-    q.oninput = () => { t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); updateGrandTotal(); };
-    tr.querySelector('.del-row').onclick = () => { tr.remove(); updateGrandTotal(); };
+
+    // 6. تحديث المجموع عند تغيير الكمية
+    q.oninput = () => { 
+        t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); 
+        updateGrandTotal(); 
+    };
+
+    // 7. زر الحذف
+    tr.querySelector('.del-row').onclick = () => { 
+        tr.remove(); 
+        updateGrandTotal(); 
+    };
+
     orderBody.appendChild(tr);
 }
 
+// دالة تحديث الإجمالي الكلي للفاتورة
 function updateGrandTotal() {
-    let g = 0; document.querySelectorAll('#orderBody .row-total').forEach(td => g += parseFloat(td.innerText) || 0);
-    grandTotalEl.innerText = g.toFixed(2);
+    let g = 0; 
+    document.querySelectorAll('#orderBody .row-total').forEach(td => {
+        g += parseFloat(td.innerText) || 0;
+    });
+    if (grandTotalEl) grandTotalEl.innerText = g.toFixed(2);
 }
 
+// --- بعد ذلك يكمل الكود الخاص بـ repSelect.onchange بشكل طبيعي ---
 repSelect.onchange = async (e) => {
     if (!e.target.value) return;
     pharmacyInput.value = '';
