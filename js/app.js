@@ -970,8 +970,8 @@ tr.querySelector('.del-row').onclick = () => { tr.remove(); sug.remove(); update
 function closeEditModal() { 
     document.getElementById('editOrderModal').style.display = 'none'; 
     editingOrderId = null; 
-    // تنظيف القوائم المنسدلة العالقة عند إغلاق النافذة
-    document.querySelectorAll('body > .autocomplete-list').forEach(el => el.remove());
+    // نحذف فقط قوائم المنتجات التابعة للنافذة المنبثقة، ونترك قائمة الصيدليات
+    document.querySelectorAll('body > .product-suggestions').forEach(el => el.remove());
 }
 window.closeEditModal = closeEditModal;
 
