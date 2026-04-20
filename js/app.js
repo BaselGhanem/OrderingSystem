@@ -184,9 +184,9 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
             });
 
             const rect = inputEl.getBoundingClientRect();
-            suggestionsEl.style.position = 'fixed';
-            suggestionsEl.style.top = (rect.bottom + 2) + 'px';
-            suggestionsEl.style.left = rect.left + 'px';
+suggestionsEl.style.position = 'absolute';
+suggestionsEl.style.top = (inputEl.offsetTop + inputEl.offsetHeight) + 'px';
+suggestionsEl.style.left = inputEl.offsetLeft + 'px';
             suggestionsEl.style.width = rect.width + 'px';
             suggestionsEl.style.zIndex = '9999999'; // السر هنا: أعلى طبقة ليتجاوز النوافذ
             suggestionsEl.style.backgroundColor = '#ffffff';
