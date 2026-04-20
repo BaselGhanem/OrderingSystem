@@ -202,15 +202,15 @@ async function loadInitialData() {
 
 function addNewRow() {
     if (productsList.length === 0) { setTimeout(() => addNewRow(), 500); return; }
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-        <td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
-        <td><input type="number" class="qty-input" value="1" min="1"></td>
-        <td><input type="number" class="bonus-input" value="0" min="0"></td>
-        <td class="price-cell">0.00</td><td class="row-total">0.00</td>
-        <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
-    `;
-    const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions'), q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
+const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%; min-width:220px;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+        <td><input type="number" class="qty-input" value="1" min="1" style="width: 80px; text-align: center; padding: 8px;"></td>
+        <td><input type="number" class="bonus-input" value="0" min="0" style="width: 80px; text-align: center; padding: 8px;"></td>
+        <td class="price-cell">0.00</td><td class="row-total">0.00</td>
+        <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
+    `;
+    const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions'), q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
     const productNames = productsList.map(prod => prod.name);
 setupAutocomplete(s, sug, productNames, (selectedName) => {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
