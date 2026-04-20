@@ -886,22 +886,21 @@ async function openEditOrder(orderId, userType) {
             <p style="margin: 0; font-size: 15px;">الصيدلية: <strong style="color:#d32f2f;">${order.pharmacyName || '-'}</strong> | المندوب: <strong>${order.repName || '-'}</strong></p>
         </div>
         
-        <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-            <table class="table">
+<div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+            <table class="order-table" style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr>
-                        <th>الصنف</th>
-                        <th style="width: 80px;">الكمية</th>
-                        <th style="width: 80px;">البونص</th>
-                        <th style="width: 100px;">السعر</th>
-                        <th style="width: 100px;">المجموع</th>
-                        <th style="width: 50px;">حذف</th>
+                        <th style="text-align: right; padding: 10px;">الصنف</th>
+                        <th style="text-align: center; width: 80px;">الكمية</th>
+                        <th style="text-align: center; width: 80px;">البونص</th>
+                        <th style="text-align: center; width: 100px;">السعر</th>
+                        <th style="text-align: center; width: 100px;">المجموع</th>
+                        <th style="text-align: center; width: 50px;">حذف</th>
                     </tr>
                 </thead>
                 <tbody id="editOrderBody"></tbody>
             </table>
         </div>
-
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
             <button type="button" id="editAddRowBtn" class="btn-secondary" style="padding: 8px 15px;"><i class="ph ph-plus"></i> إضافة صنف</button>
             <h3 style="margin: 0; color: #d32f2f;">الإجمالي: <span id="editGrandTotal">${parseFloat(order.grandTotal).toFixed(2)}</span></h3>
@@ -924,14 +923,14 @@ async function openEditOrder(orderId, userType) {
     }
 
     function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
-        const tr = document.createElement('tr');
+const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%"><div class="autocomplete-list product-suggestions"></div></div></td>
-            <td><input type="number" class="qty-input" value="${qty}" min="1"></td>
-            <td><input type="number" class="bonus-input" value="${bonus}" min="0"></td>
-            <td class="price-cell">${parseFloat(price).toFixed(2)}</td>
-            <td class="row-total">${parseFloat(rowTotal).toFixed(2)}</td>
-            <td><button class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
+            <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:220px;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+            <td style="text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 80px; text-align: center; padding: 8px;"></td>
+            <td style="text-align: center;"><input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 80px; text-align: center; padding: 8px;"></td>
+            <td class="price-cell" style="text-align: center; font-weight: bold;">${parseFloat(price).toFixed(2)}</td>
+            <td class="row-total" style="text-align: center; font-weight: bold;">${parseFloat(rowTotal).toFixed(2)}</td>
+            <td style="text-align: center;"><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
         `;
         const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions');
         const q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
@@ -1182,6 +1181,13 @@ document.getElementById('confirmAdminLoginBtn').onclick = () => {
     if (!selectedAdminType) {
         return alert("الرجاء اختيار الحساب أولاً (محمد، عبدالله، أو لوحة التقارير)");
     }
+    // تفعيل الدخول باستخدام زر Enter في حقل الباسوورد
+document.getElementById('adminPasswordInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('confirmAdminLoginBtn').click();
+    }
+});
     
     const pass = document.getElementById('adminPasswordInput').value;
     
