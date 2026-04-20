@@ -1,5 +1,22 @@
 import { db, collection, getDocs, query, where, addDoc, deleteDoc, doc, updateDoc, getDoc } from './firebase.js';
-
+document.addEventListener('DOMContentLoaded', () => {
+    // التحقق من أن رسالة التحديث لم تظهر مسبقاً
+    if (!localStorage.getItem('notesFeatureSeen')) {
+        const featureModal = document.getElementById('featureUpdateModal');
+        const closeFeatureBtn = document.getElementById('closeFeatureUpdateBtn');
+        
+        if(featureModal && closeFeatureBtn) {
+            // إظهار الرسالة
+            featureModal.style.display = 'flex';
+            
+            // عند الإغلاق، احفظ في الـ Local Storage عشان ما ترجع تطلع
+            closeFeatureBtn.addEventListener('click', () => {
+                featureModal.style.display = 'none';
+                localStorage.setItem('notesFeatureSeen', 'true');
+            });
+        }
+    }
+});
 window.addEventListener('DOMContentLoaded', () => {
     const savedManagerName = localStorage.getItem('managerName');
     const savedPass = localStorage.getItem('adminPassword');
@@ -270,19 +287,20 @@ async function loadInitialData() {
     }
 }
 
-function addNewRow() {
-    if (productsList.length === 0) { setTimeout(() => addNewRow(), 500); return; }
+if (productsList.length === 0) { setTimeout(() => addNewRow(), 500); return; }
     const tr = document.createElement('tr');
     tr.innerHTML = `
         <td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
         <td><input type="number" class="qty-input" value="1" min="1"></td>
         <td><input type="number" class="bonus-input" value="0" min="0"></td>
-        <td class="price-cell">0.00</td><td class="row-total">0.00</td>
-        <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
+        <td class="price-cell">0.00</td>
+        <td class="row-total">0.00</td>
+        <td><input type="text" class="item-note-input" placeholder="ملاحظة..." style="width:100%; padding: 8px;"></td> <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
     `;
     const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions'), q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
     const productNames = productsList.map(prod => prod.name);
-setupAutocomplete(s, sug, productNames, (selectedName) => {
+    
+    setupAutocomplete(s, sug, productNames, (selectedName) => {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
         const pr = selectedProd ? parseFloat(selectedProd.price) : 0;
         p.innerText = pr.toFixed(2);
@@ -424,17 +442,16 @@ repSelect.onchange = async (e) => {
 };
 submitOrderBtn.onclick = async () => {
     const items = [];
-    let invalidItem = false; // متغير للتحقق من صحة الأصناف
+    let invalidItem = false;
 
     document.querySelectorAll('#orderBody tr').forEach(r => {
         const s = r.querySelector('.product-input');
         if (s && s.value.trim() !== "") {
-            // التحقق: هل الاسم المكتوب مطابق تماماً لأي صنف في القائمة؟
             const isValid = productsList.some(prod => prod.name === s.value.trim());
             
             if (!isValid) {
                 invalidItem = true;
-                s.style.border = "2px solid red"; // تمييز الخطأ بصرياً
+                s.style.border = "2px solid red";
             } else {
                 s.style.border = ""; 
                 items.push({
@@ -442,7 +459,8 @@ submitOrderBtn.onclick = async () => {
                     qty: r.querySelector('.qty-input').value,
                     bonus: r.querySelector('.bonus-input').value || 0,
                     price: r.querySelector('.price-cell').innerText,
-                    total: r.querySelector('.row-total').innerText
+                    total: r.querySelector('.row-total').innerText,
+                    note: r.querySelector('.item-note-input').value.trim() // حفظ ملاحظة الصنف
                 });
             }
         }
@@ -453,6 +471,11 @@ submitOrderBtn.onclick = async () => {
     }
 
     if (items.length === 0) return alert("الفاتورة فارغة!");
+    
+    // جلب ملاحظة الطلبية العامة
+    const orderNoteEl = document.getElementById('orderNoteInput');
+    const orderNoteValue = orderNoteEl ? orderNoteEl.value.trim() : "";
+
     try {
         submitOrderBtn.disabled = true;
         await addDoc(collection(db, "orders"), {
@@ -462,16 +485,21 @@ submitOrderBtn.onclick = async () => {
             pharmacyName: currentPharmacyName,
             pharmacyCode: currentPharmacyCode, 
             items: items,
+            orderNote: orderNoteValue, // حفظ ملاحظة الطلبية
             grandTotal: parseFloat(grandTotalEl.innerText),
             createdAt: new Date(),
             updatedAt: new Date(),
             status: "pending"
         });
         alert("تم ارسال الطلبية بنجاح، في انتظار موافقة المدير.");
+        
+        // تصفير الشاشة
         orderBody.innerHTML = '';
         grandTotalEl.innerText = '0.00';
+        if(orderNoteEl) orderNoteEl.value = ''; // تصفير الملاحظة
         addNewRow();
         submitOrderBtn.disabled = false;
+        
         document.getElementById('orderScreen').style.display = 'none';
         document.getElementById('myOrdersScreen').style.display = 'block';
         loadMyOrders();
@@ -479,7 +507,6 @@ submitOrderBtn.onclick = async () => {
         document.getElementById('navMyOrdersBtn').classList.add('active');
     } catch(e) { alert("خطا في الارسال"); submitOrderBtn.disabled = false; }
 };
-
 async function loadMyOrders() {
     if (!currentRepId && !loadRepSession()) { alert("الرجا تسجيل الدخول اولا"); return; }
     const tbody = document.getElementById('myOrdersBody');
@@ -922,16 +949,18 @@ async function openEditOrder(orderId, userType) {
         if (grandTotalEl) grandTotalEl.innerText = total.toFixed(2);
     }
 
-    function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0) {
-const tr = document.createElement('tr');
+function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='') {
+        const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:220px;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
-            <td style="text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 80px; text-align: center; padding: 8px;"></td>
-            <td style="text-align: center;"><input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 80px; text-align: center; padding: 8px;"></td>
+            <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:200px;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+            <td style="text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 70px; text-align: center; padding: 8px;"></td>
+            <td style="text-align: center;"><input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 70px; text-align: center; padding: 8px;"></td>
             <td class="price-cell" style="text-align: center; font-weight: bold;">${parseFloat(price).toFixed(2)}</td>
             <td class="row-total" style="text-align: center; font-weight: bold;">${parseFloat(rowTotal).toFixed(2)}</td>
+            <td><input type="text" class="item-note-input" value="${note}" placeholder="ملاحظة..." style="width:100%; min-width:120px; padding: 8px;"></td>
             <td style="text-align: center;"><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
         `;
+        // ... (باقي كود الدالة كما هو: setupAutocomplete وغيرها)
         const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions');
         const q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
         const productNames = productsList.map(prod => prod.name);
@@ -964,13 +993,12 @@ const tr = document.createElement('tr');
         updateEditTotal();
     }
     
-    // تعبئة الأصناف المحفوظة
+    // تعبئة الأصناف المحفوظة (مع تمرير الملاحظة)
     if (order.items && order.items.length > 0) {
-        order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total); });
+        order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total, item.note || ''); });
     } else {
         addEditRow();
-    }
-    
+    }    
     const addRowBtn = document.getElementById('editAddRowBtn');
     if (addRowBtn) addRowBtn.onclick = () => addEditRow();
     
@@ -992,14 +1020,14 @@ const tr = document.createElement('tr');
                         inp.style.border = "2px solid red";
                     } else {
                         inp.style.border = "";
-                        items.push({ 
+items.push({ 
                             name: inp.value, 
                             qty: r.querySelector('.qty-input').value, 
                             bonus: r.querySelector('.bonus-input').value || 0, 
                             price: r.querySelector('.price-cell').innerText, 
-                            total: r.querySelector('.row-total').innerText 
-                        });
-                    }
+                            total: r.querySelector('.row-total').innerText,
+                            note: r.querySelector('.item-note-input').value.trim() // <-- أضف هذا السطر
+                        });                    }
                 }
             });
 
@@ -1091,7 +1119,7 @@ document.getElementById('exportExcelBtn').onclick = async () => {
             const dateStr = order.createdAt.toDate().toLocaleDateString('en-GB'); 
 
             order.items.forEach(item => { 
-                flatData.push({ 
+flatData.push({ 
                     "التاريخ": dateStr, 
                     "المندوب": order.repName, 
                     "كود الصيدلية": order.pharmacyCode || "-", 
@@ -1100,10 +1128,12 @@ document.getElementById('exportExcelBtn').onclick = async () => {
                     "الكمية": parseInt(item.qty, 10) || 0, 
                     "البونص": parseInt(item.bonus, 10) || 0, 
                     "السعر": parseFloat(item.price) || 0, 
-                    "المجموع الفرعي": parseFloat(item.total) || 0, 
+                    "المجموع الفرعي": parseFloat(item.total) || 0,
+                    "ملاحظة الصنف": item.note || "-", // <--
                     "الاجمالي الكلي": parseFloat(order.grandTotal) || 0, 
+                    "ملاحظة الطلبية": order.orderNote || "-", // <--
                     "الحالة": order.status 
-                }); 
+                });
             });
         });
 
