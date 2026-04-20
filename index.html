@@ -273,7 +273,13 @@
         </button>
     </div>
 </div>
-    <script type="module" src="js/app.js?v=20260412-8"></script>
+<script>
+    // إنشاء سطر استدعاء الجافاسكريبت ديناميكياً لمنع الكاش
+    const script = document.createElement('script');
+    script.type = 'module';
+    script.src = 'js/app.js?v=' + Date.now();
+    document.body.appendChild(script);
+</script>
     <div id="adminLoginModal" class="modal-overlay" style="display: none;">
         <div class="modal-content glass-panel auth-box" style="max-width: 400px; padding: 30px;">
             <div style="text-align: center; margin-bottom: 20px;">
