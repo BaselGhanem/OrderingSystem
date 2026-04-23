@@ -129,7 +129,23 @@ const pharmacyInput = document.getElementById('pharmacyInput');
 const startOrderBtn = document.getElementById('startOrderBtn');
 const orderBody = document.getElementById('orderBody');
 const addRowBtn = document.getElementById('addRowBtn');
-addRowBtn.onclick = () => addNewRow();
+addRowBtn.onclick = () => {
+    // جلب كل حقول الأصناف الموجودة في الجدول
+    const productInputs = document.querySelectorAll('#orderBody .product-input');
+    
+    // إذا كان هناك أسطر، تحقق من آخر سطر
+    if (productInputs.length > 0) {
+        const lastInput = productInputs[productInputs.length - 1];
+        if (lastInput.value.trim() === "") {
+            alert("الرجاء اختيار الصنف الحالي أولاً قبل إضافة صنف جديد.");
+            lastInput.focus(); // وضع المؤشر على الحقل الفارغ
+            return;
+        }
+    }
+    
+    // إذا كان الجدول فارغاً أو الصنف الأخير معبأ، أضف السطر
+    addNewRow();
+};
 const grandTotalEl = document.getElementById('grandTotal');
 const submitOrderBtn = document.getElementById('submitOrderBtn');
 const detailsModal = document.getElementById('detailsModal');
