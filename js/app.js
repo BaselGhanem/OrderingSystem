@@ -41,15 +41,34 @@ function initializeManagerView(managerName) {
         filterSelect.appendChild(opt);
     }
 
+    // ✅ التعديل: تعريف زر إضافة طلبية جديدة (خارج حلقة المناديب)
+    const managerAddBtn = document.getElementById('managerAddNewOrderBtn');
+    if (managerAddBtn) {
+        managerAddBtn.onclick = () => {
+            document.getElementById('managerScreen').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'block';
+            document.getElementById('userInfo').style.display = 'none';
+            
+            // تصفير الخيارات لبدء عملية نظيفة
+            repSelect.value = "";
+            pharmacyInput.value = "";
+            pharmacyInput.disabled = true; // تعطيل إدخال الصيدلية حتى يختار المندوب
+            
+            alert("يرجى اختيار المندوب ثم الصيدلية لبدء الطلب كمدير.");
+        };
+    }
+
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('managerScreen').style.display = 'block';
     document.getElementById('userInfo').style.display = 'flex';
     document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user-gear"></i> <b>المدير: ${managerName}</b>`;
     
+    // إخفاء أزرار المندوب العادية
     document.getElementById('navOrderBtn').style.display = 'none';
     document.getElementById('navMyOrdersBtn').style.display = 'none';
     document.getElementById('navReportsBtn').style.display = 'none';
 
+    // ... باقي الكود الخاص بـ myTeamBtn و allOrdersBtn ...
     const myTeamBtn = document.getElementById('managerMyTeamBtn');
     const allOrdersBtn = document.getElementById('managerAllOrdersBtn');
     const teamSection = document.getElementById('teamOrdersSection');
@@ -76,7 +95,6 @@ function initializeManagerView(managerName) {
     myTeamBtn.classList.add('active');
     loadManagerOrders();
 }
-
 const repManagerMap = {
     "مراد عمر": "محمد طوالبه",
     "مؤيد الزعبي": "محمد طوالبه",
@@ -537,10 +555,21 @@ submitOrderBtn.onclick = async () => {
             grandTotal: parseFloat(grandTotalEl.innerText),
             createdAt: new Date(),
             updatedAt: new Date(),
-            status: "pending"
+           status: isAdmin ? "approved" : "pending",
         });
-        alert("تم ارسال الطلبية بنجاح، في انتظار موافقة المدير.");
-        
+const successMessage = isAdmin 
+    ? "تم تسجيل الطلبية واعتمادها بنجاح." 
+    : "تم ارسال الطلبية بنجاح، في انتظار موافقة المدير.";
+alert(successMessage);
+        if (isAdmin) {
+    document.getElementById('orderScreen').style.display = 'none';
+    document.getElementById('managerScreen').style.display = 'block';
+    loadManagerOrders(); // تحديث القائمة للمدير
+} else {
+    document.getElementById('orderScreen').style.display = 'none';
+    document.getElementById('myOrdersScreen').style.display = 'block';
+    loadMyOrders();
+}
         orderBody.innerHTML = '';
         grandTotalEl.innerText = '0.00';
         if(orderNoteEl) orderNoteEl.value = '';
