@@ -949,6 +949,7 @@ async function ensureProductsLoaded() {
 // ✅ التعديل هنا: إعادة كتابة حاوية التعديل لتدعم Flexbox للحفاظ على الأزرار في الأسفل
 // ✅ التعديل هنا: إعادة كتابة حاوية التعديل لتدعم Flexbox للحفاظ على الأزرار في الأسفل وتغيير اسم الصيدلية
 // ✅ التعديل هنا: إعادة كتابة حاوية التعديل لتدعم Flexbox للحفاظ على الأزرار في الأسفل وتغيير اسم الصيدلية
+// دالة فتح نافذة التعديل (نسخة معدلة بالكامل لتغيير المندوب والصيدلية وإصلاح التصميم)
 async function openEditOrder(orderId, userType) {
     const loaded = await ensureProductsLoaded();
     if (!loaded) { alert("لم يتم تحميل المنتجات"); return; }
@@ -958,7 +959,18 @@ async function openEditOrder(orderId, userType) {
     const order = orderDoc.data();
     editingOrderId = orderId;
 
-    // جلب صيدليات المندوب الخاص بهذه الطلبية لتفعيل الإكمال التلقائي
+    // 1. جلب قائمة المندوبين من القائمة الأساسية (الموجودة في الشاشة الرئيسية)
+    let repOptionsHTML = '<option value="">-- اختر المندوب --</option>';
+    const mainRepSelect = document.getElementById('repSelect');
+    if(mainRepSelect) {
+        Array.from(mainRepSelect.options).forEach(opt => {
+            if (opt.value) { // تجاهل الخيار الفارغ
+                repOptionsHTML += `<option value="${opt.value}" ${opt.value === order.repId ? 'selected' : ''}>${opt.textContent}</option>`;
+            }
+        });
+    }
+
+    // 2. جلب صيدليات المندوب الخاص بهذه الطلبية لتفعيل الإكمال التلقائي
     let editPharmaciesData = [];
     let editPharmacyNames = [];
     try {
@@ -976,61 +988,91 @@ async function openEditOrder(orderId, userType) {
     if (editModal) editModal.style.display = 'flex';
 
     const container = document.getElementById('editOrderContainer');
-    if (!container) {
-        console.error("حاوية editOrderContainer غير موجودة");
-        return;
-    }
+    if (!container) return;
 
+    // تم إصلاح مشكلة تداخل العناوين، وإضافة عمود "الملاحظة" للجدول ليطابق الحقول
     container.innerHTML = `
-        <div style="display: flex; flex-direction: column; max-height: 85vh;">
+        <div style="display: flex; flex-direction: column; width: 100%;">
             
-            <div style="flex-shrink: 0; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
-                <h3 style="margin: 0 0 10px 0; color: #004a99;"><i class="ph ph-pencil-simple"></i> تعديل طلبية</h3>
-                <p style="margin: 0 0 10px 0; font-size: 15px;">المندوب: <strong>${order.repName || '-'}</strong></p>
-                
-                <div style="position: relative; max-width: 400px;">
-                    <label style="font-weight: bold; font-size: 14px; margin-bottom: 5px; display: block;">اسم الصيدلية:</label>
+            <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="font-weight: bold; font-size: 14px; margin-bottom: 8px; display: block; color: #004a99;">المندوب:</label>
+                    <select id="editRepSelect" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;">
+                        ${repOptionsHTML}
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 200px; position: relative;">
+                    <label style="font-weight: bold; font-size: 14px; margin-bottom: 8px; display: block; color: #004a99;">اسم الصيدلية:</label>
                     <div class="autocomplete-wrapper" style="width: 100%;">
-                        <input type="text" id="editPharmacyInput" value="${order.pharmacyName || ''}" placeholder="ابحث عن الصيدلية..." style="width:100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" autocomplete="off">
+                        <input type="text" id="editPharmacyInput" value="${order.pharmacyName || ''}" placeholder="ابحث عن الصيدلية..." style="width:100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;" autocomplete="off">
                         <div id="editPharmacySuggestions" class="autocomplete-list"></div>
                     </div>
                 </div>
             </div>
             
-            <div class="table-responsive" style="flex: 1; overflow-y: auto; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
-                <table class="order-table" style="width: 100%; border-collapse: collapse;">
-                    <thead>
+            <div class="table-responsive" style="max-height: 40vh; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px;">
+                <table class="order-table" style="width: 100%; border-collapse: collapse; text-align: right;">
+                    <thead style="background-color: #004a99; color: white; position: sticky; top: 0; z-index: 10;">
                         <tr>
-                            <th style="text-align: right; padding: 10px;">الصنف</th>
-                            <th style="text-align: center; width: 80px;">الكمية</th>
-                            <th style="text-align: center; width: 80px;">البونص</th>
-                            <th style="text-align: center; width: 100px;">السعر</th>
-                            <th style="text-align: center; width: 100px;">المجموع</th>
-                            <th style="text-align: center; width: 50px;">حذف</th>
+                            <th style="padding: 10px; font-weight: normal;">الصنف</th>
+                            <th style="padding: 10px; text-align: center; width: 70px; font-weight: normal;">الكمية</th>
+                            <th style="padding: 10px; text-align: center; width: 70px; font-weight: normal;">البونص</th>
+                            <th style="padding: 10px; text-align: center; width: 90px; font-weight: normal;">السعر</th>
+                            <th style="padding: 10px; text-align: center; width: 100px; font-weight: normal;">المجموع</th>
+                            <th style="padding: 10px; text-align: center; width: 120px; font-weight: normal;">ملاحظة</th>
+                            <th style="padding: 10px; text-align: center; width: 50px; font-weight: normal;">حذف</th>
                         </tr>
                     </thead>
                     <tbody id="editOrderBody"></tbody>
                 </table>
             </div>
 
-            <div style="flex-shrink: 0; padding-top: 15px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
-                    <button type="button" id="editAddRowBtn" class="btn-secondary" style="padding: 8px 15px;"><i class="ph ph-plus"></i> إضافة صنف</button>
-                    <h3 style="margin: 0; color: #d32f2f;">الإجمالي: <span id="editGrandTotal">${parseFloat(order.grandTotal).toFixed(2)}</span></h3>
-                </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px; border: 1px solid #eee;">
+                <button type="button" id="editAddRowBtn" class="btn-secondary" style="padding: 8px 15px; border-radius: 6px; cursor: pointer;"><i class="ph ph-plus"></i> إضافة صنف</button>
+                <h3 style="margin: 0; color: #d32f2f; font-size: 18px;">الإجمالي: <span id="editGrandTotal">${parseFloat(order.grandTotal).toFixed(2)}</span></h3>
+            </div>
 
-                <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" class="btn-secondary" onclick="closeEditModal()">إلغاء</button>
-                    <button type="button" id="saveEditOrderBtn" class="btn-primary"><i class="ph ph-floppy-disk"></i> حفظ التعديلات</button>
-                </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-secondary" onclick="closeEditModal()" style="padding: 10px 20px; border-radius: 6px; cursor: pointer;">إلغاء</button>
+                <button type="button" id="saveEditOrderBtn" class="btn-primary" style="padding: 10px 20px; border-radius: 6px; cursor: pointer;"><i class="ph ph-floppy-disk"></i> حفظ التعديلات</button>
             </div>
         </div>
     `;
 
-    // تفعيل الإكمال التلقائي لحقل الصيدلية
+    const editRepSelect = document.getElementById('editRepSelect');
     const editPharmInput = document.getElementById('editPharmacyInput');
     const editPharmSuggestions = document.getElementById('editPharmacySuggestions');
+
     setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
+
+    // تحديث قائمة الصيدليات تلقائياً بمجرد تغيير المندوب
+    editRepSelect.addEventListener('change', async function() {
+        const selectedRepId = this.value;
+        editPharmaciesData = [];
+        editPharmacyNames = [];
+        editPharmInput.value = ''; 
+        
+        if (!selectedRepId) {
+            editPharmInput.placeholder = 'اختر المندوب أولاً';
+            setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
+            return;
+        }
+
+        editPharmInput.placeholder = 'جاري تحميل صيدليات المندوب...';
+        try {
+            const q = query(collection(db, "pharmacies"), where("rep_id", "==", selectedRepId));
+            const pharmSnap = await getDocs(q);
+            pharmSnap.forEach(d => {
+                editPharmaciesData.push(d.data());
+                editPharmacyNames.push(d.data().name);
+            });
+            editPharmInput.placeholder = 'ابحث عن الصيدلية...';
+            setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
+        } catch (error) {
+            console.error("خطأ:", error);
+            editPharmInput.placeholder = 'خطأ في التحميل';
+        }
+    });
 
     editPharmInput.addEventListener('blur', function() {
         const val = this.value.trim();
@@ -1057,13 +1099,13 @@ async function openEditOrder(orderId, userType) {
     function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='') {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:200px;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
-            <td style="text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 70px; text-align: center; padding: 8px;"></td>
-            <td style="text-align: center;"><input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 70px; text-align: center; padding: 8px;"></td>
-            <td class="price-cell" style="text-align: center; font-weight: bold;">${parseFloat(price).toFixed(2)}</td>
-            <td class="row-total" style="text-align: center; font-weight: bold;">${parseFloat(rowTotal).toFixed(2)}</td>
-            <td><input type="text" class="item-note-input" value="${note}" placeholder="ملاحظة..." style="width:100%; min-width:120px; padding: 8px;"></td>
-            <td style="text-align: center;"><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
+            <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:200px; padding:8px; border:1px solid #ccc; border-radius:4px;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+            <td style="text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 60px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px;"></td>
+            <td style="text-align: center;"><input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 60px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px;"></td>
+            <td class="price-cell" style="text-align: center; font-weight: bold; color: #333;">${parseFloat(price).toFixed(2)}</td>
+            <td class="row-total" style="text-align: center; font-weight: bold; color: #d32f2f;">${parseFloat(rowTotal).toFixed(2)}</td>
+            <td><input type="text" class="item-note-input" value="${note}" placeholder="ملاحظة..." style="width:100%; min-width:100px; padding: 8px; border:1px solid #ccc; border-radius:4px;"></td>
+            <td style="text-align: center;"><button type="button" class="btn-danger del-row" style="padding: 6px 10px; border-radius: 4px;"><i class="ph ph-trash"></i></button></td>
         `;
         const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions');
         const q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
@@ -1085,7 +1127,7 @@ async function openEditOrder(orderId, userType) {
                 this.style.border = "2px solid red";
                 this.style.backgroundColor = "#fff0f0";
             } else {
-                this.style.border = "";
+                this.style.border = "1px solid #ccc";
                 this.style.backgroundColor = "";
             }
         });
@@ -1113,13 +1155,21 @@ async function openEditOrder(orderId, userType) {
             const items = [];
             let invalidItem = false;
 
+            // التحقق من المندوب
+            const newRepId = editRepSelect.value;
+            if (!newRepId) {
+                editRepSelect.style.border = "2px solid red";
+                return alert("يرجى اختيار المندوب أولاً.");
+            }
+            const newRepName = editRepSelect.options[editRepSelect.selectedIndex].text;
+
             // التحقق من الصيدلية
             const newPharmName = editPharmInput.value.trim();
             const selectedPharm = editPharmaciesData.find(p => p.name === newPharmName);
             
             if (!selectedPharm) {
                 editPharmInput.style.border = "2px solid red";
-                return alert("يرجى اختيار صيدلية صحيحة من القائمة قبل الحفظ.");
+                return alert("يرجى اختيار صيدلية صحيحة تابعة للمندوب من القائمة قبل الحفظ.");
             }
 
             document.querySelectorAll('#editOrderBody tr').forEach(r => {
@@ -1131,7 +1181,7 @@ async function openEditOrder(orderId, userType) {
                         invalidItem = true;
                         inp.style.border = "2px solid red";
                     } else {
-                        inp.style.border = "";
+                        inp.style.border = "1px solid #ccc";
                         items.push({ 
                             name: inp.value, 
                             qty: r.querySelector('.qty-input').value, 
@@ -1144,10 +1194,7 @@ async function openEditOrder(orderId, userType) {
                 }
             });
 
-            if (invalidItem) {
-                return alert("يرجى التأكد من اختيار الأصناف الصحيحة من القائمة قبل الحفظ.");
-            }
-
+            if (invalidItem) return alert("يرجى التأكد من اختيار الأصناف الصحيحة من القائمة قبل الحفظ.");
             if (items.length === 0) return alert("لا يمكن حفظ طلبية فارغة!");
 
             try {
@@ -1155,11 +1202,14 @@ async function openEditOrder(orderId, userType) {
                 const newGrandTotal = grandTotalEl ? parseFloat(grandTotalEl.innerText) : 0;
                 
                 await updateDoc(doc(db, "orders", editingOrderId), { 
+                    repId: newRepId,
+                    repName: newRepName,
+                    managerName: getManagerName(newRepName), 
                     pharmacyName: newPharmName,
                     pharmacyCode: selectedPharm.pharmacy_code || "-",
                     items: items, 
                     grandTotal: newGrandTotal, 
-                    status: "pending", 
+                    status: "pending", // ترجع الطلبية لقيد الموافقة عند التعديل
                     updatedAt: new Date() 
                 });
                 alert("تم تحديث الطلبية بنجاح.");
