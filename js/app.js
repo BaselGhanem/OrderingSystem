@@ -1299,6 +1299,35 @@ async function openEditOrder(orderId, userType) {
             }
         };
     }
+    // منطق حذف الطلبية بالكامل
+    const deleteOrderBtn = document.getElementById('deleteEntireOrderBtn');
+    if (deleteOrderBtn) {
+        deleteOrderBtn.onclick = async () => {
+            const confirmDelete = confirm("هل أنت متأكد من رغبتك في حذف هذه الطلبية نهائياً؟ لا يمكن التراجع عن هذا الإجراء.");
+            if (confirmDelete) {
+                try {
+                    deleteOrderBtn.disabled = true;
+                    deleteOrderBtn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> جاري الحذف...';
+                    
+                    await deleteDoc(doc(db, "orders", editingOrderId));
+                    
+                    alert("تم حذف الطلبية بنجاح.");
+                    closeEditModal();
+                    
+                    // تحديث القوائم تلقائياً إذا كانت الدوال موجودة
+                    if (typeof loadManagerOrders === 'function') loadManagerOrders();
+                    if (typeof loadMyOrders === 'function') loadMyOrders();
+                    if (typeof loadAllCompanyOrders === 'function') loadAllCompanyOrders();
+                    
+                } catch (error) {
+                    console.error("خطأ في حذف الطلبية:", error);
+                    alert("حدث خطأ أثناء محاولة الحذف، يرجى المحاولة مرة أخرى.");
+                    deleteOrderBtn.disabled = false;
+                    deleteOrderBtn.innerHTML = '<i class="ph ph-trash"></i> حذف الطلبية بالكامل';
+                }
+            }
+        };
+    }
 }
 // دالة إغلاق نافذة التعديل
 function closeEditModal() { 
