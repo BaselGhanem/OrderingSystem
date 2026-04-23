@@ -947,6 +947,7 @@ async function ensureProductsLoaded() {
 }
 
 // ✅ التعديل هنا: إعادة كتابة حاوية التعديل لتدعم Flexbox للحفاظ على الأزرار في الأسفل
+// ✅ التعديل هنا: إعادة كتابة حاوية التعديل لتدعم Flexbox للحفاظ على الأزرار في الأسفل وتغيير اسم الصيدلية
 async function openEditOrder(orderId, userType) {
     const loaded = await ensureProductsLoaded();
     if (!loaded) { alert("لم يتم تحميل المنتجات"); return; }
@@ -955,6 +956,20 @@ async function openEditOrder(orderId, userType) {
     if (!orderDoc.exists()) return alert("الطلب غير موجود");
     const order = orderDoc.data();
     editingOrderId = orderId;
+
+    // جلب صيدليات المندوب الخاص بهذه الطلبية لتفعيل الإكمال التلقائي
+    let editPharmaciesData = [];
+    let editPharmacyNames = [];
+    try {
+        const q = query(collection(db, "pharmacies"), where("rep_id", "==", order.repId));
+        const pharmSnap = await getDocs(q);
+        pharmSnap.forEach(d => {
+            editPharmaciesData.push(d.data());
+            editPharmacyNames.push(d.data().name);
+        });
+    } catch (error) {
+        console.error("خطأ في جلب صيدليات المندوب للتعديل:", error);
+    }
 
     const editModal = document.getElementById('editOrderModal');
     if (editModal) editModal.style.display = 'flex';
@@ -970,7 +985,15 @@ async function openEditOrder(orderId, userType) {
             
             <div style="flex-shrink: 0; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
                 <h3 style="margin: 0 0 10px 0; color: #004a99;"><i class="ph ph-pencil-simple"></i> تعديل طلبية</h3>
-                <p style="margin: 0; font-size: 15px;">الصيدلية: <strong style="color:#d32f2f;">${order.pharmacyName || '-'}</strong> | المندوب: <strong>${order.repName || '-'}</strong></p>
+                <p style="margin: 0 0 10px 0; font-size: 15px;">المندوب: <strong>${order.repName || '-'}</strong></p>
+                
+                <div style="position: relative; max-width: 400px;">
+                    <label style="font-weight: bold; font-size: 14px; margin-bottom: 5px; display: block;">اسم الصيدلية:</label>
+                    <div class="autocomplete-wrapper" style="width: 100%;">
+                        <input type="text" id="editPharmacyInput" value="${order.pharmacyName || ''}" placeholder="ابحث عن الصيدلية..." style="width:100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" autocomplete="off">
+                        <div id="editPharmacySuggestions" class="autocomplete-list"></div>
+                    </div>
+                </div>
             </div>
             
             <div class="table-responsive" style="flex: 1; overflow-y: auto; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
@@ -1002,6 +1025,23 @@ async function openEditOrder(orderId, userType) {
             </div>
         </div>
     `;
+
+    // تفعيل الإكمال التلقائي لحقل الصيدلية
+    const editPharmInput = document.getElementById('editPharmacyInput');
+    const editPharmSuggestions = document.getElementById('editPharmacySuggestions');
+    setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
+
+    editPharmInput.addEventListener('blur', function() {
+        const val = this.value.trim();
+        const isValid = editPharmacyNames.includes(val);
+        if (!isValid && val !== "") {
+            this.style.border = "2px solid red";
+            this.style.backgroundColor = "#fff0f0";
+        } else {
+            this.style.border = "1px solid #ccc";
+            this.style.backgroundColor = "";
+        }
+    });
 
     const editBody = document.getElementById('editOrderBody');
     if (editBody) editBody.innerHTML = ''; 
@@ -1072,6 +1112,15 @@ async function openEditOrder(orderId, userType) {
             const items = [];
             let invalidItem = false;
 
+            // التحقق من الصيدلية
+            const newPharmName = editPharmInput.value.trim();
+            const selectedPharm = editPharmaciesData.find(p => p.name === newPharmName);
+            
+            if (!selectedPharm) {
+                editPharmInput.style.border = "2px solid red";
+                return alert("يرجى اختيار صيدلية صحيحة من القائمة قبل الحفظ.");
+            }
+
             document.querySelectorAll('#editOrderBody tr').forEach(r => {
                 const inp = r.querySelector('.product-input');
                 if (inp && inp.value.trim() !== "") {
@@ -1105,6 +1154,8 @@ async function openEditOrder(orderId, userType) {
                 const newGrandTotal = grandTotalEl ? parseFloat(grandTotalEl.innerText) : 0;
                 
                 await updateDoc(doc(db, "orders", editingOrderId), { 
+                    pharmacyName: newPharmName,
+                    pharmacyCode: selectedPharm.pharmacy_code || "-",
                     items: items, 
                     grandTotal: newGrandTotal, 
                     status: "pending", 
@@ -1120,9 +1171,6 @@ async function openEditOrder(orderId, userType) {
         };
     }
 }
-function closeEditModal() { document.getElementById('editOrderModal').style.display = 'none'; editingOrderId = null; }
-window.closeEditModal = closeEditModal;
-
 async function loadReports() {
     const body = document.getElementById('reportsBody');
     body.innerHTML = '<tr><td colspan="7">جاري جلب البيانات...</td></tr>';
