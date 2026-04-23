@@ -948,6 +948,7 @@ async function ensureProductsLoaded() {
 
 // ✅ التعديل هنا: إعادة كتابة حاوية التعديل لتدعم Flexbox للحفاظ على الأزرار في الأسفل
 // ✅ التعديل هنا: إعادة كتابة حاوية التعديل لتدعم Flexbox للحفاظ على الأزرار في الأسفل وتغيير اسم الصيدلية
+// ✅ التعديل هنا: إعادة كتابة حاوية التعديل لتدعم Flexbox للحفاظ على الأزرار في الأسفل وتغيير اسم الصيدلية
 async function openEditOrder(orderId, userType) {
     const loaded = await ensureProductsLoaded();
     if (!loaded) { alert("لم يتم تحميل المنتجات"); return; }
