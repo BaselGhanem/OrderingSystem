@@ -278,6 +278,17 @@ select:hover, input:hover {
     background: rgba(194, 65, 44, 0.2);
     transform: scale(1.02);
 }
+/* أضفه هنا في نهاية قسم الأزرار */
+#managerAddNewOrderBtn:hover {
+    background-color: #1a5a8a !important; /* لون أفتح قليلاً عند الحوم */
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+#managerAddNewOrderBtn:active {
+    transform: scale(0.95);
+    box-shadow: none;
+}
 
 /* 10. Modals - Smooth and accessible */
 .modal-overlay {
