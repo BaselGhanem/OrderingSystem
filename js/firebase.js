@@ -1,6 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
-    getFirestore, 
+    initializeFirestore,               // ✅ بديلة لـ getFirestore لتمكين إعدادات متقدمة
+    persistentLocalCache,              // ✅ لتفعيل الكاش المحلي
+    persistentMultipleTabManager,      // ✅ لضمان عمل الكاش حتى لو فتح المستخدم عدة تبويبات
     collection, 
     getDocs, 
     query, 
@@ -8,8 +10,9 @@ import {
     addDoc, 
     deleteDoc, 
     doc, 
-    updateDoc,      // ✅ جديد
-    getDoc          // ✅ جديد
+    updateDoc,       
+    getDoc,         
+    onSnapshot                         // ✅ السلاح السري للتحديث الفوري وتقليل التكلفة
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -22,7 +25,11 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+
+// ✅ تهيئة قاعدة البيانات مع تفعيل التخزين المحلي (IndexedDB)
+const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
+});
 
 // تصدير كل الأدوات
 export { 
@@ -34,6 +41,7 @@ export {
     addDoc, 
     deleteDoc, 
     doc, 
-    updateDoc,   // ✅ جديد
-    getDoc       // ✅ جديد
+    updateDoc,   
+    getDoc,
+    onSnapshot    // ✅ تم التصدير بنجاح لاستخدامها في app.js
 };
