@@ -959,18 +959,16 @@ async function openEditOrder(orderId, userType) {
     const order = orderDoc.data();
     editingOrderId = orderId;
 
-    // 1. جلب قائمة المندوبين من القائمة الأساسية (الموجودة في الشاشة الرئيسية)
     let repOptionsHTML = '<option value="">-- اختر المندوب --</option>';
     const mainRepSelect = document.getElementById('repSelect');
     if(mainRepSelect) {
         Array.from(mainRepSelect.options).forEach(opt => {
-            if (opt.value) { // تجاهل الخيار الفارغ
+            if (opt.value) {
                 repOptionsHTML += `<option value="${opt.value}" ${opt.value === order.repId ? 'selected' : ''}>${opt.textContent}</option>`;
             }
         });
     }
 
-    // 2. جلب صيدليات المندوب الخاص بهذه الطلبية لتفعيل الإكمال التلقائي
     let editPharmaciesData = [];
     let editPharmacyNames = [];
     try {
@@ -990,51 +988,54 @@ async function openEditOrder(orderId, userType) {
     const container = document.getElementById('editOrderContainer');
     if (!container) return;
 
-    // تم إصلاح مشكلة تداخل العناوين، وإضافة عمود "الملاحظة" للجدول ليطابق الحقول
     container.innerHTML = `
-        <div style="display: flex; flex-direction: column; width: 100%;">
+        <div style="display: flex; flex-direction: column; max-height: 85vh; overflow: hidden;">
             
-            <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee;">
-                <div style="flex: 1; min-width: 200px;">
-                    <label style="font-weight: bold; font-size: 14px; margin-bottom: 8px; display: block; color: #004a99;">المندوب:</label>
-                    <select id="editRepSelect" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;">
-                        ${repOptionsHTML}
-                    </select>
-                </div>
-                <div style="flex: 1; min-width: 200px; position: relative;">
-                    <label style="font-weight: bold; font-size: 14px; margin-bottom: 8px; display: block; color: #004a99;">اسم الصيدلية:</label>
-                    <div class="autocomplete-wrapper" style="width: 100%;">
-                        <input type="text" id="editPharmacyInput" value="${order.pharmacyName || ''}" placeholder="ابحث عن الصيدلية..." style="width:100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;" autocomplete="off">
-                        <div id="editPharmacySuggestions" class="autocomplete-list"></div>
+            <div style="flex-shrink: 0; padding-bottom: 10px; margin-bottom: 10px;">
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <label style="font-weight: bold; font-size: 14px; margin-bottom: 8px; display: block; color: #004a99;">المندوب:</label>
+                        <select id="editRepSelect" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;">
+                            ${repOptionsHTML}
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 200px; position: relative;">
+                        <label style="font-weight: bold; font-size: 14px; margin-bottom: 8px; display: block; color: #004a99;">اسم الصيدلية:</label>
+                        <div class="autocomplete-wrapper" style="width: 100%;">
+                            <input type="text" id="editPharmacyInput" value="${order.pharmacyName || ''}" placeholder="ابحث عن الصيدلية..." style="width:100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;" autocomplete="off">
+                            <div id="editPharmacySuggestions" class="autocomplete-list"></div>
+                        </div>
                     </div>
                 </div>
             </div>
             
-            <div class="table-responsive" style="max-height: 40vh; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px;">
-                <table class="order-table" style="width: 100%; border-collapse: collapse; text-align: right;">
+            <div class="table-responsive" style="flex-grow: 1; overflow-y: auto; min-height: 200px; border: 1px solid #ddd; border-radius: 8px; background: #fff;">
+                <table class="order-table" style="width: 100%; border-collapse: collapse; text-align: right; margin: 0;">
                     <thead style="background-color: #004a99; color: white; position: sticky; top: 0; z-index: 10;">
                         <tr>
-                            <th style="padding: 10px; font-weight: normal;">الصنف</th>
-                            <th style="padding: 10px; text-align: center; width: 70px; font-weight: normal;">الكمية</th>
-                            <th style="padding: 10px; text-align: center; width: 70px; font-weight: normal;">البونص</th>
-                            <th style="padding: 10px; text-align: center; width: 90px; font-weight: normal;">السعر</th>
-                            <th style="padding: 10px; text-align: center; width: 100px; font-weight: normal;">المجموع</th>
-                            <th style="padding: 10px; text-align: center; width: 120px; font-weight: normal;">ملاحظة</th>
-                            <th style="padding: 10px; text-align: center; width: 50px; font-weight: normal;">حذف</th>
+                            <th style="padding: 10px; font-weight: normal; border-bottom: none;">الصنف</th>
+                            <th style="padding: 10px; text-align: center; width: 70px; font-weight: normal; border-bottom: none;">الكمية</th>
+                            <th style="padding: 10px; text-align: center; width: 70px; font-weight: normal; border-bottom: none;">البونص</th>
+                            <th style="padding: 10px; text-align: center; width: 90px; font-weight: normal; border-bottom: none;">السعر</th>
+                            <th style="padding: 10px; text-align: center; width: 100px; font-weight: normal; border-bottom: none;">المجموع</th>
+                            <th style="padding: 10px; text-align: center; width: 120px; font-weight: normal; border-bottom: none;">ملاحظة</th>
+                            <th style="padding: 10px; text-align: center; width: 50px; font-weight: normal; border-bottom: none;">حذف</th>
                         </tr>
                     </thead>
                     <tbody id="editOrderBody"></tbody>
                 </table>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 15px; border: 1px solid #eee;">
-                <button type="button" id="editAddRowBtn" class="btn-secondary" style="padding: 8px 15px; border-radius: 6px; cursor: pointer;"><i class="ph ph-plus"></i> إضافة صنف</button>
-                <h3 style="margin: 0; color: #d32f2f; font-size: 18px;">الإجمالي: <span id="editGrandTotal">${parseFloat(order.grandTotal).toFixed(2)}</span></h3>
-            </div>
+            <div style="flex-shrink: 0; padding-top: 15px; margin-top: 10px; background: #fff; z-index: 11;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px; border: 1px solid #eee;">
+                    <button type="button" id="editAddRowBtn" class="btn-secondary" style="padding: 8px 15px; border-radius: 6px; cursor: pointer; border: 1px solid #ccc; background: #fff;"><i class="ph ph-plus"></i> إضافة صنف</button>
+                    <h3 style="margin: 0; color: #d32f2f; font-size: 18px;">الإجمالي: <span id="editGrandTotal">${parseFloat(order.grandTotal).toFixed(2)}</span></h3>
+                </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" class="btn-secondary" onclick="closeEditModal()" style="padding: 10px 20px; border-radius: 6px; cursor: pointer;">إلغاء</button>
-                <button type="button" id="saveEditOrderBtn" class="btn-primary" style="padding: 10px 20px; border-radius: 6px; cursor: pointer;"><i class="ph ph-floppy-disk"></i> حفظ التعديلات</button>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn-secondary" onclick="closeEditModal()" style="padding: 10px 20px; border-radius: 6px; cursor: pointer; border: 1px solid #ccc; background: #fff;">إلغاء</button>
+                    <button type="button" id="saveEditOrderBtn" class="btn-primary" style="padding: 10px 20px; border-radius: 6px; cursor: pointer; background: #004a99; color: white; border: none;"><i class="ph ph-floppy-disk"></i> حفظ التعديلات</button>
+                </div>
             </div>
         </div>
     `;
@@ -1045,7 +1046,6 @@ async function openEditOrder(orderId, userType) {
 
     setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
 
-    // تحديث قائمة الصيدليات تلقائياً بمجرد تغيير المندوب
     editRepSelect.addEventListener('change', async function() {
         const selectedRepId = this.value;
         editPharmaciesData = [];
@@ -1098,14 +1098,15 @@ async function openEditOrder(orderId, userType) {
 
     function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='') {
         const tr = document.createElement('tr');
+        tr.style.borderBottom = "1px solid #eee";
         tr.innerHTML = `
-            <td><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:200px; padding:8px; border:1px solid #ccc; border-radius:4px;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
-            <td style="text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 60px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px;"></td>
-            <td style="text-align: center;"><input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 60px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px;"></td>
-            <td class="price-cell" style="text-align: center; font-weight: bold; color: #333;">${parseFloat(price).toFixed(2)}</td>
-            <td class="row-total" style="text-align: center; font-weight: bold; color: #d32f2f;">${parseFloat(rowTotal).toFixed(2)}</td>
-            <td><input type="text" class="item-note-input" value="${note}" placeholder="ملاحظة..." style="width:100%; min-width:100px; padding: 8px; border:1px solid #ccc; border-radius:4px;"></td>
-            <td style="text-align: center;"><button type="button" class="btn-danger del-row" style="padding: 6px 10px; border-radius: 4px;"><i class="ph ph-trash"></i></button></td>
+            <td style="padding: 8px;"><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:200px; padding:8px; border:1px solid #ccc; border-radius:4px; outline:none;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+            <td style="padding: 8px; text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 60px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"></td>
+            <td style="padding: 8px; text-align: center;"><input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 60px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"></td>
+            <td class="price-cell" style="padding: 8px; text-align: center; font-weight: bold; color: #333;">${parseFloat(price).toFixed(2)}</td>
+            <td class="row-total" style="padding: 8px; text-align: center; font-weight: bold; color: #d32f2f;">${parseFloat(rowTotal).toFixed(2)}</td>
+            <td style="padding: 8px;"><input type="text" class="item-note-input" value="${note}" placeholder="ملاحظة..." style="width:100%; min-width:100px; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"></td>
+            <td style="padding: 8px; text-align: center;"><button type="button" class="btn-danger del-row" style="padding: 6px 10px; border-radius: 4px; border:none; background:#f44336; color:white; cursor:pointer;"><i class="ph ph-trash"></i></button></td>
         `;
         const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions');
         const q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
@@ -1155,7 +1156,6 @@ async function openEditOrder(orderId, userType) {
             const items = [];
             let invalidItem = false;
 
-            // التحقق من المندوب
             const newRepId = editRepSelect.value;
             if (!newRepId) {
                 editRepSelect.style.border = "2px solid red";
@@ -1163,7 +1163,6 @@ async function openEditOrder(orderId, userType) {
             }
             const newRepName = editRepSelect.options[editRepSelect.selectedIndex].text;
 
-            // التحقق من الصيدلية
             const newPharmName = editPharmInput.value.trim();
             const selectedPharm = editPharmaciesData.find(p => p.name === newPharmName);
             
@@ -1209,7 +1208,7 @@ async function openEditOrder(orderId, userType) {
                     pharmacyCode: selectedPharm.pharmacy_code || "-",
                     items: items, 
                     grandTotal: newGrandTotal, 
-                    status: "pending", // ترجع الطلبية لقيد الموافقة عند التعديل
+                    status: "pending", 
                     updatedAt: new Date() 
                 });
                 alert("تم تحديث الطلبية بنجاح.");
