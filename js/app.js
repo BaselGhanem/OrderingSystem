@@ -1172,6 +1172,15 @@ async function openEditOrder(orderId, userType) {
         };
     }
 }
+// دالة إغلاق نافذة التعديل
+function closeEditModal() { 
+    const editModal = document.getElementById('editOrderModal');
+    if (editModal) {
+        editModal.style.display = 'none'; 
+    }
+    editingOrderId = null; 
+}
+window.closeEditModal = closeEditModal;
 async function loadReports() {
     const body = document.getElementById('reportsBody');
     body.innerHTML = '<tr><td colspan="7">جاري جلب البيانات...</td></tr>';
