@@ -42,22 +42,38 @@ function initializeManagerView(managerName) {
     }
 
     // ✅ التعديل: تعريف زر إضافة طلبية جديدة (خارج حلقة المناديب)
-    const managerAddBtn = document.getElementById('managerAddNewOrderBtn');
-    if (managerAddBtn) {
-        managerAddBtn.onclick = () => {
-            document.getElementById('managerScreen').style.display = 'none';
-            document.getElementById('loginScreen').style.display = 'block';
-            document.getElementById('userInfo').style.display = 'none';
-            
-            // تصفير الخيارات لبدء عملية نظيفة
-            repSelect.value = "";
-            pharmacyInput.value = "";
-            pharmacyInput.disabled = true; // تعطيل إدخال الصيدلية حتى يختار المندوب
-            
-            alert("يرجى اختيار المندوب ثم الصيدلية لبدء الطلب كمدير.");
-        };
-    }
+const managerAddBtn = document.getElementById('managerAddNewOrderBtn');
+if (managerAddBtn) {
+    managerAddBtn.onclick = () => {
+        // 1. إخفاء شاشة المدير وإظهار شاشة الدخول
+        document.getElementById('managerScreen').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'block';
+        
+        // 2. إخفاء شريط معلومات المستخدم العلوي لتهيئة واجهة دخول نظيفة
+        document.getElementById('userInfo').style.display = 'none';
 
+        // 3. تأكد من إظهار صندوق الأدوات (Auth Box)
+        const authBox = document.querySelector('#loginScreen .auth-box');
+        if (authBox) authBox.style.display = 'block';
+
+        // 4. تصفير القيم لضمان اختيار جديد
+        const repSelect = document.getElementById('repSelect');
+        const pharmacyInput = document.getElementById('pharmacyInput');
+        
+        if (repSelect) {
+            repSelect.value = "";
+            repSelect.focus(); // وضع التركيز على قائمة المندوبين
+        }
+        
+        if (pharmacyInput) {
+            pharmacyInput.value = "";
+            pharmacyInput.disabled = true; // سيبقى معطلاً حتى يتم اختيار مندوب
+        }
+
+        // 5. تنبيه المدير للخطوة التالية
+        alert("يرجى الآن اختيار المندوب من القائمة المنسدلة، ثم اختيار الصيدلية لبدء الطلبية.");
+    };
+}
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('managerScreen').style.display = 'block';
     document.getElementById('userInfo').style.display = 'flex';
