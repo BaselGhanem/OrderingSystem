@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>رفع الطلبيات السابقة للنظام</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: 'Cairo', sans-serif; padding: 50px; text-align: center; background-color: #f1f5f9; color: #1e293b; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 700px; margin: auto; }
+        .btn { padding: 12px 25px; background: #059669; color: white; border: none; cursor: pointer; border-radius: 8px; font-size: 1rem; font-weight: bold; margin-top: 15px; transition: 0.3s;}
+        .btn:hover { background: #047857; }
+        input[type="file"] { padding: 10px; border: 1px solid #ccc; border-radius: 8px; width: 100%; margin-top: 15px; box-sizing: border-box;}
+        #status { margin-top: 20px; font-size: 1.1rem; font-weight: bold; }
+        .info-box { background: #e0f2fe; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: right; font-size: 0.95rem; line-height: 1.6; border: 1px solid #bae6fd;}
+        .warning-box { background: #fef3c7; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: right; font-size: 0.95rem; color: #92400e; border: 1px solid #fcd34d;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 style="color: #059669;">رفع الطلبيات السابقة (أرشيف النظام)</h2>
+        
+        <div class="warning-box">
+            <strong><i class="ph ph-shield-check"></i> أمان البيانات:</strong> هذا السكربت سيقوم <b>بإضافة</b> الطلبيات القديمة فقط. <b>لن يتم حذف</b> أي طلبية موجودة حالياً على النظام.
+        </div>
+
+        <div class="info-box">
+            <strong>الأعمدة المطلوبة في ملف الإكسل (نفس صيغة التصدير):</strong><br>
+            <span style="direction: ltr; display: inline-block; color: #0369a1; font-weight: bold; margin-top: 5px;">
+            التاريخ, المندوب, كود الصيدلية, الصيدلية, الصنف, الكمية, البونص, السعر, المجموع الفرعي, ملاحظة الصنف, الاجمالي الكلي, ملاحظة الطلبية, الحالة
+            </span>
+            <br><br>
+            <i>* يرجى التأكد من أن عمود "التاريخ" منسق كنص (مثال: 15/02/2026) وليس كأرقام غريبة.</i>
+        </div>
+
+        <input type="file" id="excelFile" accept=".xlsx, .xls">
+        <br>
+        <button id="startImportBtn" class="btn">بدء رفع الطلبيات لقاعدة البيانات</button>
+        <div id="status"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
+            authDomain: "dad-ordering-system.firebaseapp.com",
+            projectId: "dad-ordering-system",
+            storageBucket: "dad-ordering-system.firebasestorage.app",
+            messagingSenderId: "43886677849",
+            appId: "1:43886677849:web:de5f80c06e1b743c948648"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // قائمة المدراء لربط المندوب بمديره مباشرة
+        const repManagerMap = {
+            "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
+            "محمد الفاعوري": "عبدالله الناطور", "اجود التلهوني": "عبدالله الناطور", "يزيد الرقب": "محمد طوالبه",
+            "تامر عقل": "محمد طوالبه", "محمد ابو يامين": "عبدالله الناطور", "مراد الظاهر": "عبدالله الناطور"
+        };
+
+        function parseExcelDate(dateStr) {
+            // محاولة تحويل التاريخ النصي (DD/MM/YYYY) إلى كائن Date يفهمه فايربيس
+            if(!dateStr) return new Date();
+            let dStr = String(dateStr).trim();
+            if(dStr.includes('/')) {
+                const parts = dStr.split('/');
+                if(parts.length === 3) {
+                    // إذا كان التنسيق يوم/شهر/سنة
+                    const day = parseInt(parts[0]);
+                    const month = parseInt(parts[1]) - 1;
+                    const year = parseInt(parts[2].length === 2 ? "20"+parts[2] : parts[2]);
+                    return new Date(year, month, day, 12, 0, 0); // الساعة 12 ظهراً لتجنب أخطاء التوقيت
+                }
+            }
+            return new Date(dateStr); // محاولة التفسير الافتراضي
+        }
+
+        document.getElementById('startImportBtn').onclick = async () => {
+            const file = document.getElementById('excelFile').files[0];
+            if (!file) return alert("الرجاء اختيار ملف إكسل أولاً");
+
+            const status = document.getElementById('status');
+            status.innerText = "جاري قراءة الملف وتجميع الأصناف...";
+            status.style.color = "#f59e0b";
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                // جلب البيانات مع الاحتفاظ بالتنسيق النصي للتاريخ
+                const excelData = XLSX.utils.sheet_to_json(firstSheet, {raw: false}); 
+
+                if(excelData.length === 0) {
+                    status.innerText = "الملف فارغ أو الترويسة غير صحيحة!";
+                    status.style.color = "red";
+                    return;
+                }
+
+                try {
+                    // 1. تجميع الأسطر (الأصناف) في طلبيات رئيسية
+                    const groupedOrders = new Map();
+
+                    excelData.forEach(row => {
+                        if(!row['المندوب'] || !row['الصيدلية']) return; // تخطي الأسطر الفارغة
+
+                        // إنشاء مفتاح فريد لكل طلبية لجمع أصنافها
+                        const orderKey = `${row['التاريخ']}_${row['المندوب']}_${row['الصيدلية']}`;
+
+                        if(!groupedOrders.has(orderKey)) {
+                            groupedOrders.set(orderKey, {
+                                repName: String(row['المندوب']).trim(),
+                                repId: "", // قديم لا يوجد ID، سنتركه فارغاً أو نضيفه لو لزم
+                                managerName: repManagerMap[String(row['المندوب']).trim()] || "غير محدد",
+                                pharmacyName: String(row['الصيدلية']).trim(),
+                                pharmacyCode: String(row['كود الصيدلية'] || "-").trim(),
+                                orderNote: String(row['ملاحظة الطلبية'] || "").trim(),
+                                grandTotal: parseFloat(row['الاجمالي الكلي']) || 0,
+                                status: String(row['الحالة'] || "approved").trim(),
+                                createdAt: parseExcelDate(row['التاريخ']),
+                                updatedAt: parseExcelDate(row['التاريخ']),
+                                items: []
+                            });
+                        }
+
+                        // إضافة الصنف للطلبية المجمعة
+                        if(row['الصنف']) {
+                            groupedOrders.get(orderKey).items.push({
+                                name: String(row['الصنف']).trim(),
+                                qty: parseInt(row['الكمية']) || 1,
+                                bonus: parseInt(row['البونص']) || 0,
+                                price: parseFloat(row['السعر']) || 0,
+                                total: parseFloat(row['المجموع الفرعي']) || 0,
+                                note: String(row['ملاحظة الصنف'] || "").trim()
+                            });
+                        }
+                    });
+
+                    const ordersArray = Array.from(groupedOrders.values());
+                    status.innerText = `تم تجميع الأصناف إلى ${ordersArray.length} طلبية مستقلة. جاري الرفع للـ Firebase بدون حذف القديم...`;
+
+                    // 2. رفع الطلبيات المجمعة لـ Firestore
+                    const addPromises = [];
+                    ordersArray.forEach(orderData => {
+                        addPromises.push(addDoc(collection(db, "orders"), orderData));
+                    });
+
+                    await Promise.all(addPromises);
+                    
+                    status.innerText = `✅ تم رفع ${ordersArray.length} طلبية سابقة بنجاح بنظام الأرشفة المدمجة!`;
+                    status.style.color = "#10b981";
+
+                } catch (error) {
+                    console.error("Error during import:", error);
+                    status.innerText = "❌ حدث خطأ أثناء التحديث. افتح (F12) لمشاهدة التفاصيل.";
+                    status.style.color = "red";
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        };
+    </script>
+</body>
+</html>
