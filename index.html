@@ -63,11 +63,15 @@
     </div>
     
     <!-- 🟢 الحقل الجديد: الرقم السري للمندوب (مخفي بالبداية) -->
-    <div class="input-group" id="repPasswordGroup" style="display: none;">
-        <label>الرقم السري للمندوب</label>
-        <input type="password" id="repPasswordInput" placeholder="أدخل الرقم السري..." style="text-align: center; letter-spacing: 4px; font-size: 1.2rem; font-weight: bold;">
-    </div>
-
+<!-- 🟢 الحقل الجديد: الرقم السري للمندوب (مخفي بالبداية) -->
+    <div class="input-group" id="repPasswordGroup" style="display: none;">
+        <label>الرقم السري للمندوب</label>
+        <input type="password" id="repPasswordInput" placeholder="أدخل الرقم السري..." style="text-align: center; letter-spacing: 4px; font-size: 1.2rem; font-weight: bold;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px;">
+            <input type="checkbox" id="rememberRepPass" style="width: auto; cursor: pointer;">
+            <label for="rememberRepPass" style="margin-bottom: 0; cursor: pointer; font-size: 0.9rem; color: var(--secondary);">تذكر كلمة المرور</label>
+        </div>
+    </div>
     <div class="input-group">
         <label>الصيدلية المستهدفة</label>
         <div class="autocomplete-wrapper">
@@ -103,13 +107,16 @@
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <h2><i class="ph ph-shopping-cart"></i> ادخال طلبية جديدة</h2>
                 </div>
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <h3 id="orderPharmacyName" style="color: var(--primary);">اسم الصيدلية</h3>
-                    <!-- 🟢 إضافة: زر الطباعة (سيتم تفعيله بالـ JS) -->
-                    <button type="button" id="printDraftBtn" class="btn-secondary" style="padding: 8px 16px; font-size: 0.85rem;">
-                        <i class="ph ph-printer"></i> طباعة كمسودة
-                    </button>
-                </div>
+<div style="display: flex; align-items: center; gap: 15px;">
+                    <h3 id="orderPharmacyName" style="color: var(--primary);">اسم الصيدلية</h3>
+                    <button type="button" id="changePharmacyBtn" class="btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; border-color: #f59e0b; color: #f59e0b;">
+                        <i class="ph ph-swap"></i> طلبية لصيدلية أخرى
+                    </button>
+                    <!-- 🟢 إضافة: زر الطباعة (سيتم تفعيله بالـ JS) -->
+                    <button type="button" id="printDraftBtn" class="btn-secondary" style="padding: 8px 16px; font-size: 0.85rem;">
+                        <i class="ph ph-printer"></i> طباعة كمسودة
+                    </button>
+                </div>
             </div>
             
             <div class="table-responsive mobile-cards">
@@ -494,6 +501,6 @@
     <div id="toast-container"></div>
 
     <!-- الربط مع ملفات JavaScript الأساسية -->
-    <script type="module" src="js/app.js?v=202605_SECURE"></script>
+    <script type="module" src="js/app.js?v=20260504_SECURE"></script>
 </body>
 </html>
