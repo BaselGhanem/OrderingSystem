@@ -4,15 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>نظام الطلبيات | DAR ALDAWAA</title>
+    <!-- استدعاء الخطوط والأيقونات والمكتبات الأساسية -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
+    
+    <!-- منع الكاش -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 </head>
 <body>
+    <!-- 🟢 إضافة: مؤشر حالة عدم الاتصال (Offline Indicator) -->
+    <div id="offline-banner" class="offline-banner">
+        <i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال. النظام يعمل محلياً وسيتم المزامنة لاحقاً.
+    </div>
+
+    <!-- 🟢 إضافة: مؤشر "جارٍ الحفظ" (Saving Indicator) -->
+    <div id="saving-indicator" class="saving-indicator">
+        <div class="spinner"></div> جارٍ الحفظ والتحديث...
+    </div>
+
     <div class="bg-shapes">
         <div class="shape shape-1"></div>
         <div class="shape shape-2"></div>
@@ -22,12 +35,12 @@
         <header class="glass-panel">
             <div class="logo-area">
                 <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="Dar Al Dawaa Logo" class="logo">
-                <h1>نظام الطلبيات المؤقت</h1>
+                <h1>نظام الطلبيات</h1>
             </div>
             <div class="user-info" id="userInfo" style="display: none;">
                 <div class="tabs" id="mainTabs">
                     <button type="button" id="navOrderBtn" class="btn-tab active">طلب جديد</button>
-                    <button type="button" id="navMyOrdersBtn" class="btn-tab">طلبياتي</button>
+                    <button type="button" id="navMyOrdersBtn" class="btn-tab">طلبياتي <span id="pendingBadge" style="display:none; background:var(--warning); color:white; border-radius:50%; padding:2px 6px; font-size:10px; margin-right:4px;">0</span></button>
                     <button type="button" id="navReportsBtn" class="btn-tab">التقارير</button>
                 </div>
                 <span id="currentRepName"><i class="ph ph-user"></i> المندوب: <b>-</b></span>
@@ -35,42 +48,71 @@
             </div>
         </header>
 
+        <!-- مسار تسجيل الدخول -->
         <main id="loginScreen" class="screen active glass-panel">
             <div class="auth-box">
                 <i class="ph ph-shield-check auth-icon" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
                 <h2>تسجيل الدخول للنظام</h2>
                 <p>الرجاء تحديد هويتك والصيدلية لبدء الطلبية</p>
-                <div class="input-group">
-                    <label>اسم المندوب</label>
-                    <select id="repSelect" disabled><option>جاري التحميل...</option></select>
+                
+                <!-- قسم المندوب -->
+<div class="rep-login-section" style="width: 100%; text-align: right; background: #f8fafc; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+    <div class="input-group">
+        <label>اسم المندوب</label>
+        <select id="repSelect" disabled><option>جاري التحميل...</option></select>
+    </div>
+    
+    <!-- 🟢 الحقل الجديد: الرقم السري للمندوب (مخفي بالبداية) -->
+    <div class="input-group" id="repPasswordGroup" style="display: none;">
+        <label>الرقم السري للمندوب</label>
+        <input type="password" id="repPasswordInput" placeholder="أدخل الرقم السري..." style="text-align: center; letter-spacing: 4px; font-size: 1.2rem; font-weight: bold;">
+    </div>
+
+    <div class="input-group">
+        <label>الصيدلية المستهدفة</label>
+        <div class="autocomplete-wrapper">
+            <input type="text" id="pharmacyInput" placeholder="اختر المندوب اولا..." autocomplete="off" disabled>
+            <div id="pharmacySuggestions" class="autocomplete-list"></div>
+        </div>
+    </div>
+    <button type="button" id="startOrderBtn" class="btn-primary" style="width: 100%;" disabled>
+        بدء ادخال الطلبية <i class="ph ph-arrow-left"></i>
+    </button>
+</div>
+                <!-- فاصل بصري -->
+                <div style="display: flex; align-items: center; width: 100%; margin: 10px 0; color: var(--secondary-light);">
+                    <hr style="flex: 1; border: none; border-top: 1px dashed #cbd5e1;">
+                    <span style="padding: 0 10px; font-size: 0.85rem; font-weight: 700;">أو</span>
+                    <hr style="flex: 1; border: none; border-top: 1px dashed #cbd5e1;">
                 </div>
-                <div class="input-group">
-                    <label>الصيدلية المستهدفة</label>
-                    <div class="autocomplete-wrapper">
-                        <input type="text" id="pharmacyInput" placeholder="اختر المندوب اولا..." autocomplete="off" disabled>
-                        <div id="pharmacySuggestions" class="autocomplete-list"></div>
-                    </div>
-                  
-                </div>
-                <button type="button" id="startOrderBtn" class="btn-primary" disabled>
-                    بدء ادخال الطلبية <i class="ph ph-arrow-left"></i>
+
+                <!-- قسم المدير -->
+                <button type="button" id="adminModeBtn" class="btn-secondary" style="width: 100%; border-color: #10b981; color: #10b981;">
+                    <i class="ph ph-lock-key"></i> الدخول للإدارة (مدير / تقارير)
                 </button>
-                <button type="button" id="adminModeBtn" class="btn-secondary" style="margin-top: 15px; width: 100%; border-color: #10b981; color: #10b981;">
-                    <i class="ph ph-lock-key"></i> الدخول كمدير
-                </button>
-                <div class="input-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                <div class="input-group" style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px;">
                     <input type="checkbox" id="rememberMe" style="width: auto; cursor: pointer;">
                     <label for="rememberMe" style="margin-bottom: 0; cursor: pointer;">تذكر بيانات الدخول كمدير</label>
                 </div>
             </div>
         </main>
 
-<main id="orderScreen" class="screen glass-panel" style="display: none;">
+        <!-- شاشة إدخال الطلبية -->
+        <main id="orderScreen" class="screen glass-panel" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-                <h2><i class="ph ph-shopping-cart"></i> ادخال طلبية جديدة</h2>
-                <h3 id="orderPharmacyName" style="color: var(--primary);">اسم الصيدلية</h3>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <h2><i class="ph ph-shopping-cart"></i> ادخال طلبية جديدة</h2>
+                </div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <h3 id="orderPharmacyName" style="color: var(--primary);">اسم الصيدلية</h3>
+                    <!-- 🟢 إضافة: زر الطباعة (سيتم تفعيله بالـ JS) -->
+                    <button type="button" id="printDraftBtn" class="btn-secondary" style="padding: 8px 16px; font-size: 0.85rem;">
+                        <i class="ph ph-printer"></i> طباعة كمسودة
+                    </button>
+                </div>
             </div>
-            <div class="table-responsive">
+            
+            <div class="table-responsive mobile-cards">
                 <table class="order-table">
                     <thead>
                         <tr>
@@ -79,12 +121,14 @@
                             <th style="width: 10%; text-align: center;">البونص</th>
                             <th style="width: 10%; text-align: center;">السعر</th>
                             <th style="width: 12%; text-align: center;">المجموع</th>
-                            <th style="width: 23%; text-align: center;">ملاحظة (اختياري)</th> <th style="width: 10%; text-align: center;">حذف</th>
+                            <th style="width: 23%; text-align: center;">ملاحظة (اختياري)</th> 
+                            <th style="width: 10%; text-align: center;">حذف</th>
                         </tr>
                     </thead>
                     <tbody id="orderBody"></tbody>
                 </table>
             </div>
+            
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 15px;">
                 <button type="button" id="addRowBtn" class="btn-secondary"><i class="ph ph-plus-circle"></i> اضافة صنف</button>
                 <div class="total-box" style="font-size: 1.2rem; font-weight: 800;">الاجمالي: <strong id="grandTotal" style="color: var(--primary);">0.00</strong> د.ا</div>
@@ -100,9 +144,23 @@
             </button>
         </main>
         
+        <!-- شاشة طلبياتي (المندوب) -->
         <main id="myOrdersScreen" class="screen glass-panel" style="display: none;">
             <h2><i class="ph ph-list-checks"></i> طلبياتي (المعلقة / المرتجعة)</h2>
-            <div class="table-responsive">
+            
+            <!-- 🟢 إضافة: ملخص ذكي للطلبيات -->
+            <div id="myOrdersSummary" style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                <div class="card" style="flex: 1; padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid var(--warning); box-shadow: var(--shadow-sm);">
+                    <small style="color: var(--secondary); font-weight: 700;">الطلبيات المعلقة</small>
+                    <h3 id="myOrdersPendingCount" style="margin: 5px 0 0 0; color: var(--primary); font-size: 1.5rem;">0</h3>
+                </div>
+                <div class="card" style="flex: 1; padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid var(--primary); box-shadow: var(--shadow-sm);">
+                    <small style="color: var(--secondary); font-weight: 700;">إجمالي القيمة المعلقة (د.ا)</small>
+                    <h3 id="myOrdersTotalValue" style="margin: 5px 0 0 0; color: var(--primary); font-size: 1.5rem;">0.00</h3>
+                </div>
+            </div>
+
+            <div class="table-responsive mobile-cards">
                 <table class="order-table" id="myOrdersTable">
                     <thead><tr><th>رقم المرجع</th><th>التاريخ</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
                     <tbody id="myOrdersBody"></tbody>
@@ -110,6 +168,7 @@
             </div>
         </main>
 
+        <!-- شاشة التقارير العامة -->
         <main id="reportsScreen" class="screen glass-panel" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
                 <h2><i class="ph ph-briefcase"></i> سجل الطلبيات المستلمة</h2>
@@ -121,7 +180,7 @@
                 <input type="text" id="filterRep" placeholder="تصفية باسم المندوب..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
                 <input type="text" id="filterPharmacy" placeholder="تصفية باسم الصيدلية..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
             </div>
-            <div class="table-responsive">
+            <div class="table-responsive mobile-cards">
                 <table class="order-table" id="reportsTable">
                     <thead><tr><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
                     <tbody id="reportsBody"></tbody>
@@ -129,16 +188,46 @@
             </div>
         </main>
 
+        <!-- شاشة لوحة تحكم المدير -->
         <main id="managerScreen" class="screen glass-panel" style="display: none;">
             <h2><i class="ph ph-users-four"></i> لوحة تحكم المدير</h2>
-<div class="manager-sub-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; align-items: center; flex-wrap: wrap;">
-    <button id="managerMyTeamBtn" class="btn-subtab active">طلبيات فريقي</button>
-    <button id="managerAllOrdersBtn" class="btn-subtab">جميع طلبيات الشركة</button>
-    
-    <button id="managerAddNewOrderBtn" style="background: #004a99; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; margin-right: auto; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.3s; box-shadow: 0 4px 6px rgba(0,74,153,0.2);">
-        <i class="ph ph-plus-circle"></i> إضافة طلبية لمندوبي
-    </button>
+            
+            <div class="manager-sub-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; align-items: center; flex-wrap: wrap;">
+                <button id="managerMyTeamBtn" class="btn-subtab active">طلبيات فريقي</button>
+                <button id="managerAllOrdersBtn" class="btn-subtab">جميع طلبيات الشركة</button>
+                
+                <button id="managerAddNewOrderBtn" style="background: #004a99; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; margin-right: auto; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.3s; box-shadow: 0 4px 6px rgba(0,74,153,0.2);">
+                    <i class="ph ph-plus-circle"></i> إضافة طلبية لمندوبي
+                </button>
+            </div>
+
+            <!-- 🟢 إضافة: Dashboard متقدم للمدير -->
+            <div id="advancedManagerDashboard" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                <div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #004a99; box-shadow: var(--shadow-sm);">
+                    <small style="color: var(--secondary); font-weight: 700;">طلبيات اليوم</small>
+                    <h3 id="dashDailyCount" style="margin: 5px 0 0 0; color: var(--primary);">0</h3>
+                </div>
+                <div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #28a745; box-shadow: var(--shadow-sm);">
+                    <small style="color: var(--secondary); font-weight: 700;">إجمالي القيمة المعروضة</small>
+                    <h3 id="dashTotalValue" style="margin: 5px 0 0 0; color: var(--primary);">0.00 د.ا</h3>
+                </div>
+                <div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #10b981; box-shadow: var(--shadow-sm);">
+                    <small style="color: var(--secondary); font-weight: 700;">نسبة الموافقات</small>
+                    <h3 id="dashApprovalRate" style="margin: 5px 0 0 0; color: var(--primary);">0%</h3>
+                </div>
+                <div class="stat-card"> <!-- استخدم نفس الـ class الخاص بكروتك -->
+    <div class="dash-icon"><i class="ph ph-storefront"></i></div>
+    <div class="dash-info">
+        <p>عدد الصيدليات المعروضة</p>
+        <h3 id="dashUniquePharmacies">0</h3>
+    </div>
 </div>
+                <div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #f59e0b; box-shadow: var(--shadow-sm);">
+                    <small style="color: var(--secondary); font-weight: 700;">الصيدلية الأكثر طلباً</small>
+                    <h3 id="dashTopPharmacy" style="margin: 5px 0 0 0; color: var(--primary); font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</h3>
+                </div>
+            </div>
+
             <div class="glass-panel" id="managerDateFilters" style="margin-bottom: 20px; padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0;">
                 <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
                     <div style="flex: 1; min-width: 140px;">
@@ -159,23 +248,22 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- قسم فريقي -->
             <div id="teamOrdersSection">
                 <div id="managerControls" style="margin-bottom: 20px;">
-                    <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                        <div class="card" style="padding: 15px; background: #f8f9fa; border-radius: 8px; flex: 1; border-right: 4px solid #004a99;">
-                            <strong>عدد الطلبيات:</strong> <span id="managerOrdersCount" style="font-size: 1.2em; font-weight: bold;">0</span>
-                        </div>
-                        <div class="card" style="padding: 15px; background: #f8f9fa; border-radius: 8px; flex: 1; border-right: 4px solid #28a745;">
-                            <strong>قيمة الطلبيات:</strong> <span id="managerOrdersTotal" style="font-size: 1.2em; font-weight: bold;">0.00</span> د.ا
-                        </div>
+                    <!-- تم إخفاء البطاقات القديمة لأننا أضفنا Dashboard شامل فوق -->
+                    <div style="display: none; gap: 15px; margin-bottom: 15px;">
+                        <div class="card"><strong>عدد الطلبيات:</strong> <span id="managerOrdersCount">0</span></div>
+                        <div class="card"><strong>قيمة الطلبيات:</strong> <span id="managerOrdersTotal">0.00</span> د.ا</div>
                     </div>
                     
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <select id="managerRepFilter" class="form-control" style="flex: 1;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                        <select id="managerRepFilter" class="form-control" style="flex: 1; min-width: 150px;">
                             <option value="">جميع المندوبين</option>
                         </select>
-                        <input type="text" id="managerPharmacyFilter" class="form-control" placeholder="ابحث باسم الصيدلية..." style="flex: 1;">
-                        <select id="managerStatusFilter" class="form-control" style="flex: 1;">
+                        <input type="text" id="managerPharmacyFilter" class="form-control" placeholder="ابحث باسم الصيدلية..." style="flex: 1; min-width: 150px;">
+                        <select id="managerStatusFilter" class="form-control" style="flex: 1; min-width: 150px;">
                             <option value="">جميع الحالات</option>
                             <option value="pending">قيد الموافقة</option>
                             <option value="approved">موافق عليه</option>
@@ -184,12 +272,12 @@
                     </div>
                     
                     <div style="display: flex; gap: 10px;">
-                        <button id="bulkApproveBtn" class="btn-success" style="padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;">موافقة على المحدد</button>
-                        <button id="bulkDeleteBtn" class="btn-danger" style="padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;">حذف المحدد</button>
+                        <button id="bulkApproveBtn" class="btn-success" style="background:#28a745; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-check-circle"></i> موافقة على المحدد</button>
+                        <button id="bulkDeleteBtn" class="btn-danger" style="background:#dc3545; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-trash"></i> حذف المحدد</button>
                     </div>
                 </div>
                 
-                <div class="table-responsive">
+                <div class="table-responsive mobile-cards">
                     <table class="order-table" id="managerOrdersTable">
                         <thead><tr><th><input type="checkbox" id="selectAllOrders"></th><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
                         <tbody id="managerOrdersBody"></tbody>
@@ -197,6 +285,7 @@
                 </div>
             </div>
 
+            <!-- قسم جميع الطلبيات -->
             <div id="allOrdersSection" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
                     <h3><i class="ph ph-building-office"></i> جميع طلبيات الشركة</h3>
@@ -205,40 +294,43 @@
                     </button>
                     
                     <div id="allOrdersStats" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
-                        <div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow); flex: 1; text-align: center;">
+                        <div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow-sm); flex: 1; text-align: center; border: 1px solid #e2e8f0;">
                             <div style="font-size: 2rem; font-weight: 800; color: var(--primary);" id="totalOrdersCount">0</div>
-                            <div style="color: var(--secondary);">عدد الطلبيات</div>
+                            <div style="color: var(--secondary);">إجمالي الطلبيات الكلية</div>
                         </div>
-                        <div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow); flex: 1; text-align: center;">
+                        <div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow-sm); flex: 1; text-align: center; border: 1px solid #e2e8f0;">
                             <div style="font-size: 2rem; font-weight: 800; color: var(--primary);" id="totalOrdersSum">0.00</div>
-                            <div style="color: var(--secondary);">اجمالي المبلغ (د.ا)</div>
+                            <div style="color: var(--secondary);">إجمالي القيمة (د.ا)</div>
                         </div>
                          <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                            <button id="bulkApproveAllBtn" class="btn-success" style="padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;">موافقة على المحدد</button>
-                            <button id="bulkDeleteAllBtn" class="btn-danger" style="padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;">حذف المحدد</button>
+                            <button id="bulkApproveAllBtn" class="btn-success" style="background:#28a745; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-check-circle"></i> موافقة على المحدد</button>
+                            <button id="bulkDeleteAllBtn" class="btn-danger" style="background:#dc3545; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-trash"></i> حذف المحدد</button>
                         </div>
                     </div>
                 </div>
                 <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
                     <input type="text" id="filterAllRep" placeholder="تصفية باسم المندوب..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
                     <input type="text" id="filterAllPharmacy" placeholder="تصفية باسم الصيدلية..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
-                    <select id="filterAllStatus" style="flex: 0.5; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+                    <select id="filterAllStatus" style="flex: 0.5; min-width: 150px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
                         <option value="">جميع الحالات</option>
                         <option value="pending">قيد الموافقة</option>
                         <option value="approved">موافق عليه</option>
                         <option value="returned">مرتجع</option>
                     </select>
                 </div>
-                <div class="table-responsive">
+                <div class="table-responsive mobile-cards">
                     <table class="order-table" id="allOrdersTable">
-                        <thead><tr><th><input type="checkbox" id="selectAllAllOrders"></th><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>                        <tbody id="allOrdersBody"></tbody>
+                        <thead><tr><th><input type="checkbox" id="selectAllAllOrders"></th><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
+                        <tbody id="allOrdersBody"></tbody>
                     </table>
                 </div>
             </div>
         </main>
     </div>
-    <div id="detailsModal" class="modal-overlay" style="display: none;">
-        <div class="modal-content glass-panel">
+
+    <!-- Modals -->
+<div id="detailsModal" class="modal-overlay" style="display: none; z-index: 10010;">
+    <div class="modal-content glass-panel">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
                 <div>
                     <h3 style="color: var(--primary); margin: 0;"><i class="ph ph-receipt"></i> تفاصيل الفاتورة</h3>
@@ -252,7 +344,7 @@
                 <strong>ملاحظة المندوب:</strong> <span id="modalOrderNoteText"></span>
             </div>
 
-            <div class="table-responsive">
+            <div class="table-responsive mobile-cards">
                 <table class="order-table">
                     <thead>
                         <tr>
@@ -261,7 +353,8 @@
                             <th>البونص</th>
                             <th>السعر</th>
                             <th>المجموع</th>
-                            <th>الملاحظة</th> </tr>
+                            <th>الملاحظة</th> 
+                        </tr>
                     </thead>
                     <tbody id="modalItemsBody"></tbody>
                 </table>
@@ -269,36 +362,38 @@
         </div>
     </div>
 
-<div id="editOrderModal" class="modal-overlay" style="display: none;">
-    <div class="modal-content glass-panel" style="max-width: 1200px; padding: 20px;">
-        <div id="editOrderContainer"></div>
+    <div id="editOrderModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content glass-panel" style="max-width: 1200px; padding: 20px;">
+            <div id="editOrderContainer"></div>
+        </div>
     </div>
-</div>
+    
     <div id="addPharmacyModal" class="modal-overlay" style="display: none;">
-    <div class="modal-content glass-panel" style="max-width: 500px;">
-        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
-            <h3><i class="ph ph-storefront"></i> إضافة صيدلية جديدة</h3>
-            <button type="button" class="close-modal" onclick="document.getElementById('addPharmacyModal').style.display='none'" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger);"><i class="ph ph-x-circle"></i></button>
+        <div class="modal-content glass-panel" style="max-width: 500px;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+                <h3><i class="ph ph-storefront"></i> إضافة صيدلية جديدة</h3>
+                <button type="button" class="close-modal" onclick="document.getElementById('addPharmacyModal').style.display='none'" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger);"><i class="ph ph-x-circle"></i></button>
+            </div>
+            <div class="input-group">
+                <label>اختر المندوب</label>
+                <select id="newPharmacyRepSelect">
+                    <option value="">-- اختر المندوب --</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>اسم الصيدلية</label>
+                <input type="text" id="newPharmacyName" placeholder="أدخل اسم الصيدلية...">
+            </div>
+            <div class="input-group">
+                <label>كود الصيدلية</label>
+                <input type="text" id="newPharmacyCode" placeholder="أدخل كود الصيدلية (اختياري)...">
+            </div>
+            <button type="button" id="saveNewPharmacyBtn" class="btn-primary" style="width: 100%; margin-top: 15px;">
+                حفظ الصيدلية
+            </button>
         </div>
-        <div class="input-group">
-            <label>اختر المندوب</label>
-            <select id="newPharmacyRepSelect">
-                <option value="">-- اختر المندوب --</option>
-            </select>
-        </div>
-        <div class="input-group">
-            <label>اسم الصيدلية</label>
-            <input type="text" id="newPharmacyName" placeholder="أدخل اسم الصيدلية...">
-        </div>
-        <div class="input-group">
-            <label>كود الصيدلية</label>
-            <input type="text" id="newPharmacyCode" placeholder="أدخل كود الصيدلية (اختياري)...">
-        </div>
-        <button type="button" id="saveNewPharmacyBtn" class="btn-primary" style="width: 100%; margin-top: 15px;">
-            حفظ الصيدلية
-        </button>
     </div>
-</div>
+    
     <div id="adminLoginModal" class="modal-overlay" style="display: none;">
         <div class="modal-content glass-panel auth-box" style="max-width: 400px; padding: 30px;">
             <div style="text-align: center; margin-bottom: 20px;">
@@ -319,13 +414,14 @@
                 </button>
             </div>
 
+            <!-- سيتم تشفير كلمة المرور واستخدام Hash في JS للتحقق، ولن نعتمد على القيم المباشرة -->
             <div class="input-group" style="margin-top: 20px;">
                 <input type="password" id="adminPasswordInput" placeholder="أدخل كلمة المرور هنا..." style="text-align: center; font-size: 1.1rem; letter-spacing: 2px;">
             </div>
 
             <div class="remember-container" style="margin-bottom: 20px;">
                 <input type="checkbox" id="rememberAdmin">
-                <label for="rememberAdmin">حفظ بيانات الدخول كمدير</label>
+                <label for="rememberAdmin">حفظ جلسة الدخول المؤقتة</label>
             </div>
 
             <div style="display: flex; gap: 10px;">
@@ -336,35 +432,68 @@
             </div>
         </div>
     </div>
+    
     <div id="updateNoticeModal" class="modal-overlay" style="display: none; z-index: 9999;">
         <div class="modal-content glass-panel" style="max-width: 420px; text-align: center; padding: 40px 30px;">
             <div style="background: rgba(16, 185, 129, 0.1); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
                 <i class="ph ph-rocket-launch" style="font-size: 3.5rem; color: var(--success);"></i>
             </div>
-            <h2 style="color: var(--primary); margin-bottom: 15px; font-weight: 800;">تحديثات جديدة! ✨</h2>
+            <h2 style="color: var(--primary); margin-bottom: 15px; font-weight: 800;">تحديثات الأمان والأداء ✨</h2>
             <p style="color: var(--secondary); font-size: 1.1rem; line-height: 1.7; margin-bottom: 30px;">
-                تحقق من أحدث الإضافات على صفحة المدير، حيث تم إضافة <strong>فلتر التاريخ الذكي</strong>. <br><br>
-                كما تم إدخال تحسينات كثيرة وإضافة <strong>سجل جميع الطلبيات</strong> إلى لوحة التقارير لتسهيل متابعة أعمالك.
+                تم تحديث النظام ليدعم <strong>العمل بدون إنترنت (Offline Mode)</strong> والحفظ التلقائي للطلبيات لضمان عدم ضياع أي بيانات.
             </p>
             <button id="closeUpdateNoticeBtn" class="btn-primary" style="width: 100%; height: 50px; font-size: 1.1rem;">
                 متابعة إلى تسجيل الدخول
             </button>
         </div>
     </div>
+    
     <div id="featureUpdateModal" class="modal-overlay" style="display: none; z-index: 10000;">
         <div class="modal-content glass-panel" style="max-width: 450px; text-align: center; padding: 40px 30px;">
             <div style="background: rgba(15, 59, 92, 0.1); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
                 <i class="ph ph-bell-ringing" style="font-size: 3.5rem; color: var(--primary);"></i>
             </div>
-            <h2 style="color: var(--primary); margin-bottom: 15px; font-weight: 800;">تحديث جديد بالنظام! 🚀</h2>
+            <h2 style="color: var(--primary); margin-bottom: 15px; font-weight: 800;">تنبيهات احترافية! 🚀</h2>
             <p style="color: var(--secondary); font-size: 1.1rem; line-height: 1.7; margin-bottom: 30px;">
-                لتسهيل عملكم وزيادة دقة الطلبيات، تمت إضافة <strong>ملاحظات على مستوى الطلبية ككل</strong>، بالإضافة إلى إمكانية كتابة <strong>ملاحظة مخصصة لكل صنف</strong> بشكل مستقل.
+                قمنا باستبدال النوافذ المزعجة السابقة بنظام <strong>إشعارات ذكي ومريح (Toasts)</strong> يظهر أسفل الشاشة ولن يعيق عملك أبداً.
             </p>
             <button id="closeFeatureUpdateBtn" class="btn-primary" style="width: 100%; height: 50px; font-size: 1.1rem;">
                 علمت ذلك، شكراً
             </button>
         </div>
     </div>
-    <script type="module" src="js/app.js?v=20260423-7"></script>
+<!-- 🟢 إضافة: نافذة سجل الصيدلية التاريخي -->
+    <div id="pharmacyHistoryModal" class="modal-overlay" style="display: none; z-index: 10005;">
+        <div class="modal-content glass-panel" style="max-width: 850px;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+                <div>
+                    <h3 style="color: var(--primary); margin: 0;"><i class="ph ph-clock-counter-clockwise"></i> السجل التاريخي للصيدلية</h3>
+                    <small id="historyModalSubtitle" style="color: var(--secondary); font-weight: 600; display: block; margin-top: 5px;"></small>
+                </div>
+                <button type="button" class="close-modal" onclick="document.getElementById('pharmacyHistoryModal').style.display='none'" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger);"><i class="ph ph-x-circle"></i></button>
+            </div>
+            
+            <div class="table-responsive mobile-cards" style="max-height: 400px; overflow-y: auto;">
+                <table class="order-table">
+                    <thead style="position: sticky; top: 0; z-index: 10;">
+                        <tr>
+                            <th>رقم المرجع</th>
+                            <th>التاريخ</th>
+                            <th>المندوب</th>
+                            <th>الإجمالي</th>
+                            <th>الحالة</th>
+                            <th>التفاصيل</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pharmacyHistoryBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- 🟢 إضافة: حاوية نظام الإشعارات (Toasts) -->
+    <div id="toast-container"></div>
+
+    <!-- الربط مع ملفات JavaScript الأساسية -->
+    <script type="module" src="js/app.js?v=202605_SECURE"></script>
 </body>
 </html>
