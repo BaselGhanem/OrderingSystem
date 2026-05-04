@@ -113,10 +113,36 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     // ربط زر الطباعة
-    const printBtn = document.getElementById('printDraftBtn');
-    if(printBtn) {
-        printBtn.addEventListener('click', () => { window.print(); });
-    }
+// ربط زر الطباعة
+    const printBtn = document.getElementById('printDraftBtn');
+    if(printBtn) {
+        printBtn.addEventListener('click', () => { window.print(); });
+    }
+
+    // 🟢 زر الانتقال لطلب صيدلية أخرى دون فقدان الجلسة
+    const changePharmacyBtn = document.getElementById('changePharmacyBtn');
+    if(changePharmacyBtn) {
+        changePharmacyBtn.addEventListener('click', () => {
+            document.getElementById('orderScreen').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'block';
+            document.getElementById('userInfo').style.display = 'none';
+            const authBox = document.querySelector('#loginScreen .auth-box');
+            if (authBox) authBox.style.display = 'block';
+            
+            // تصفير حقل الصيدلية ليختار من جديد وترك المندوب كما هو
+            const pharmInput = document.getElementById('pharmacyInput');
+            if(pharmInput) {
+                pharmInput.value = '';
+                pharmInput.focus();
+            }
+            document.getElementById('startOrderBtn').disabled = true;
+        });
+    }
+    
+    // 🟢 ربط الفلاتر الخاصة بجميع طلبيات الشركة (التي كانت لا تعمل)
+    document.getElementById('filterAllRep')?.addEventListener('input', filterAllOrders);
+    document.getElementById('filterAllPharmacy')?.addEventListener('input', filterAllOrders);
+    document.getElementById('filterAllStatus')?.addEventListener('change', filterAllOrders);
 });
 // 🟢 إضافة: دالة لضبط التاريخ الافتراضي على الشهر الحالي
 function setDefaultMonthFilter() {
@@ -552,15 +578,25 @@ function updateGrandTotal() {
 }
 
 repSelect.onchange = async (e) => {
-    if (!e.target.value) {
-        document.getElementById('repPasswordGroup').style.display = 'none';
-        return;
-    }
-    
-    // 🟢 إظهار حقل الرقم السري عند اختيار المندوب
-    document.getElementById('repPasswordGroup').style.display = 'block';
-    
-    pharmacyInput.value = '';
+    if (!e.target.value) {
+        document.getElementById('repPasswordGroup').style.display = 'none';
+        return;
+    }
+    
+    // 🟢 إظهار حقل الرقم السري عند اختيار المندوب
+    document.getElementById('repPasswordGroup').style.display = 'block';
+    
+    // 🟢 استرجاع كلمة المرور إذا كانت محفوظة
+    const savedPass = localStorage.getItem('savedRepPass_' + e.target.value);
+    if (savedPass) {
+        document.getElementById('repPasswordInput').value = savedPass;
+        if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = true;
+    } else {
+        document.getElementById('repPasswordInput').value = '';
+        if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = false;
+    }
+
+    pharmacyInput.value = '';
     pharmacyInput.placeholder = 'جاري التحميل...';
     try {
         const q = query(collection(db, "pharmacies"), where("rep_id", "==", e.target.value));
@@ -623,14 +659,20 @@ startOrderBtn.onclick = async () => {
         return showToast("الرجاء إدخال الرقم السري الخاص بك.", "warning");
     }
 
-    if (expectedHash && btoa(enteredPass) !== expectedHash) {
-        repPassInput.classList.add('input-error');
-        return showToast("الرقم السري للمندوب غير صحيح!", "error");
-    }
-    
-    repPassInput.classList.remove('input-error');
-    repPassInput.value = ''; // تنظيف الحقل كإجراء أمني بعد الدخول
-    const pharmacyName = pharmacyInput.value.trim();
+if (expectedHash && btoa(enteredPass) !== expectedHash) {
+        repPassInput.classList.add('input-error');
+        return showToast("الرقم السري للمندوب غير صحيح!", "error");
+    }
+    
+    repPassInput.classList.remove('input-error');
+    // 🟢 حفظ كلمة المرور إذا كان خيار التذكر مفعلاً
+    if (document.getElementById('rememberRepPass') && document.getElementById('rememberRepPass').checked) {
+        localStorage.setItem('savedRepPass_' + repSelect.value, enteredPass);
+    } else {
+        localStorage.removeItem('savedRepPass_' + repSelect.value);
+        repPassInput.value = ''; // تنظيف الحقل كإجراء أمني إذا لم يطلب التذكر
+    }
+    const pharmacyName = pharmacyInput.value.trim();
     const selectedPharm = currentPharmaciesData.find(p => p.name === pharmacyName);
     
     if (!selectedPharm) {
