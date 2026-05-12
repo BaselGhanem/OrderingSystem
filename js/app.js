@@ -644,9 +644,8 @@ pharmacyInput.addEventListener('input', function() {
     }
 });
 
-startOrderBtn.onclick = async () => {
-    e.preventDefault(); // 🟢 أضف هذا السطر لمنع إرسال الفورم وعمل ريفريش
-    if (productsList.length === 0) { 
+startOrderBtn.onclick = async (e) => { e.preventDefault(); // 🟢 أضف هذا السطر لمنع إرسال الفورم...
+                                      if (productsList.length === 0) { 
         showToast("الرجاء الانتظار... يتم تحميل المنتجات.", "info"); 
         return; 
     }
