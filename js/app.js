@@ -645,6 +645,7 @@ pharmacyInput.addEventListener('input', function() {
 });
 
 startOrderBtn.onclick = async () => {
+    e.preventDefault(); // 🟢 أضف هذا السطر لمنع إرسال الفورم وعمل ريفريش
     if (productsList.length === 0) { 
         showToast("الرجاء الانتظار... يتم تحميل المنتجات.", "info"); 
         return; 
@@ -1780,6 +1781,7 @@ document.getElementById('adminPasswordInput').addEventListener('keydown', functi
 });
 
 document.getElementById('confirmAdminLoginBtn').onclick = () => {
+    e.preventDefault(); // 🟢 أضف هذا السطر لمنع الريفريش عند دخول المدير
     if (!selectedAdminType) { return showToast("الرجاء تحديد هويتك من البطاقات أعلاه", "warning"); }
     
     const pass = document.getElementById('adminPasswordInput').value;   
