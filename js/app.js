@@ -1779,7 +1779,7 @@ document.getElementById('adminPasswordInput').addEventListener('keydown', functi
     if (e.key === 'Enter') { e.preventDefault(); document.getElementById('confirmAdminLoginBtn').click(); }
 });
 
-document.getElementById('confirmAdminLoginBtn').onclick = () => {
+document.getElementById('confirmAdminLoginBtn').onclick = (e) => {
     e.preventDefault(); // 🟢 أضف هذا السطر لمنع الريفريش عند دخول المدير
     if (!selectedAdminType) { return showToast("الرجاء تحديد هويتك من البطاقات أعلاه", "warning"); }
     
