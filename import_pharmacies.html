@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>تحديث قاعدة بيانات الصيدليات</title>
+    <title>تحديث قاعدة بيانات الصيدليات - النظام الآمن</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -10,19 +10,21 @@
         .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
         .btn { padding: 12px 25px; background: #004a99; color: white; border: none; cursor: pointer; border-radius: 8px; font-size: 1rem; font-weight: bold; margin-top: 15px; transition: 0.3s;}
         .btn:hover { background: #003a7a; }
-        input[type="file"] { padding: 10px; border: 1px solid #ccc; border-radius: 8px; width: 100%; margin-top: 15px;}
-        #status { margin-top: 20px; font-size: 1.1rem; font-weight: bold; }
-        .info-box { background: #e0f2fe; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: right; font-size: 0.9rem; }
+        input[type="file"] { padding: 10px; border: 1px solid #ccc; border-radius: 8px; width: 100%; margin-top: 15px; background: #f8fafc;}
+        #status { margin-top: 20px; font-size: 1.1rem; font-weight: bold; line-height: 1.6; }
+        .info-box { background: #e0f2fe; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: right; font-size: 0.95rem; line-height: 1.8; border-right: 4px solid #0284c7;}
+        .warning-box { background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 8px; font-size: 0.9rem; margin-top: 10px; border: 1px solid #f87171;}
+        code { background: #fff; padding: 2px 8px; border-radius: 4px; color: #b91c1c; font-family: monospace; font-weight: bold;}
     </style>
 </head>
 <body>
     <div class="container">
-        <h2 style="color: #004a99;">تحديث قائمة الصيدليات المطور</h2>
+        <h2 style="color: #004a99;">تحديث قائمة الصيدليات (النسخة الآمنة)</h2>
         
         <div class="info-box">
-            <strong>ملاحظة هامة:</strong> يجب أن يحتوي ملف الإكسل على الأعمدة التالية تماماً:
-            <br>
-            (Name, rep_id, pharmacy_code, Supervisor, Area)
+            <strong>ملاحظة هامة جداً:</strong><br>
+            يجب أن يحتوي السطر الأول في ملف الإكسل (الترويسة) على هذه الكلمات باللغة الإنجليزية وبنفس حالة الأحرف:<br>
+            <code>Name</code> , <code>rep_id</code> , <code>pharmacy_code</code> , <code>Supervisor</code> , <code>Area</code>
         </div>
 
         <input type="file" id="excelFile" accept=".xlsx, .xls">
@@ -32,8 +34,9 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, deleteDoc, doc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        // تم توحيد الإصدار إلى 10.11.0 ليتطابق مع باقي نظامك
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, deleteDoc, doc, addDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
@@ -52,24 +55,52 @@
             if (!file) return alert("الرجاء اختيار ملف إكسل أولاً");
 
             const status = document.getElementById('status');
-            status.innerText = "جاري قراءة الملف...";
+            status.innerHTML = "جاري فحص الملف... ⏳";
             status.style.color = "#f59e0b";
 
             const reader = new FileReader();
             reader.onload = async (e) => {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const excelData = XLSX.utils.sheet_to_json(firstSheet);
-
-                if(excelData.length === 0) {
-                    status.innerText = "الملف فارغ أو الترويسة غير صحيحة!";
-                    status.style.color = "red";
-                    return;
-                }
-
                 try {
-                    status.innerText = "جاري حذف الصيدليات القديمة...";
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const excelData = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+
+                    if(excelData.length === 0) {
+                        status.innerHTML = "❌ الملف فارغ أو لا يمكن قراءته!";
+                        status.style.color = "red";
+                        return;
+                    }
+
+                    // 🟢 فحص الأمان: تنظيف أسماء الأعمدة واستخراج البيانات الصحيحة فقط
+                    const validRows = excelData.filter(originalRow => {
+                        // هذه الخطوة تزيل أي مسافات مخفية بالغلط في عناوين الإكسل
+                        const rowKeys = Object.keys(originalRow).reduce((acc, key) => {
+                            acc[key.trim()] = originalRow[key];
+                            return acc;
+                        }, {});
+                        
+                        // نتأكد أن الحقول الأساسية موجودة وغير فارغة
+                        return rowKeys['Name'] && rowKeys['rep_id'];
+                    });
+
+                    // 🛑 إذا لم يجد أي صيدلية صحيحة، يوقف العمل فوراً ولا يمسح القاعدة
+                    if(validRows.length === 0) {
+                        status.innerHTML = `
+                            ❌ تم إيقاف العملية لحماية البيانات!<br>
+                            <div class="warning-box">
+                                لم يتم العثور على أعمدة مطابقة.<br>
+                                تأكد أن السطر الأول يحتوي على <b>Name</b> و <b>rep_id</b> بشكل صحيح.<br>
+                                <b>(لم يتم حذف أي بيانات قديمة من النظام)</b>
+                            </div>`;
+                        status.style.color = "red";
+                        return; 
+                    }
+
+                    // 🗑️ إذا كان الملف سليماً، نبدأ الحذف
+                    status.innerHTML = "الملف سليم.. جاري حذف الصيدليات القديمة... 🗑️";
+                    status.style.color = "#004a99";
+                    
                     const snap = await getDocs(collection(db, "pharmacies"));
                     const deletePromises = [];
                     snap.forEach(d => {
@@ -77,29 +108,37 @@
                     });
                     await Promise.all(deletePromises);
 
-                    status.innerText = `جاري إضافة ${excelData.length} صيدلية جديدة...`;
+                    // ➕ إضافة البيانات الجديدة
+                    status.innerHTML = `جاري إضافة ${validRows.length} صيدلية جديدة... ⏳`;
                     const addPromises = [];
                     
-                    excelData.forEach(row => {
-                        // التحقق من الأعمدة المطلوبة (مع مراعاة حالة الأحرف في الإكسل)
-                        if(row.Name && row.rep_id) {
-                            addPromises.push(addDoc(collection(db, "pharmacies"), {
-                                name: String(row.Name).trim(),
-                                rep_id: String(row.rep_id).trim(),
-                                pharmacy_code: String(row.pharmacy_code || "-").trim(),
-                                supervisor: String(row.Supervisor || "-").trim(),
-                                area: String(row.Area || "-").trim()
-                            }));
-                        }
+                    validRows.forEach(originalRow => {
+                        // تنظيف المسافات من المفاتيح مرة أخرى
+                        const row = Object.keys(originalRow).reduce((acc, key) => {
+                            acc[key.trim()] = originalRow[key];
+                            return acc;
+                        }, {});
+
+                        addPromises.push(addDoc(collection(db, "pharmacies"), {
+                            name: String(row.Name || "").trim(),
+                            rep_id: String(row.rep_id || "").trim(),
+                            pharmacy_code: String(row.pharmacy_code || "-").trim(),
+                            supervisor: String(row.Supervisor || "-").trim(),
+                            area: String(row.Area || "-").trim()
+                        }));
                     });
 
                     await Promise.all(addPromises);
                     
-                    status.innerText = "✅ تم التحديث بنجاح مع كافة البيانات الإضافية!";
+                    status.innerHTML = `✅ تم التحديث بنجاح!<br>تمت إضافة (${validRows.length}) صيدلية إلى النظام.`;
                     status.style.color = "#10b981";
+                    
+                    // مسح الملف من الحقل بعد النجاح
+                    document.getElementById('excelFile').value = '';
+
                 } catch (error) {
                     console.error("Error during import:", error);
-                    status.innerText = "❌ حدث خطأ أثناء التحديث.";
+                    status.innerHTML = "❌ حدث خطأ غير متوقع أثناء معالجة البيانات.";
                     status.style.color = "red";
                 }
             };
