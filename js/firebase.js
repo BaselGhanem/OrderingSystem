@@ -13,7 +13,7 @@ import {
     updateDoc,       
     getDoc,         
     onSnapshot                         
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"; // 🟢 تم تعديل الرقم هنا
 
 // إعدادات الاتصال بقاعدة البيانات (كما هي بدون تغيير)
 const firebaseConfig = {
@@ -29,10 +29,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // 2. تهيئة Firestore مع تفعيل "وضع عدم الاتصال" (Offline Persistence)
-// هذا السطر هو العصب الأساسي الذي يجعل النظام يعمل في المستودعات أو المناطق بدون تغطية إنترنت
 const db = initializeFirestore(app, {
     localCache: persistentLocalCache({
-        // استخدام تبويبات متعددة لضمان عدم تعطل الكاش إذا فتح المستخدم النظام في أكثر من شاشة
         tabManager: persistentMultipleTabManager()
     })
 });
@@ -49,5 +47,5 @@ export {
     doc, 
     updateDoc,   
     getDoc,
-    onSnapshot    
+    onSnapshot  
 };
