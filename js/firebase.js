@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { 
-    initializeFirestore,               
-    persistentLocalCache,              
+    initializeFirestore,         
+    persistentLocalCache,        
     persistentMultipleTabManager,      
     collection, 
     getDocs, 
@@ -11,11 +11,11 @@ import {
     deleteDoc, 
     doc, 
     updateDoc,       
-    getDoc,         
+    getDoc,        
     onSnapshot                         
-} from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"; // 🟢 تم تعديل الرقم هنا
+} from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
-// إعدادات الاتصال بقاعدة البيانات (كما هي بدون تغيير)
+// إعدادات الاتصال بقاعدة البيانات
 const firebaseConfig = {
     apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
     authDomain: "dad-ordering-system.firebaseapp.com",
@@ -28,14 +28,14 @@ const firebaseConfig = {
 // 1. تهيئة التطبيق الأساسي
 const app = initializeApp(firebaseConfig);
 
-// 2. تهيئة Firestore مع تفعيل "وضع عدم الاتصال" (Offline Persistence)
+// 2. تهيئة Firestore مع تفعيل وضع عدم الاتصال (Offline Persistence)
 const db = initializeFirestore(app, {
     localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager()
     })
 });
 
-// 3. تصدير جميع الأدوات ليتم استخدامها في app.js
+// 3. تصدير الأدوات للاستخدام في app.js
 export { 
     db, 
     collection, 
