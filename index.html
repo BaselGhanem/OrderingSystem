@@ -2,181 +2,448 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <meta name="theme-color" content="#ffffff">
-    <meta name="description" content="نظام الطلبيات DAR ALDAWAA v2.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>نظام الطلبيات | DAR ALDAWAA v2.0</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web@2.0.2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text x='16' y='24' font-size='24' text-anchor='middle' fill='%230f3b5c'>📦</text></svg>">
-    <link rel="stylesheet" href="style-v2.css">
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
     
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text x='16' y='24' font-size='24' text-anchor='middle' fill='%230f3b5c'>📦</text></svg>">
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- منع الكاش -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
 </head>
 <body>
+    <!-- 🎨 خلفية متحركة -->
     <div class="animated-bg">
         <div class="bg-gradient-1"></div>
         <div class="bg-gradient-2"></div>
         <div class="bg-gradient-3"></div>
     </div>
 
+    <!-- مؤشر الحالة (الإنترنت) -->
     <div id="offline-banner" class="offline-banner">
         <div class="offline-content">
             <i class="ph ph-wifi-slash"></i>
-            <span>وضع بدون إنترنت - البيانات محفوظة محلياً</span>
+            <span>أنت في وضع عدم الاتصال • البيانات محفوظة محلياً</span>
         </div>
+        <i class="ph ph-x close-btn"></i>
     </div>
 
+    <!-- مؤشر الحفظ -->
     <div id="saving-indicator" class="saving-indicator">
         <div class="saving-spinner"></div>
-        <span>جارٍ الحفظ...</span>
+        <span>جارٍ الحفظ والمزامنة...</span>
     </div>
 
+    <!-- عنصر الإشعارات -->
     <div id="toast-container" class="toast-container"></div>
 
     <div class="app-wrapper">
+        <!-- الرأس -->
         <header class="app-header">
             <div class="header-content">
                 <div class="logo-section">
                     <div class="logo-icon">📦</div>
                     <div>
                         <h1>نظام الطلبيات</h1>
-                        <p class="version-badge">v2.0 محسّن</p>
+                        <p class="version-badge">v2.0 • تم تحديثه بالكامل</p>
                     </div>
                 </div>
                 <div class="header-actions" id="headerActions" style="display: none;">
-                    <button class="btn-icon-header" id="logoutBtn" title="خروج">
+                    <button class="btn-icon-header" id="notificationBtn" title="الإشعارات">
+                        <i class="ph ph-bell"></i>
+                        <span class="notification-badge" style="display: none;">0</span>
+                    </button>
+                    <button class="btn-icon-header" id="settingsBtn" title="الإعدادات">
+                        <i class="ph ph-gear"></i>
+                    </button>
+                    <button class="btn-icon-header" id="logoutBtn" title="تسجيل الخروج">
                         <i class="ph ph-sign-out"></i>
                     </button>
                 </div>
             </div>
 
+            <!-- الملخصات السريعة (Dashboard Stats) -->
+            <div class="header-stats" id="headerStats" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-icon pending">📋</div>
+                    <div class="stat-info">
+                        <span class="stat-label">قيد الانتظار</span>
+                        <span class="stat-value" id="statPending">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon completed">✓</div>
+                    <div class="stat-info">
+                        <span class="stat-label">مكتملة</span>
+                        <span class="stat-value" id="statCompleted">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon total">₪</div>
+                    <div class="stat-info">
+                        <span class="stat-label">الإجمالي</span>
+                        <span class="stat-value" id="statTotal">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- التبويبات الرئيسية -->
             <div class="navigation-tabs" id="navTabs" style="display: none;">
                 <button class="nav-tab active" data-screen="order-screen">
-                    <i class="ph ph-plus-circle"></i> طلب جديد
+                    <i class="ph ph-plus-circle"></i>
+                    <span>طلب جديد</span>
                 </button>
                 <button class="nav-tab" data-screen="orders-screen">
-                    <i class="ph ph-list-checks"></i> طلبياتي
+                    <i class="ph ph-list-checks"></i>
+                    <span>طلبياتي</span>
+                    <span class="tab-badge" id="ordersBadge" style="display: none;">0</span>
                 </button>
                 <button class="nav-tab" data-screen="reports-screen">
-                    <i class="ph ph-chart-line"></i> التقارير
+                    <i class="ph ph-chart-line"></i>
+                    <span>التقارير</span>
+                </button>
+                <button class="nav-tab" data-screen="manager-screen" id="managerTab" style="display: none;">
+                    <i class="ph ph-crown"></i>
+                    <span>الإدارة</span>
                 </button>
             </div>
         </header>
 
+        <!-- المحتوى الرئيسي -->
         <main class="app-main">
+            <!-- شاشة تسجيل الدخول -->
             <section id="login-screen" class="screen active">
                 <div class="login-container">
                     <div class="login-welcome">
                         <div class="welcome-icon">🔐</div>
-                        <h2>نظام الطلبيات v2.0</h2>
-                        <p>واجهة محسّنة وسريعة</p>
+                        <h2>أهلاً وسهلاً</h2>
+                        <p>نظام الطلبيات المتقدم - النسخة الثانية</p>
                     </div>
 
-                    <form class="login-form" onsubmit="return false;">
+                    <!-- تبويب المندوب -->
+                    <div class="login-tabs">
+                        <button class="login-tab-btn active" data-tab="rep-login">
+                            <i class="ph ph-user-circle"></i> المندوب
+                        </button>
+                        <button class="login-tab-btn" data-tab="admin-login">
+                            <i class="ph ph-lock-key"></i> الإدارة
+                        </button>
+                    </div>
+
+                    <!-- فورم المندوب -->
+                    <form id="rep-login-form" class="login-form active" onsubmit="return false;">
                         <div class="form-group">
-                            <label>المندوب</label>
+                            <label>اختر اسم المندوب</label>
                             <select id="repSelect" required>
-                                <option>جاري التحميل...</option>
+                                <option value="">جارٍ التحميل...</option>
                             </select>
+                            <small class="form-hint">اختر من القائمة أدناه</small>
                         </div>
 
-                        <div class="form-group" id="repPasswordGroup" style="display:none;">
+                        <div class="form-group" id="repPasswordGroup" style="display: none;">
                             <label>كلمة المرور</label>
-                            <input type="password" id="repPasswordInput" placeholder="••••••••">
+                            <div class="password-input-wrapper">
+                                <input type="password" id="repPasswordInput" placeholder="••••••••" autocomplete="current-password">
+                                <button type="button" class="toggle-password" id="toggleRepPassword">
+                                    <i class="ph ph-eye"></i>
+                                </button>
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="rememberRepPass">
+                                <label for="rememberRepPass">تذكر كلمة المرور</label>
+                            </div>
                         </div>
 
                         <div class="form-group">
-                            <label>الصيدلية</label>
-                            <input type="text" id="pharmacyInput" placeholder="ابحث..." disabled>
-                            <div id="pharmacySuggestions" class="autocomplete-list"></div>
+                            <label>الصيدلية المستهدفة</label>
+                            <div class="autocomplete-wrapper">
+                                <input type="text" id="pharmacyInput" placeholder="ابحث عن الصيدلية..." autocomplete="off" disabled>
+                                <div id="pharmacySuggestions" class="autocomplete-list"></div>
+                            </div>
                         </div>
 
                         <button type="button" id="startOrderBtn" class="btn-primary-large" disabled>
-                            ابدأ الطلبية
+                            <i class="ph ph-arrow-left"></i>
+                            <span>ابدأ إدخال الطلبية</span>
+                        </button>
+                    </form>
+
+                    <!-- فورم الإدارة -->
+                    <form id="admin-login-form" class="login-form" onsubmit="return false;">
+                        <div class="form-group">
+                            <label>اسم المدير</label>
+                            <input type="text" id="managerNameInput" placeholder="أدخل الاسم..." autocomplete="username">
+                        </div>
+
+                        <div class="form-group">
+                            <label>كلمة المرور الرئيسية</label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="adminPasswordInput" placeholder="••••••••" autocomplete="current-password">
+                                <button type="button" class="toggle-password" id="toggleAdminPassword">
+                                    <i class="ph ph-eye"></i>
+                                </button>
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="rememberAdmin">
+                                <label for="rememberAdmin">تذكر كلمة المرور</label>
+                            </div>
+                        </div>
+
+                        <button type="button" id="adminLoginBtn" class="btn-primary-large">
+                            <i class="ph ph-crown"></i>
+                            <span>دخول الإدارة</span>
                         </button>
                     </form>
 
                     <div class="login-footer">
-                        <p>✨ أداء فائق • 🔒 آمن • 📱 سريع</p>
+                        <p>نسخة مطورة بالكامل مع تحسينات الأداء والواجهة</p>
+                        <small>جميع البيانات محمية بـ Firebase</small>
                     </div>
                 </div>
             </section>
 
+            <!-- شاشة الطلبية الجديدة -->
             <section id="order-screen" class="screen">
                 <div class="order-container">
+                    <!-- رأس الطلبية -->
                     <div class="order-header-section">
                         <div class="order-meta">
                             <div class="meta-item">
                                 <span class="meta-label">المندوب</span>
-                                <span id="currentRepDisplay">-</span>
+                                <span class="meta-value" id="currentRepDisplay">-</span>
                             </div>
                             <div class="meta-item">
                                 <span class="meta-label">الصيدلية</span>
-                                <span id="currentPharmacyDisplay">-</span>
+                                <span class="meta-value" id="currentPharmacyDisplay">-</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">التاريخ</span>
+                                <span class="meta-value" id="currentDateDisplay">-</span>
                             </div>
                         </div>
-                        <button class="btn-secondary" id="changePharmacyBtn">
-                            <i class="ph ph-building"></i> تغيير
-                        </button>
+                        <div class="order-actions">
+                            <button class="btn-secondary" id="changePharmacyBtn">
+                                <i class="ph ph-building"></i> صيدلية أخرى
+                            </button>
+                            <button class="btn-secondary" id="printDraftBtn">
+                                <i class="ph ph-printer"></i> طباعة
+                            </button>
+                        </div>
                     </div>
 
+                    <!-- جدول الطلبية -->
                     <div class="order-table-wrapper">
                         <table class="order-table">
                             <thead>
                                 <tr>
-                                    <th>المنتج</th>
-                                    <th>الكمية</th>
-                                    <th>الهدية</th>
-                                    <th>ملاحظة</th>
-                                    <th></th>
+                                    <th class="col-product">المنتج</th>
+                                    <th class="col-qty">الكمية</th>
+                                    <th class="col-bonus">الهدية</th>
+                                    <th class="col-note">ملاحظة</th>
+                                    <th class="col-action"></th>
                                 </tr>
                             </thead>
                             <tbody id="orderBody"></tbody>
                         </table>
-                    </div>
-
-                    <div class="add-item-section">
-                        <input type="text" id="newProductInput" placeholder="اكتب المنتج...">
-                        <button type="button" id="addProductBtn" class="btn-icon-action">+</button>
-                    </div>
-
-                    <div class="order-summary">
-                        <textarea id="orderNoteInput" placeholder="ملاحظات..." rows="2"></textarea>
-                        <div class="stat-row">
-                            <span>المنتجات: <b id="itemCount">0</b></span>
-                            <span>الكمية: <b id="totalQty">0</b></span>
+                        <div class="table-empty" id="tableEmpty" style="display: none;">
+                            <i class="ph ph-inbox"></i>
+                            <p>لم تضف منتجات بعد</p>
+                            <small>ابدأ بإضافة أول منتج للطلبية</small>
                         </div>
                     </div>
 
+                    <!-- إضافة منتج جديد -->
+                    <div class="add-item-section">
+                        <div class="add-item-controls">
+                            <input type="text" id="newProductInput" placeholder="ابحث أو اكتب اسم المنتج..." autocomplete="off">
+                            <div id="productSuggestions" class="suggestions-dropdown"></div>
+                            <button type="button" id="addProductBtn" class="btn-icon-action">
+                                <i class="ph ph-plus-bold"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- الملاحظات والملخص -->
+                    <div class="order-summary">
+                        <div class="summary-notes">
+                            <label>ملاحظات الطلبية</label>
+                            <textarea id="orderNoteInput" placeholder="أضف أي ملاحظات مهمة للصيدلية..." rows="3"></textarea>
+                        </div>
+
+                        <div class="summary-stats">
+                            <div class="stat-row">
+                                <span>عدد المنتجات</span>
+                                <span id="itemCount">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <span>إجمالي الكمية</span>
+                                <span id="totalQty">0</span>
+                            </div>
+                            <div class="stat-row total">
+                                <span>الإجمالي</span>
+                                <span id="totalAmount">0 ₪</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- أزرار الإجراءات -->
                     <div class="order-actions-footer">
-                        <button type="button" id="saveDraftBtn" class="btn-secondary-large">حفظ</button>
-                        <button type="button" id="submitOrderBtn" class="btn-primary-large">إرسال</button>
+                        <button type="button" id="saveDraftBtn" class="btn-secondary-large">
+                            <i class="ph ph-floppy-disk"></i> حفظ كمسودة
+                        </button>
+                        <button type="button" id="submitOrderBtn" class="btn-primary-large">
+                            <i class="ph ph-paper-plane"></i> إرسال الطلبية
+                        </button>
                     </div>
                 </div>
             </section>
 
+            <!-- شاشة الطلبيات -->
             <section id="orders-screen" class="screen">
                 <div class="orders-container">
-                    <h3>طلبياتي</h3>
-                    <div id="ordersList"></div>
+                    <div class="orders-header">
+                        <h3>طلبياتي</h3>
+                        <div class="orders-filters">
+                            <input type="search" id="ordersSearchInput" placeholder="بحث سريع...">
+                            <select id="ordersFilterStatus">
+                                <option value="">جميع الحالات</option>
+                                <option value="pending">قيد الانتظار</option>
+                                <option value="completed">مكتملة</option>
+                                <option value="rejected">مرفوضة</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="orders-list" id="ordersList"></div>
+                    <div class="empty-state" id="ordersEmpty" style="display: none;">
+                        <i class="ph ph-smiley"></i>
+                        <p>لا توجد طلبيات حالياً</p>
+                    </div>
                 </div>
             </section>
 
+            <!-- شاشة التقارير -->
             <section id="reports-screen" class="screen">
                 <div class="reports-container">
-                    <h3>التقارير</h3>
-                    <div>البيانات محفوظة محلياً</div>
+                    <div class="reports-header">
+                        <h3>التقارير والإحصائيات</h3>
+                        <div class="reports-toolbar">
+                            <input type="date" id="reportsFromDate">
+                            <input type="date" id="reportsToDate">
+                            <button id="generateReportBtn" class="btn-secondary">
+                                <i class="ph ph-arrow-clockwise"></i> تحديث
+                            </button>
+                            <button id="exportReportBtn" class="btn-secondary">
+                                <i class="ph ph-download"></i> تصدير
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="reports-content">
+                        <div class="report-card">
+                            <h4>الطلبيات حسب الحالة</h4>
+                            <div id="statusChart" class="chart-container"></div>
+                        </div>
+
+                        <div class="report-card">
+                            <h4>أعلى الصيدليات</h4>
+                            <div id="pharmacyChart" class="chart-container"></div>
+                        </div>
+
+                        <div class="report-card full-width">
+                            <h4>جدول الطلبيات</h4>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>التاريخ</th>
+                                            <th>الصيدلية</th>
+                                            <th>عدد المنتجات</th>
+                                            <th>الحالة</th>
+                                            <th>الإجراء</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- شاشة الإدارة -->
+            <section id="manager-screen" class="screen">
+                <div class="manager-container">
+                    <div class="manager-header">
+                        <h3>لوحة التحكم الإدارية</h3>
+                        <div class="manager-toolbar">
+                            <select id="managerRepFilter">
+                                <option value="">جميع المندوبين</option>
+                            </select>
+                            <input type="date" id="managerFromDate">
+                            <input type="date" id="managerToDate">
+                            <button id="managerRefreshBtn" class="btn-secondary">
+                                <i class="ph ph-arrow-clockwise"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="manager-stats">
+                        <div class="stat-card manager-stat">
+                            <span class="stat-label">إجمالي الطلبيات</span>
+                            <span class="stat-value" id="managerTotalOrders">0</span>
+                        </div>
+                        <div class="stat-card manager-stat">
+                            <span class="stat-label">قيد الانتظار</span>
+                            <span class="stat-value pending" id="managerPendingOrders">0</span>
+                        </div>
+                        <div class="stat-card manager-stat">
+                            <span class="stat-label">مكتملة</span>
+                            <span class="stat-value success" id="managerCompletedOrders">0</span>
+                        </div>
+                    </div>
+
+                    <div class="manager-content" id="managerContent"></div>
                 </div>
             </section>
         </main>
     </div>
 
-    <script src="app-v2.js"></script>
+    <!-- مودالات -->
+    <div id="confirmDialog" class="modal">
+        <div class="modal-content confirm-modal">
+            <div class="modal-header">
+                <h3 id="confirmTitle">تأكيد</h3>
+                <button class="btn-icon" onclick="closeModal('confirmDialog')">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('confirmDialog')">إلغاء</button>
+                <button class="btn-primary" id="confirmBtn">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- سكريبت التطبيق -->
+    <script type="module" src="app.js"></script>
 </body>
 </html>
