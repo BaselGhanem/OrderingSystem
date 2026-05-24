@@ -98,9 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
-    // 🔐 التحديث الأمني: إزالة الباسوورد الصريح من الـ LocalStorage واستخدام Token
     const legacyPass = localStorage.getItem('adminPassword');
-    if(legacyPass) localStorage.removeItem('adminPassword'); // تنظيف القديم
+    if(legacyPass) localStorage.removeItem('adminPassword'); 
 
     const savedManagerName = localStorage.getItem('managerName') || sessionStorage.getItem('managerName');
     const secureToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
@@ -112,58 +111,50 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // ربط زر الطباعة
-// ربط زر الطباعة
-    const printBtn = document.getElementById('printDraftBtn');
-    if(printBtn) {
-        printBtn.addEventListener('click', () => { window.print(); });
-    }
+    const printBtn = document.getElementById('printDraftBtn');
+    if(printBtn) {
+        printBtn.addEventListener('click', () => { window.print(); });
+    }
 
-    // 🟢 زر الانتقال لطلب صيدلية أخرى دون فقدان الجلسة
-    const changePharmacyBtn = document.getElementById('changePharmacyBtn');
-    if(changePharmacyBtn) {
-        changePharmacyBtn.addEventListener('click', () => {
-            document.getElementById('orderScreen').style.display = 'none';
-            document.getElementById('loginScreen').style.display = 'block';
-            document.getElementById('userInfo').style.display = 'none';
-            const authBox = document.querySelector('#loginScreen .auth-box');
-            if (authBox) authBox.style.display = 'block';
-            
-            // تصفير حقل الصيدلية ليختار من جديد وترك المندوب كما هو
-            const pharmInput = document.getElementById('pharmacyInput');
-            if(pharmInput) {
-                pharmInput.value = '';
-                pharmInput.focus();
-            }
-            document.getElementById('startOrderBtn').disabled = true;
-        });
-    }
-    
-    // 🟢 ربط الفلاتر الخاصة بجميع طلبيات الشركة (التي كانت لا تعمل)
-    document.getElementById('filterAllRep')?.addEventListener('input', filterAllOrders);
-    document.getElementById('filterAllPharmacy')?.addEventListener('input', filterAllOrders);
-    document.getElementById('filterAllStatus')?.addEventListener('change', filterAllOrders);
+    const changePharmacyBtn = document.getElementById('changePharmacyBtn');
+    if(changePharmacyBtn) {
+        changePharmacyBtn.addEventListener('click', () => {
+            document.getElementById('orderScreen').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'block';
+            document.getElementById('userInfo').style.display = 'none';
+            const authBox = document.querySelector('#loginScreen .auth-box');
+            if (authBox) authBox.style.display = 'block';
+            
+            const pharmInput = document.getElementById('pharmacyInput');
+            if(pharmInput) {
+                pharmInput.value = '';
+                pharmInput.focus();
+            }
+            document.getElementById('startOrderBtn').disabled = true;
+        });
+    }
+    
+    document.getElementById('filterAllRep')?.addEventListener('input', filterAllOrders);
+    document.getElementById('filterAllPharmacy')?.addEventListener('input', filterAllOrders);
+    document.getElementById('filterAllStatus')?.addEventListener('change', filterAllOrders);
 });
-// 🟢 إضافة: دالة لضبط التاريخ الافتراضي على الشهر الحالي
+
 function setDefaultMonthFilter() {
     const date = new Date();
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     
-    // أول يوم في الشهر
     const firstDay = `${y}-${m}-01`;
-    
-    // آخر يوم في الشهر
     const lastDayDate = new Date(y, date.getMonth() + 1, 0);
     const lastDay = `${y}-${m}-${String(lastDayDate.getDate()).padStart(2, '0')}`;
 
     const fromInput = document.getElementById('managerFilterFrom');
     const toInput = document.getElementById('managerFilterTo');
 
-    // تعيين التواريخ فقط إذا كانت الحقول فارغة (لعدم الكتابة فوق فلتر المستخدم)
     if (fromInput && !fromInput.value) fromInput.value = firstDay;
     if (toInput && !toInput.value) toInput.value = lastDay;
 }
+
 function initializeManagerView(managerName) {
     const repsUnder = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === managerName);
     const filterSelect = document.getElementById('managerRepFilter');
@@ -250,7 +241,7 @@ const repManagerMap = {
     "محمد ابو يامين": "عبدالله الناطور",
     "مراد الظاهر": "عبدالله الناطور"
 };
-// 🟢 إضافة: كلمات سر المندوبين المشفرة (Base64) لحمايتها من القراءة المباشرة
+
 const repPasswordsMap = {
     "قضايا": "MjAyNg==",
     "LPO": "MjAyNg==",
@@ -271,6 +262,7 @@ const repPasswordsMap = {
     "مراد عمر": "MTUxMA==",
     "محمد عبدربه": "NDAyOQ=="
 };
+
 let productsList = [];
 let currentRepId = null;
 let currentRepName = null;
@@ -312,18 +304,20 @@ const startOrderBtn = document.getElementById('startOrderBtn');
 const orderBody = document.getElementById('orderBody');
 const addRowBtn = document.getElementById('addRowBtn');
 
-addRowBtn.onclick = () => {
-    const productInputs = document.querySelectorAll('#orderBody .product-input');
-    if (productInputs.length > 0) {
-        const lastInput = productInputs[productInputs.length - 1];
-        if (lastInput.value.trim() === "") {
-            showToast("الرجاء اختيار الصنف الحالي أولاً قبل إضافة صنف جديد.", "warning");
-            lastInput.focus(); 
-            return;
+if(addRowBtn) {
+    addRowBtn.onclick = () => {
+        const productInputs = document.querySelectorAll('#orderBody .product-input');
+        if (productInputs.length > 0) {
+            const lastInput = productInputs[productInputs.length - 1];
+            if (lastInput.value.trim() === "") {
+                showToast("الرجاء اختيار الصنف الحالي أولاً قبل إضافة صنف جديد.", "warning");
+                lastInput.focus(); 
+                return;
+            }
         }
-    }
-    addNewRow();
-};
+        addNewRow();
+    };
+}
 
 const grandTotalEl = document.getElementById('grandTotal');
 const submitOrderBtn = document.getElementById('submitOrderBtn');
@@ -439,6 +433,7 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
 
 async function loadInitialData() {
     try {
+        if(!repSelect) return;
         repSelect.innerHTML = '<option value="">⏳ جاري تحميل البيانات...</option>';
         repSelect.disabled = true;
 
@@ -481,10 +476,10 @@ async function loadInitialData() {
         
     } catch(e) { 
         console.error("خطأ في تحميل البيانات الأولية:", e);
-        repSelect.innerHTML = '<option value="">❌ فشل التحميل</option>';
+        if(repSelect) repSelect.innerHTML = '<option value="">❌ فشل التحميل</option>';
         showToast("حدث خطأ في تحميل البيانات. يرجى تحديث الصفحة.", "error");
     } finally {
-        repSelect.disabled = false;
+        if(repSelect) repSelect.disabled = false;
     }
 }
 
@@ -538,7 +533,6 @@ function addNewRow() {
         }
     });
 
-    // 💡 ميزة: حساب نسبة البونص تلقائياً
     function calcBonus() {
         const qVal = parseFloat(q.value) || 0;
         const bVal = parseFloat(b.value) || 0;
@@ -563,7 +557,7 @@ function addNewRow() {
         updateGrandTotal(); 
     };
 
-    orderBody.appendChild(tr);
+    if(orderBody) orderBody.appendChild(tr);
 }
 
 function updateGrandTotal() {
@@ -572,51 +566,63 @@ function updateGrandTotal() {
         g += parseFloat(td.innerText) || 0;
     });
     if (grandTotalEl) grandTotalEl.innerText = g.toFixed(2);
-    
-    // تشغيل الحفظ التلقائي عند أي تحديث في الفاتورة
     autoSaveDraft();
 }
 
-repSelect.onchange = async (e) => {
-    if (!e.target.value) {
-        document.getElementById('repPasswordGroup').style.display = 'none';
-        return;
-    }
-    
-    // 🟢 إظهار حقل الرقم السري عند اختيار المندوب
-    document.getElementById('repPasswordGroup').style.display = 'block';
-    
-    // 🟢 استرجاع كلمة المرور إذا كانت محفوظة
-    const savedPass = localStorage.getItem('savedRepPass_' + e.target.value);
-    if (savedPass) {
-        document.getElementById('repPasswordInput').value = savedPass;
-        if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = true;
-    } else {
-        document.getElementById('repPasswordInput').value = '';
-        if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = false;
-    }
+if(repSelect) {
+    repSelect.onchange = async (e) => {
+        if (!e.target.value) {
+            document.getElementById('repPasswordGroup').style.display = 'none';
+            return;
+        }
+        
+        document.getElementById('repPasswordGroup').style.display = 'block';
+        
+        const savedPass = localStorage.getItem('savedRepPass_' + e.target.value);
+        if (savedPass) {
+            document.getElementById('repPasswordInput').value = savedPass;
+            if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = true;
+        } else {
+            document.getElementById('repPasswordInput').value = '';
+            if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = false;
+        }
 
-    pharmacyInput.value = '';
-    pharmacyInput.placeholder = 'جاري التحميل...';
-    try {
-        const q = query(collection(db, "pharmacies"), where("rep_id", "==", e.target.value));
-        const snap = await getDocs(q);
-        let pharmacyNames = [];
-        currentPharmaciesData = []; 
-        snap.forEach(d => {
-            currentPharmaciesData.push(d.data()); 
-            pharmacyNames.push(d.data().name);
-        });
-        setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => startOrderBtn.disabled = false);
-        pharmacyInput.disabled = false;
-        pharmacyInput.placeholder = 'ابحث او اختر الصيدلية...';
-    } catch (error) {
-        pharmacyInput.placeholder = 'خطأ في التحميل، الرجاء المحاولة مرة أخرى';
-    }
-};
-pharmacyInput.oninput = () => { startOrderBtn.disabled = !pharmacyInput.value.trim(); };
+        pharmacyInput.value = '';
+        pharmacyInput.placeholder = 'جاري التحميل...';
+        try {
+            const q = query(collection(db, "pharmacies"), where("rep_id", "==", e.target.value));
+            const snap = await getDocs(q);
+            let pharmacyNames = [];
+            currentPharmaciesData = []; 
+            snap.forEach(d => {
+                currentPharmaciesData.push(d.data()); 
+                pharmacyNames.push(d.data().name);
+            });
+            setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => startOrderBtn.disabled = false);
+            pharmacyInput.disabled = false;
+            pharmacyInput.placeholder = 'ابحث او اختر الصيدلية...';
+        } catch (error) {
+            pharmacyInput.placeholder = 'خطأ في التحميل، الرجاء المحاولة مرة أخرى';
+        }
+    };
+}
+
+if(pharmacyInput) {
+    pharmacyInput.oninput = () => { startOrderBtn.disabled = !pharmacyInput.value.trim(); };
+    pharmacyInput.addEventListener('blur', validatePharmacyInput);
+    pharmacyInput.addEventListener('input', function() {
+        const isValid = currentPharmaciesData.some(p => p.name === this.value.trim());
+        if (isValid) {
+            this.classList.remove('input-error');
+            startOrderBtn.disabled = false;
+        } else {
+            startOrderBtn.disabled = true;
+        }
+    });
+}
 
 function validatePharmacyInput() {
+    if(!pharmacyInput) return false;
     const pharmacyName = pharmacyInput.value.trim();
     const isValid = pharmacyName !== "" && currentPharmaciesData.some(p => p.name === pharmacyName);
     
@@ -633,268 +639,248 @@ function validatePharmacyInput() {
     return isValid;
 }
 
-pharmacyInput.addEventListener('blur', validatePharmacyInput);
-pharmacyInput.addEventListener('input', function() {
-    const isValid = currentPharmaciesData.some(p => p.name === this.value.trim());
-    if (isValid) {
-        this.classList.remove('input-error');
-        startOrderBtn.disabled = false;
-    } else {
-        startOrderBtn.disabled = true;
-    }
-});
+if(startOrderBtn) {
+    startOrderBtn.onclick = async (e) => { 
+        e.preventDefault(); 
+        if (productsList.length === 0) { 
+            showToast("الرجاء الانتظار... يتم تحميل المنتجات.", "info"); 
+            return; 
+        }
+        const selectedRepNameText = repSelect.options[repSelect.selectedIndex].text;
+        const repPassInput = document.getElementById('repPasswordInput');
+        const enteredPass = repPassInput.value.trim();
+        const expectedHash = repPasswordsMap[selectedRepNameText];
 
-startOrderBtn.onclick = async (e) => { e.preventDefault(); // 🟢 أضف هذا السطر لمنع إرسال الفورم...
-                                      if (productsList.length === 0) { 
-        showToast("الرجاء الانتظار... يتم تحميل المنتجات.", "info"); 
-        return; 
-    }
-    const selectedRepNameText = repSelect.options[repSelect.selectedIndex].text;
-    const repPassInput = document.getElementById('repPasswordInput');
-    const enteredPass = repPassInput.value.trim();
-    const expectedHash = repPasswordsMap[selectedRepNameText];
+        if (!enteredPass) {
+            repPassInput.classList.add('input-error');
+            return showToast("الرجاء إدخال الرقم السري الخاص بك.", "warning");
+        }
 
-    if (!enteredPass) {
-        repPassInput.classList.add('input-error');
-        return showToast("الرجاء إدخال الرقم السري الخاص بك.", "warning");
-    }
-
-if (expectedHash && btoa(enteredPass) !== expectedHash) {
-        repPassInput.classList.add('input-error');
-        return showToast("الرقم السري للمندوب غير صحيح!", "error");
-    }
-    
-    repPassInput.classList.remove('input-error');
-    // 🟢 حفظ كلمة المرور إذا كان خيار التذكر مفعلاً
-    if (document.getElementById('rememberRepPass') && document.getElementById('rememberRepPass').checked) {
-        localStorage.setItem('savedRepPass_' + repSelect.value, enteredPass);
-    } else {
-        localStorage.removeItem('savedRepPass_' + repSelect.value);
-        repPassInput.value = ''; // تنظيف الحقل كإجراء أمني إذا لم يطلب التذكر
-    }
-    const pharmacyName = pharmacyInput.value.trim();
-    const selectedPharm = currentPharmaciesData.find(p => p.name === pharmacyName);
-    
-    if (!selectedPharm) {
-        pharmacyInput.classList.add('input-error');
-        showToast("الرجاء اختيار صيدلية صحيحة من القائمة حصراً.", "error");
-        return;
-    }
-    
-    currentRepId = repSelect.value;
-    currentRepName = repSelect.options[repSelect.selectedIndex].text;
-    saveRepSession(currentRepId, currentRepName);
-    currentPharmacyName = pharmacyName;
-    currentPharmacyCode = selectedPharm.pharmacy_code || "-";
-    
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('orderScreen').style.display = 'block';
-    document.getElementById('userInfo').style.display = 'flex';
-    document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${currentRepName}</b>`;
-    
-    // 💡 ميزة: زر عرض سجل الصيدلية
-    const pharmHeader = document.getElementById('orderPharmacyName');
-    pharmHeader.innerHTML = `${currentPharmacyName} 
-        <button id="showPharmHistoryBtn" class="btn-icon" style="font-size: 0.8rem; padding: 4px 8px; margin-right: 10px;" title="تاريخ آخر طلبية">
-            <i class="ph ph-clock-counter-clockwise"></i> السجل
-        </button>`;
+        if (expectedHash && btoa(enteredPass) !== expectedHash) {
+            repPassInput.classList.add('input-error');
+            return showToast("الرقم السري للمندوب غير صحيح!", "error");
+        }
         
-document.getElementById('showPharmHistoryBtn').onclick = async () => {
-        showToast("جاري جلب السجل التاريخي للصيدلية...", "info");
-        try {
-            const qFilter = query(collection(db, "orders"), where("pharmacyName", "==", currentPharmacyName));
-            const snap = await getDocs(qFilter);
-            let history = [];
-            snap.forEach(d => history.push({ id: d.id, ...d.data() }));
+        repPassInput.classList.remove('input-error');
+        if (document.getElementById('rememberRepPass') && document.getElementById('rememberRepPass').checked) {
+            localStorage.setItem('savedRepPass_' + repSelect.value, enteredPass);
+        } else {
+            localStorage.removeItem('savedRepPass_' + repSelect.value);
+            repPassInput.value = ''; 
+        }
+        const pharmacyName = pharmacyInput.value.trim();
+        const selectedPharm = currentPharmaciesData.find(p => p.name === pharmacyName);
+        
+        if (!selectedPharm) {
+            pharmacyInput.classList.add('input-error');
+            showToast("الرجاء اختيار صيدلية صحيحة من القائمة حصراً.", "error");
+            return;
+        }
+        
+        currentRepId = repSelect.value;
+        currentRepName = repSelect.options[repSelect.selectedIndex].text;
+        saveRepSession(currentRepId, currentRepName);
+        currentPharmacyName = pharmacyName;
+        currentPharmacyCode = selectedPharm.pharmacy_code || "-";
+        
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('orderScreen').style.display = 'block';
+        document.getElementById('userInfo').style.display = 'flex';
+        document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${currentRepName}</b>`;
+        
+        const pharmHeader = document.getElementById('orderPharmacyName');
+        pharmHeader.innerHTML = `${currentPharmacyName} 
+            <button id="showPharmHistoryBtn" class="btn-icon" style="font-size: 0.8rem; padding: 4px 8px; margin-right: 10px;" title="تاريخ آخر طلبية">
+                <i class="ph ph-clock-counter-clockwise"></i> السجل
+            </button>`;
             
-            if(history.length === 0) {
-                 showToast("لا توجد طلبيات سابقة لهذه الصيدلية.", "warning");
-                 return;
+        document.getElementById('showPharmHistoryBtn').onclick = async () => {
+            showToast("جاري جلب السجل التاريخي للصيدلية...", "info");
+            try {
+                const qFilter = query(collection(db, "orders"), where("pharmacyName", "==", currentPharmacyName));
+                const snap = await getDocs(qFilter);
+                let history = [];
+                snap.forEach(d => history.push({ id: d.id, ...d.data() }));
+                
+                if(history.length === 0) {
+                     showToast("لا توجد طلبيات سابقة لهذه الصيدلية.", "warning");
+                     return;
+                }
+                
+                history.sort((a,b) => b.createdAt.toDate() - a.createdAt.toDate());
+                
+                const historyBody = document.getElementById('pharmacyHistoryBody');
+                historyBody.innerHTML = '';
+                document.getElementById('historyModalSubtitle').innerText = `صيدلية ${currentPharmacyName}`;
+                
+                history.forEach(o => {
+                    const tr = document.createElement('tr');
+                    tr.className = `row-${o.status}`; 
+                    const displayDate = o.createdAt?.toDate ? o.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
+                    
+                    tr.innerHTML = `
+                        <td>${o.id.substring(0,6).toUpperCase()}</td>
+                        <td>${displayDate}</td>
+                        <td>${o.repName || '-'}</td>
+                        <td>${(parseFloat(o.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ا</td>
+                        <td><span class="status-badge ${o.status}">${o.status === 'approved' ? 'موافق عليه' : (o.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
+                        <td><button class="action-btn edit-btn btn-view-history" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
+                    `;
+                    
+                    tr.querySelector('.btn-view-history').onclick = () => {
+                        showOrderDetails(o); 
+                    };
+                    
+                    historyBody.appendChild(tr);
+                });
+                
+                document.getElementById('pharmacyHistoryModal').style.display = 'flex';
+                
+            } catch(e) {
+                showToast("تعذر جلب السجل، تأكد من الاتصال.", "error");
             }
-            
-            // ترتيب الطلبيات من الأحدث للأقدم
-            history.sort((a,b) => b.createdAt.toDate() - a.createdAt.toDate());
-            
-            // تعبئة النافذة المنبثقة الجديدة
-            const historyBody = document.getElementById('pharmacyHistoryBody');
-            historyBody.innerHTML = '';
-            document.getElementById('historyModalSubtitle').innerText = `صيدلية ${currentPharmacyName}`;
-            
-            history.forEach(o => {
-                const tr = document.createElement('tr');
-                tr.className = `row-${o.status}`; // تلوين الصف حسب الحالة
-                const displayDate = o.createdAt?.toDate ? o.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
+        };    
+        
+        const draftKey = `draft_${currentRepId}_${currentPharmacyName}`;
+        const draftStr = localStorage.getItem(draftKey);
+        orderBody.innerHTML = '';
+        
+        if(draftStr) {
+            try {
+                const draft = JSON.parse(draftStr);
+                if(draft.items && draft.items.length > 0) {
+                    showToast("تم استرجاع مسودة غير مكتملة لهذه الصيدلية.", "info");
+                    draft.items.forEach(item => {
+                        addNewRow(); 
+                        const lastRow = orderBody.lastElementChild;
+                        lastRow.querySelector('.product-input').value = item.name;
+                        lastRow.querySelector('.qty-input').value = item.qty;
+                        lastRow.querySelector('.bonus-input').value = item.bonus;
+                        lastRow.querySelector('.item-note-input').value = item.note;
+                        
+                        const prod = productsList.find(pr => pr.name === item.name); 
+                        const pr = prod ? parseFloat(prod.price) : 0; 
+                        lastRow.querySelector('.price-cell').innerText = pr.toFixed(2); 
+                        lastRow.querySelector('.row-total').innerText = (pr * item.qty).toFixed(2);
+                        lastRow.querySelector('.qty-input').dispatchEvent(new Event('input')); 
+                    });
+                    if(draft.note) document.getElementById('orderNoteInput').value = draft.note;
+                    updateGrandTotal();
+                } else {
+                   addNewRow();
+                }
+            } catch(e) { addNewRow(); }
+        } else {
+            addNewRow();
+        }
+        
+        document.getElementById('navMyOrdersBtn').style.display = 'inline-block';
+        document.getElementById('navReportsBtn').style.display = 'inline-block';
+        document.getElementById('orderNoteInput').addEventListener('input', autoSaveDraft);
+    };
+}
+
+if(submitOrderBtn) {
+    submitOrderBtn.onclick = async () => {
+        if (!navigator.onLine) {
+            showToast("أنت في وضع عدم الاتصال (Offline). لا يمكن إرسال الطلبية الآن.", "error");
+            return;
+        }
+
+        const items = [];
+        let invalidItem = false;
+
+        document.querySelectorAll('#orderBody tr').forEach(r => {
+            const s = r.querySelector('.product-input');
+            if (s && s.value.trim() !== "") {
+                const isValid = productsList.some(prod => prod.name === s.value.trim());
                 
-                tr.innerHTML = `
-                    <td>${o.id.substring(0,6).toUpperCase()}</td>
-                    <td>${displayDate}</td>
-                    <td>${o.repName || '-'}</td>
-                    <td>${(parseFloat(o.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ا</td>
-                    <td><span class="status-badge ${o.status}">${o.status === 'approved' ? 'موافق عليه' : (o.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
-                    <td><button class="action-btn edit-btn btn-view-history" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
-                `;
-                
-                // عند الضغط على زر العين، سيفتح تفاصيل الفاتورة (النافذة الحالية)
-                tr.querySelector('.btn-view-history').onclick = () => {
-                    showOrderDetails(o); 
-                };
-                
-                historyBody.appendChild(tr);
+                if (!isValid) {
+                    invalidItem = true;
+                    s.classList.add('input-error');
+                } else {
+                    s.classList.remove('input-error'); 
+                    items.push({
+                        name: s.value,
+                        qty: r.querySelector('.qty-input').value,
+                        bonus: r.querySelector('.bonus-input').value || 0,
+                        price: r.querySelector('.price-cell').innerText,
+                        total: r.querySelector('.row-total').innerText,
+                        note: r.querySelector('.item-note-input').value.trim()
+                    });
+                }
+            }
+        });
+
+        if (invalidItem) {
+            return showToast("يوجد أصناف غير صحيحة، يرجى اختيار الصنف من القائمة حصراً.", "error");
+        }
+
+        if (items.length === 0) return showToast("لا يمكن إرسال طلبية فارغة!", "warning");
+        
+        const orderNoteEl = document.getElementById('orderNoteInput');
+        const orderNoteValue = orderNoteEl ? orderNoteEl.value.trim() : "";
+
+        try {
+            submitOrderBtn.disabled = true;
+            submitOrderBtn.classList.add('btn-loading');
+            
+            const indicator = document.getElementById('saving-indicator');
+            if(indicator) indicator.classList.add('active');
+
+            await addDoc(collection(db, "orders"), {
+                repId: currentRepId,
+                repName: currentRepName,
+                managerName: getManagerName(currentRepName),
+                pharmacyName: currentPharmacyName,
+                pharmacyCode: currentPharmacyCode, 
+                items: items,
+                orderNote: orderNoteValue,
+                grandTotal: parseFloat(grandTotalEl.innerText),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                status: isAdmin ? "approved" : "pending",
             });
             
-            // إظهار النافذة
-            document.getElementById('pharmacyHistoryModal').style.display = 'flex';
-            
-        } catch(e) {
-            showToast("تعذر جلب السجل، تأكد من الاتصال.", "error");
-        }
-    };    
-    // 💡 ميزة: استرجاع الحفظ التلقائي (Draft)
-    const draftKey = `draft_${currentRepId}_${currentPharmacyName}`;
-    const draftStr = localStorage.getItem(draftKey);
-    orderBody.innerHTML = '';
-    
-    if(draftStr) {
-        try {
-            const draft = JSON.parse(draftStr);
-            if(draft.items && draft.items.length > 0) {
-                showToast("تم استرجاع مسودة غير مكتملة لهذه الصيدلية.", "info");
-                draft.items.forEach(item => {
-                    addNewRow(); 
-                    const lastRow = orderBody.lastElementChild;
-                    lastRow.querySelector('.product-input').value = item.name;
-                    lastRow.querySelector('.qty-input').value = item.qty;
-                    lastRow.querySelector('.bonus-input').value = item.bonus;
-                    lastRow.querySelector('.item-note-input').value = item.note;
-                    
-                    const prod = productsList.find(pr => pr.name === item.name); 
-                    const pr = prod ? parseFloat(prod.price) : 0; 
-                    lastRow.querySelector('.price-cell').innerText = pr.toFixed(2); 
-                    lastRow.querySelector('.row-total').innerText = (pr * item.qty).toFixed(2);
-                    lastRow.querySelector('.qty-input').dispatchEvent(new Event('input')); // Recalc bonus
-                });
-                if(draft.note) document.getElementById('orderNoteInput').value = draft.note;
-                updateGrandTotal();
+            clearDraft(); 
+
+            const successMessage = isAdmin 
+                ? "تم تسجيل الطلبية واعتمادها بنجاح." 
+                : "تم ارسال الطلبية بنجاح، في انتظار موافقة المدير.";
+            showToast(successMessage, "success");
+
+            if (isAdmin) {
+                document.getElementById('orderScreen').style.display = 'none';
+                document.getElementById('managerScreen').style.display = 'block';
+                loadManagerOrders(); 
             } else {
-               addNewRow();
+                document.getElementById('orderScreen').style.display = 'none';
+                document.getElementById('myOrdersScreen').style.display = 'block';
+                loadMyOrders();
             }
-        } catch(e) { addNewRow(); }
-    } else {
-        addNewRow();
-    }
-    
-    document.getElementById('navMyOrdersBtn').style.display = 'inline-block';
-    document.getElementById('navReportsBtn').style.display = 'inline-block';
-    
-    document.getElementById('orderNoteInput').addEventListener('input', autoSaveDraft);
-};
-
-const originalRepOnChange = repSelect.onchange;
-repSelect.onchange = async (e) => {
-    if (originalRepOnChange) await originalRepOnChange(e);
-    startOrderBtn.disabled = true;
-    pharmacyInput.classList.remove('input-error');
-    setTimeout(() => { validatePharmacyInput(); }, 100);
-};
-
-submitOrderBtn.onclick = async () => {
-    if (!navigator.onLine) {
-        showToast("أنت في وضع عدم الاتصال (Offline). لا يمكن إرسال الطلبية الآن.", "error");
-        return;
-    }
-
-    const items = [];
-    let invalidItem = false;
-
-    document.querySelectorAll('#orderBody tr').forEach(r => {
-        const s = r.querySelector('.product-input');
-        if (s && s.value.trim() !== "") {
-            const isValid = productsList.some(prod => prod.name === s.value.trim());
             
-            if (!isValid) {
-                invalidItem = true;
-                s.classList.add('input-error');
-            } else {
-                s.classList.remove('input-error'); 
-                items.push({
-                    name: s.value,
-                    qty: r.querySelector('.qty-input').value,
-                    bonus: r.querySelector('.bonus-input').value || 0,
-                    price: r.querySelector('.price-cell').innerText,
-                    total: r.querySelector('.row-total').innerText,
-                    note: r.querySelector('.item-note-input').value.trim()
-                });
-            }
+            orderBody.innerHTML = '';
+            grandTotalEl.innerText = '0.00';
+            if(orderNoteEl) orderNoteEl.value = '';
+            addNewRow();
+            
+            document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+            document.getElementById('navMyOrdersBtn').classList.add('active');
+        } catch(e) { 
+            showToast("خطأ في الارسال، يرجى المحاولة لاحقاً.", "error"); 
+        } finally {
+            submitOrderBtn.disabled = false; 
+            submitOrderBtn.classList.remove('btn-loading');
+            const indicator = document.getElementById('saving-indicator');
+            if(indicator) indicator.classList.remove('active');
         }
-    });
-
-    if (invalidItem) {
-        return showToast("يوجد أصناف غير صحيحة، يرجى اختيار الصنف من القائمة حصراً.", "error");
-    }
-
-    if (items.length === 0) return showToast("لا يمكن إرسال طلبية فارغة!", "warning");
-    
-    const orderNoteEl = document.getElementById('orderNoteInput');
-    const orderNoteValue = orderNoteEl ? orderNoteEl.value.trim() : "";
-
-    try {
-        submitOrderBtn.disabled = true;
-        submitOrderBtn.classList.add('btn-loading');
-        
-        const indicator = document.getElementById('saving-indicator');
-        if(indicator) indicator.classList.add('active');
-
-        await addDoc(collection(db, "orders"), {
-            repId: currentRepId,
-            repName: currentRepName,
-            managerName: getManagerName(currentRepName),
-            pharmacyName: currentPharmacyName,
-            pharmacyCode: currentPharmacyCode, 
-            items: items,
-            orderNote: orderNoteValue,
-            grandTotal: parseFloat(grandTotalEl.innerText),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            status: isAdmin ? "approved" : "pending",
-        });
-        
-        clearDraft(); // تنظيف المسودة بعد الإرسال الناجح
-
-        const successMessage = isAdmin 
-            ? "تم تسجيل الطلبية واعتمادها بنجاح." 
-            : "تم ارسال الطلبية بنجاح، في انتظار موافقة المدير.";
-        showToast(successMessage, "success");
-
-        if (isAdmin) {
-            document.getElementById('orderScreen').style.display = 'none';
-            document.getElementById('managerScreen').style.display = 'block';
-            loadManagerOrders(); 
-        } else {
-            document.getElementById('orderScreen').style.display = 'none';
-            document.getElementById('myOrdersScreen').style.display = 'block';
-            loadMyOrders();
-        }
-        
-        orderBody.innerHTML = '';
-        grandTotalEl.innerText = '0.00';
-        if(orderNoteEl) orderNoteEl.value = '';
-        addNewRow();
-        
-        document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
-        document.getElementById('navMyOrdersBtn').classList.add('active');
-    } catch(e) { 
-        showToast("خطأ في الارسال، يرجى المحاولة لاحقاً.", "error"); 
-    } finally {
-        submitOrderBtn.disabled = false; 
-        submitOrderBtn.classList.remove('btn-loading');
-        const indicator = document.getElementById('saving-indicator');
-        if(indicator) indicator.classList.remove('active');
-    }
-};
+    };
+}
 
 async function loadMyOrders() {
     if (!currentRepId && !loadRepSession()) { showToast("الرجاء تسجيل الدخول أولاً", "error"); return; }
     const tbody = document.getElementById('myOrdersBody');
+    if(!tbody) return;
     tbody.innerHTML = '<tr><td colspan="6"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     
     if (unsubMyOrders) unsubMyOrders();
@@ -908,7 +894,6 @@ async function loadMyOrders() {
             orders = orders.filter(o => o.status === 'pending' || o.status === 'returned');
             tbody.innerHTML = '';
             
-            // 💡 تحديث ملخص الطلبيات (Dashboard المندوب)
             let pendCount = 0;
             let totalVal = 0;
             orders.forEach(o => {
@@ -926,7 +911,7 @@ async function loadMyOrders() {
             
             orders.forEach(order => {
                 const tr = document.createElement('tr');
-                tr.className = `row-${order.status}`; // 💡 تلوين شرطي
+                tr.className = `row-${order.status}`; 
                 tr.innerHTML = `
                     <td>${order.id.substring(0,6).toUpperCase()}</td>
                     <td>${order.createdAt.toDate().toLocaleString('en-GB')}</td>
@@ -946,8 +931,6 @@ async function loadMyOrders() {
     } catch(e) { showToast("خطأ في جلب البيانات.", "error"); }
 }
 
-// 💡 تحديث الـ Dashboard المتقدم للمدير
-// 💡 تحديث الـ Dashboard المتقدم للمدير (ديناميكي 100%)
 function updateAdvancedManagerDashboard(orders) {
     const countLabel = document.querySelector('#dashDailyCount')?.previousElementSibling;
     if(countLabel) countLabel.innerText = "عدد الطلبيات المعروضة";
@@ -955,16 +938,15 @@ function updateAdvancedManagerDashboard(orders) {
     let totalVal = 0;
     let approvedCount = 0;
     const pharmCounts = {};
-    const uniquePharms = new Set(); // 🟢 متغير جديد لحفظ الصيدليات بدون تكرار
+    const uniquePharms = new Set(); 
 
-    // الاعتماد على الـ orders المفلترة بالكامل 
     orders.forEach(o => {
         totalVal += parseFloat(o.grandTotal) || 0;
         if (o.status === 'approved') approvedCount++;
 
         if (o.pharmacyName) {
             pharmCounts[o.pharmacyName] = (pharmCounts[o.pharmacyName] || 0) + 1;
-            uniquePharms.add(o.pharmacyName); // 🟢 إضافة اسم الصيدلية (Set سيمنع التكرار تلقائياً)
+            uniquePharms.add(o.pharmacyName); 
         }
     });
 
@@ -982,7 +964,6 @@ function updateAdvancedManagerDashboard(orders) {
     const e3 = document.getElementById('dashApprovalRate'); if(e3) e3.innerText = appRate + "%";
     const e4 = document.getElementById('dashTopPharmacy'); if(e4) e4.innerText = topPharm;
     
-    // 🟢 طباعة عدد الصيدليات في الكارد الجديد
     const e5 = document.getElementById('dashUniquePharmacies'); if(e5) e5.innerText = uniquePharms.size;
 }
 let managerOrdersData = [];
@@ -1069,7 +1050,7 @@ function applyManagerFilters() {
     });
 
     renderManagerOrders(filtered);
-    updateAdvancedManagerDashboard(filtered); // 💡 تحديث اللوحة بالبيانات المفلترة
+    updateAdvancedManagerDashboard(filtered); 
 }
 
 function renderManagerOrders(orders) {
@@ -1087,7 +1068,7 @@ function renderManagerOrders(orders) {
         const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const tr = document.createElement('tr');
-        tr.className = `row-${order.status}`; // 💡 تلوين شرطي
+        tr.className = `row-${order.status}`; 
         tr.innerHTML = `
             <td><input type="checkbox" class="order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
             <td>${order.id.substring(0, 6).toUpperCase()}</td>
@@ -1114,10 +1095,10 @@ function renderManagerOrders(orders) {
         tbody.appendChild(tr);
     });
 }
+
 document.getElementById('managerRepFilter')?.addEventListener('change', applyManagerFilters);
 document.getElementById('managerPharmacyFilter')?.addEventListener('input', applyManagerFilters);
 document.getElementById('managerStatusFilter')?.addEventListener('change', applyManagerFilters);
-
 
 document.getElementById('selectAllOrders')?.addEventListener('change', function() {
     const checkboxes = document.querySelectorAll('.order-checkbox');
@@ -1190,6 +1171,7 @@ async function loadAllCompanyOrders() {
 
 function renderAllOrders(orders) {
     const tbody = document.getElementById('allOrdersBody');
+    if(!tbody) return;
     tbody.innerHTML = '';
     if(orders.length === 0) { 
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد بيانات مطابقة</h3></div></td></tr>`; 
@@ -1198,7 +1180,7 @@ function renderAllOrders(orders) {
     }
     orders.forEach(order => {
         const tr = document.createElement('tr');
-        tr.className = `row-${order.status}`; // 💡 تلوين شرطي
+        tr.className = `row-${order.status}`; 
         const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         tr.innerHTML = `
@@ -1229,6 +1211,7 @@ function updateAllOrdersStats(orders) {
 }
 
 function showOrderDetails(order) {
+    if(!modalItemsBody) return;
     modalItemsBody.innerHTML = '';
     document.getElementById('modalPharmacySubtitle').innerText = `الصيدلية: ${order.pharmacyName} - المندوب: ${order.repName}`;
     
@@ -1248,7 +1231,6 @@ function showOrderDetails(order) {
     order.items.forEach(i => {
         const row = document.createElement('tr');
         
-        // 🟢 حساب نسبة البونص وعرضها ديناميكياً
         const qtyVal = parseFloat(i.qty) || 0;
         const bonusVal = parseFloat(i.bonus) || 0;
         let bonusPctStr = "";
@@ -1268,10 +1250,11 @@ function showOrderDetails(order) {
     });
     detailsModal.style.display = 'flex';
 }
+
 function filterAllOrders() {
-    const repFilter = (document.getElementById('filterAllRep').value || '').toLowerCase().trim();
-    const pharmFilter = (document.getElementById('filterAllPharmacy').value || '').toLowerCase().trim();
-    const statusFilter = (document.getElementById('filterAllStatus').value || '').trim();
+    const repFilter = (document.getElementById('filterAllRep')?.value || '').toLowerCase().trim();
+    const pharmFilter = (document.getElementById('filterAllPharmacy')?.value || '').toLowerCase().trim();
+    const statusFilter = (document.getElementById('filterAllStatus')?.value || '').trim();
 
     const fromVal = document.getElementById('managerFilterFrom')?.value;
     const toVal = document.getElementById('managerFilterTo')?.value;
@@ -1297,90 +1280,89 @@ function filterAllOrders() {
     });
 
     renderAllOrders(filtered);
-    updateAdvancedManagerDashboard(filtered); // تحديث لوحة الإحصائيات
+    updateAdvancedManagerDashboard(filtered); 
 }
 
-document.getElementById('exportAllOrdersBtn').onclick = () => {
-    const btn = document.getElementById('exportAllOrdersBtn');
-    btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري التجهيز...";
-    
-    try {
-        // 1. قراءة الفلاتر النشطة حالياً على الشاشة
-        const repFilter = (document.getElementById('filterAllRep').value || '').toLowerCase().trim();
-        const pharmFilter = (document.getElementById('filterAllPharmacy').value || '').toLowerCase().trim();
-        const statusFilter = (document.getElementById('filterAllStatus').value || '').trim();
-        const fromVal = document.getElementById('managerFilterFrom')?.value;
-        const toVal = document.getElementById('managerFilterTo')?.value;
-
-        // 2. فلترة البيانات الموجودة في الذاكرة (لتطابق الجدول المعروض)
-        const ordersToExport = allOrdersData.filter(order => {
-            const repName = (order.repName || '').toLowerCase();
-            const pharmName = (order.pharmacyName || '').toLowerCase();
-            const orderStatus = (order.status || '').trim();
-
-            let matchDate = true;
-            if (order.createdAt && order.createdAt.toDate) {
-                let oDate = order.createdAt.toDate();
-                oDate.setHours(0,0,0,0);
-                
-                if (fromVal) { let dFrom = new Date(fromVal); dFrom.setHours(0,0,0,0); if (oDate < dFrom) matchDate = false; }
-                if (toVal) { let dTo = new Date(toVal); dTo.setHours(0,0,0,0); if (oDate > dTo) matchDate = false; }
-            }
-
-            return repName.includes(repFilter) &&
-                   pharmName.includes(pharmFilter) &&
-                   (statusFilter === '' || orderStatus === statusFilter) &&
-                   matchDate;
-        });
-
-        let flatData = [];
+const exportAllOrdersBtn = document.getElementById('exportAllOrdersBtn');
+if(exportAllOrdersBtn) {
+    exportAllOrdersBtn.onclick = () => {
+        exportAllOrdersBtn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري التجهيز...";
         
-        // 3. تحضير البيانات المفلترة للإكسل
-        ordersToExport.forEach(order => { 
-            const dateStr = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
+        try {
+            const repFilter = (document.getElementById('filterAllRep')?.value || '').toLowerCase().trim();
+            const pharmFilter = (document.getElementById('filterAllPharmacy')?.value || '').toLowerCase().trim();
+            const statusFilter = (document.getElementById('filterAllStatus')?.value || '').trim();
+            const fromVal = document.getElementById('managerFilterFrom')?.value;
+            const toVal = document.getElementById('managerFilterTo')?.value;
+
+            const ordersToExport = allOrdersData.filter(order => {
+                const repName = (order.repName || '').toLowerCase();
+                const pharmName = (order.pharmacyName || '').toLowerCase();
+                const orderStatus = (order.status || '').trim();
+
+                let matchDate = true;
+                if (order.createdAt && order.createdAt.toDate) {
+                    let oDate = order.createdAt.toDate();
+                    oDate.setHours(0,0,0,0);
+                    
+                    if (fromVal) { let dFrom = new Date(fromVal); dFrom.setHours(0,0,0,0); if (oDate < dFrom) matchDate = false; }
+                    if (toVal) { let dTo = new Date(toVal); dTo.setHours(0,0,0,0); if (oDate > dTo) matchDate = false; }
+                }
+
+                return repName.includes(repFilter) &&
+                       pharmName.includes(pharmFilter) &&
+                       (statusFilter === '' || orderStatus === statusFilter) &&
+                       matchDate;
+            });
+
+            let flatData = [];
             
-            if (order.items && Array.isArray(order.items)) {
-                order.items.forEach(item => { 
-                    flatData.push({ 
-                        "التاريخ": dateStr, 
-                        "المندوب": order.repName || "غير معروف", 
-                        "كود الصيدلية": order.pharmacyCode || "-", 
-                        "الصيدلية": order.pharmacyName || "غير معروف", 
-                        "الصنف": item.name || "-", 
-                        "الكمية": parseInt(item.qty, 10) || 0, 
-                        "البونص": parseInt(item.bonus, 10) || 0, 
-                        "نسبة البونص": (parseInt(item.qty, 10) > 0 && parseInt(item.bonus, 10) > 0) ? Math.round((item.bonus / item.qty) * 100) + "%" : "0%",
-                        "السعر": parseFloat(item.price) || 0, 
-                        "المجموع الفرعي": parseFloat(item.total) || 0, 
-                        "ملاحظة الصنف": item.note || "-",
-                        "الاجمالي الكلي": parseFloat(order.grandTotal) || 0, 
-                        "ملاحظة الطلبية": order.orderNote || "-",
-                        // تحسين إضافي: عرض الحالة بالعربي في الإكسل
-                        "الحالة": order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')
+            ordersToExport.forEach(order => { 
+                const dateStr = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
+                
+                if (order.items && Array.isArray(order.items)) {
+                    order.items.forEach(item => { 
+                        flatData.push({ 
+                            "التاريخ": dateStr, 
+                            "المندوب": order.repName || "غير معروف", 
+                            "كود الصيدلية": order.pharmacyCode || "-", 
+                            "الصيدلية": order.pharmacyName || "غير معروف", 
+                            "الصنف": item.name || "-", 
+                            "الكمية": parseInt(item.qty, 10) || 0, 
+                            "البونص": parseInt(item.bonus, 10) || 0, 
+                            "نسبة البونص": (parseInt(item.qty, 10) > 0 && parseInt(item.bonus, 10) > 0) ? Math.round((item.bonus / item.qty) * 100) + "%" : "0%",
+                            "السعر": parseFloat(item.price) || 0, 
+                            "المجموع الفرعي": parseFloat(item.total) || 0, 
+                            "ملاحظة الصنف": item.note || "-",
+                            "الاجمالي الكلي": parseFloat(order.grandTotal) || 0, 
+                            "ملاحظة الطلبية": order.orderNote || "-",
+                            "الحالة": order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')
+                        }); 
                     }); 
-                }); 
+                }
+            });
+            
+            if(flatData.length === 0) { 
+                showToast("لا توجد بيانات مطابقة للفلاتر للتصدير", "warning"); 
+                exportAllOrdersBtn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير الطلبيات المفلترة";
+                return; 
             }
-        });
-        
-        if(flatData.length === 0) { 
-            showToast("لا توجد بيانات مطابقة للفلاتر للتصدير", "warning"); 
-            btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير الطلبيات المفلترة";
-            return; 
+            
+            const ws = XLSX.utils.json_to_sheet(flatData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "الطلبيات");
+            XLSX.writeFile(wb, "تقرير_الطلبيات_المفلترة.xlsx");
+            
+            showToast("تم تصدير الملف بنجاح", "success");
+            
+        } catch(e) { 
+            showToast("حدث خطأ أثناء التصدير", "error"); 
+        } finally { 
+            exportAllOrdersBtn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير الطلبيات المفلترة"; 
         }
-        
-        const ws = XLSX.utils.json_to_sheet(flatData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "الطلبيات");
-        XLSX.writeFile(wb, "تقرير_الطلبيات_المفلترة.xlsx");
-        
-        showToast("تم تصدير الملف بنجاح", "success");
-        
-    } catch(e) { 
-        showToast("حدث خطأ أثناء التصدير", "error"); 
-    } finally { 
-        btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير الطلبيات المفلترة"; 
-    }
-};
+    };
+}
+
 async function ensureProductsLoaded() {
     if (productsList.length > 0) return true;
     try {
@@ -1478,7 +1460,7 @@ async function openEditOrder(orderId, userType) {
                     <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
                         <h3 style="margin: 0; color: #d32f2f; font-size: 18px; font-weight: bold;"> الإجمالي: <span id="editGrandTotal">${parseFloat(order.grandTotal).toFixed(2)}</span> </h3>
                         <div style="display: flex; gap: 10px;">
-                            <button type="button" onclick="closeEditModal()" style="padding: 10px 20px; border-radius: 6px; cursor: pointer; border: 1px solid #ccc; background: #fff; color: #333; font-weight: bold; font-family: inherit;"> إلغاء </button>
+                            <button type="button" id="editCancelBtn" style="padding: 10px 20px; border-radius: 6px; cursor: pointer; border: 1px solid #ccc; background: #fff; color: #333; font-weight: bold; font-family: inherit;"> إلغاء </button>
                             <button type="button" id="saveEditOrderBtn" style="padding: 10px 20px; border-radius: 6px; cursor: pointer; background: #004a99; color: white; border: none; font-weight: bold; font-family: inherit; display: flex; align-items: center; gap: 5px;"> <i class="ph ph-floppy-disk"></i> حفظ التعديلات </button>
                         </div>
                     </div>
@@ -1490,6 +1472,9 @@ async function openEditOrder(orderId, userType) {
     const editRepSelect = document.getElementById('editRepSelect');
     const editPharmInput = document.getElementById('editPharmacyInput');
     const editPharmSuggestions = document.getElementById('editPharmacySuggestions');
+    const editCancelBtn = document.getElementById('editCancelBtn');
+
+    if(editCancelBtn) editCancelBtn.onclick = closeEditModal;
 
     setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
 
@@ -1532,16 +1517,13 @@ async function openEditOrder(orderId, userType) {
         if (grandTotalEl) grandTotalEl.innerText = total.toFixed(2);
     }
 
-function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='') {
+    function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='') {
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid #eee";
         tr.innerHTML = `
             <td style="padding: 8px;"><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:200px; padding:8px; border:1px solid #ccc; border-radius:4px; outline:none;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
             <td style="padding: 8px; text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 65px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"></td>
-            <td style="padding: 8px; text-align: center; position:relative;">
-                <input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 65px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;">
-                <span class="edit-bonus-pct" style="font-size:0.75rem; color:#004a99; font-weight:bold; display:block; text-align:center; margin-top:4px;"></span>
-            </td>
+            <td style="padding: 8px; text-align: center;"><input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 65px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"><span class="edit-bonus-pct" style="font-size:0.75rem; color:#004a99; font-weight:bold; display:block; text-align:center; margin-top:4px;"></span></td>
             <td class="price-cell" style="padding: 8px; text-align: center; font-weight: bold; color: #333;">${parseFloat(price).toFixed(2)}</td>
             <td class="row-total" style="padding: 8px; text-align: center; font-weight: bold; color: #d32f2f;">${parseFloat(rowTotal).toFixed(2)}</td>
             <td style="padding: 8px;"><input type="text" class="item-note-input" value="${note}" placeholder="ملاحظة..." style="width:100%; min-width:100px; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"></td>
@@ -1549,10 +1531,9 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         `;
         const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions');
         const q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
-        const b = tr.querySelector('.bonus-input'), bPct = tr.querySelector('.edit-bonus-pct'); // 🟢 جلب حقول البونص
+        const b = tr.querySelector('.bonus-input'), bPct = tr.querySelector('.edit-bonus-pct'); 
         const productNames = productsList.map(prod => prod.name);
         
-        // 🟢 وظيفة حساب نسبة البونص للتعديل
         function calcEditBonus() {
             const qVal = parseFloat(q.value) || 0;
             const bVal = parseFloat(b.value) || 0;
@@ -1581,15 +1562,15 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
 
         q.oninput = () => { 
             t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); 
-            calcEditBonus(); // 🟢 التحديث عند تغيير الكمية
+            calcEditBonus(); 
             updateEditTotal(); 
         };
-        b.oninput = () => { calcEditBonus(); updateEditTotal(); }; // 🟢 التحديث عند تغيير البونص
+        b.oninput = () => { calcEditBonus(); updateEditTotal(); }; 
 
         tr.querySelector('.del-row').onclick = () => { tr.remove(); updateEditTotal(); };
         
         if (editBody) editBody.appendChild(tr);
-        calcEditBonus(); // 🟢 حساب النسبة لحظة تحميل السطر للمرة الأولى
+        calcEditBonus(); 
         updateEditTotal();
     }    
     if (order.items && order.items.length > 0) {
@@ -1629,7 +1610,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                             price: r.querySelector('.price-cell').innerText, 
                             total: r.querySelector('.row-total').innerText,
                             note: r.querySelector('.item-note-input').value.trim()
-                        });                    
+                        });                     
                     }
                 }
             });
@@ -1652,6 +1633,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         };
     }
 }
+
 function closeEditModal() { 
     const editModal = document.getElementById('editOrderModal');
     if (editModal) { editModal.style.display = 'none'; }
@@ -1661,6 +1643,7 @@ window.closeEditModal = closeEditModal;
 
 async function loadReports() {
     const body = document.getElementById('reportsBody');
+    if(!body) return;
     body.innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     
     if(unsubReports) unsubReports();
@@ -1674,7 +1657,7 @@ async function loadReports() {
             body.innerHTML = '';
             os.forEach(o => {
                 const tr = document.createElement('tr');
-                tr.className = `row-${o.status}`; // 💡 تلوين شرطي
+                tr.className = `row-${o.status}`; 
                 tr.innerHTML = `<td><b>${o.id.substring(0,5).toUpperCase()}</b></td><td>${o.createdAt.toDate().toLocaleString('en-GB')}</td><td class="rep-col">${o.repName}</td><td class="pharm-col">${o.pharmacyName}</td><td>${parseFloat(o.grandTotal).toFixed(2)}</td><td><span class="status-badge ${o.status}">${o.status === 'approved' ? 'موافق عليه' : (o.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td><td><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>`;
                 tr.querySelector('.btn-view').onclick = () => { showOrderDetails(o); };
                 body.appendChild(tr);
@@ -1685,8 +1668,8 @@ async function loadReports() {
 }
 
 function filterReportsTable() {
-    const repFilter = document.getElementById('filterRep').value.toLowerCase();
-    const pharmFilter = document.getElementById('filterPharmacy').value.toLowerCase();
+    const repFilter = document.getElementById('filterRep')?.value.toLowerCase() || '';
+    const pharmFilter = document.getElementById('filterPharmacy')?.value.toLowerCase() || '';
     document.querySelectorAll('#reportsBody tr').forEach(row => {
         if(row.children.length > 1) {
             const rep = row.querySelector('.rep-col')?.innerText.toLowerCase() || '';
@@ -1695,55 +1678,60 @@ function filterReportsTable() {
         }
     });
 }
-document.getElementById('filterRep').oninput = filterReportsTable;
-document.getElementById('filterPharmacy').oninput = filterReportsTable;
 
-document.getElementById('exportExcelBtn').onclick = async () => {
-    const btn = document.getElementById('exportExcelBtn');
-    btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري...";
-    try {
-        const snap = await getDocs(collection(db, "orders"));
-        let flatData = [];
-        let allOrders = [];
-        snap.forEach(d => allOrders.push(d.data()));
-        
-        if (!isAdmin && currentRepName) {
-            allOrders = allOrders.filter(o => o.repName === currentRepName);
-        }
+if(document.getElementById('filterRep')) document.getElementById('filterRep').oninput = filterReportsTable;
+if(document.getElementById('filterPharmacy')) document.getElementById('filterPharmacy').oninput = filterReportsTable;
 
-        allOrders.forEach(order => {
-            const dateStr = order.createdAt.toDate().toLocaleDateString('en-GB'); 
-            order.items.forEach(item => { 
-                flatData.push({ 
-                    "التاريخ": dateStr, "المندوب": order.repName, "كود الصيدلية": order.pharmacyCode || "-", 
-                    "الصيدلية": order.pharmacyName, "الصنف": item.name, "الكمية": parseInt(item.qty, 10) || 0, 
-                    "البونص": parseInt(item.bonus, 10) || 0, "السعر": parseFloat(item.price) || 0, 
-                    "المجموع الفرعي": parseFloat(item.total) || 0, "ملاحظة الصنف": item.note || "-", 
-                    "الاجمالي الكلي": parseFloat(order.grandTotal) || 0, "ملاحظة الطلبية": order.orderNote || "-", 
-                    "الحالة": order.status 
+const exportExcelBtn = document.getElementById('exportExcelBtn');
+if(exportExcelBtn) {
+    exportExcelBtn.onclick = async () => {
+        exportExcelBtn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري...";
+        try {
+            const snap = await getDocs(collection(db, "orders"));
+            let flatData = [];
+            let allOrders = [];
+            snap.forEach(d => allOrders.push(d.data()));
+            
+            if (!isAdmin && currentRepName) {
+                allOrders = allOrders.filter(o => o.repName === currentRepName);
+            }
+
+            allOrders.forEach(order => {
+                const dateStr = order.createdAt.toDate().toLocaleDateString('en-GB'); 
+                order.items.forEach(item => { 
+                    flatData.push({ 
+                        "التاريخ": dateStr, "المندوب": order.repName, "كود الصيدلية": order.pharmacyCode || "-", 
+                        "الصيدلية": order.pharmacyName, "الصنف": item.name, "الكمية": parseInt(item.qty, 10) || 0, 
+                        "البونص": parseInt(item.bonus, 10) || 0, "السعر": parseFloat(item.price) || 0, 
+                        "المجموع الفرعي": parseFloat(item.total) || 0, "ملاحظة الصنف": item.note || "-", 
+                        "الاجمالي الكلي": parseFloat(order.grandTotal) || 0, "ملاحظة الطلبية": order.orderNote || "-", 
+                        "الحالة": order.status 
+                    });
                 });
             });
-        });
 
-        if (flatData.length === 0) { showToast("لا توجد بيانات للتصدير", "warning"); return; }
-        const ws = XLSX.utils.json_to_sheet(flatData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "الطلبيات");
-        XLSX.writeFile(wb, "تقرير_طلبيات.xlsx");
-        showToast("اكتمل التصدير!", "success");
-    } catch (e) { showToast("حدث خطأ في استخراج البيانات", "error"); } 
-    finally { btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير للاكسل"; }
-};
+            if (flatData.length === 0) { showToast("لا توجد بيانات للتصدير", "warning"); return; }
+            const ws = XLSX.utils.json_to_sheet(flatData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "الطلبيات");
+            XLSX.writeFile(wb, "تقرير_طلبيات.xlsx");
+            showToast("اكتمل التصدير!", "success");
+        } catch (e) { showToast("حدث خطأ في استخراج البيانات", "error"); } 
+        finally { exportExcelBtn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير للاكسل"; }
+    };
+}
 
-document.getElementById('navOrderBtn').onclick = () => {
-    document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
-    document.getElementById('orderScreen').style.display = 'block';
-    document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
-    document.getElementById('navOrderBtn').classList.add('active'); 
-};
-document.getElementById('navMyOrdersBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('myOrdersScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navMyOrdersBtn').classList.add('active'); loadMyOrders(); };
-document.getElementById('navReportsBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('reportsScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navReportsBtn').classList.add('active'); loadReports(); };
-document.getElementById('logoutBtn').onclick = () => { clearRepSession(); if(confirm("هل أنت متأكد من تسجيل الخروج؟")) location.reload(); };
+if(document.getElementById('navOrderBtn')) {
+    document.getElementById('navOrderBtn').onclick = () => {
+        document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+        document.getElementById('orderScreen').style.display = 'block';
+        document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+        document.getElementById('navOrderBtn').classList.add('active'); 
+    };
+}
+if(document.getElementById('navMyOrdersBtn')) document.getElementById('navMyOrdersBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('myOrdersScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navMyOrdersBtn').classList.add('active'); loadMyOrders(); };
+if(document.getElementById('navReportsBtn')) document.getElementById('navReportsBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('reportsScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navReportsBtn').classList.add('active'); loadReports(); };
+if(document.getElementById('logoutBtn')) document.getElementById('logoutBtn').onclick = () => { clearRepSession(); if(confirm("هل أنت متأكد من تسجيل الخروج؟")) location.reload(); };
 
 let selectedAdminType = null;
 let selectedAdminName = null;
@@ -1758,67 +1746,72 @@ document.querySelectorAll('.btn-admin-opt').forEach(btn => {
     };
 });
 
-document.getElementById('adminModeBtn').onclick = () => {
-    const isNoticeShown = localStorage.getItem('systemUpdate_v1');
-    if (!isNoticeShown) {
-        document.getElementById('updateNoticeModal').style.display = 'flex';
-        document.getElementById('closeUpdateNoticeBtn').onclick = () => {
-            document.getElementById('updateNoticeModal').style.display = 'none';
-            localStorage.setItem('systemUpdate_v1', 'true'); 
-            openAdminLoginBox();
-        };
-    } else { openAdminLoginBox(); }
-};
+if(document.getElementById('adminModeBtn')) {
+    document.getElementById('adminModeBtn').onclick = () => {
+        const isNoticeShown = localStorage.getItem('systemUpdate_v1');
+        if (!isNoticeShown) {
+            document.getElementById('updateNoticeModal').style.display = 'flex';
+            document.getElementById('closeUpdateNoticeBtn').onclick = () => {
+                document.getElementById('updateNoticeModal').style.display = 'none';
+                localStorage.setItem('systemUpdate_v1', 'true'); 
+                openAdminLoginBox();
+            };
+        } else { openAdminLoginBox(); }
+    };
+}
 
 function openAdminLoginBox() {
     document.getElementById('adminLoginModal').style.display = 'flex';
     document.getElementById('adminPasswordInput').value = ''; 
 }
 
-document.getElementById('adminPasswordInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('confirmAdminLoginBtn').click(); }
-});
+const adminPassInput = document.getElementById('adminPasswordInput');
+if(adminPassInput) {
+    adminPassInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('confirmAdminLoginBtn').click(); }
+    });
+}
 
-document.getElementById('confirmAdminLoginBtn').onclick = (e) => {
-    e.preventDefault(); // 🟢 أضف هذا السطر لمنع الريفريش عند دخول المدير
-    if (!selectedAdminType) { return showToast("الرجاء تحديد هويتك من البطاقات أعلاه", "warning"); }
-    
-    const pass = document.getElementById('adminPasswordInput').value;   
-    
-    // 🔐 التحديث الأمني: استخدام التشفير للتأكد بدل النص الصريح. (btoa(202604) == "MjAyNjA0")
-    const SECRET_HASH = "MjAyNjA0";
-    
-    if (btoa(pass) === SECRET_HASH) {
-        const rememberMe = document.getElementById('rememberAdmin').checked;
+const confirmAdminLoginBtn = document.getElementById('confirmAdminLoginBtn');
+if(confirmAdminLoginBtn) {
+    confirmAdminLoginBtn.onclick = (e) => {
+        e.preventDefault(); 
+        if (!selectedAdminType) { return showToast("الرجاء تحديد هويتك من البطاقات أعلاه", "warning"); }
         
-        // ✅ التعديل هنا: إضافة encodeURIComponent ليدعم الأسماء العربية بدون أخطاء
-        const authToken = btoa(encodeURIComponent(selectedAdminName + ":" + new Date().getTime())); 
+        const pass = document.getElementById('adminPasswordInput').value;   
+        const SECRET_HASH = "MjAyNjA0";
         
-        if (rememberMe) {
-            localStorage.setItem('managerName', selectedAdminName);
-            localStorage.setItem('adminType', selectedAdminType);
-            localStorage.setItem('authToken', authToken); 
-        } else {
-            sessionStorage.setItem('managerName', selectedAdminName);
-            sessionStorage.setItem('adminType', selectedAdminType);
-            sessionStorage.setItem('authToken', authToken);
-            localStorage.removeItem('managerName');
-            localStorage.removeItem('adminType');
-            localStorage.removeItem('authToken');
-        }
+        if (btoa(pass) === SECRET_HASH) {
+            const rememberMe = document.getElementById('rememberAdmin').checked;
+            const authToken = btoa(encodeURIComponent(selectedAdminName + ":" + new Date().getTime())); 
+            
+            if (rememberMe) {
+                localStorage.setItem('managerName', selectedAdminName);
+                localStorage.setItem('adminType', selectedAdminType);
+                localStorage.setItem('authToken', authToken); 
+            } else {
+                sessionStorage.setItem('managerName', selectedAdminName);
+                sessionStorage.setItem('adminType', selectedAdminType);
+                sessionStorage.setItem('authToken', authToken);
+                localStorage.removeItem('managerName');
+                localStorage.removeItem('adminType');
+                localStorage.removeItem('authToken');
+            }
 
-        if (selectedAdminType === 'reports') {
-            window.location.href = 'mohammad.html';
+            if (selectedAdminType === 'reports') {
+                window.location.href = 'mohammad.html';
+            } else {
+                isAdmin = true;
+                currentManagerName = selectedAdminName;
+                document.getElementById('adminLoginModal').style.display = 'none';
+                initializeManagerView(selectedAdminName);
+            }
         } else {
-            isAdmin = true;
-            currentManagerName = selectedAdminName;
-            document.getElementById('adminLoginModal').style.display = 'none';
-            initializeManagerView(selectedAdminName);
+            showToast("رمز المرور غير صحيح!", "error");
         }
-    } else {
-        showToast("رمز المرور غير صحيح!", "error");
-    }
-};
+    };
+}
+
 document.getElementById('selectAllAllOrders')?.addEventListener('change', function() {
     const checkboxes = document.querySelectorAll('.all-order-checkbox');
     checkboxes.forEach(cb => cb.checked = this.checked);
@@ -1849,12 +1842,10 @@ async function handleAllOrdersBulkAction(actionType) {
 document.getElementById('bulkApproveAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('approve'));
 document.getElementById('bulkDeleteAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('delete'));
     
-window.closeModal = () => detailsModal.style.display = 'none';
+window.closeModal = () => { if(detailsModal) detailsModal.style.display = 'none'; };
 
-// تشغيل التحميل المبدئي
 loadInitialData();
 
-// فلاتر التاريخ (للمدير)
 const managerFilterFrom = document.getElementById('managerFilterFrom');
 const managerFilterTo = document.getElementById('managerFilterTo');
 const btnTodayOrders = document.getElementById('btnTodayOrders');
@@ -1869,15 +1860,18 @@ btnTodayOrders?.addEventListener('click', () => {
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
     const todayStr = `${yyyy}-${mm}-${dd}`;
-    managerFilterFrom.value = todayStr;
-    managerFilterTo.value = todayStr;
+    if(managerFilterFrom) managerFilterFrom.value = todayStr;
+    if(managerFilterTo) managerFilterTo.value = todayStr;
     applyManagerFilters();
     filterAllOrders();
 });
 
 btnClearManagerFilter?.addEventListener('click', () => {
-    managerFilterFrom.value = '';
-    managerFilterTo.value = '';
+    if(managerFilterFrom) managerFilterFrom.value = '';
+    if(managerFilterTo) managerFilterTo.value = '';
     applyManagerFilters();
     filterAllOrders();
 });
+
+// ربط الدوال بالـ window لضمان عمل الـ Inline HTML onclick events بعد تحويل الملف إلى Module
+window.filterAllOrders = filterAllOrders;
