@@ -102,12 +102,10 @@ class SavingIndicator {
 // ===== 4. SCREEN MANAGER =====
 class ScreenManager {
     static show(screenId) {
-        // إخفاء جميع الشاشات
         document.querySelectorAll('.screen').forEach(screen => {
             screen.classList.remove('active');
         });
 
-        // إظهار الشاشة المطلوبة
         const screen = document.getElementById(screenId);
         if (screen) {
             screen.classList.add('active');
@@ -133,11 +131,9 @@ class LoginManager {
             btn.addEventListener('click', (e) => {
                 const tabName = btn.dataset.tab;
 
-                // تحديث الأزرار النشطة
                 tabBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
-                // تحديث النماذج النشطة
                 forms.forEach(form => form.classList.remove('active'));
                 document.getElementById(`${tabName}-form`)?.classList.add('active');
             });
@@ -151,7 +147,6 @@ class LoginManager {
         const passwordGroup = document.getElementById('repPasswordGroup');
         const passwordInput = document.getElementById('repPasswordInput');
 
-        // تحميل المندوبين
         this.loadRepresentatives();
 
         repSelect.addEventListener('change', (e) => {
@@ -184,7 +179,7 @@ class LoginManager {
 
     static setupAdminLogin() {
         const adminLoginBtn = document.getElementById('adminLoginBtn');
-        adminLoginBtn.addEventListener('click', () => this.adminLogin());
+        adminLoginBtn?.addEventListener('click', () => this.adminLogin());
     }
 
     static setupPasswordToggle() {
@@ -214,11 +209,10 @@ class LoginManager {
     }
 
     static async loadRepresentatives() {
-        // في التطبيق الحقيقي، سيتم تحميلها من Firebase
         const repSelect = document.getElementById('repSelect');
+        if (!repSelect) return;
         repSelect.innerHTML = '<option value="">اختر المندوب...</option>';
 
-        // بيانات نموذجية
         const reps = [
             { id: 'rep1', name: 'أحمد محمد', password: '1234' },
             { id: 'rep2', name: 'فاطمة علي', password: '5678' },
@@ -245,6 +239,7 @@ class LoginManager {
         ];
 
         const suggestions = document.getElementById('pharmacySuggestions');
+        if (!suggestions) return;
         suggestions.innerHTML = '';
 
         if (searchText.length > 0) {
@@ -255,7 +250,8 @@ class LoginManager {
                     item.className = 'autocomplete-item';
                     item.textContent = pharmacy;
                     item.addEventListener('click', () => {
-                        document.getElementById('pharmacyInput').value = pharmacy;
+                        const pInput = document.getElementById('pharmacyInput');
+                        if (pInput) pInput.value = pharmacy;
                         suggestions.innerHTML = '';
                         this.updateStartBtnState();
                     });
@@ -273,49 +269,60 @@ class LoginManager {
         const pharmacyInput = document.getElementById('pharmacyInput');
         const startBtn = document.getElementById('startOrderBtn');
 
+        if (!repSelect || !pharmacyInput || !startBtn) return;
+
         const isValid = repSelect.value && pharmacyInput.value.trim();
         startBtn.disabled = !isValid;
     }
 
     static startOrder() {
         const repSelect = document.getElementById('repSelect');
-        const repOption = repSelect.options[repSelect.selectedIndex];
-        const pharmacy = document.getElementById('pharmacyInput').value;
-        const password = document.getElementById('repPasswordInput').value;
+        const pharmacyInput = document.getElementById('pharmacyInput');
+        const passwordInput = document.getElementById('repPasswordInput');
 
-        // التحقق من كلمة المرور إن وجدت
+        if (!repSelect || !pharmacyInput) return;
+
+        const repOption = repSelect.options[repSelect.selectedIndex];
+        const pharmacy = pharmacyInput.value;
+        const password = passwordInput ? passwordInput.value : '';
+
         const rep = window.representativesData?.find(r => r.id === repSelect.value);
         if (rep?.password && rep.password !== password) {
             ToastManager.error('كلمة المرور غير صحيحة');
             return;
         }
 
-        // حفظ البيانات
         window.currentRepId = repSelect.value;
         window.currentRepName = repOption.textContent;
         window.currentPharmacy = pharmacy;
 
-        // تحديث الواجهة
-        document.getElementById('currentRepDisplay').textContent = repOption.textContent;
-        document.getElementById('currentPharmacyDisplay').textContent = pharmacy;
-        document.getElementById('currentDateDisplay').textContent = new Date().toLocaleDateString('ar-SA');
+        const repDisplay = document.getElementById('currentRepDisplay');
+        const pharmacyDisplay = document.getElementById('currentPharmacyDisplay');
+        const dateDisplay = document.getElementById('currentDateDisplay');
 
-        // الانتقال للشاشة الرئيسية
+        if (repDisplay) repDisplay.textContent = repOption.textContent;
+        if (pharmacyDisplay) pharmacyDisplay.textContent = pharmacy;
+        if (dateDisplay) dateDisplay.textContent = new Date().toLocaleDateString('ar-SA');
+
         ScreenManager.show('order-screen');
-        document.getElementById('userInfo').style.display = 'flex';
-        document.getElementById('headerActions').style.display = 'flex';
-        document.getElementById('headerStats').style.display = 'grid';
-        document.getElementById('navTabs').style.display = 'grid';
+        
+        if (document.getElementById('userInfo')) document.getElementById('userInfo').style.display = 'flex';
+        if (document.getElementById('headerActions')) document.getElementById('headerActions').style.display = 'flex';
+        if (document.getElementById('headerStats')) document.getElementById('headerStats').style.display = 'grid';
+        if (document.getElementById('navTabs')) document.getElementById('navTabs').style.display = 'grid';
 
         ToastManager.success(`مرحباً ${repOption.textContent} 👋`);
     }
 
     static adminLogin() {
-        const adminPassword = document.getElementById('adminPasswordInput').value;
-        const managerName = document.getElementById('managerNameInput').value;
+        const adminPasswordInput = document.getElementById('adminPasswordInput');
+        const managerNameInput = document.getElementById('managerNameInput');
 
-        // كلمة المرور الرئيسية
-        const MASTER_PASSWORD = 'admin123'; // يجب تغييرها في الإنتاج
+        if (!adminPasswordInput || !managerNameInput) return;
+
+        const adminPassword = adminPasswordInput.value;
+        const managerName = managerNameInput.value;
+        const MASTER_PASSWORD = 'admin123'; 
 
         if (adminPassword !== MASTER_PASSWORD) {
             ToastManager.error('كلمة المرور غير صحيحة');
@@ -331,11 +338,12 @@ class LoginManager {
         window.isManager = true;
 
         ScreenManager.show('manager-screen');
-        document.getElementById('userInfo').style.display = 'flex';
-        document.getElementById('headerActions').style.display = 'flex';
-        document.getElementById('headerStats').style.display = 'grid';
-        document.getElementById('navTabs').style.display = 'grid';
-        document.getElementById('managerTab').style.display = 'flex';
+        
+        if (document.getElementById('userInfo')) document.getElementById('userInfo').style.display = 'flex';
+        if (document.getElementById('headerActions')) document.getElementById('headerActions').style.display = 'flex';
+        if (document.getElementById('headerStats')) document.getElementById('headerStats').style.display = 'grid';
+        if (document.getElementById('navTabs')) document.getElementById('navTabs').style.display = 'grid';
+        if (document.getElementById('managerTab')) document.getElementById('managerTab').style.display = 'flex';
 
         ToastManager.success(`مرحباً بك يا ${managerName} 👑`);
     }
@@ -344,19 +352,24 @@ class LoginManager {
         const rememberRepPass = localStorage.getItem('rememberRepPass') === 'true';
         const rememberAdmin = localStorage.getItem('rememberAdmin') === 'true';
 
-        if (rememberRepPass) {
+        const repSelect = document.getElementById('repSelect');
+        const rememberRepCheckbox = document.getElementById('rememberRepPass');
+        const managerNameInput = document.getElementById('managerNameInput');
+        const rememberAdminCheckbox = document.getElementById('rememberAdmin');
+
+        if (rememberRepPass && repSelect && rememberRepCheckbox) {
             const savedRep = localStorage.getItem('savedRep');
             if (savedRep) {
-                document.getElementById('repSelect').value = savedRep;
-                document.getElementById('rememberRepPass').checked = true;
+                repSelect.value = savedRep;
+                rememberRepCheckbox.checked = true;
             }
         }
 
-        if (rememberAdmin) {
+        if (rememberAdmin && managerNameInput && rememberAdminCheckbox) {
             const savedManager = localStorage.getItem('savedManager');
             if (savedManager) {
-                document.getElementById('managerNameInput').value = savedManager;
-                document.getElementById('rememberAdmin').checked = true;
+                managerNameInput.value = savedManager;
+                rememberAdminCheckbox.checked = true;
             }
         }
     }
@@ -398,6 +411,7 @@ class OrderManager {
         ];
 
         const suggestions = document.getElementById('productSuggestions');
+        if (!suggestions) return;
         suggestions.innerHTML = '';
 
         if (searchText.length > 0) {
@@ -408,7 +422,8 @@ class OrderManager {
                     item.className = 'suggestion-item';
                     item.textContent = product;
                     item.addEventListener('click', () => {
-                        document.getElementById('newProductInput').value = product;
+                        const prodInput = document.getElementById('newProductInput');
+                        if (prodInput) prodInput.value = product;
                         suggestions.innerHTML = '';
                         this.addProduct();
                     });
@@ -429,6 +444,8 @@ class OrderManager {
 
     static addProduct() {
         const productInput = document.getElementById('newProductInput');
+        if (!productInput) return;
+        
         const productName = productInput.value.trim();
 
         if (!productName) {
@@ -437,6 +454,8 @@ class OrderManager {
         }
 
         const tbody = document.getElementById('orderBody');
+        if (!tbody) return;
+
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="col-product"><input type="text" class="product-input" value="${productName}" placeholder="المنتج"></td>
@@ -455,7 +474,12 @@ class OrderManager {
         productInput.focus();
 
         this.updateOrderSummary();
-        document.getElementById('tableEmpty').style.display = 'none';
+        
+        const emptyMsg = document.getElementById('tableEmpty');
+        if (emptyMsg) emptyMsg.style.display = 'none';
+
+        // إضافة حدث مستمع لتحديث المجموع تلقائياً عند تغيير الكمية
+        row.querySelector('.qty-input')?.addEventListener('input', () => this.updateOrderSummary());
 
         ToastManager.success('تمت إضافة المنتج ✓');
     }
@@ -465,8 +489,9 @@ class OrderManager {
         this.updateOrderSummary();
 
         const tbody = document.getElementById('orderBody');
-        if (tbody.children.length === 0) {
-            document.getElementById('tableEmpty').style.display = 'block';
+        if (tbody && tbody.children.length === 0) {
+            const emptyMsg = document.getElementById('tableEmpty');
+            if (emptyMsg) emptyMsg.style.display = 'block';
         }
 
         ToastManager.info('تم حذف المنتج');
@@ -479,15 +504,20 @@ class OrderManager {
 
         rows.forEach(row => {
             const productInput = row.querySelector('.product-input');
-            if (productInput.value.trim()) {
+            const qtyInput = row.querySelector('.qty-input');
+            if (productInput && productInput.value.trim()) {
                 itemCount++;
-                totalQty += parseInt(row.querySelector('.qty-input').value) || 0;
+                totalQty += parseInt(qtyInput.value) || 0;
             }
         });
 
-        document.getElementById('itemCount').textContent = itemCount;
-        document.getElementById('totalQty').textContent = totalQty;
-        document.getElementById('totalAmount').textContent = (totalQty * 50).toFixed(0) + ' ₪'; // مثال: 50 شيكل للقطعة
+        const itemCntElem = document.getElementById('itemCount');
+        const totQtyElem = document.getElementById('totalQty');
+        const totAmtElem = document.getElementById('totalAmount');
+
+        if (itemCntElem) itemCntElem.textContent = itemCount;
+        if (totQtyElem) totQtyElem.textContent = totalQty;
+        if (totAmtElem) totAmtElem.textContent = (totalQty * 50).toFixed(0) + ' ₪'; 
     }
 
     static setupOrderActions() {
@@ -510,7 +540,8 @@ class OrderManager {
 
     static saveDraft() {
         const items = this.getOrderItems();
-        const note = document.getElementById('orderNoteInput').value;
+        const noteInput = document.getElementById('orderNoteInput');
+        const note = noteInput ? noteInput.value : '';
 
         const draft = {
             rep: window.currentRepName,
@@ -537,6 +568,9 @@ class OrderManager {
             return;
         }
 
+        const noteInput = document.getElementById('orderNoteInput');
+        const note = noteInput ? noteInput.value : '';
+
         const order = {
             id: 'ORDER_' + Date.now(),
             rep: window.currentRepName,
@@ -544,7 +578,7 @@ class OrderManager {
             pharmacy: window.currentPharmacy,
             date: new Date().toISOString(),
             items,
-            note: document.getElementById('orderNoteInput').value,
+            note: note,
             status: 'pending',
             total: items.reduce((sum, item) => sum + (item.qty * 50), 0)
         };
@@ -552,22 +586,16 @@ class OrderManager {
         SavingIndicator.show();
 
         try {
-            // حفظ في localStorage أولاً
             const orders = JSON.parse(localStorage.getItem('orders') || '[]');
             orders.push(order);
             localStorage.setItem('orders', JSON.stringify(orders));
-
-            // في التطبيق الحقيقي: حفظ في Firebase
-            // await addDoc(collection(db, 'orders'), order);
 
             setTimeout(() => {
                 SavingIndicator.hide();
                 ToastManager.success('تم إرسال الطلبية بنجاح ✓');
                 
-                // إعادة تعيين النموذج
                 this.clearOrder();
                 
-                // الانتقال لقائمة الطلبيات
                 setTimeout(() => {
                     ScreenManager.show('orders-screen');
                     this.loadOrdersForRep();
@@ -584,33 +612,45 @@ class OrderManager {
         const items = [];
         document.querySelectorAll('#orderBody tr').forEach(row => {
             const productInput = row.querySelector('.product-input');
-            const product = productInput.value.trim();
-            if (product) {
-                items.push({
-                    product,
-                    qty: parseInt(row.querySelector('.qty-input').value) || 0,
-                    bonus: parseInt(row.querySelector('.bonus-input').value) || 0,
-                    note: row.querySelector('.item-note-input').value
-                });
+            const qtyInput = row.querySelector('.qty-input');
+            const bonusInput = row.querySelector('.bonus-input');
+            const noteInput = row.querySelector('.item-note-input');
+
+            if (productInput) {
+                const product = productInput.value.trim();
+                if (product) {
+                    items.push({
+                        product,
+                        qty: parseInt(qtyInput.value) || 0,
+                        bonus: parseInt(bonusInput.value) || 0,
+                        note: noteInput ? noteInput.value : ''
+                    });
+                }
             }
         });
         return items;
     }
 
     static clearOrder() {
-        document.getElementById('orderBody').innerHTML = '';
-        document.getElementById('orderNoteInput').value = '';
-        document.getElementById('newProductInput').value = '';
+        const orderBody = document.getElementById('orderBody');
+        const orderNote = document.getElementById('orderNoteInput');
+        const newProduct = document.getElementById('newProductInput');
+        const tableEmpty = document.getElementById('tableEmpty');
+
+        if (orderBody) orderBody.innerHTML = '';
+        if (orderNote) orderNote.value = '';
+        if (newProduct) newProduct.value = '';
+        
         this.updateOrderSummary();
-        document.getElementById('tableEmpty').style.display = 'block';
+        if (tableEmpty) tableEmpty.style.display = 'block';
     }
 
     static changePharmacy() {
         ScreenManager.show('login-screen');
-        document.getElementById('userInfo').style.display = 'none';
-        document.getElementById('headerActions').style.display = 'none';
-        document.getElementById('headerStats').style.display = 'none';
-        document.getElementById('navTabs').style.display = 'none';
+        if (document.getElementById('userInfo')) document.getElementById('userInfo').style.display = 'none';
+        if (document.getElementById('headerActions')) document.getElementById('headerActions').style.display = 'none';
+        if (document.getElementById('headerStats')) document.getElementById('headerStats').style.display = 'none';
+        if (document.getElementById('navTabs')) document.getElementById('navTabs').style.display = 'none';
     }
 
     static setupTabNavigation() {
@@ -619,11 +659,9 @@ class OrderManager {
                 const screenId = tab.dataset.screen;
                 ScreenManager.show(screenId);
 
-                // تحديث الأزرار النشطة
                 document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
 
-                // تحميل البيانات حسب الشاشة
                 if (screenId === 'orders-screen') {
                     this.loadOrdersForRep();
                 } else if (screenId === 'reports-screen') {
@@ -642,10 +680,10 @@ class OrderManager {
                 window.isManager = false;
 
                 ScreenManager.show('login-screen');
-                document.getElementById('userInfo').style.display = 'none';
-                document.getElementById('headerActions').style.display = 'none';
-                document.getElementById('headerStats').style.display = 'none';
-                document.getElementById('navTabs').style.display = 'none';
+                if (document.getElementById('userInfo')) document.getElementById('userInfo').style.display = 'none';
+                if (document.getElementById('headerActions')) document.getElementById('headerActions').style.display = 'none';
+                if (document.getElementById('headerStats')) document.getElementById('headerStats').style.display = 'none';
+                if (document.getElementById('navTabs')) document.getElementById('navTabs').style.display = 'none';
 
                 this.clearOrder();
                 ToastManager.info('تم تسجيل الخروج');
@@ -654,8 +692,7 @@ class OrderManager {
     }
 
     static loadOrdersFromFirebase() {
-        // في التطبيق الحقيقي: استخدام Firebase
-        // هنا نستخدم localStorage للاختبار
+        // Firebase Logic Local fallback
     }
 
     static loadOrdersForRep() {
@@ -663,14 +700,17 @@ class OrderManager {
         const repOrders = orders.filter(o => o.repId === window.currentRepId);
 
         const ordersList = document.getElementById('ordersList');
+        if (!ordersList) return;
         ordersList.innerHTML = '';
 
         if (repOrders.length === 0) {
-            document.getElementById('ordersEmpty').style.display = 'block';
+            const ordersEmpty = document.getElementById('ordersEmpty');
+            if (ordersEmpty) ordersEmpty.style.display = 'block';
             return;
         }
 
-        document.getElementById('ordersEmpty').style.display = 'none';
+        const ordersEmpty = document.getElementById('ordersEmpty');
+        if (ordersEmpty) ordersEmpty.style.display = 'none';
 
         repOrders.forEach(order => {
             const card = document.createElement('div');
@@ -706,10 +746,11 @@ class OrderManager {
             ordersList.appendChild(card);
         });
 
-        // تحديث الشارة
-        document.getElementById('ordersBadge').textContent = repOrders.filter(o => o.status === 'pending').length;
-        if (repOrders.some(o => o.status === 'pending')) {
-            document.getElementById('ordersBadge').style.display = 'inline';
+        const badge = document.getElementById('ordersBadge');
+        if (badge) {
+            const pendingCount = repOrders.filter(o => o.status === 'pending').length;
+            badge.textContent = pendingCount;
+            badge.style.display = pendingCount > 0 ? 'inline' : 'none';
         }
     }
 
@@ -739,24 +780,27 @@ class OrderManager {
         const completed = repOrders.filter(o => o.status === 'completed').length;
         const total = repOrders.length;
 
-        document.getElementById('reportTableBody').innerHTML = repOrders.map(order => `
-            <tr>
-                <td>${new Date(order.date).toLocaleDateString('ar-SA')}</td>
-                <td>${order.pharmacy}</td>
-                <td>${order.items.length}</td>
-                <td><span class="order-card-status status-${order.status}">${this.getStatusText(order.status)}</span></td>
-                <td>
-                    <button class="btn-secondary" onclick="OrderManager.viewOrder('${order.id}')">
-                        <i class="ph ph-eye"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
+        const reportBody = document.getElementById('reportTableBody');
+        if (reportBody) {
+            reportBody.innerHTML = repOrders.map(order => `
+                <tr>
+                    <td>${new Date(order.date).toLocaleDateString('ar-SA')}</td>
+                    <td>${order.pharmacy}</td>
+                    <td>${order.items.length}</td>
+                    <td><span class="order-card-status status-${order.status}">${this.getStatusText(order.status)}</span></td>
+                    <td>
+                        <button class="btn-secondary" onclick="OrderManager.viewOrder('${order.id}')">
+                            <i class="ph ph-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
 
-        // تحديث الرسوم البيانية
-        document.querySelector('.chart-container')?.textContent = `
-            الطلبيات: ${total} | قيد الانتظار: ${pending} | مكتملة: ${completed}
-        `;
+        const chartContainer = document.querySelector('.chart-container');
+        if (chartContainer) {
+            chartContainer.textContent = `الطلبيات: ${total} | قيد الانتظار: ${pending} | مكتملة: ${completed}`;
+        }
     }
 }
 
@@ -766,7 +810,6 @@ document.addEventListener('DOMContentLoaded', () => {
     LoginManager.init();
     OrderManager.init();
 
-    // التحقق من الجلسة المحفوظة
     if (window.currentRepId && window.currentRepName) {
         ScreenManager.show('order-screen');
     } else if (window.isManager) {
@@ -776,7 +819,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// تصدير للدوال العالمية
 window.OrderManager = OrderManager;
 window.ToastManager = ToastManager;
 window.ScreenManager = ScreenManager;
