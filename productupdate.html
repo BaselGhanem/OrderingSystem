@@ -2,38 +2,162 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>تحديث قاعدة بيانات المنتجات</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+    <title>إدارة وتحديث منتجات Firebase</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Cairo', sans-serif; padding: 50px; text-align: center; background-color: #f1f5f9; color: #1e293b; }
-        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
-        .btn { padding: 12px 25px; background: #004a99; color: white; border: none; cursor: pointer; border-radius: 8px; font-size: 1rem; font-weight: bold; margin-top: 15px; transition: 0.3s;}
-        .btn:hover { background: #003a7a; }
-        input[type="file"] { padding: 10px; border: 1px solid #ccc; border-radius: 8px; width: 100%; margin-top: 15px;}
-        #status { margin-top: 20px; font-size: 1.1rem; font-weight: bold; }
-        .info-box { background: #e0f2fe; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: right; font-size: 0.9rem; }
+        body { 
+            font-family: 'Cairo', sans-serif; 
+            padding: 30px; 
+            background-color: #f8fafc; 
+            color: #0f172a; 
+            margin: 0;
+        }
+        .container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+            max-width: 1100px; 
+            margin: auto; 
+        }
+        h2 { color: #1e3a8a; margin-top: 0; font-weight: 800; }
+        
+        .section-title {
+            text-align: right;
+            color: #475569;
+            font-size: 1.2rem;
+            margin-top: 30px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+
+        /* أدوات التحكم والملفات */
+        .upload-box {
+            background: #f1f5f9;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px dashed #cbd5e1;
+            margin-bottom: 25px;
+        }
+        input[type="file"] { 
+            padding: 10px; 
+            background: white;
+            border: 1px solid #cbd5e1; 
+            border-radius: 8px; 
+            width: 80%; 
+            max-width: 400px;
+        }
+
+        /* الأزرار */
+        .btn { 
+            padding: 10px 20px; 
+            background: #2563eb; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            border-radius: 8px; 
+            font-size: 0.95rem; 
+            font-weight: bold; 
+            transition: 0.2s;
+            font-family: 'Cairo', sans-serif;
+        }
+        .btn:hover { background: #1d4ed8; }
+        .btn-success { background: #10b981; }
+        .btn-success:hover { background: #059669; }
+        .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
+
+        #status { margin: 15px 0; font-weight: bold; font-size: 1rem; }
+
+        /* الجدول الخاص بالمنتجات */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            text-align: right;
+        }
+        th, td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background-color: #1e3a8a;
+            color: white;
+            font-weight: 700;
+        }
+        tr:hover { background-color: #f8fafc; }
+        
+        /* حقول الإدخال داخل الجدول */
+        .table-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-family: 'Cairo', sans-serif;
+            box-sizing: border-box;
+            font-size: 0.9rem;
+        }
+        .table-input:focus {
+            border-color: #2563eb;
+            outline: none;
+            background-color: #f0fdf4;
+        }
+        .doc-id-text {
+            font-family: monospace;
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+        .loading-text {
+            padding: 20px;
+            color: #64748b;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
+
     <div class="container">
-        <h2 style="color: #004a99;">تحديث قائمة المنتجات</h2>
+        <h2>📦 نظام إدارة وتحديث المنتجات</h2>
         
-        <div class="info-box">
-            <strong>ملاحظة هامة:</strong> يجب أن يحتوي ملف الإكسل على الأعمدة التالية تماماً:
-            <br>
-            (Document_ID, price, code, name)
+        <div class="upload-box">
+            <div style="font-weight: 600; margin-bottom: 10px;">تحديث شامل عبر ملف Excel:</div>
+            <input type="file" id="excelFile" accept=".xlsx, .xls">
+            <button id="startImportBtn" class="btn">رفع وتحديث الكل</button>
         </div>
 
-        <input type="file" id="excelFile" accept=".xlsx, .xls">
-        <br>
-        <button id="startImportBtn" class="btn">بدء تحديث قاعدة البيانات</button>
         <div id="status"></div>
+
+        <div class="section-title">قائمة المنتجات الحالية في قاعدة البيانات (يمكنك التعديل مباشرة)</div>
+        
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Document_ID</th>
+                        <th style="width: 30%;">اسم المنتج (name)</th>
+                        <th style="width: 20%;">الكود (code)</th>
+                        <th style="width: 15%;">السعر (price)</th>
+                        <th style="width: 10%; text-align: center;">إجراء</th>
+                    </tr>
+                </thead>
+                <tbody id="productsTableBody">
+                    <tr>
+                        <td colspan="5" class="loading-text">جاري تحميل المنتجات من قاعدة البيانات...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, deleteDoc, doc, setDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, deleteDoc, doc, setDoc, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
@@ -47,6 +171,93 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // وظيفة جلب المنتجات وعرضها في الجدول فور فتح الصفحة
+        async function loadProducts() {
+            const tableBody = document.getElementById('productsTableBody');
+            try {
+                const snap = await getDocs(collection(db, "products"));
+                tableBody.innerHTML = "";
+
+                if (snap.empty) {
+                    tableBody.innerHTML = `<tr><td colspan="5" class="loading-text">لا توجد منتجات حالياً في قاعدة البيانات.</td></tr>`;
+                    return;
+                }
+
+                snap.forEach(pDoc => {
+                    const data = pDoc.data();
+                    const id = pDoc.id;
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="doc-id-text">${id}</td>
+                        <td><input type="text" class="table-input" id="name-${id}" value="${data.name || ''}"></td>
+                        <td><input type="text" class="table-input" id="code-${id}" value="${data.code || ''}"></td>
+                        <td><input type="number" class="table-input" id="price-${id}" value="${data.price || 0}" step="any"></td>
+                        <td style="text-align: center;">
+                            <button class="btn btn-success btn-sm save-single-btn" data-id="${id}">حفظ</button>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+
+                // تفعيل أزرار الحفظ الفردية لكل سطر
+                document.querySelectorAll('.save-single-btn').forEach(button => {
+                    button.onclick = async (e) => {
+                        const docId = e.target.getAttribute('data-id');
+                        await updateSingleProduct(docId, e.target);
+                    };
+                });
+
+            } catch (error) {
+                console.error("Error loading products:", error);
+                tableBody.innerHTML = `<tr><td colspan="5" style="color:red; padding:20px;">حدث خطأ أثناء تحميل البيانات!</td></tr>`;
+            }
+        }
+
+        // وظيفة تحديث منتج فردي عند الضغط على زر حفظ الخاص به
+        async function updateSingleProduct(id, buttonElement) {
+            const nameVal = document.getElementById(`name-${id}`).value.trim();
+            const codeVal = document.getElementById(`code-${id}`).value.trim();
+            const priceVal = Number(document.getElementById(`price-${id}`).value) || 0;
+
+            if (!nameVal || !codeVal) {
+                alert("لا يمكن ترك الاسم أو الكود فارغاً!");
+                return;
+            }
+
+            const originalText = buttonElement.innerText;
+            buttonElement.innerText = "جاري...";
+            buttonElement.disabled = true;
+
+            try {
+                const productRef = doc(db, "products", id);
+                await updateDoc(productRef, {
+                    name: nameVal,
+                    code: codeVal,
+                    price: priceVal
+                });
+                
+                buttonElement.innerText = "✅ تم";
+                buttonElement.style.background = "#059669";
+                
+                setTimeout(() => {
+                    buttonElement.innerText = originalText;
+                    buttonElement.style.background = "#10b981";
+                    buttonElement.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                console.error("Error updating document: ", error);
+                alert("حدث خطأ أثناء حفظ التعديل.");
+                buttonElement.innerText = originalText;
+                buttonElement.disabled = false;
+            }
+        }
+
+        // استدعاء دالة الجلب عند تحميل الصفحة مباشرة
+        window.addEventListener('DOMContentLoaded', loadProducts);
+
+        // معالجة ملف الإكسل المستورد (البرمجية السابقة مع تحديث العرض تلقائياً بعد الانتهاء)
         document.getElementById('startImportBtn').onclick = async () => {
             const file = document.getElementById('excelFile').files[0];
             if (!file) return alert("الرجاء اختيار ملف إكسل أولاً");
@@ -88,7 +299,6 @@
                                 price: Number(row.price) || 0
                             };
 
-                            // استخدام Document_ID إذا كان موجوداً في الملف للحفاظ على المعرفات القديمة
                             if (row.Document_ID) {
                                 addPromises.push(setDoc(doc(db, "products", String(row.Document_ID).trim()), productData));
                             } else {
@@ -99,8 +309,12 @@
 
                     await Promise.all(addPromises);
                     
-                    status.innerText = "✅ تم التحديث بنجاح لكافة المنتجات!";
+                    status.innerText = "✅ تم تحديث قاعدة البيانات بنجاح!";
                     status.style.color = "#10b981";
+                    
+                    // إعادة تحميل الجدول لإظهار البيانات الجديدة فوراً
+                    loadProducts();
+                    
                 } catch (error) {
                     console.error("Error during import:", error);
                     status.innerText = "❌ حدث خطأ أثناء التحديث.";
