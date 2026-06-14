@@ -18,7 +18,7 @@
             padding: 30px; 
             border-radius: 16px; 
             box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
-            max-width: 1100px; 
+            max-width: 1200px; 
             margin: auto; 
         }
         h2 { color: #1e3a8a; margin-top: 0; font-weight: 800; }
@@ -61,10 +61,13 @@
             font-weight: bold; 
             transition: 0.2s;
             font-family: 'Cairo', sans-serif;
+            margin: 2px;
         }
         .btn:hover { background: #1d4ed8; }
         .btn-success { background: #10b981; }
         .btn-success:hover { background: #059669; }
+        .btn-danger { background: #ef4444; }
+        .btn-danger:hover { background: #dc2626; }
         .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
 
         #status { margin: 15px 0; font-weight: bold; font-size: 1rem; }
@@ -85,6 +88,7 @@
         th, td {
             padding: 14px 16px;
             border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
         }
         th {
             background-color: #1e3a8a;
@@ -133,17 +137,17 @@
 
         <div id="status"></div>
 
-        <div class="section-title">قائمة المنتجات الحالية في قاعدة البيانات (يمكنك التعديل مباشرة)</div>
+        <div class="section-title">قائمة المنتجات الحالية في قاعدة البيانات (يمكنك التعديل أو الحذف مباشرة)</div>
         
         <div class="table-container">
             <table>
                 <thead>
                     <tr>
                         <th style="width: 25%;">Document_ID</th>
-                        <th style="width: 30%;">اسم المنتج (name)</th>
-                        <th style="width: 20%;">الكود (code)</th>
+                        <th style="width: 25%;">اسم المنتج (name)</th>
+                        <th style="width: 15%;">الكود (code)</th>
                         <th style="width: 15%;">السعر (price)</th>
-                        <th style="width: 10%; text-align: center;">إجراء</th>
+                        <th style="width: 20%; text-align: center;">إجراءات</th>
                     </tr>
                 </thead>
                 <tbody id="productsTableBody">
@@ -186,15 +190,20 @@
                 snap.forEach(pDoc => {
                     const data = pDoc.data();
                     const id = pDoc.id;
+                    
+                    // تحويل السعر لرقم عشري بخانتين فقط ليظهر بشكل منسق
+                    const formattedPrice = data.price ? Number(data.price).toFixed(2) : "0.00";
 
                     const tr = document.createElement('tr');
+                    tr.id = `row-${id}`;
                     tr.innerHTML = `
                         <td class="doc-id-text">${id}</td>
                         <td><input type="text" class="table-input" id="name-${id}" value="${data.name || ''}"></td>
                         <td><input type="text" class="table-input" id="code-${id}" value="${data.code || ''}"></td>
-                        <td><input type="number" class="table-input" id="price-${id}" value="${data.price || 0}" step="any"></td>
+                        <td><input type="number" class="table-input" id="price-${id}" value="${formattedPrice}" step="0.01"></td>
                         <td style="text-align: center;">
                             <button class="btn btn-success btn-sm save-single-btn" data-id="${id}">حفظ</button>
+                            <button class="btn btn-danger btn-sm delete-single-btn" data-id="${id}">حذف</button>
                         </td>
                     `;
                     tableBody.appendChild(tr);
@@ -208,6 +217,14 @@
                     };
                 });
 
+                // تفعيل أزرار الحذف الفردية لكل سطر
+                document.querySelectorAll('.delete-single-btn').forEach(button => {
+                    button.onclick = async (e) => {
+                        const docId = e.target.getAttribute('data-id');
+                        await deleteSingleProduct(docId);
+                    };
+                });
+
             } catch (error) {
                 console.error("Error loading products:", error);
                 tableBody.innerHTML = `<tr><td colspan="5" style="color:red; padding:20px;">حدث خطأ أثناء تحميل البيانات!</td></tr>`;
@@ -218,7 +235,9 @@
         async function updateSingleProduct(id, buttonElement) {
             const nameVal = document.getElementById(`name-${id}`).value.trim();
             const codeVal = document.getElementById(`code-${id}`).value.trim();
-            const priceVal = Number(document.getElementById(`price-${id}`).value) || 0;
+            // جلب القيمة وتحويلها لرقم مقرب لـ 2 digits وعمل تنسيق لها
+            let priceVal = Number(document.getElementById(`price-${id}`).value) || 0;
+            priceVal = Number(priceVal.toFixed(2)); 
 
             if (!nameVal || !codeVal) {
                 alert("لا يمكن ترك الاسم أو الكود فارغاً!");
@@ -237,6 +256,9 @@
                     price: priceVal
                 });
                 
+                // تحديث حقل المدخلات ليعرض الرقم منسقاً بخانتين عشريتين
+                document.getElementById(`price-${id}`).value = priceVal.toFixed(2);
+
                 buttonElement.innerText = "✅ تم";
                 buttonElement.style.background = "#059669";
                 
@@ -254,10 +276,31 @@
             }
         }
 
+        // وظيفة حذف المنتج نهائياً من Firestore ومن واجهة المستخدم
+        async function deleteSingleProduct(id) {
+            if (!confirm("هل أنت متأكد من رغبتك في حذف هذا الصنف نهائياً من قاعدة البيانات؟")) {
+                return;
+            }
+
+            try {
+                await deleteDoc(doc(db, "products", id));
+                
+                // إزالة السطر الخاص بالمنتج من الجدول مباشرة
+                const row = document.getElementById(`row-${id}`);
+                if (row) {
+                    row.remove();
+                }
+                alert("تم حذف الصنف بنجاح.");
+            } catch (error) {
+                console.error("Error deleting document: ", error);
+                alert("حدث خطأ أثناء محاولة الحذف.");
+            }
+        }
+
         // استدعاء دالة الجلب عند تحميل الصفحة مباشرة
         window.addEventListener('DOMContentLoaded', loadProducts);
 
-        // معالجة ملف الإكسل المستورد (البرمجية السابقة مع تحديث العرض تلقائياً بعد الانتهاء)
+        // معالجة ملف الإكسل المستورد
         document.getElementById('startImportBtn').onclick = async () => {
             const file = document.getElementById('excelFile').files[0];
             if (!file) return alert("الرجاء اختيار ملف إكسل أولاً");
@@ -293,10 +336,14 @@
                     
                     excelData.forEach(row => {
                         if(row.name && row.code) {
+                            // تقريب السعر القادم من ملف الإكسل إلى خانتين عشريتين فقط قبل الإرسال
+                            let excelPrice = Number(row.price) || 0;
+                            excelPrice = Number(excelPrice.toFixed(2));
+
                             const productData = {
                                 name: String(row.name).trim(),
                                 code: String(row.code).trim(),
-                                price: Number(row.price) || 0
+                                price: excelPrice
                             };
 
                             if (row.Document_ID) {
@@ -312,7 +359,7 @@
                     status.innerText = "✅ تم تحديث قاعدة البيانات بنجاح!";
                     status.style.color = "#10b981";
                     
-                    // إعادة تحميل الجدول لإظهار البيانات الجديدة فوراً
+                    // إعادة تحميل الجدول لإظهار البيانات الجديدة فوراً مع التنسيق الجديد
                     loadProducts();
                     
                 } catch (error) {
