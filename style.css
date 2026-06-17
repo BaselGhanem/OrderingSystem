@@ -830,3 +830,388 @@ select:focus-visible,
         font-size: 0.95rem;
     }
 }
+
+/* ==================================================================
+   القسم الرابع: طبقة Responsive نهائية لكل الشاشات والتقارير
+   الهدف: عدم قص الجداول أو الفلاتر على الموبايل واللابتوب بمقاسات مختلفة
+   ================================================================== */
+html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+img, svg, video, canvas {
+    max-width: 100%;
+    height: auto;
+}
+
+.app-container {
+    width: min(100%, 1440px) !important;
+    max-width: 100% !important;
+    padding-inline: clamp(10px, 2vw, 24px) !important;
+}
+
+.glass-panel,
+.screen,
+.auth-box,
+.modal-content,
+.stat-card,
+.report-card-menu {
+    max-width: 100% !important;
+}
+
+.glass-panel {
+    padding: clamp(14px, 2vw, 24px) !important;
+}
+
+header.glass-panel {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: clamp(10px, 1.5vw, 20px) !important;
+    align-items: center !important;
+}
+
+header.glass-panel > div:last-child,
+.report-header > div,
+.action-group,
+.header-actions,
+.toolbar,
+.form-actions,
+.filters-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    align-items: center !important;
+}
+
+.logo-area {
+    min-width: 0 !important;
+}
+
+.logo-area h1,
+.report-header h2,
+.screen h2,
+.screen h3 {
+    line-height: 1.35 !important;
+    overflow-wrap: anywhere !important;
+}
+
+.logo-area h1 {
+    font-size: clamp(1.15rem, 2.2vw, 1.6rem) !important;
+}
+
+.report-header h2 {
+    font-size: clamp(1.05rem, 2vw, 1.45rem) !important;
+    min-width: 0 !important;
+}
+
+.dashboard-cards,
+.report-cards-grid,
+.filters-container,
+.admin-grid,
+.summary-grid,
+.cards-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)) !important;
+    gap: clamp(10px, 1.5vw, 20px) !important;
+}
+
+.filters-container {
+    align-items: end !important;
+}
+
+.filter-group,
+.input-group,
+.stat-card,
+.report-card-menu {
+    min-width: 0 !important;
+}
+
+select,
+input,
+textarea,
+.filter-select,
+.table-input,
+.form-control-edit {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    font-size: 16px !important;
+}
+
+textarea {
+    width: 100% !important;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-action,
+.btn-admin-opt,
+.btn-tab,
+.btn-subtab,
+.btn-icon,
+button,
+a.btn-secondary,
+a.btn-primary {
+    max-width: 100% !important;
+    white-space: normal !important;
+    text-align: center !important;
+    line-height: 1.35 !important;
+}
+
+.table-responsive,
+.table-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain !important;
+    border-radius: var(--border-radius-lg, 16px) !important;
+}
+
+.table-responsive::after,
+.table-container::after {
+    content: 'اسحب الجدول يميناً ويساراً لعرض باقي الأعمدة';
+    display: none;
+    padding: 8px 10px;
+    color: var(--secondary, #64748b);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-align: center;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+}
+
+.order-table,
+.table-responsive table,
+.table-container table {
+    width: 100% !important;
+    min-width: max-content !important;
+    border-collapse: collapse !important;
+}
+
+.order-table th,
+.order-table td,
+.table-container th,
+.table-container td {
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+}
+
+.order-table td,
+.order-table th {
+    padding: clamp(10px, 1.1vw, 16px) clamp(10px, 1vw, 16px) !important;
+}
+
+.order-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.order-table td:nth-child(2),
+.order-table td:nth-child(3),
+.order-table td:nth-child(4),
+.order-table td:nth-child(5),
+.order-table td[data-wrap="true"],
+.table-container td[data-wrap="true"] {
+    white-space: normal !important;
+    min-width: 140px;
+    max-width: 280px;
+}
+
+.reports-nav,
+.manager-sub-tabs,
+.tabs {
+    width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x proximity;
+    padding-bottom: 8px !important;
+}
+
+.reports-nav .btn-subtab,
+.manager-sub-tabs .btn-subtab,
+.tabs .btn-tab {
+    flex: 0 0 auto !important;
+    scroll-snap-align: start;
+}
+
+.modal-overlay {
+    padding: clamp(8px, 2vw, 20px) !important;
+}
+
+.modal-content {
+    width: min(96vw, 980px) !important;
+    max-height: min(92vh, 900px) !important;
+    overflow: auto !important;
+}
+
+#duplicateEditContainer,
+#duplicateEditContainer.table-responsive {
+    max-height: 62vh !important;
+    overflow: auto !important;
+}
+
+@media (max-width: 1200px) {
+    .app-container { padding-inline: 14px !important; }
+    .dashboard-cards,
+    .report-cards-grid {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)) !important;
+    }
+    .filters-container {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)) !important;
+    }
+    .stat-card .value { font-size: clamp(1.6rem, 3vw, 2.2rem) !important; }
+    .stat-card .label { font-size: clamp(0.9rem, 1.5vw, 1.05rem) !important; }
+}
+
+@media (max-width: 992px) {
+    header.glass-panel {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        text-align: center !important;
+    }
+    header.glass-panel > div:last-child,
+    .report-header > div {
+        width: 100% !important;
+        justify-content: stretch !important;
+    }
+    .report-header {
+        align-items: stretch !important;
+    }
+    .report-header > div > *,
+    header.glass-panel > div:last-child > *,
+    .filters-container .btn-primary,
+    .filters-container .btn-secondary {
+        flex: 1 1 180px !important;
+    }
+    .table-responsive::after,
+    .table-container::after { display: block; }
+}
+
+@media (max-width: 768px) {
+    body { padding: 0 !important; }
+    .app-container {
+        padding-inline: 8px !important;
+        padding-block: 8px !important;
+    }
+    .screen {
+        margin: 8px 0 !important;
+        padding: 14px 10px !important;
+        border-radius: 18px !important;
+    }
+    .glass-panel {
+        margin-bottom: 12px !important;
+        border-radius: 18px !important;
+    }
+    .logo-area {
+        flex-direction: row !important;
+        justify-content: center !important;
+        width: 100% !important;
+    }
+    .logo { height: 42px !important; }
+    .dashboard-cards,
+    .report-cards-grid,
+    .filters-container {
+        grid-template-columns: 1fr !important;
+    }
+    .report-card-menu {
+        padding: 18px 14px !important;
+        gap: 10px !important;
+    }
+    .report-card-menu i {
+        font-size: 2rem !important;
+        padding: 12px !important;
+    }
+    .stat-card {
+        padding: 14px !important;
+    }
+    .report-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+    }
+    .report-header > div,
+    header.glass-panel > div:last-child,
+    #myOrdersSummary,
+    .user-info,
+    .manager-sub-tabs {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    .report-header button,
+    .report-header a,
+    header.glass-panel button,
+    header.glass-panel a,
+    .filters-container button,
+    .btn-primary,
+    .btn-secondary,
+    .btn-action {
+        width: 100% !important;
+        min-height: 46px !important;
+    }
+    .tabs {
+        display: flex !important;
+        flex-direction: row !important;
+    }
+    .tabs .btn-tab {
+        min-width: 120px !important;
+    }
+    .order-table,
+    .table-responsive table,
+    .table-container table {
+        font-size: 0.88rem !important;
+    }
+    .order-table th,
+    .order-table td,
+    .table-container th,
+    .table-container td {
+        padding: 9px 10px !important;
+    }
+    .modal-content {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        max-height: 88vh !important;
+    }
+    #toast-container {
+        left: 8px !important;
+        right: 8px !important;
+        bottom: 12px !important;
+    }
+    .toast {
+        width: 100% !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-container { padding-inline: 6px !important; }
+    .glass-panel { padding: 12px !important; }
+    .logo-area h1 { font-size: 1.05rem !important; }
+    .stat-card .value { font-size: 1.45rem !important; }
+    .stat-card .label { font-size: 0.85rem !important; }
+    .reports-nav .btn-subtab,
+    .manager-sub-tabs .btn-subtab,
+    .tabs .btn-tab {
+        min-width: 150px !important;
+        padding: 10px 12px !important;
+        font-size: 0.9rem !important;
+    }
+}
+
+@media print {
+    html, body { overflow: visible !important; background: white !important; }
+    .table-responsive, .table-container { overflow: visible !important; box-shadow: none !important; }
+    .table-responsive::after, .table-container::after { display: none !important; }
+    .order-table, .table-responsive table, .table-container table { min-width: 0 !important; width: 100% !important; }
+    .reports-nav, .filters-container, .btn-primary, .btn-secondary, .btn-action { display: none !important; }
+}

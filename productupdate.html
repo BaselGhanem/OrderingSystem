@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>إدارة وتحديث منتجات Firebase</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -122,6 +123,34 @@
             color: #64748b;
             font-style: italic;
         }
+
+
+        /* Responsive safety layer */
+        html { width: 100%; max-width: 100%; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { width: 100%; max-width: 100%; overflow-x: hidden; padding: clamp(10px, 3vw, 30px) !important; }
+        .container { width: min(100%, 1280px) !important; max-width: 100% !important; padding: clamp(14px, 3vw, 30px) !important; }
+        h2, .section-title, #status { overflow-wrap: anywhere; line-height: 1.55; }
+        .upload-box { padding: clamp(12px, 2.5vw, 20px) !important; }
+        input[type="file"] { width: 100% !important; max-width: 100% !important; font-size: 16px; }
+        .btn, button, input, select, textarea { max-width: 100%; font-size: 16px; }
+        .btn, button { min-height: 42px; white-space: normal; line-height: 1.35; }
+        .table-container { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .table-container::after { content: 'اسحب الجدول يميناً ويساراً لعرض باقي الأعمدة'; display: none; padding: 8px 10px; color: #64748b; font-size: .78rem; font-weight: 700; text-align: center; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+        table { min-width: max-content; }
+        th, td { white-space: nowrap; }
+        td:first-child, td:nth-child(2) { white-space: normal; min-width: 160px; max-width: 300px; }
+        .table-input { min-width: 120px; }
+        @media (max-width: 992px) {
+            .table-container::after { display: block; }
+        }
+        @media (max-width: 768px) {
+            body { padding: 8px !important; }
+            .container { border-radius: 14px !important; }
+            .btn { width: 100%; margin: 6px 0; }
+            h2 { font-size: 1.15rem; }
+        }
+
     </style>
 </head>
 <body>
