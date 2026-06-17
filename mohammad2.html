@@ -281,17 +281,55 @@
         import { db, collection, getDocs, doc, updateDoc, deleteDoc } from './js/firebase.js';
 
         let allOrders = [];
+        let pharmacyCodeIndex = { byRepAndName: new Map(), byName: new Map() };
 
         function getItemProductCode(item) {
             return item?.code || item?.productCode || item?.itemCode || '-';
         }
 
+        function normalizeLookupValue(value) {
+            return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+        }
+
+        function getPharmacyCodeFromRecord(pharmacy) {
+            return pharmacy?.pharmacy_code || pharmacy?.pharmacyCode || pharmacy?.code || pharmacy?.Code || '-';
+        }
+
+        async function loadCurrentPharmacyCodes() {
+            const snap = await getDocs(collection(db, 'pharmacies'));
+            const byRepAndName = new Map();
+            const byName = new Map();
+
+            snap.forEach(d => {
+                const pharmacy = { id: d.id, ...d.data() };
+                const nameKey = normalizeLookupValue(pharmacy.name || pharmacy.Name);
+                const repKey = normalizeLookupValue(pharmacy.rep_id || pharmacy.repId);
+                const code = getPharmacyCodeFromRecord(pharmacy);
+                if (!nameKey || !code || code === '-') return;
+                if (repKey) byRepAndName.set(`${repKey}|${nameKey}`, code);
+                if (!byName.has(nameKey)) byName.set(nameKey, code);
+            });
+
+            pharmacyCodeIndex = { byRepAndName, byName };
+        }
+
         function getOrderPharmacyCode(order) {
+            const nameKey = normalizeLookupValue(order?.pharmacyName);
+            const repKey = normalizeLookupValue(order?.repId);
+            if (repKey && nameKey) {
+                const exactCode = pharmacyCodeIndex.byRepAndName.get(`${repKey}|${nameKey}`);
+                if (exactCode) return exactCode;
+            }
+            if (nameKey) {
+                const nameCode = pharmacyCodeIndex.byName.get(nameKey);
+                if (nameCode) return nameCode;
+            }
             return order?.pharmacyCode || order?.pharmacy_code || '-';
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
             try {
+                await loadCurrentPharmacyCodes();
                 const snap = await getDocs(collection(db, "orders"));
                 snap.forEach(document => {
                     let data = document.data();

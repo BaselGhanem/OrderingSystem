@@ -284,6 +284,7 @@ let currentPharmaciesData = [];
 let myOrdersData = [];
 let reportsOrdersData = [];
 let pharmacyHistoryData = [];
+let pharmacyCodeIndex = { byRepAndName: new Map(), byName: new Map(), loadedAt: 0 };
 
 const DAD_LOGO_URL = `https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png`;
 
@@ -344,6 +345,52 @@ function getItemProductCode(item) {
     return item?.code || item?.productCode || item?.itemCode || getProductCodeByName(item?.name || ``) || `-`;
 }
 
+function normalizeLookupValue(value) {
+    return String(value || ``).trim().replace(/\s+/g, ` `).toLowerCase();
+}
+
+function getPharmacyCodeFromRecord(pharmacy) {
+    return pharmacy?.pharmacy_code || pharmacy?.pharmacyCode || pharmacy?.code || pharmacy?.Code || `-`;
+}
+
+async function refreshPharmacyCodeIndex(force = false) {
+    const now = Date.now();
+    if (!force && pharmacyCodeIndex.loadedAt && (now - pharmacyCodeIndex.loadedAt) < 60000) return;
+
+    const snap = await getDocs(collection(db, `pharmacies`));
+    const byRepAndName = new Map();
+    const byName = new Map();
+
+    snap.forEach(d => {
+        const pharmacy = { id: d.id, ...d.data() };
+        const nameKey = normalizeLookupValue(pharmacy.name || pharmacy.Name);
+        const repKey = normalizeLookupValue(pharmacy.rep_id || pharmacy.repId);
+        const code = getPharmacyCodeFromRecord(pharmacy);
+        if (!nameKey || !code || code === `-`) return;
+        if (repKey) byRepAndName.set(`${repKey}|${nameKey}`, code);
+        if (!byName.has(nameKey)) byName.set(nameKey, code);
+    });
+
+    pharmacyCodeIndex = { byRepAndName, byName, loadedAt: now };
+}
+
+function resolveOrderPharmacyCode(order) {
+    const nameKey = normalizeLookupValue(order?.pharmacyName);
+    const repKey = normalizeLookupValue(order?.repId);
+
+    if (repKey && nameKey) {
+        const exactCode = pharmacyCodeIndex.byRepAndName.get(`${repKey}|${nameKey}`);
+        if (exactCode) return exactCode;
+    }
+
+    if (nameKey) {
+        const nameCode = pharmacyCodeIndex.byName.get(nameKey);
+        if (nameCode) return nameCode;
+    }
+
+    return order?.pharmacyCode || order?.pharmacy_code || `-`;
+}
+
 function getStatusArabic(status) {
     return status === `approved` ? `موافق عليه` : (status === `pending` ? `قيد الموافقة` : `مرتجع`);
 }
@@ -390,7 +437,7 @@ function buildPrintOrderPage(order) {
                 <div><span>التاريخ</span><strong>${formatOrderDateTime(order)}</strong></div>
                 <div><span>المندوب</span><strong>${order.repName || `-`}</strong></div>
                 <div><span>الصيدلية</span><strong>${order.pharmacyName || `-`}</strong></div>
-                <div><span>كود الصيدلية</span><strong>${order.pharmacyCode || order.pharmacy_code || `-`}</strong></div>
+                <div><span>كود الصيدلية</span><strong>${resolveOrderPharmacyCode(order)}</strong></div>
                 <div><span>الحالة</span><strong>${getStatusArabic(order.status)}</strong></div>
             </div>
             <table class="print-items-table">
@@ -477,7 +524,7 @@ function exportOrderRows(orders) {
                 flatData.push({
                     "التاريخ": dateStr,
                     "المندوب": order.repName || "غير معروف",
-                    "كود الصيدلية": order.pharmacyCode || order.pharmacy_code || "-",
+                    "كود الصيدلية": resolveOrderPharmacyCode(order),
                     "الصيدلية": order.pharmacyName || "غير معروف",
                     "كود الصنف": getItemProductCode(item),
                     "الصنف": item.name || "-",
@@ -1565,7 +1612,7 @@ function filterAllOrders() {
     updateAdvancedManagerDashboard(filtered); // تحديث لوحة الإحصائيات
 }
 
-document.getElementById('exportAllOrdersBtn').onclick = () => {
+document.getElementById('exportAllOrdersBtn').onclick = async () => {
     const btn = document.getElementById('exportAllOrdersBtn');
     btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري التجهيز...";
     
@@ -1575,6 +1622,8 @@ document.getElementById('exportAllOrdersBtn').onclick = () => {
         const statusFilter = (document.getElementById('filterAllStatus').value || '').trim();
         const fromVal = document.getElementById('managerFilterFrom')?.value;
         const toVal = document.getElementById('managerFilterTo')?.value;
+
+        await refreshPharmacyCodeIndex(true);
 
         const ordersToExport = allOrdersData.filter(order => {
             const repName = (order.repName || '').toLowerCase();
@@ -2088,24 +2137,29 @@ document.getElementById('selectAllPharmacyHistoryOrders')?.addEventListener('cha
     document.getElementById(id)?.addEventListener(id === 'myOrdersFilterPharmacy' ? 'input' : 'change', applyMyOrdersFilters);
 });
 
-document.getElementById('printMyOrdersBtn')?.addEventListener('click', () => {
+document.getElementById('printMyOrdersBtn')?.addEventListener('click', async () => {
+    await refreshPharmacyCodeIndex(true);
     printOrders(resolveSelectedOrders('.my-order-checkbox', [myOrdersData]));
 });
 
-document.getElementById('printReportsBtn')?.addEventListener('click', () => {
+document.getElementById('printReportsBtn')?.addEventListener('click', async () => {
+    await refreshPharmacyCodeIndex(true);
     printOrders(resolveSelectedOrders('.reports-order-checkbox', [reportsOrdersData]));
 });
 
-document.getElementById('printPharmacyHistoryBtn')?.addEventListener('click', () => {
+document.getElementById('printPharmacyHistoryBtn')?.addEventListener('click', async () => {
+    await refreshPharmacyCodeIndex(true);
     printOrders(resolveSelectedOrders('.pharmacy-history-order-checkbox', [pharmacyHistoryData]));
 });
 
 
-document.getElementById('printManagerOrdersBtn')?.addEventListener('click', () => {
+document.getElementById('printManagerOrdersBtn')?.addEventListener('click', async () => {
+    await refreshPharmacyCodeIndex(true);
     printOrders(resolveSelectedOrders('.order-checkbox', [managerOrdersData, allOrdersData]));
 });
 
-document.getElementById('printAllOrdersBtn')?.addEventListener('click', () => {
+document.getElementById('printAllOrdersBtn')?.addEventListener('click', async () => {
+    await refreshPharmacyCodeIndex(true);
     printOrders(resolveSelectedOrders('.all-order-checkbox', [allOrdersData]));
 });
 
