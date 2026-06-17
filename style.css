@@ -1712,3 +1712,67 @@ a.btn-primary {
         min-height: 39px !important;
     }
 }
+
+
+/* =========================================================
+   Mobile statistics cards fix - prevents number overlap
+   ========================================================= */
+#allOrdersStats {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(150px, 1fr)) !important;
+    gap: clamp(10px, 2vw, 16px) !important;
+    align-items: stretch !important;
+}
+
+#allOrdersStats .stat-card,
+#advancedManagerDashboard .card {
+    min-width: 0 !important;
+    width: 100% !important;
+    flex: none !important;
+    overflow: hidden !important;
+}
+
+#allOrdersStats .stat-card > div:first-child,
+#advancedManagerDashboard h3 {
+    max-width: 100% !important;
+    font-size: clamp(1.15rem, 4.2vw, 2rem) !important;
+    line-height: 1.15 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    direction: ltr !important;
+    unicode-bidi: plaintext !important;
+}
+
+#allOrdersStats .stat-card > div:last-child,
+#advancedManagerDashboard small {
+    line-height: 1.35 !important;
+    overflow-wrap: anywhere !important;
+}
+
+#allOrdersStats > div:not(.stat-card) {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+}
+
+@media (max-width: 992px) {
+    #allOrdersStats,
+    #advancedManagerDashboard {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 420px) {
+    #allOrdersStats,
+    #advancedManagerDashboard {
+        grid-template-columns: 1fr !important;
+    }
+    #allOrdersStats .stat-card > div:first-child,
+    #advancedManagerDashboard h3 {
+        font-size: 1.55rem !important;
+    }
+}

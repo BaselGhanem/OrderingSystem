@@ -1069,7 +1069,8 @@ function isLoginScreenVisible() {
 function isRepPasswordValidSilently(repName, password) {
     if (!repName || !password) return false;
     const expectedHash = repPasswordsMap[repName];
-    return !expectedHash || btoa(password) === expectedHash;
+    if (!expectedHash) return false;
+    return btoa(password) === expectedHash;
 }
 
 function scheduleRepAutoLogin() {
@@ -1126,12 +1127,17 @@ startOrderBtn.onclick = async (e) => { e.preventDefault(); // 🟢 أضف هذا
     const enteredPass = repPassInput.value.trim();
     const expectedHash = repPasswordsMap[selectedRepNameText];
 
+    if (!expectedHash) {
+        repPassInput.classList.add('input-error');
+        return showToast("لا توجد كلمة مرور معرفة لهذا المندوب. راجع الإدارة.", "error");
+    }
+
     if (!enteredPass) {
         repPassInput.classList.add('input-error');
         return showToast("الرجاء إدخال الرقم السري الخاص بك.", "warning");
     }
 
-if (expectedHash && btoa(enteredPass) !== expectedHash) {
+if (btoa(enteredPass) !== expectedHash) {
         repPassInput.classList.add('input-error');
         return showToast("الرقم السري للمندوب غير صحيح!", "error");
     }
@@ -1885,6 +1891,7 @@ async function openEditOrder(orderId, userType) {
     const orderDoc = await getDoc(doc(db, "orders", orderId));
     if (!orderDoc.exists()) return showToast("الطلب غير موجود بالقاعدة.", "error");
     const order = orderDoc.data();
+    const originalOrderStatus = order.status || "pending";
     editingOrderId = orderId;
 
     let repOptionsHTML = '<option value="">-- اختر المندوب --</option>';
@@ -2136,7 +2143,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 await updateDoc(doc(db, "orders", editingOrderId), { 
                     repId: newRepId, repName: newRepName, managerName: getManagerName(newRepName), 
                     pharmacyName: newPharmName, pharmacyCode: selectedPharm.pharmacy_code || "-",
-                    items: items, grandTotal: newGrandTotal, status: "pending", updatedAt: new Date() 
+                    items: items, grandTotal: newGrandTotal, status: originalOrderStatus, updatedAt: new Date() 
                 });
                 showToast("تم تحديث الطلبية بنجاح", "success");
                 closeEditModal();
@@ -2178,6 +2185,17 @@ async function loadReports() {
     } catch(e) { showToast("خطأ في الاتصال بالبيانات", "error"); }
 }
 
+function getFilteredReportsOrders() {
+    const repFilter = (document.getElementById('filterRep')?.value || '').toLowerCase().trim();
+    const pharmFilter = (document.getElementById('filterPharmacy')?.value || '').toLowerCase().trim();
+
+    return reportsOrdersData.filter(order => {
+        const rep = (order.repName || '').toLowerCase();
+        const pharm = (order.pharmacyName || '').toLowerCase();
+        return rep.includes(repFilter) && pharm.includes(pharmFilter);
+    });
+}
+
 function filterReportsTable() {
     const repFilter = document.getElementById('filterRep').value.toLowerCase();
     const pharmFilter = document.getElementById('filterPharmacy').value.toLowerCase();
@@ -2196,20 +2214,15 @@ document.getElementById('exportExcelBtn').onclick = async () => {
     const btn = document.getElementById('exportExcelBtn');
     btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري...";
     try {
-        const snap = await getDocs(collection(db, "orders"));
-        let allOrders = [];
-        snap.forEach(d => allOrders.push({ id: d.id, ...d.data() }));
-        if (!isAdmin && currentRepName) {
-            allOrders = allOrders.filter(o => o.repName === currentRepName);
-        }
-
-        const flatData = exportOrderRows(allOrders);
-        if (flatData.length === 0) { showToast("لا توجد بيانات للتصدير", "warning"); return; }
+        await refreshPharmacyCodeIndex(true);
+        const ordersToExport = getFilteredReportsOrders();
+        const flatData = exportOrderRows(ordersToExport);
+        if (flatData.length === 0) { showToast("لا توجد بيانات مطابقة للفلاتر للتصدير", "warning"); return; }
         const ws = XLSX.utils.json_to_sheet(flatData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "الطلبيات");
-        XLSX.writeFile(wb, "تقرير_طلبيات.xlsx");
-        showToast("اكتمل التصدير!", "success");
+        XLSX.writeFile(wb, "تقرير_طلبيات_مفلتر.xlsx");
+        showToast("اكتمل تصدير البيانات المفلترة فقط", "success");
     } catch (e) { showToast("حدث خطأ في استخراج البيانات", "error"); } 
     finally { btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير للاكسل"; }
 };

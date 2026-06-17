@@ -205,6 +205,70 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        function normalizeRowKeys(originalRow) {
+            return Object.keys(originalRow || {}).reduce((acc, key) => {
+                acc[String(key).trim()] = originalRow[key];
+                return acc;
+            }, {});
+        }
+
+        function makeSafeDocId(value, fallbackPrefix = `item`) {
+            const cleaned = String(value || ``)
+                .trim()
+                .replace(/[\/\#?]/g, `-`)
+                .replace(/\s+/g, `_`)
+                .replace(/_+/g, `_`)
+                .slice(0, 420);
+            return cleaned || `${fallbackPrefix}_${Date.now()}`;
+        }
+
+        async function runInChunks(tasks, chunkSize = 100) {
+            for (let i = 0; i < tasks.length; i += chunkSize) {
+                const chunk = tasks.slice(i, i + chunkSize);
+                await Promise.all(chunk.map(task => task()));
+            }
+        }
+
+        function buildProductImportRows(excelData) {
+            const usedIds = new Set();
+            const validRows = [];
+            const invalidRows = [];
+
+            excelData.forEach((originalRow, index) => {
+                const row = normalizeRowKeys(originalRow);
+                const rowName = row.name || row.Name || row[`اسم الصنف`] || row[`الصنف`];
+                const rowCode = row.code || row.Code || row.productCode || row.itemCode || row[`كود الصنف`];
+                const rowPharmacyCode = row.pharmacyCode || row.pharmacy_code || row.PharmacyCode || row[`كود الصيدلية`];
+                const rowPrice = row.price || row.Price || row[`السعر`];
+
+                if (!rowName || !rowCode) {
+                    invalidRows.push(index + 2);
+                    return;
+                }
+
+                let excelPrice = Number(rowPrice) || 0;
+                excelPrice = Number(excelPrice.toFixed(2));
+
+                const productData = {
+                    name: String(rowName).trim(),
+                    code: String(rowCode).trim(),
+                    productCode: String(rowCode).trim(),
+                    itemCode: String(rowCode).trim(),
+                    pharmacyCode: String(rowPharmacyCode || `-`).trim(),
+                    price: excelPrice
+                };
+
+                let docId = row.Document_ID ? String(row.Document_ID).trim() : makeSafeDocId(`${productData.code}_${productData.name}`, `product`);
+                docId = makeSafeDocId(docId, `product`);
+                if (usedIds.has(docId)) docId = `${docId}_${index + 1}`;
+                usedIds.add(docId);
+
+                validRows.push({ docId, productData });
+            });
+
+            return { validRows, invalidRows };
+        }
+
         // وظيفة جلب المنتجات وعرضها في الجدول فور فتح الصفحة
         async function loadProducts() {
             const tableBody = document.getElementById('productsTableBody');
@@ -337,87 +401,88 @@
         // استدعاء دالة الجلب عند تحميل الصفحة مباشرة
         window.addEventListener('DOMContentLoaded', loadProducts);
 
-        // معالجة ملف الإكسل المستورد
+        // معالجة ملف الإكسل المستورد بطريقة أكثر أماناً: فحص ثم رفع الجديد ثم حذف القديم
         document.getElementById('startImportBtn').onclick = async () => {
-            const file = document.getElementById('excelFile').files[0];
+            const fileInput = document.getElementById('excelFile');
+            const button = document.getElementById('startImportBtn');
+            const file = fileInput.files[0];
             if (!file) return alert("الرجاء اختيار ملف إكسل أولاً");
 
             const status = document.getElementById('status');
-            status.innerText = "جاري قراءة الملف...";
+            status.innerHTML = "جاري قراءة وفحص الملف...";
             status.style.color = "#f59e0b";
 
             const reader = new FileReader();
             reader.onload = async (e) => {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const excelData = XLSX.utils.sheet_to_json(firstSheet);
-
-                if(excelData.length === 0) {
-                    status.innerText = "الملف فارغ أو الترويسة غير صحيحة!";
-                    status.style.color = "red";
-                    return;
-                }
-
                 try {
-                    status.innerText = "جاري حذف المنتجات القديمة...";
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const excelData = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+
+                    if(excelData.length === 0) {
+                        status.innerHTML = "❌ الملف فارغ أو الترويسة غير صحيحة! لم يتم حذف أي بيانات.";
+                        status.style.color = "red";
+                        return;
+                    }
+
+                    const { validRows, invalidRows } = buildProductImportRows(excelData);
+                    if (validRows.length === 0) {
+                        status.innerHTML = `❌ لم يتم العثور على أي صنف صالح.<br>يجب توفر اسم الصنف وكود الصنف. <b>لم يتم حذف أي بيانات قديمة.</b>`;
+                        status.style.color = "red";
+                        return;
+                    }
+
+                    const confirmMessage = `تم العثور على ${validRows.length} صنف صالح من أصل ${excelData.length} صف.
+` +
+                        `الصفوف غير الصالحة: ${invalidRows.length}.
+
+` +
+                        `سيتم أولاً رفع/تحديث المنتجات الجديدة، وبعد نجاح الرفع سيتم حذف المنتجات القديمة غير الموجودة في الملف.
+
+هل تريد المتابعة؟`;
+
+                    if (!confirm(confirmMessage)) {
+                        status.innerHTML = "تم إلغاء العملية. لم يتم تعديل قاعدة البيانات.";
+                        status.style.color = "#64748b";
+                        return;
+                    }
+
+                    button.disabled = true;
+                    fileInput.disabled = true;
+                    button.innerText = "جاري التحديث...";
+
+                    status.innerHTML = `جاري رفع/تحديث ${validRows.length} صنف جديد قبل حذف القديم...`;
+                    status.style.color = "#004a99";
+
+                    const newDocIds = new Set(validRows.map(row => row.docId));
+                    const writeTasks = validRows.map(row => () => setDoc(doc(db, "products", row.docId), row.productData));
+                    await runInChunks(writeTasks, 100);
+
+                    status.innerHTML = "تم رفع المنتجات الجديدة بنجاح. جاري تنظيف المنتجات القديمة غير الموجودة في الملف...";
                     const snap = await getDocs(collection(db, "products"));
-                    const deletePromises = [];
-                    snap.forEach(d => {
-                        deletePromises.push(deleteDoc(doc(db, "products", d.id)));
-                    });
-                    await Promise.all(deletePromises);
-
-                    status.innerText = `جاري إضافة ${excelData.length} منتج جديد...`;
-                    const addPromises = [];
-                    
-                    excelData.forEach(row => {
-                        const normalizedRow = Object.keys(row).reduce((acc, key) => {
-                            acc[String(key).trim()] = row[key];
-                            return acc;
-                        }, {});
-
-                        const rowName = normalizedRow.name || normalizedRow['اسم الصنف'] || normalizedRow['الصنف'];
-                        const rowCode = normalizedRow.code || normalizedRow.productCode || normalizedRow.itemCode || normalizedRow['كود الصنف'];
-                        const rowPharmacyCode = normalizedRow.pharmacyCode || normalizedRow.pharmacy_code || normalizedRow['كود الصيدلية'];
-                        const rowPrice = normalizedRow.price || normalizedRow['السعر'];
-
-                        if(rowName && rowCode) {
-                            // تقريب السعر القادم من ملف الإكسل إلى خانتين عشريتين فقط قبل الإرسال
-                            let excelPrice = Number(rowPrice) || 0;
-                            excelPrice = Number(excelPrice.toFixed(2));
-
-                            const productData = {
-                                name: String(rowName).trim(),
-                                code: String(rowCode).trim(),
-                                productCode: String(rowCode).trim(),
-                                itemCode: String(rowCode).trim(),
-                                pharmacyCode: String(rowPharmacyCode || "-").trim(),
-                                price: excelPrice
-                            };
-
-                            if (normalizedRow.Document_ID) {
-                                addPromises.push(setDoc(doc(db, "products", String(normalizedRow.Document_ID).trim()), productData));
-                            } else {
-                                addPromises.push(addDoc(collection(db, "products"), productData));
-                            }
+                    const deleteTasks = [];
+                    snap.forEach(existingDoc => {
+                        if (!newDocIds.has(existingDoc.id)) {
+                            deleteTasks.push(() => deleteDoc(doc(db, "products", existingDoc.id)));
                         }
                     });
+                    await runInChunks(deleteTasks, 100);
 
-                    await Promise.all(addPromises);
                     localStorage.removeItem("dad_app_cache_v2");
                     localStorage.removeItem("dad_app_cache_time_v2");
-                    
-                    status.innerText = "✅ تم تحديث قاعدة البيانات بنجاح!";
+                    status.innerHTML = `✅ تم تحديث قاعدة المنتجات بنجاح.<br>تم رفع/تحديث ${validRows.length} صنف، وحذف ${deleteTasks.length} صنف قديم غير موجود في الملف.`;
                     status.style.color = "#10b981";
-                    
-                    // إعادة تحميل الجدول لإظهار البيانات الجديدة فوراً مع التنسيق الجديد
+                    fileInput.value = "";
                     loadProducts();
-                    
                 } catch (error) {
                     console.error("Error during import:", error);
-                    status.innerText = "❌ حدث خطأ أثناء التحديث.";
+                    status.innerHTML = "❌ حدث خطأ أثناء التحديث. إذا ظهر الخطأ قبل مرحلة الحذف فلن تكون البيانات القديمة قد حُذفت.";
                     status.style.color = "red";
+                } finally {
+                    button.disabled = false;
+                    fileInput.disabled = false;
+                    button.innerText = "رفع وتحديث الكل";
                 }
             };
             reader.readAsArrayBuffer(file);
