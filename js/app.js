@@ -102,15 +102,23 @@ window.addEventListener('DOMContentLoaded', () => {
     const legacyPass = localStorage.getItem('adminPassword');
     if(legacyPass) localStorage.removeItem('adminPassword'); // تنظيف القديم
 
-    const savedManagerName = localStorage.getItem('managerName') || sessionStorage.getItem('managerName');
-    const secureToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-
-    if (savedManagerName && secureToken) {
-        console.log("تم استرجاع جلسة الإدارة المشفرة");
-        if(document.getElementById('rememberMe')) {
-            document.getElementById('rememberMe').checked = !!localStorage.getItem('authToken');
+    syncAdminRememberControls(getAdminRememberPreference());
+    document.getElementById(`rememberMe`)?.addEventListener(`change`, e => setAdminRememberPreference(e.target.checked));
+    document.getElementById(`rememberAdmin`)?.addEventListener(`change`, e => setAdminRememberPreference(e.target.checked));
+    document.getElementById(`rememberRepPass`)?.addEventListener(`change`, e => {
+        const selectedOption = repSelect?.options?.[repSelect.selectedIndex];
+        const repName = selectedOption?.textContent || ``;
+        if (!e.target.checked) {
+            clearRememberedRepCredentials(repSelect?.value || ``, repName);
+            return;
         }
-    }
+        const password = document.getElementById(`repPasswordInput`)?.value?.trim() || ``;
+        if (repSelect?.value && repName && password) saveRememberedRepCredentials(repSelect.value, repName, password);
+    });
+    document.getElementById(`repLoginForm`)?.addEventListener(`submit`, e => {
+        e.preventDefault();
+        if (!document.getElementById(`startOrderBtn`)?.disabled) document.getElementById(`startOrderBtn`)?.click();
+    });
     
     // ربط زر الطباعة
 // ربط زر الطباعة
@@ -287,6 +295,157 @@ let pharmacyHistoryData = [];
 let pharmacyCodeIndex = { byRepAndName: new Map(), byName: new Map(), loadedAt: 0 };
 
 const DAD_LOGO_URL = `https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png`;
+
+
+const LOGIN_STORAGE_KEYS = {
+    repRemember: `dad_remembered_rep_login_v3`,
+    adminRememberPreference: `dad_remember_admin_preference`
+};
+
+function encodeLoginValue(value) {
+    try {
+        return btoa(encodeURIComponent(String(value || ``)));
+    } catch (error) {
+        console.warn(`تعذر ترميز قيمة الدخول`, error);
+        return ``;
+    }
+}
+
+function decodeLoginValue(value) {
+    if (!value) return ``;
+    try {
+        return decodeURIComponent(atob(value));
+    } catch (error) {
+        try { return atob(value); } catch (_) { return ``; }
+    }
+}
+
+function getRepOptionByIdOrName(repId, repName) {
+    if (!repSelect) return null;
+    const options = Array.from(repSelect.options || []);
+    return options.find(option => option.value === repId) || options.find(option => option.textContent === repName) || null;
+}
+
+function getRememberedRepRecord() {
+    try {
+        return JSON.parse(localStorage.getItem(LOGIN_STORAGE_KEYS.repRemember) || `null`);
+    } catch (error) {
+        return null;
+    }
+}
+
+function getRememberedRepPassword(repId, repName) {
+    const remembered = getRememberedRepRecord();
+    if (remembered && (remembered.repId === repId || remembered.repName === repName)) {
+        return decodeLoginValue(remembered.passwordEncoded || remembered.pass || ``);
+    }
+
+    if (repName) {
+        const byName = localStorage.getItem(`savedRepPassName_${encodeLoginValue(repName)}`);
+        if (byName) {
+            const decoded = decodeLoginValue(byName);
+            if (decoded) return decoded;
+        }
+    }
+
+    const legacy = localStorage.getItem(`savedRepPass_${repId}`);
+    if (legacy) {
+        const decodedLegacy = decodeLoginValue(legacy);
+        return decodedLegacy || legacy;
+    }
+
+    return ``;
+}
+
+function saveRememberedRepCredentials(repId, repName, password) {
+    if (!repId || !repName || !password) return;
+    const record = {
+        repId,
+        repName,
+        passwordEncoded: encodeLoginValue(password),
+        updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(LOGIN_STORAGE_KEYS.repRemember, JSON.stringify(record));
+    localStorage.setItem(`savedRepPassName_${encodeLoginValue(repName)}`, record.passwordEncoded);
+    localStorage.setItem(`lastRepId`, repId);
+    localStorage.setItem(`lastRepName`, repName);
+}
+
+function clearRememberedRepCredentials(repId, repName) {
+    const remembered = getRememberedRepRecord();
+    if (!remembered || remembered.repId === repId || remembered.repName === repName) {
+        localStorage.removeItem(LOGIN_STORAGE_KEYS.repRemember);
+        localStorage.removeItem(`lastRepId`);
+        localStorage.removeItem(`lastRepName`);
+    }
+    if (repId) localStorage.removeItem(`savedRepPass_${repId}`);
+    if (repName) localStorage.removeItem(`savedRepPassName_${encodeLoginValue(repName)}`);
+}
+
+function restoreRememberedRepSelection() {
+    const remembered = getRememberedRepRecord();
+    const repId = remembered?.repId || localStorage.getItem(`lastRepId`) || ``;
+    const repName = remembered?.repName || localStorage.getItem(`lastRepName`) || ``;
+    const option = getRepOptionByIdOrName(repId, repName);
+    if (!option) return;
+    repSelect.value = option.value;
+    repSelect.dispatchEvent(new Event(`change`, { bubbles: true }));
+}
+
+function getAdminRememberPreference() {
+    return localStorage.getItem(LOGIN_STORAGE_KEYS.adminRememberPreference) === `true` || !!localStorage.getItem(`authToken`);
+}
+
+function syncAdminRememberControls(checked = getAdminRememberPreference()) {
+    const rememberHome = document.getElementById(`rememberMe`);
+    const rememberModal = document.getElementById(`rememberAdmin`);
+    if (rememberHome) rememberHome.checked = checked;
+    if (rememberModal) rememberModal.checked = checked;
+}
+
+function setAdminRememberPreference(checked) {
+    localStorage.setItem(LOGIN_STORAGE_KEYS.adminRememberPreference, checked ? `true` : `false`);
+    syncAdminRememberControls(checked);
+}
+
+function getSavedAdminSession() {
+    const managerName = localStorage.getItem(`managerName`) || sessionStorage.getItem(`managerName`);
+    const adminType = localStorage.getItem(`adminType`) || sessionStorage.getItem(`adminType`);
+    const authToken = localStorage.getItem(`authToken`) || sessionStorage.getItem(`authToken`);
+    if (!managerName || !adminType || !authToken) return null;
+    return { managerName, adminType, authToken };
+}
+
+function clearSavedAdminSession() {
+    [`managerName`, `adminType`, `authToken`].forEach(key => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+    });
+}
+
+function resumeSavedAdminSession(session = getSavedAdminSession()) {
+    if (!session) return false;
+    if (session.adminType === `reports`) {
+        window.location.href = `mohammad.html`;
+        return true;
+    }
+    isAdmin = true;
+    currentManagerName = session.managerName;
+    const modal = document.getElementById(`adminLoginModal`);
+    if (modal) modal.style.display = `none`;
+    initializeManagerView(session.managerName);
+    return true;
+}
+
+function restoreSavedLoginState() {
+    syncAdminRememberControls(getAdminRememberPreference());
+    restoreRememberedRepSelection();
+
+    const savedSession = getSavedAdminSession();
+    if (savedSession && savedSession.adminType === `manager`) {
+        resumeSavedAdminSession(savedSession);
+    }
+}
 
 function getDateInputValue(date = new Date()) {
     const yyyy = date.getFullYear();
@@ -849,8 +1008,9 @@ repSelect.onchange = async (e) => {
     // 🟢 إظهار حقل الرقم السري عند اختيار المندوب
     document.getElementById('repPasswordGroup').style.display = 'block';
     
-    // 🟢 استرجاع كلمة المرور إذا كانت محفوظة
-    const savedPass = localStorage.getItem('savedRepPass_' + e.target.value);
+    // 🟢 استرجاع كلمة المرور إذا كانت محفوظة حسب رقم المندوب أو اسمه
+    const selectedRepNameForRemember = e.target.options[e.target.selectedIndex]?.textContent || ``;
+    const savedPass = getRememberedRepPassword(e.target.value, selectedRepNameForRemember);
     if (savedPass) {
         document.getElementById('repPasswordInput').value = savedPass;
         if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = true;
@@ -930,9 +1090,9 @@ if (expectedHash && btoa(enteredPass) !== expectedHash) {
     repPassInput.classList.remove('input-error');
     // 🟢 حفظ كلمة المرور إذا كان خيار التذكر مفعلاً
     if (document.getElementById('rememberRepPass') && document.getElementById('rememberRepPass').checked) {
-        localStorage.setItem('savedRepPass_' + repSelect.value, enteredPass);
+        saveRememberedRepCredentials(repSelect.value, selectedRepNameText, enteredPass);
     } else {
-        localStorage.removeItem('savedRepPass_' + repSelect.value);
+        clearRememberedRepCredentials(repSelect.value, selectedRepNameText);
         repPassInput.value = ''; // تنظيف الحقل كإجراء أمني إذا لم يطلب التذكر
     }
     const pharmacyName = pharmacyInput.value.trim();
@@ -2013,7 +2173,11 @@ document.getElementById('navOrderBtn').onclick = () => {
 };
 document.getElementById('navMyOrdersBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('myOrdersScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navMyOrdersBtn').classList.add('active'); loadMyOrders(); };
 document.getElementById('navReportsBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('reportsScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navReportsBtn').classList.add('active'); loadReports(); };
-document.getElementById('logoutBtn').onclick = () => { clearRepSession(); if(confirm("هل أنت متأكد من تسجيل الخروج؟")) location.reload(); };
+document.getElementById('logoutBtn').onclick = () => {
+    if (isAdmin || currentManagerName) clearSavedAdminSession();
+    clearRepSession();
+    if(confirm("هل أنت متأكد من تسجيل الخروج؟")) location.reload();
+};
 
 let selectedAdminType = null;
 let selectedAdminName = null;
@@ -2029,6 +2193,12 @@ document.querySelectorAll('.btn-admin-opt').forEach(btn => {
 });
 
 document.getElementById('adminModeBtn').onclick = () => {
+    const savedSession = getSavedAdminSession();
+    if (savedSession && getAdminRememberPreference()) {
+        resumeSavedAdminSession(savedSession);
+        return;
+    }
+
     const isNoticeShown = localStorage.getItem('systemUpdate_v1');
     if (!isNoticeShown) {
         document.getElementById('updateNoticeModal').style.display = 'flex';
@@ -2041,8 +2211,10 @@ document.getElementById('adminModeBtn').onclick = () => {
 };
 
 function openAdminLoginBox() {
+    syncAdminRememberControls(getAdminRememberPreference());
     document.getElementById('adminLoginModal').style.display = 'flex';
     document.getElementById('adminPasswordInput').value = ''; 
+    setTimeout(() => document.getElementById('adminPasswordInput')?.focus(), 80);
 }
 
 document.getElementById('adminPasswordInput').addEventListener('keydown', function(e) {
@@ -2059,7 +2231,8 @@ document.getElementById('confirmAdminLoginBtn').onclick = (e) => {
     const SECRET_HASH = "MjAyNjA0";
     
     if (btoa(pass) === SECRET_HASH) {
-        const rememberMe = document.getElementById('rememberAdmin').checked;
+        const rememberMe = document.getElementById('rememberAdmin').checked || getAdminRememberPreference();
+        setAdminRememberPreference(rememberMe);
         
         // ✅ التعديل هنا: إضافة encodeURIComponent ليدعم الأسماء العربية بدون أخطاء
         const authToken = btoa(encodeURIComponent(selectedAdminName + ":" + new Date().getTime())); 
@@ -2166,7 +2339,7 @@ document.getElementById('printAllOrdersBtn')?.addEventListener('click', async ()
 window.closeModal = () => detailsModal.style.display = 'none';
 
 // تشغيل التحميل المبدئي
-loadInitialData();
+loadInitialData().then(restoreSavedLoginState);
 
 // فلاتر التاريخ (للمدير)
 const managerFilterFrom = document.getElementById('managerFilterFrom');
