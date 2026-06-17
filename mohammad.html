@@ -334,6 +334,14 @@
             "تامر عقل": "محمد طوالبه", "محمد ابو يامين": "عبدالله الناطور", "مراد الظاهر": "عبدالله الناطور"
         };
 
+        function getItemProductCode(item) {
+            return item?.code || item?.productCode || item?.itemCode || '-';
+        }
+
+        function getOrderPharmacyCode(order) {
+            return order?.pharmacyCode || order?.pharmacy_code || '-';
+        }
+
         // 🟢 ميزة: ضبط الشهر الحالي كافتراضي
         function setDefaultMonthFilter() {
             const date = new Date();
@@ -479,12 +487,15 @@
             let repOrdersValueMap = {};
             let areaOrdersCountMap = {}; 
             let areaOrdersValueMap = {}; // 🟢 تقرير مبيعات الصيدليات الجديد
+            let pharmacyCodeMap = {};
             let duplicatesMap = {};
             
             let allOrdersTableData = []; 
 
             dataToProcess.forEach(order => {
                 let pharmName = order.pharmacyName || 'غير معروف';
+                let pharmacyCode = getOrderPharmacyCode(order);
+                pharmacyCodeMap[pharmName] = pharmacyCode;
                 uniqueCustomers.add(pharmName);
                 areaOrdersCountMap[pharmName] = (areaOrdersCountMap[pharmName] || 0) + 1;
 
@@ -503,35 +514,44 @@
                 let statusAr = order.status === 'approved' ? 'موافق عليه' : (order.status === 'returned' ? 'مرتجع' : 'قيد الموافقة');
                 let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${order.id}')"><i class="ph ph-eye"></i> الاصناف</button>`;
                 
-                allOrdersTableData.push([
-                    order.id.substring(0,6).toUpperCase(),
-                    orderDate,
-                    order.managerName || '-',
-                    repName,
-                    pharmName,
-                    orderTotal,
-                    statusAr,
-                    btnHtml
-                ]);
-
                 if (order.items && Array.isArray(order.items)) {
                     order.items.forEach(item => {
                         let itemName = item.name || 'غير معروف';
+                        let itemCode = getItemProductCode(item);
+                        let itemKey = `${itemCode}__${itemName}`;
                         let val = parseFloat(item.total) || 0;
                         let qty = parseInt(item.qty, 10) || 0;
                         let bonus = parseInt(item.bonus, 10) || 0; // 🟢 للبونص
 
+                        allOrdersTableData.push([
+                            order.id.substring(0,6).toUpperCase(),
+                            orderDate,
+                            order.managerName || '-',
+                            repName,
+                            pharmacyCode,
+                            pharmName,
+                            itemCode,
+                            itemName,
+                            qty,
+                            bonus,
+                            parseFloat(item.price) || 0,
+                            val,
+                            orderTotal,
+                            statusAr,
+                            btnHtml
+                        ]);
+
                         // 🟢 تجميع بيانات تقرير الصنف وتقرير البونص
-                        if(!itemStatsMap[itemName]) itemStatsMap[itemName] = { val: 0, qty: 0, bonus: 0, pharms: new Set() };
-                        itemStatsMap[itemName].val += val;
-                        itemStatsMap[itemName].qty += qty;
-                        itemStatsMap[itemName].bonus += bonus;
-                        itemStatsMap[itemName].pharms.add(pharmName);
+                        if(!itemStatsMap[itemKey]) itemStatsMap[itemKey] = { code: itemCode, name: itemName, val: 0, qty: 0, bonus: 0, pharms: new Set() };
+                        itemStatsMap[itemKey].val += val;
+                        itemStatsMap[itemKey].qty += qty;
+                        itemStatsMap[itemKey].bonus += bonus;
+                        itemStatsMap[itemKey].pharms.add(pharmName);
 
-                        if (!itemRepQtyMap[itemName]) itemRepQtyMap[itemName] = {};
-                        itemRepQtyMap[itemName][repName] = (itemRepQtyMap[itemName][repName] || 0) + qty;
+                        if (!itemRepQtyMap[itemKey]) itemRepQtyMap[itemKey] = { code: itemCode, name: itemName, reps: {} };
+                        itemRepQtyMap[itemKey].reps[repName] = (itemRepQtyMap[itemKey].reps[repName] || 0) + qty;
 
-                        let key = `${pharmName}_${itemName}_${qty}`;
+                        let key = `${pharmacyCode}_${pharmName}_${itemCode}_${itemName}_${qty}`;
                         if (!duplicatesMap[key]) duplicatesMap[key] = [];
                         duplicatesMap[key].push({
                             orderId: order.id,
@@ -546,19 +566,20 @@
             document.getElementById('cardCustomersCount').innerText = uniqueCustomers.size;
             document.getElementById('cardTotalValue').innerText = grandTotalSum.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-            buildHtmlTable('table-rep-all', ['المرجع', 'التاريخ', 'المشرف', 'المندوب', 'الصيدلية', 'الإجمالي (د.أ)', 'الحالة', 'الإجراء'], allOrdersTableData, true);
+            buildHtmlTable('table-rep-all', ['المرجع', 'التاريخ', 'المشرف', 'المندوب', 'كود الصيدلية', 'الصيدلية', 'كود الصنف', 'الصنف', 'الكمية', 'البونص', 'السعر', 'مجموع الصنف', 'إجمالي الطلبية', 'الحالة', 'الإجراء'], allOrdersTableData, true);
 
             // 🟢 التقرير الأول المعدل (يحتوي على إجمالي الوحدات وعدد الصيدليات)
             let r1Data = Object.entries(itemStatsMap)
                 .sort((a, b) => b[1].val - a[1].val)
-                .map(([name, stats]) => [name, stats.qty, stats.pharms.size, stats.val]);
-            buildHtmlTable('table-rep1', ['الصنف', 'إجمالي Units', 'عدد الصيدليات ال', 'إجمالي قيمة المبيعات (د.ا)'], r1Data, true);
+                .map(([key, stats]) => [stats.code, stats.name, stats.qty, stats.pharms.size, stats.val]);
+            buildHtmlTable('table-rep1', ['كود الصنف', 'الصنف', 'إجمالي Units', 'عدد الصيدليات', 'إجمالي قيمة المبيعات (د.ا)'], r1Data, true);
 
             let repsArray = Array.from(allRepsSet).sort();
-            let r2Headers = ['الصنف', ...repsArray];
-            let r2Data = Object.keys(itemRepQtyMap).sort().map(itemName => {
-                let row = [itemName];
-                repsArray.forEach(rep => row.push(itemRepQtyMap[itemName][rep] || 0));
+            let r2Headers = ['كود الصنف', 'الصنف', ...repsArray];
+            let r2Data = Object.keys(itemRepQtyMap).sort().map(itemKey => {
+                let itemStats = itemRepQtyMap[itemKey];
+                let row = [itemStats.code, itemStats.name];
+                repsArray.forEach(rep => row.push(itemStats.reps[rep] || 0));
                 return row;
             });
             buildHtmlTable('table-rep2', r2Headers, r2Data, true);
@@ -570,21 +591,21 @@
             buildHtmlTable('table-rep6', ['اسم المندوب', 'اجمالي قيمة الطلبيات (د.ا)'], r6Data, true);
 
             // 🟢 التقرير الجديد: قيمة المبيعات لكل صيدلية
-            let r8Data = Object.entries(areaOrdersValueMap).sort((a, b) => b[1] - a[1]).map(([pharm, val]) => [pharm, val]);
-            buildHtmlTable('table-rep8', ['اسم الصيدلية', 'اجمالي القيمة (د.ا)'], r8Data, true);
+            let r8Data = Object.entries(areaOrdersValueMap).sort((a, b) => b[1] - a[1]).map(([pharm, val]) => [pharmacyCodeMap[pharm] || '-', pharm, val]);
+            buildHtmlTable('table-rep8', ['كود الصيدلية', 'اسم الصيدلية', 'اجمالي القيمة (د.ا)'], r8Data, true);
 
-            let r7Data = Object.entries(areaOrdersCountMap).sort((a, b) => b[1] - a[1]).map(([area, count]) => [area, count]);
-            buildHtmlTable('table-rep7', ['اسم الصيدلية', 'عدد الطلبيات'], r7Data, true);
+            let r7Data = Object.entries(areaOrdersCountMap).sort((a, b) => b[1] - a[1]).map(([area, count]) => [pharmacyCodeMap[area] || '-', area, count]);
+            buildHtmlTable('table-rep7', ['كود الصيدلية', 'اسم الصيدلية', 'عدد الطلبيات'], r7Data, true);
 
             // 🟢 التقرير الجديد: تحليل البونص للأصناف
             let r9Data = Object.entries(itemStatsMap)
                 .filter(([name, stats]) => stats.bonus > 0)
                 .sort((a, b) => b[1].bonus - a[1].bonus)
-                .map(([name, stats]) => {
+                .map(([key, stats]) => {
                     let avgBonusPct = stats.qty > 0 ? Math.round((stats.bonus / stats.qty) * 100) + '%' : '0%';
-                    return [name, stats.qty, stats.bonus, avgBonusPct];
+                    return [stats.code, stats.name, stats.qty, stats.bonus, avgBonusPct];
                 });
-            buildHtmlTable('table-rep9', ['الصنف', 'إجمالي الكمية (Units)', 'إجمالي حبات البونص المصروفة', 'متوسط نسبة البونص للصنف'], r9Data, false);
+            buildHtmlTable('table-rep9', ['كود الصنف', 'الصنف', 'إجمالي الكمية (Units)', 'إجمالي حبات البونص المصروفة', 'متوسط نسبة البونص للصنف'], r9Data, false);
 
             let duplicatesData = [];
             Object.keys(duplicatesMap).forEach(key => {
@@ -592,11 +613,11 @@
                     let parts = key.split('_');
                     duplicatesMap[key].forEach(dup => {
                         let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${dup.orderId}')"><i class="ph ph-pencil"></i> إجراء</button>`;
-                        duplicatesData.push([parts[0], parts[1], parts[2], dup.repName, dup.orderId.substring(0,6).toUpperCase(), dup.date, btnHtml]);
+                        duplicatesData.push([parts[0], parts[1], parts[2], parts[3], parts[4], dup.repName, dup.orderId.substring(0,6).toUpperCase(), dup.date, btnHtml]);
                     });
                 }
             });
-            buildHtmlTable('table-rep-dup', ['الصيدلية', 'الصنف', 'الكمية', 'المندوب', 'رقم المرجع', 'التاريخ', 'الاجراءات'], duplicatesData, false);
+            buildHtmlTable('table-rep-dup', ['كود الصيدلية', 'الصيدلية', 'كود الصنف', 'الصنف', 'الكمية', 'المندوب', 'رقم المرجع', 'التاريخ', 'الاجراءات'], duplicatesData, false);
         }
 
         function buildHtmlTable(tableId, headers, rows, addTotals = true) {

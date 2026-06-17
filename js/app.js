@@ -281,6 +281,221 @@ let editingOrderId = null;
 let allOrdersData = [];
 let currentPharmacyCode = null;
 let currentPharmaciesData = [];
+let myOrdersData = [];
+let reportsOrdersData = [];
+let pharmacyHistoryData = [];
+
+const DAD_LOGO_URL = `https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png`;
+
+function getDateInputValue(date = new Date()) {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, `0`);
+    const dd = String(date.getDate()).padStart(2, `0`);
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+function setCurrentMonthDefaults(fromEl, toEl) {
+    if (!fromEl || !toEl) return;
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    if (!fromEl.value) fromEl.value = getDateInputValue(firstDay);
+    if (!toEl.value) toEl.value = getDateInputValue(today);
+}
+
+function getOrderDate(order) {
+    if (order?.createdAt?.toDate) return order.createdAt.toDate();
+    if (order?.createdAt instanceof Date) return order.createdAt;
+    if (order?.createdAt) {
+        const parsed = new Date(order.createdAt);
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    return null;
+}
+
+function isOrderInDateRange(order, fromVal, toVal) {
+    const orderDate = getOrderDate(order);
+    if (!orderDate) return false;
+    const cleanOrderDate = new Date(orderDate);
+    cleanOrderDate.setHours(0, 0, 0, 0);
+    if (fromVal) {
+        const from = new Date(fromVal);
+        from.setHours(0, 0, 0, 0);
+        if (cleanOrderDate < from) return false;
+    }
+    if (toVal) {
+        const to = new Date(toVal);
+        to.setHours(0, 0, 0, 0);
+        if (cleanOrderDate > to) return false;
+    }
+    return true;
+}
+
+function formatOrderDateTime(order) {
+    const date = getOrderDate(order);
+    return date ? date.toLocaleString(`en-GB`) : `غير متوفر`;
+}
+
+function getProductCodeByName(productName) {
+    const selectedProd = productsList.find(prod => prod.name === productName);
+    return selectedProd?.code || selectedProd?.productCode || selectedProd?.itemCode || `-`;
+}
+
+function getItemProductCode(item) {
+    return item?.code || item?.productCode || item?.itemCode || getProductCodeByName(item?.name || ``) || `-`;
+}
+
+function getStatusArabic(status) {
+    return status === `approved` ? `موافق عليه` : (status === `pending` ? `قيد الموافقة` : `مرتجع`);
+}
+
+function getOrderById(orderId, sources = []) {
+    for (const source of sources) {
+        const found = (source || []).find(order => order.id === orderId);
+        if (found) return found;
+    }
+    return null;
+}
+
+function resolveSelectedOrders(selector, sources = []) {
+    return Array.from(document.querySelectorAll(`${selector}:checked`))
+        .map(cb => getOrderById(cb.value, sources))
+        .filter(Boolean);
+}
+
+function buildPrintOrderPage(order) {
+    const rows = (order.items || []).map((item, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${getItemProductCode(item)}</td>
+            <td>${item.name || `-`}</td>
+            <td>${parseInt(item.qty, 10) || 0}</td>
+            <td>${parseInt(item.bonus, 10) || 0}</td>
+            <td>${(parseFloat(item.price) || 0).toFixed(2)}</td>
+            <td>${(parseFloat(item.total) || 0).toFixed(2)}</td>
+            <td>${item.note || `-`}</td>
+        </tr>
+    `).join(``);
+
+    return `
+        <section class="print-order-page">
+            <header class="print-header">
+                <img src="${DAD_LOGO_URL}" alt="DAD Logo">
+                <div>
+                    <h1>طلبية عميل</h1>
+                    <p>نظام طلبات دار الدواء</p>
+                </div>
+            </header>
+            <div class="print-meta-grid">
+                <div><span>رقم المرجع</span><strong>${order.id ? order.id.substring(0, 8).toUpperCase() : `-`}</strong></div>
+                <div><span>التاريخ</span><strong>${formatOrderDateTime(order)}</strong></div>
+                <div><span>المندوب</span><strong>${order.repName || `-`}</strong></div>
+                <div><span>الصيدلية</span><strong>${order.pharmacyName || `-`}</strong></div>
+                <div><span>كود الصيدلية</span><strong>${order.pharmacyCode || order.pharmacy_code || `-`}</strong></div>
+                <div><span>الحالة</span><strong>${getStatusArabic(order.status)}</strong></div>
+            </div>
+            <table class="print-items-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>كود الصنف</th>
+                        <th>الصنف</th>
+                        <th>الكمية</th>
+                        <th>البونص</th>
+                        <th>السعر</th>
+                        <th>المجموع</th>
+                        <th>الملاحظة</th>
+                    </tr>
+                </thead>
+                <tbody>${rows || `<tr><td colspan="8">لا توجد أصناف</td></tr>`}</tbody>
+            </table>
+            <div class="print-footer-grid">
+                <div class="print-note"><span>ملاحظة الطلبية</span><p>${order.orderNote || `-`}</p></div>
+                <div class="print-total"><span>الإجمالي</span><strong>${(parseFloat(order.grandTotal) || 0).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.ا</strong></div>
+            </div>
+        </section>
+    `;
+}
+
+function printOrders(orders) {
+    if (!orders || orders.length === 0) {
+        showToast(`الرجاء تحديد طلبية واحدة على الأقل للطباعة`, `warning`);
+        return;
+    }
+
+    const printWindow = window.open(``, `_blank`);
+    if (!printWindow) {
+        showToast(`المتصفح منع فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة لهذا الموقع.`, `error`);
+        return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(`
+        <!doctype html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="utf-8">
+            <title>طباعة الطلبيات</title>
+            <style>
+                @page { size: A4; margin: 12mm; }
+                * { box-sizing: border-box; }
+                body { margin: 0; font-family: Arial, Tahoma, sans-serif; color: #172033; background: #fff; }
+                .print-order-page { min-height: 270mm; page-break-after: always; padding: 0; }
+                .print-order-page:last-child { page-break-after: auto; }
+                .print-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #099999; padding-bottom: 14px; margin-bottom: 18px; }
+                .print-header img { width: 150px; max-height: 72px; object-fit: contain; }
+                .print-header h1 { margin: 0; color: #0f3b5c; font-size: 26px; }
+                .print-header p { margin: 4px 0 0; color: #667085; font-size: 13px; }
+                .print-meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+                .print-meta-grid div, .print-note, .print-total { border: 1px solid #d8e3ea; border-radius: 12px; padding: 10px 12px; background: #f8fbfc; }
+                .print-meta-grid span, .print-note span, .print-total span { display: block; color: #667085; font-size: 11px; margin-bottom: 4px; }
+                .print-meta-grid strong, .print-total strong { color: #172033; font-size: 14px; }
+                .print-items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                .print-items-table th { background: #0f3b5c; color: #fff; padding: 9px; border: 1px solid #0f3b5c; font-size: 12px; }
+                .print-items-table td { border: 1px solid #d8e3ea; padding: 8px; font-size: 12px; text-align: center; }
+                .print-items-table td:nth-child(3), .print-items-table td:nth-child(8) { text-align: right; }
+                .print-items-table tbody tr:nth-child(even) td { background: #fbfdfe; }
+                .print-footer-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-top: 18px; align-items: stretch; }
+                .print-note p { margin: 0; min-height: 45px; font-size: 13px; }
+                .print-total { display: flex; flex-direction: column; justify-content: center; text-align: center; border-color: #099999; background: #f1fbfb; }
+                .print-total strong { font-size: 24px; color: #099999; }
+            </style>
+        </head>
+        <body>${orders.map(buildPrintOrderPage).join(``)}</body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 350);
+}
+
+function exportOrderRows(orders) {
+    const flatData = [];
+    orders.forEach(order => {
+        const dateStr = formatOrderDateTime(order);
+        if (order.items && Array.isArray(order.items)) {
+            order.items.forEach(item => {
+                flatData.push({
+                    "التاريخ": dateStr,
+                    "المندوب": order.repName || "غير معروف",
+                    "كود الصيدلية": order.pharmacyCode || order.pharmacy_code || "-",
+                    "الصيدلية": order.pharmacyName || "غير معروف",
+                    "كود الصنف": getItemProductCode(item),
+                    "الصنف": item.name || "-",
+                    "الكمية": parseInt(item.qty, 10) || 0,
+                    "البونص": parseInt(item.bonus, 10) || 0,
+                    "نسبة البونص": (parseInt(item.qty, 10) > 0 && parseInt(item.bonus, 10) > 0) ? Math.round((item.bonus / item.qty) * 100) + "%" : "0%",
+                    "السعر": parseFloat(item.price) || 0,
+                    "المجموع الفرعي": parseFloat(item.total) || 0,
+                    "ملاحظة الصنف": item.note || "-",
+                    "الاجمالي الكلي": parseFloat(order.grandTotal) || 0,
+                    "ملاحظة الطلبية": order.orderNote || "-",
+                    "الحالة": getStatusArabic(order.status)
+                });
+            });
+        }
+    });
+    return flatData;
+}
 
 let unsubMyOrders = null;
 let unsubManagerOrders = null;
@@ -442,8 +657,8 @@ async function loadInitialData() {
         repSelect.innerHTML = '<option value="">⏳ جاري تحميل البيانات...</option>';
         repSelect.disabled = true;
 
-        const CACHE_KEY = 'dad_app_cache_v1';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_v1';
+        const CACHE_KEY = 'dad_app_cache_v2';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_v2';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
 
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
@@ -517,6 +732,7 @@ function addNewRow() {
     
     setupAutocomplete(s, sug, productNames, (selectedName) => {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
+        tr.dataset.productCode = selectedProd?.code || selectedProd?.productCode || selectedProd?.itemCode || "-";
         const pr = selectedProd ? parseFloat(selectedProd.price) : 0;
         p.innerText = pr.toFixed(2);
         t.innerText = (pr * q.value).toFixed(2);
@@ -713,19 +929,23 @@ document.getElementById('showPharmHistoryBtn').onclick = async () => {
             }
             
             // ترتيب الطلبيات من الأحدث للأقدم
-            history.sort((a,b) => b.createdAt.toDate() - a.createdAt.toDate());
+            history.sort((a,b) => (getOrderDate(b) || 0) - (getOrderDate(a) || 0));
+            pharmacyHistoryData = history;
             
             // تعبئة النافذة المنبثقة الجديدة
             const historyBody = document.getElementById('pharmacyHistoryBody');
             historyBody.innerHTML = '';
             document.getElementById('historyModalSubtitle').innerText = `صيدلية ${currentPharmacyName}`;
+            const selectAllHistory = document.getElementById('selectAllPharmacyHistoryOrders');
+            if (selectAllHistory) selectAllHistory.checked = false;
             
             history.forEach(o => {
                 const tr = document.createElement('tr');
                 tr.className = `row-${o.status}`; // تلوين الصف حسب الحالة
-                const displayDate = o.createdAt?.toDate ? o.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
+                const displayDate = formatOrderDateTime(o);
                 
                 tr.innerHTML = `
+                    <td><input type="checkbox" class="pharmacy-history-order-checkbox" value="${o.id}" style="width:18px; height:18px; cursor:pointer; margin:0;"></td>
                     <td>${o.id.substring(0,6).toUpperCase()}</td>
                     <td>${displayDate}</td>
                     <td>${o.repName || '-'}</td>
@@ -768,6 +988,7 @@ document.getElementById('showPharmHistoryBtn').onclick = async () => {
                     lastRow.querySelector('.item-note-input').value = item.note;
                     
                     const prod = productsList.find(pr => pr.name === item.name); 
+                    lastRow.dataset.productCode = item.code || item.productCode || item.itemCode || prod?.code || prod?.productCode || prod?.itemCode || "-";
                     const pr = prod ? parseFloat(prod.price) : 0; 
                     lastRow.querySelector('.price-cell').innerText = pr.toFixed(2); 
                     lastRow.querySelector('.row-total').innerText = (pr * item.qty).toFixed(2);
@@ -816,8 +1037,13 @@ submitOrderBtn.onclick = async () => {
                 s.classList.add('input-error');
             } else {
                 s.classList.remove('input-error'); 
+                const selectedProd = productsList.find(prod => prod.name === s.value.trim());
+                const productCode = selectedProd?.code || selectedProd?.productCode || selectedProd?.itemCode || r.dataset.productCode || "-";
                 items.push({
                     name: s.value,
+                    code: productCode,
+                    productCode: productCode,
+                    itemCode: productCode,
                     qty: r.querySelector('.qty-input').value,
                     bonus: r.querySelector('.bonus-input').value || 0,
                     price: r.querySelector('.price-cell').innerText,
@@ -895,55 +1121,84 @@ submitOrderBtn.onclick = async () => {
 async function loadMyOrders() {
     if (!currentRepId && !loadRepSession()) { showToast("الرجاء تسجيل الدخول أولاً", "error"); return; }
     const tbody = document.getElementById('myOrdersBody');
-    tbody.innerHTML = '<tr><td colspan="6"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
+    const fromEl = document.getElementById('myOrdersFilterFrom');
+    const toEl = document.getElementById('myOrdersFilterTo');
+    if (!tbody) return;
+
+    setCurrentMonthDefaults(fromEl, toEl);
+    tbody.innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     
     if (unsubMyOrders) unsubMyOrders();
 
     try {
-        const q = query(collection(db, "orders"), where("repId", "==", currentRepId));
-        unsubMyOrders = onSnapshot(q, (snap) => {
-            let orders = [];
-            snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
-            orders.sort((a,b) => b.updatedAt.toDate() - a.updatedAt.toDate());
-            orders = orders.filter(o => o.status === 'pending' || o.status === 'returned');
-            tbody.innerHTML = '';
-            
-            // 💡 تحديث ملخص الطلبيات (Dashboard المندوب)
-            let pendCount = 0;
-            let totalVal = 0;
-            orders.forEach(o => {
-                if(o.status === 'pending') { pendCount++; totalVal += parseFloat(o.grandTotal); }
+        unsubMyOrders = onSnapshot(collection(db, "orders"), (snap) => {
+            myOrdersData = [];
+            snap.forEach(d => {
+                const data = { id: d.id, ...d.data() };
+                const sameRepId = data.repId === currentRepId;
+                const sameRepName = currentRepName && (data.repName || '').trim() === currentRepName.trim();
+                if (sameRepId || sameRepName) myOrdersData.push(data);
             });
-            document.getElementById('myOrdersPendingCount').innerText = pendCount;
-            document.getElementById('myOrdersTotalValue').innerText = totalVal.toLocaleString('en-US', { minimumFractionDigits: 2 });
-            const badge = document.getElementById('pendingBadge');
-            if(badge) { badge.style.display = pendCount > 0 ? 'inline-block' : 'none'; badge.innerText = pendCount; }
-
-            if(orders.length === 0) { 
-                tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات معلقة حالياً</h3></div></td></tr>`; 
-                return; 
-            }
-            
-            orders.forEach(order => {
-                const tr = document.createElement('tr');
-                tr.className = `row-${order.status}`; // 💡 تلوين شرطي
-                tr.innerHTML = `
-                    <td>${order.id.substring(0,6).toUpperCase()}</td>
-                    <td>${order.createdAt.toDate().toLocaleString('en-GB')}</td>
-                    <td>${order.pharmacyName}</td>
-                    <td>${parseFloat(order.grandTotal).toFixed(2)}</td>
-                    <td><span class="status-badge ${order.status}">${order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع'}</span></td>
-                    <td><button class="action-btn edit-btn" data-id="${order.id}" title="تعديل"><i class="ph ph-pencil"></i></button>
-                        <button class="action-btn delete-btn" data-id="${order.id}" title="حذف"><i class="ph ph-trash"></i></button></td>
-                `;
-                tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'rep');
-                tr.querySelector('.delete-btn').onclick = async () => { if(confirm("هل أنت متأكد من حذف الطلبية؟")) { await deleteDoc(doc(db, "orders", order.id)); showToast("تم الحذف","success"); } };
-                tbody.appendChild(tr);
+            myOrdersData.sort((a,b) => {
+                const dateA = getOrderDate(a) || 0;
+                const dateB = getOrderDate(b) || 0;
+                return dateB - dateA;
             });
-        }, (error) => {
+            applyMyOrdersFilters();
+        }, () => {
             showToast("خطأ في جلب البيانات.", "error");
         });
     } catch(e) { showToast("خطأ في جلب البيانات.", "error"); }
+}
+
+function applyMyOrdersFilters() {
+    const tbody = document.getElementById('myOrdersBody');
+    if (!tbody) return;
+
+    const fromVal = document.getElementById('myOrdersFilterFrom')?.value || '';
+    const toVal = document.getElementById('myOrdersFilterTo')?.value || '';
+    const pharmacyFilter = (document.getElementById('myOrdersFilterPharmacy')?.value || '').trim().toLowerCase();
+
+    const orders = myOrdersData.filter(order => {
+        const isApproved = order.status === 'approved';
+        const matchDate = isOrderInDateRange(order, fromVal, toVal);
+        const matchPharmacy = pharmacyFilter === '' || (order.pharmacyName || '').toLowerCase().includes(pharmacyFilter);
+        return isApproved && matchDate && matchPharmacy;
+    });
+
+    tbody.innerHTML = '';
+    const approvedCount = orders.length;
+    const totalVal = orders.reduce((sum, order) => sum + (parseFloat(order.grandTotal) || 0), 0);
+
+    document.getElementById('myOrdersPendingCount').innerText = approvedCount;
+    document.getElementById('myOrdersTotalValue').innerText = totalVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const badge = document.getElementById('pendingBadge');
+    if (badge) badge.style.display = 'none';
+
+    const selectAll = document.getElementById('selectAllMyOrders');
+    if (selectAll) selectAll.checked = false;
+
+    if(orders.length === 0) { 
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات معتمدة ضمن الفلاتر الحالية</h3></div></td></tr>`; 
+        return; 
+    }
+    
+    orders.forEach(order => {
+        const tr = document.createElement('tr');
+        tr.className = `row-${order.status}`;
+        tr.innerHTML = `
+            <td><input type="checkbox" class="my-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
+            <td>${order.id.substring(0,6).toUpperCase()}</td>
+            <td>${formatOrderDateTime(order)}</td>
+            <td>${order.pharmacyName || '-'}</td>
+            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td><span class="status-badge ${order.status}">موافق عليه</span></td>
+            <td><button class="action-btn edit-btn" data-id="${order.id}" title="عرض/تعديل"><i class="ph ph-pencil"></i></button></td>
+        `;
+        tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'rep');
+        tbody.appendChild(tr);
+    });
 }
 
 // 💡 تحديث الـ Dashboard المتقدم للمدير
@@ -1005,8 +1260,8 @@ async function loadManagerOrders() {
             });
 
             allOrders.sort((a, b) => {
-                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
-                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+                const dateA = getOrderDate(a) || 0;
+                const dateB = getOrderDate(b) || 0;
                 return dateB - dateA;
             });
 
@@ -1058,13 +1313,7 @@ function applyManagerFilters() {
         const matchPharm = pharmFilter === '' || (o.pharmacyName && o.pharmacyName.toLowerCase().includes(pharmFilter));
         const matchStatus = statusFilter === '' || o.status === statusFilter;
         
-        let matchDate = true;
-        if (o.createdAt && o.createdAt.toDate) {
-            let oDate = o.createdAt.toDate();
-            oDate.setHours(0,0,0,0);
-            if (fromVal) { let dFrom = new Date(fromVal); dFrom.setHours(0,0,0,0); if (oDate < dFrom) matchDate = false; }
-            if (toVal) { let dTo = new Date(toVal); dTo.setHours(0,0,0,0); if (oDate > dTo) matchDate = false; }
-        }
+        const matchDate = isOrderInDateRange(o, fromVal, toVal);
         return matchRep && matchPharm && matchStatus && matchDate;
     });
 
@@ -1084,7 +1333,7 @@ function renderManagerOrders(orders) {
 
     orders.forEach(order => {
         const isApproved = order.status === 'approved';
-        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
+        const displayDate = formatOrderDateTime(order);
         
         const tr = document.createElement('tr');
         tr.className = `row-${order.status}`; // 💡 تلوين شرطي
@@ -1159,7 +1408,7 @@ document.getElementById('bulkDeleteBtn')?.addEventListener('click', () => handle
 async function loadAllCompanyOrders() {
     const tbody = document.getElementById('allOrdersBody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     
     if (unsubAllOrders) unsubAllOrders();
 
@@ -1174,8 +1423,8 @@ async function loadAllCompanyOrders() {
             });
 
             allOrdersData.sort((a, b) => {
-                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
-                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+                const dateA = getOrderDate(a) || 0;
+                const dateB = getOrderDate(b) || 0;
                 return dateB - dateA;
             });
 
@@ -1199,7 +1448,7 @@ function renderAllOrders(orders) {
     orders.forEach(order => {
         const tr = document.createElement('tr');
         tr.className = `row-${order.status}`; // 💡 تلوين شرطي
-        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
+        const displayDate = formatOrderDateTime(order);
         
         tr.innerHTML = `
             <td><input type="checkbox" class="all-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
@@ -1221,11 +1470,26 @@ function renderAllOrders(orders) {
 
 function updateAllOrdersStats(orders) {
     const count = orders.length;
-    const total = orders.reduce((sum, order) => sum + (parseFloat(order.grandTotal) || 0), 0);
+    const ordersTotal = orders
+        .filter(order => order.status !== 'returned' && (parseFloat(order.grandTotal) || 0) >= 0)
+        .reduce((sum, order) => sum + (parseFloat(order.grandTotal) || 0), 0);
+    const returnsTotal = orders
+        .filter(order => order.status === 'returned' || (parseFloat(order.grandTotal) || 0) < 0)
+        .reduce((sum, order) => sum + Math.abs(parseFloat(order.grandTotal) || 0), 0);
+    const netTotal = orders.reduce((sum, order) => sum + (parseFloat(order.grandTotal) || 0), 0);
+
     const countElem = document.getElementById('totalOrdersCount');
     const sumElem = document.getElementById('totalOrdersSum');
+    const returnsElem = document.getElementById('totalReturnsSum');
+    const netElem = document.getElementById('totalNetSum');
+
     if (countElem) countElem.innerText = count;
-    if (sumElem) sumElem.innerText = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (sumElem) sumElem.innerText = ordersTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (returnsElem) returnsElem.innerText = returnsTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (netElem) {
+        netElem.innerText = netTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        netElem.style.color = netTotal < 0 ? '#dc2626' : '#7c3aed';
+    }
 }
 
 function showOrderDetails(order) {
@@ -1257,6 +1521,7 @@ function showOrderDetails(order) {
         }
 
         row.innerHTML = `
+            <td style="text-align: center; font-weight:700; color:var(--primary);">${getItemProductCode(i)}</td>
             <td style="font-weight:600;">${i.name}</td>
             <td style="text-align: center;">${i.qty}</td>
             <td style="text-align: center;">${i.bonus||0} ${bonusPctStr}</td>
@@ -1305,63 +1570,23 @@ document.getElementById('exportAllOrdersBtn').onclick = () => {
     btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري التجهيز...";
     
     try {
-        // 1. قراءة الفلاتر النشطة حالياً على الشاشة
         const repFilter = (document.getElementById('filterAllRep').value || '').toLowerCase().trim();
         const pharmFilter = (document.getElementById('filterAllPharmacy').value || '').toLowerCase().trim();
         const statusFilter = (document.getElementById('filterAllStatus').value || '').trim();
         const fromVal = document.getElementById('managerFilterFrom')?.value;
         const toVal = document.getElementById('managerFilterTo')?.value;
 
-        // 2. فلترة البيانات الموجودة في الذاكرة (لتطابق الجدول المعروض)
         const ordersToExport = allOrdersData.filter(order => {
             const repName = (order.repName || '').toLowerCase();
             const pharmName = (order.pharmacyName || '').toLowerCase();
             const orderStatus = (order.status || '').trim();
-
-            let matchDate = true;
-            if (order.createdAt && order.createdAt.toDate) {
-                let oDate = order.createdAt.toDate();
-                oDate.setHours(0,0,0,0);
-                
-                if (fromVal) { let dFrom = new Date(fromVal); dFrom.setHours(0,0,0,0); if (oDate < dFrom) matchDate = false; }
-                if (toVal) { let dTo = new Date(toVal); dTo.setHours(0,0,0,0); if (oDate > dTo) matchDate = false; }
-            }
-
             return repName.includes(repFilter) &&
                    pharmName.includes(pharmFilter) &&
                    (statusFilter === '' || orderStatus === statusFilter) &&
-                   matchDate;
+                   isOrderInDateRange(order, fromVal, toVal);
         });
 
-        let flatData = [];
-        
-        // 3. تحضير البيانات المفلترة للإكسل
-        ordersToExport.forEach(order => { 
-            const dateStr = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
-            
-            if (order.items && Array.isArray(order.items)) {
-                order.items.forEach(item => { 
-                    flatData.push({ 
-                        "التاريخ": dateStr, 
-                        "المندوب": order.repName || "غير معروف", 
-                        "كود الصيدلية": order.pharmacyCode || "-", 
-                        "الصيدلية": order.pharmacyName || "غير معروف", 
-                        "الصنف": item.name || "-", 
-                        "الكمية": parseInt(item.qty, 10) || 0, 
-                        "البونص": parseInt(item.bonus, 10) || 0, 
-                        "نسبة البونص": (parseInt(item.qty, 10) > 0 && parseInt(item.bonus, 10) > 0) ? Math.round((item.bonus / item.qty) * 100) + "%" : "0%",
-                        "السعر": parseFloat(item.price) || 0, 
-                        "المجموع الفرعي": parseFloat(item.total) || 0, 
-                        "ملاحظة الصنف": item.note || "-",
-                        "الاجمالي الكلي": parseFloat(order.grandTotal) || 0, 
-                        "ملاحظة الطلبية": order.orderNote || "-",
-                        // تحسين إضافي: عرض الحالة بالعربي في الإكسل
-                        "الحالة": order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')
-                    }); 
-                }); 
-            }
-        });
-        
+        const flatData = exportOrderRows(ordersToExport);
         if(flatData.length === 0) { 
             showToast("لا توجد بيانات مطابقة للفلاتر للتصدير", "warning"); 
             btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير الطلبيات المفلترة";
@@ -1381,6 +1606,7 @@ document.getElementById('exportAllOrdersBtn').onclick = () => {
         btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير الطلبيات المفلترة"; 
     }
 };
+
 async function ensureProductsLoaded() {
     if (productsList.length > 0) return true;
     try {
@@ -1532,9 +1758,11 @@ async function openEditOrder(orderId, userType) {
         if (grandTotalEl) grandTotalEl.innerText = total.toFixed(2);
     }
 
-function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='') {
+function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='', productCode='') {
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid #eee";
+        const existingProduct = productsList.find(prod => prod.name === productName);
+        tr.dataset.productCode = productCode || existingProduct?.code || existingProduct?.productCode || existingProduct?.itemCode || "-";
         tr.innerHTML = `
             <td style="padding: 8px;"><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:200px; padding:8px; border:1px solid #ccc; border-radius:4px; outline:none;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
             <td style="padding: 8px; text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 65px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"></td>
@@ -1565,6 +1793,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
 
         setupAutocomplete(s, sug, productNames, (selectedName) => { 
             const prod = productsList.find(pr => pr.name === selectedName); 
+            tr.dataset.productCode = prod?.code || prod?.productCode || prod?.itemCode || "-";
             const pr = prod ? parseFloat(prod.price) : 0; 
             p.innerText = pr.toFixed(2); 
             t.innerText = (pr * q.value).toFixed(2); 
@@ -1593,7 +1822,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         updateEditTotal();
     }    
     if (order.items && order.items.length > 0) {
-        order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total, item.note || ''); });
+        order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total, item.note || '', item.code || item.productCode || item.itemCode || ''); });
     } else { addEditRow(); }   
     const editAddBtn = document.getElementById('editAddRowBtn');
     if (editAddBtn) editAddBtn.onclick = () => addEditRow();
@@ -1622,8 +1851,13 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                     if (!isValid) { invalidItem = true; inp.style.border = "2px solid red"; } 
                     else {
                         inp.style.border = "1px solid #ccc";
+                        const selectedProd = productsList.find(prod => prod.name === inp.value.trim());
+                        const productCode = selectedProd?.code || selectedProd?.productCode || selectedProd?.itemCode || r.dataset.productCode || "-";
                         items.push({ 
                             name: inp.value, 
+                            code: productCode,
+                            productCode: productCode,
+                            itemCode: productCode,
                             qty: r.querySelector('.qty-input').value, 
                             bonus: r.querySelector('.bonus-input').value || 0, 
                             price: r.querySelector('.price-cell').innerText, 
@@ -1661,21 +1895,23 @@ window.closeEditModal = closeEditModal;
 
 async function loadReports() {
     const body = document.getElementById('reportsBody');
-    body.innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
+    body.innerHTML = '<tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     
     if(unsubReports) unsubReports();
 
     try {
         unsubReports = onSnapshot(collection(db, "orders"), (snap) => {
-            let os = [];
-            snap.forEach(d => os.push({ id: d.id, ...d.data() }));
-            os.sort((a,b) => b.createdAt.toDate() - a.createdAt.toDate());
-            if (!isAdmin && currentRepName) os = os.filter(o => o.repName === currentRepName);
+            reportsOrdersData = [];
+            snap.forEach(d => reportsOrdersData.push({ id: d.id, ...d.data() }));
+            reportsOrdersData.sort((a,b) => (getOrderDate(b) || 0) - (getOrderDate(a) || 0));
+            if (!isAdmin && currentRepName) reportsOrdersData = reportsOrdersData.filter(o => o.repName === currentRepName);
             body.innerHTML = '';
-            os.forEach(o => {
+            const selectAllReports = document.getElementById('selectAllReportsOrders');
+            if (selectAllReports) selectAllReports.checked = false;
+            reportsOrdersData.forEach(o => {
                 const tr = document.createElement('tr');
                 tr.className = `row-${o.status}`; // 💡 تلوين شرطي
-                tr.innerHTML = `<td><b>${o.id.substring(0,5).toUpperCase()}</b></td><td>${o.createdAt.toDate().toLocaleString('en-GB')}</td><td class="rep-col">${o.repName}</td><td class="pharm-col">${o.pharmacyName}</td><td>${parseFloat(o.grandTotal).toFixed(2)}</td><td><span class="status-badge ${o.status}">${o.status === 'approved' ? 'موافق عليه' : (o.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td><td><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>`;
+                tr.innerHTML = `<td><input type="checkbox" class="reports-order-checkbox" value="${o.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td><td><b>${o.id.substring(0,5).toUpperCase()}</b></td><td>${formatOrderDateTime(o)}</td><td class="rep-col">${o.repName}</td><td class="pharm-col">${o.pharmacyName}</td><td>${parseFloat(o.grandTotal).toFixed(2)}</td><td><span class="status-badge ${o.status}">${getStatusArabic(o.status)}</span></td><td><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>`;
                 tr.querySelector('.btn-view').onclick = () => { showOrderDetails(o); };
                 body.appendChild(tr);
             });
@@ -1703,28 +1939,13 @@ document.getElementById('exportExcelBtn').onclick = async () => {
     btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري...";
     try {
         const snap = await getDocs(collection(db, "orders"));
-        let flatData = [];
         let allOrders = [];
-        snap.forEach(d => allOrders.push(d.data()));
-        
+        snap.forEach(d => allOrders.push({ id: d.id, ...d.data() }));
         if (!isAdmin && currentRepName) {
             allOrders = allOrders.filter(o => o.repName === currentRepName);
         }
 
-        allOrders.forEach(order => {
-            const dateStr = order.createdAt.toDate().toLocaleDateString('en-GB'); 
-            order.items.forEach(item => { 
-                flatData.push({ 
-                    "التاريخ": dateStr, "المندوب": order.repName, "كود الصيدلية": order.pharmacyCode || "-", 
-                    "الصيدلية": order.pharmacyName, "الصنف": item.name, "الكمية": parseInt(item.qty, 10) || 0, 
-                    "البونص": parseInt(item.bonus, 10) || 0, "السعر": parseFloat(item.price) || 0, 
-                    "المجموع الفرعي": parseFloat(item.total) || 0, "ملاحظة الصنف": item.note || "-", 
-                    "الاجمالي الكلي": parseFloat(order.grandTotal) || 0, "ملاحظة الطلبية": order.orderNote || "-", 
-                    "الحالة": order.status 
-                });
-            });
-        });
-
+        const flatData = exportOrderRows(allOrders);
         if (flatData.length === 0) { showToast("لا توجد بيانات للتصدير", "warning"); return; }
         const ws = XLSX.utils.json_to_sheet(flatData);
         const wb = XLSX.utils.book_new();
@@ -1849,6 +2070,45 @@ async function handleAllOrdersBulkAction(actionType) {
 document.getElementById('bulkApproveAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('approve'));
 document.getElementById('bulkDeleteAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('delete'));
     
+
+document.getElementById('selectAllMyOrders')?.addEventListener('change', function() {
+    document.querySelectorAll('.my-order-checkbox').forEach(cb => cb.checked = this.checked);
+});
+
+document.getElementById('selectAllReportsOrders')?.addEventListener('change', function() {
+    document.querySelectorAll('.reports-order-checkbox').forEach(cb => cb.checked = this.checked);
+});
+
+document.getElementById('selectAllPharmacyHistoryOrders')?.addEventListener('change', function() {
+    document.querySelectorAll('.pharmacy-history-order-checkbox').forEach(cb => cb.checked = this.checked);
+});
+
+
+['myOrdersFilterFrom', 'myOrdersFilterTo', 'myOrdersFilterPharmacy'].forEach(id => {
+    document.getElementById(id)?.addEventListener(id === 'myOrdersFilterPharmacy' ? 'input' : 'change', applyMyOrdersFilters);
+});
+
+document.getElementById('printMyOrdersBtn')?.addEventListener('click', () => {
+    printOrders(resolveSelectedOrders('.my-order-checkbox', [myOrdersData]));
+});
+
+document.getElementById('printReportsBtn')?.addEventListener('click', () => {
+    printOrders(resolveSelectedOrders('.reports-order-checkbox', [reportsOrdersData]));
+});
+
+document.getElementById('printPharmacyHistoryBtn')?.addEventListener('click', () => {
+    printOrders(resolveSelectedOrders('.pharmacy-history-order-checkbox', [pharmacyHistoryData]));
+});
+
+
+document.getElementById('printManagerOrdersBtn')?.addEventListener('click', () => {
+    printOrders(resolveSelectedOrders('.order-checkbox', [managerOrdersData, allOrdersData]));
+});
+
+document.getElementById('printAllOrdersBtn')?.addEventListener('click', () => {
+    printOrders(resolveSelectedOrders('.all-order-checkbox', [allOrdersData]));
+});
+
 window.closeModal = () => detailsModal.style.display = 'none';
 
 // تشغيل التحميل المبدئي

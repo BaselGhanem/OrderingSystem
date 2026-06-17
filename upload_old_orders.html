@@ -27,7 +27,7 @@
         <div class="info-box">
             <strong>الأعمدة المطلوبة في ملف الإكسل (نفس صيغة التصدير):</strong><br>
             <span style="direction: ltr; display: inline-block; color: #0369a1; font-weight: bold; margin-top: 5px;">
-            التاريخ, المندوب, كود الصيدلية, الصيدلية, الصنف, الكمية, البونص, السعر, المجموع الفرعي, ملاحظة الصنف, الاجمالي الكلي, ملاحظة الطلبية, الحالة
+            التاريخ, المندوب, كود الصيدلية, الصيدلية, كود الصنف, الصنف, الكمية, البونص, السعر, المجموع الفرعي, ملاحظة الصنف, الاجمالي الكلي, ملاحظة الطلبية, الحالة
             </span>
             <br><br>
             <i>* يرجى التأكد من أن عمود "التاريخ" منسق كنص (مثال: 15/02/2026) وليس كأرقام غريبة.</i>
@@ -129,8 +129,12 @@
 
                         // إضافة الصنف للطلبية المجمعة
                         if(row['الصنف']) {
+                            const itemCode = String(row['كود الصنف'] || row['code'] || row['productCode'] || "-").trim();
                             groupedOrders.get(orderKey).items.push({
                                 name: String(row['الصنف']).trim(),
+                                code: itemCode,
+                                productCode: itemCode,
+                                itemCode: itemCode,
                                 qty: parseInt(row['الكمية']) || 1,
                                 bonus: parseInt(row['البونص']) || 0,
                                 price: parseFloat(row['السعر']) || 0,

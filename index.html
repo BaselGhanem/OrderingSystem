@@ -155,23 +155,42 @@
         
         <!-- شاشة طلبياتي (المندوب) -->
         <main id="myOrdersScreen" class="screen glass-panel" style="display: none;">
-            <h2><i class="ph ph-list-checks"></i> طلبياتي (المعلقة / المرتجعة)</h2>
+            <h2><i class="ph ph-list-checks"></i> طلبياتي المعتمدة</h2>
             
-            <!-- 🟢 إضافة: ملخص ذكي للطلبيات -->
             <div id="myOrdersSummary" style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-                <div class="card" style="flex: 1; padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid var(--warning); box-shadow: var(--shadow-sm);">
-                    <small style="color: var(--secondary); font-weight: 700;">الطلبيات المعلقة</small>
+                <div class="card" style="flex: 1; padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid var(--success); box-shadow: var(--shadow-sm);">
+                    <small style="color: var(--secondary); font-weight: 700;">عدد الطلبيات المعتمدة</small>
                     <h3 id="myOrdersPendingCount" style="margin: 5px 0 0 0; color: var(--primary); font-size: 1.5rem;">0</h3>
                 </div>
                 <div class="card" style="flex: 1; padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid var(--primary); box-shadow: var(--shadow-sm);">
-                    <small style="color: var(--secondary); font-weight: 700;">إجمالي القيمة المعلقة (د.ا)</small>
+                    <small style="color: var(--secondary); font-weight: 700;">إجمالي القيمة المعتمدة (د.ا)</small>
                     <h3 id="myOrdersTotalValue" style="margin: 5px 0 0 0; color: var(--primary); font-size: 1.5rem;">0.00</h3>
+                </div>
+            </div>
+
+            <div class="glass-panel" style="margin-bottom: 20px; padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0;">
+                <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: var(--secondary);">من تاريخ</label>
+                        <input type="date" id="myOrdersFilterFrom" style="width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #cbd5e1; outline: none; font-family: inherit;">
+                    </div>
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: var(--secondary);">إلى تاريخ</label>
+                        <input type="date" id="myOrdersFilterTo" style="width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #cbd5e1; outline: none; font-family: inherit;">
+                    </div>
+                    <div style="flex: 2; min-width: 220px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: var(--secondary);">الصيدلية</label>
+                        <input type="text" id="myOrdersFilterPharmacy" placeholder="فلترة باسم الصيدلية..." style="width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #cbd5e1; outline: none; font-family: inherit;">
+                    </div>
+                    <button type="button" id="printMyOrdersBtn" class="btn-secondary" style="height: 45px; background:#0f3b5c; color:white; border:none;">
+                        <i class="ph ph-printer"></i> طباعة المحدد
+                    </button>
                 </div>
             </div>
 
             <div class="table-responsive mobile-cards">
                 <table class="order-table" id="myOrdersTable">
-                    <thead><tr><th>رقم المرجع</th><th>التاريخ</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
+                    <thead><tr><th><input type="checkbox" id="selectAllMyOrders"></th><th>رقم المرجع</th><th>التاريخ</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
                     <tbody id="myOrdersBody"></tbody>
                 </table>
             </div>
@@ -181,9 +200,14 @@
         <main id="reportsScreen" class="screen glass-panel" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
                 <h2><i class="ph ph-briefcase"></i> سجل الطلبيات المستلمة</h2>
-                <button type="button" id="exportExcelBtn" class="btn-secondary" style="background:#107c41; color:white; border:none;">
-                    <i class="ph ph-file-xls"></i> تصدير للاكسل
-                </button>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="button" id="printReportsBtn" class="btn-secondary" style="background:#0f3b5c; color:white; border:none;">
+                        <i class="ph ph-printer"></i> طباعة المحدد
+                    </button>
+                    <button type="button" id="exportExcelBtn" class="btn-secondary" style="background:#107c41; color:white; border:none;">
+                        <i class="ph ph-file-xls"></i> تصدير للاكسل
+                    </button>
+                </div>
             </div>
             <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
                 <input type="text" id="filterRep" placeholder="تصفية باسم المندوب..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
@@ -191,7 +215,7 @@
             </div>
             <div class="table-responsive mobile-cards">
                 <table class="order-table" id="reportsTable">
-                    <thead><tr><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
+                    <thead><tr><th><input type="checkbox" id="selectAllReportsOrders"></th><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
                     <tbody id="reportsBody"></tbody>
                 </table>
             </div>
@@ -292,7 +316,8 @@
                         </select>
                     </div>
                     
-                    <div style="display: flex; gap: 10px;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button id="printManagerOrdersBtn" class="btn-secondary" style="background:#0f3b5c; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-printer"></i> طباعة المحدد</button>
                         <button id="bulkApproveBtn" class="btn-success" style="background:#28a745; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-check-circle"></i> موافقة على المحدد</button>
                         <button id="bulkDeleteBtn" class="btn-danger" style="background:#dc3545; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-trash"></i> حذف المحدد</button>
                     </div>
@@ -331,7 +356,8 @@
                             <div style="font-size: 2rem; font-weight: 800;" id="totalNetSum">0.00</div>
                             <div style="color: var(--secondary); font-weight: 700;">صافي المبيعات (د.ا)</div>
                         </div>
-                         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                         <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                            <button id="printAllOrdersBtn" class="btn-secondary" style="background:#0f3b5c; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-printer"></i> طباعة المحدد</button>
                             <button id="bulkApproveAllBtn" class="btn-success" style="background:#28a745; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-check-circle"></i> موافقة على المحدد</button>
                             <button id="bulkDeleteAllBtn" class="btn-danger" style="background:#dc3545; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-trash"></i> حذف المحدد</button>
                         </div>
@@ -377,6 +403,7 @@
                 <table class="order-table">
                     <thead>
                         <tr>
+                            <th>كود الصنف</th>
                             <th>الصنف</th>
                             <th>الكمية</th>
                             <th>البونص</th>
@@ -500,6 +527,7 @@
                     <h3 style="color: var(--primary); margin: 0;"><i class="ph ph-clock-counter-clockwise"></i> السجل التاريخي للصيدلية</h3>
                     <small id="historyModalSubtitle" style="color: var(--secondary); font-weight: 600; display: block; margin-top: 5px;"></small>
                 </div>
+                <button type="button" id="printPharmacyHistoryBtn" class="btn-secondary" style="background:#0f3b5c; color:white; border:none; padding: 8px 12px; border-radius: 8px; cursor:pointer; font-weight:700; margin-inline-start:auto; margin-inline-end:12px;"><i class="ph ph-printer"></i> طباعة المحدد</button>
                 <button type="button" class="close-modal" onclick="document.getElementById('pharmacyHistoryModal').style.display='none'" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger);"><i class="ph ph-x-circle"></i></button>
             </div>
             
@@ -507,6 +535,7 @@
                 <table class="order-table">
                     <thead style="position: sticky; top: 0; z-index: 10;">
                         <tr>
+                            <th><input type="checkbox" id="selectAllPharmacyHistoryOrders"></th>
                             <th>رقم المرجع</th>
                             <th>التاريخ</th>
                             <th>المندوب</th>
@@ -524,6 +553,6 @@
     <div id="toast-container"></div>
 
     <!-- الربط مع ملفات JavaScript الأساسية -->
-    <script type="module" src="js/app.js?v=202605012_v5_SECURE"></script>
+    <script type="module" src="js/app.js?v=20260617_orders_print_codes_v1"></script>
 </body>
 </html>

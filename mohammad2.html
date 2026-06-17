@@ -282,6 +282,14 @@
 
         let allOrders = [];
 
+        function getItemProductCode(item) {
+            return item?.code || item?.productCode || item?.itemCode || '-';
+        }
+
+        function getOrderPharmacyCode(order) {
+            return order?.pharmacyCode || order?.pharmacy_code || '-';
+        }
+
         window.addEventListener('DOMContentLoaded', async () => {
             try {
                 const snap = await getDocs(collection(db, "orders"));
@@ -311,11 +319,14 @@
             let repOrdersCountMap = {};
             let repOrdersValueMap = {};
             let areaOrdersCountMap = {}; 
+            let pharmacyCodeMap = {};
             
             let duplicatesMap = {};
 
             allOrders.forEach(order => {
                 let pharmName = order.pharmacyName || 'غير معروف';
+                let pharmacyCode = getOrderPharmacyCode(order);
+                pharmacyCodeMap[pharmName] = pharmacyCode;
                 uniqueCustomers.add(pharmName);
                 areaOrdersCountMap[pharmName] = (areaOrdersCountMap[pharmName] || 0) + 1;
 
@@ -327,16 +338,19 @@
                 if (order.items && Array.isArray(order.items)) {
                     order.items.forEach(item => {
                         let itemName = item.name || 'غير معروف';
+                        let itemCode = getItemProductCode(item);
+                        let itemKey = `${itemCode}__${itemName}`;
                         let val = parseFloat(item.total) || 0;
                         let qty = parseInt(item.qty, 10) || 0;
 
-                        itemValueMap[itemName] = (itemValueMap[itemName] || 0) + val;
+                        if (!itemValueMap[itemKey]) itemValueMap[itemKey] = { code: itemCode, name: itemName, val: 0 };
+                        itemValueMap[itemKey].val += val;
 
-                        if (!itemRepQtyMap[itemName]) itemRepQtyMap[itemName] = {};
-                        itemRepQtyMap[itemName][repName] = (itemRepQtyMap[itemName][repName] || 0) + qty;
+                        if (!itemRepQtyMap[itemKey]) itemRepQtyMap[itemKey] = { code: itemCode, name: itemName, reps: {} };
+                        itemRepQtyMap[itemKey].reps[repName] = (itemRepQtyMap[itemKey].reps[repName] || 0) + qty;
 
                         // بناء مفتاح لتتبع التكرار (الزبون + الصنف + الكمية)
-                        let key = `${pharmName}_${itemName}_${qty}`;
+                        let key = `${pharmacyCode}_${pharmName}_${itemCode}_${itemName}_${qty}`;
                         if (!duplicatesMap[key]) duplicatesMap[key] = [];
                         duplicatesMap[key].push({
                             orderId: order.id,
@@ -352,14 +366,15 @@
 
             let r1Data = Object.entries(itemValueMap)
                 .sort((a, b) => b[1] - a[1])
-                .map(([name, val]) => [name, val]);
-            buildHtmlTable('table-rep1', ['الصنف', 'اجمالي قيمة المبيعات (د.ا)'], r1Data, true);
+                .map(([key, stats]) => [stats.code, stats.name, stats.val]);
+            buildHtmlTable('table-rep1', ['كود الصنف', 'الصنف', 'اجمالي قيمة المبيعات (د.ا)'], r1Data, true);
 
             let repsArray = Array.from(allRepsSet).sort();
-            let r2Headers = ['الصنف', ...repsArray];
-            let r2Data = Object.keys(itemRepQtyMap).sort().map(itemName => {
-                let row = [itemName];
-                repsArray.forEach(rep => row.push(itemRepQtyMap[itemName][rep] || 0));
+            let r2Headers = ['كود الصنف', 'الصنف', ...repsArray];
+            let r2Data = Object.keys(itemRepQtyMap).sort().map(itemKey => {
+                let itemStats = itemRepQtyMap[itemKey];
+                let row = [itemStats.code, itemStats.name];
+                repsArray.forEach(rep => row.push(itemStats.reps[rep] || 0));
                 return row;
             });
             buildHtmlTable('table-rep2', r2Headers, r2Data, true);
@@ -370,8 +385,8 @@
             let r6Data = Object.entries(repOrdersValueMap).sort((a, b) => b[1] - a[1]).map(([rep, val]) => [rep, val]);
             buildHtmlTable('table-rep6', ['اسم المندوب', 'اجمالي قيمة الطلبيات (د.ا)'], r6Data, true);
 
-            let r7Data = Object.entries(areaOrdersCountMap).sort((a, b) => b[1] - a[1]).map(([area, count]) => [area, count]);
-            buildHtmlTable('table-rep7', ['المنطقة / اسم الصيدلية', 'عدد الطلبيات'], r7Data, true);
+            let r7Data = Object.entries(areaOrdersCountMap).sort((a, b) => b[1] - a[1]).map(([area, count]) => [pharmacyCodeMap[area] || '-', area, count]);
+            buildHtmlTable('table-rep7', ['كود الصيدلية', 'المنطقة / اسم الصيدلية', 'عدد الطلبيات'], r7Data, true);
 
             // معالجة تقرير المكررات
             let duplicatesData = [];
@@ -380,11 +395,11 @@
                     let parts = key.split('_');
                     duplicatesMap[key].forEach(dup => {
                         let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${dup.orderId}')"><i class="ph ph-pencil"></i> مشاهدة واجراء</button>`;
-                        duplicatesData.push([parts[0], parts[1], parts[2], dup.repName, dup.orderId.substring(0,6).toUpperCase(), dup.date, btnHtml]);
+                        duplicatesData.push([parts[0], parts[1], parts[2], parts[3], parts[4], dup.repName, dup.orderId.substring(0,6).toUpperCase(), dup.date, btnHtml]);
                     });
                 }
             });
-            buildHtmlTable('table-rep-dup', ['الصيدلية', 'الصنف', 'الكمية', 'المندوب', 'رقم المرجع', 'التاريخ', 'الاجراات'], duplicatesData, false);
+            buildHtmlTable('table-rep-dup', ['كود الصيدلية', 'الصيدلية', 'كود الصنف', 'الصنف', 'الكمية', 'المندوب', 'رقم المرجع', 'التاريخ', 'الاجراءات'], duplicatesData, false);
         }
 
         // دالة بناء الجداول مع اضافة صف المجموع اختياريا

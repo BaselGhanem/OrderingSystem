@@ -143,16 +143,17 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 25%;">Document_ID</th>
-                        <th style="width: 25%;">اسم المنتج (name)</th>
-                        <th style="width: 15%;">الكود (code)</th>
-                        <th style="width: 15%;">السعر (price)</th>
-                        <th style="width: 20%; text-align: center;">إجراءات</th>
+                        <th style="width: 20%;">Document_ID</th>
+                        <th style="width: 25%;">اسم الصنف (name)</th>
+                        <th style="width: 15%;">كود الصنف (code)</th>
+                        <th style="width: 15%;">كود الصيدلية (pharmacyCode)</th>
+                        <th style="width: 10%;">السعر (price)</th>
+                        <th style="width: 15%; text-align: center;">إجراءات</th>
                     </tr>
                 </thead>
                 <tbody id="productsTableBody">
                     <tr>
-                        <td colspan="5" class="loading-text">جاري تحميل المنتجات من قاعدة البيانات...</td>
+                        <td colspan="6" class="loading-text">جاري تحميل المنتجات من قاعدة البيانات...</td>
                     </tr>
                 </tbody>
             </table>
@@ -183,7 +184,7 @@
                 tableBody.innerHTML = "";
 
                 if (snap.empty) {
-                    tableBody.innerHTML = `<tr><td colspan="5" class="loading-text">لا توجد منتجات حالياً في قاعدة البيانات.</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="6" class="loading-text">لا توجد منتجات حالياً في قاعدة البيانات.</td></tr>`;
                     return;
                 }
 
@@ -199,7 +200,8 @@
                     tr.innerHTML = `
                         <td class="doc-id-text">${id}</td>
                         <td><input type="text" class="table-input" id="name-${id}" value="${data.name || ''}"></td>
-                        <td><input type="text" class="table-input" id="code-${id}" value="${data.code || ''}"></td>
+                        <td><input type="text" class="table-input" id="code-${id}" value="${data.code || data.productCode || data.itemCode || ''}"></td>
+                        <td><input type="text" class="table-input" id="pharmacyCode-${id}" value="${data.pharmacyCode || data.pharmacy_code || ''}" placeholder="اختياري"></td>
                         <td><input type="number" class="table-input" id="price-${id}" value="${formattedPrice}" step="0.01"></td>
                         <td style="text-align: center;">
                             <button class="btn btn-success btn-sm save-single-btn" data-id="${id}">حفظ</button>
@@ -227,7 +229,7 @@
 
             } catch (error) {
                 console.error("Error loading products:", error);
-                tableBody.innerHTML = `<tr><td colspan="5" style="color:red; padding:20px;">حدث خطأ أثناء تحميل البيانات!</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="6" style="color:red; padding:20px;">حدث خطأ أثناء تحميل البيانات!</td></tr>`;
             }
         }
 
@@ -235,6 +237,7 @@
         async function updateSingleProduct(id, buttonElement) {
             const nameVal = document.getElementById(`name-${id}`).value.trim();
             const codeVal = document.getElementById(`code-${id}`).value.trim();
+            const pharmacyCodeVal = document.getElementById(`pharmacyCode-${id}`).value.trim();
             // جلب القيمة وتحويلها لرقم مقرب لـ 2 digits وعمل تنسيق لها
             let priceVal = Number(document.getElementById(`price-${id}`).value) || 0;
             priceVal = Number(priceVal.toFixed(2)); 
@@ -253,8 +256,13 @@
                 await updateDoc(productRef, {
                     name: nameVal,
                     code: codeVal,
+                    productCode: codeVal,
+                    itemCode: codeVal,
+                    pharmacyCode: pharmacyCodeVal || "-",
                     price: priceVal
                 });
+                localStorage.removeItem("dad_app_cache_v2");
+                localStorage.removeItem("dad_app_cache_time_v2");
                 
                 // تحديث حقل المدخلات ليعرض الرقم منسقاً بخانتين عشريتين
                 document.getElementById(`price-${id}`).value = priceVal.toFixed(2);
@@ -335,19 +343,32 @@
                     const addPromises = [];
                     
                     excelData.forEach(row => {
-                        if(row.name && row.code) {
+                        const normalizedRow = Object.keys(row).reduce((acc, key) => {
+                            acc[String(key).trim()] = row[key];
+                            return acc;
+                        }, {});
+
+                        const rowName = normalizedRow.name || normalizedRow['اسم الصنف'] || normalizedRow['الصنف'];
+                        const rowCode = normalizedRow.code || normalizedRow.productCode || normalizedRow.itemCode || normalizedRow['كود الصنف'];
+                        const rowPharmacyCode = normalizedRow.pharmacyCode || normalizedRow.pharmacy_code || normalizedRow['كود الصيدلية'];
+                        const rowPrice = normalizedRow.price || normalizedRow['السعر'];
+
+                        if(rowName && rowCode) {
                             // تقريب السعر القادم من ملف الإكسل إلى خانتين عشريتين فقط قبل الإرسال
-                            let excelPrice = Number(row.price) || 0;
+                            let excelPrice = Number(rowPrice) || 0;
                             excelPrice = Number(excelPrice.toFixed(2));
 
                             const productData = {
-                                name: String(row.name).trim(),
-                                code: String(row.code).trim(),
+                                name: String(rowName).trim(),
+                                code: String(rowCode).trim(),
+                                productCode: String(rowCode).trim(),
+                                itemCode: String(rowCode).trim(),
+                                pharmacyCode: String(rowPharmacyCode || "-").trim(),
                                 price: excelPrice
                             };
 
-                            if (row.Document_ID) {
-                                addPromises.push(setDoc(doc(db, "products", String(row.Document_ID).trim()), productData));
+                            if (normalizedRow.Document_ID) {
+                                addPromises.push(setDoc(doc(db, "products", String(normalizedRow.Document_ID).trim()), productData));
                             } else {
                                 addPromises.push(addDoc(collection(db, "products"), productData));
                             }
@@ -355,6 +376,8 @@
                     });
 
                     await Promise.all(addPromises);
+                    localStorage.removeItem("dad_app_cache_v2");
+                    localStorage.removeItem("dad_app_cache_time_v2");
                     
                     status.innerText = "✅ تم تحديث قاعدة البيانات بنجاح!";
                     status.style.color = "#10b981";
