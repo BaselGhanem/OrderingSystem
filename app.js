@@ -1014,6 +1014,7 @@ repSelect.onchange = async (e) => {
     if (savedPass) {
         document.getElementById('repPasswordInput').value = savedPass;
         if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = true;
+        scheduleRepAutoLogin();
     } else {
         document.getElementById('repPasswordInput').value = '';
         if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = false;
@@ -1030,7 +1031,7 @@ repSelect.onchange = async (e) => {
             currentPharmaciesData.push(d.data()); 
             pharmacyNames.push(d.data().name);
         });
-        setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => startOrderBtn.disabled = false);
+        setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => { startOrderBtn.disabled = false; scheduleRepAutoLogin(); });
         pharmacyInput.disabled = false;
         pharmacyInput.placeholder = 'ابحث او اختر الصيدلية...';
     } catch (error) {
@@ -1056,7 +1057,51 @@ function validatePharmacyInput() {
     return isValid;
 }
 
-pharmacyInput.addEventListener('blur', validatePharmacyInput);
+let repAutoLoginTimer = null;
+let repAutoLoginRunning = false;
+
+function isLoginScreenVisible() {
+    const loginScreen = document.getElementById('loginScreen');
+    if (!loginScreen) return false;
+    return loginScreen.style.display !== 'none';
+}
+
+function isRepPasswordValidSilently(repName, password) {
+    if (!repName || !password) return false;
+    const expectedHash = repPasswordsMap[repName];
+    return !expectedHash || btoa(password) === expectedHash;
+}
+
+function scheduleRepAutoLogin() {
+    clearTimeout(repAutoLoginTimer);
+    repAutoLoginTimer = setTimeout(() => {
+        tryRepAutoLogin();
+    }, 220);
+}
+
+function tryRepAutoLogin() {
+    if (repAutoLoginRunning || !isLoginScreenVisible()) return;
+
+    const repPasswordInput = document.getElementById('repPasswordInput');
+    const selectedRepName = repSelect?.options?.[repSelect.selectedIndex]?.textContent || '';
+    const enteredPass = repPasswordInput?.value?.trim() || '';
+    const selectedPharmacyName = pharmacyInput?.value?.trim() || '';
+    const selectedPharmacy = currentPharmaciesData.find(p => p.name === selectedPharmacyName);
+
+    if (!repSelect?.value || !selectedRepName || !enteredPass || !selectedPharmacy) return;
+    if (!isRepPasswordValidSilently(selectedRepName, enteredPass)) return;
+    if (productsList.length === 0) return;
+
+    repAutoLoginRunning = true;
+    startOrderBtn.disabled = false;
+    startOrderBtn.click();
+    setTimeout(() => { repAutoLoginRunning = false; }, 800);
+}
+
+pharmacyInput.addEventListener('blur', () => {
+    validatePharmacyInput();
+    scheduleRepAutoLogin();
+});
 pharmacyInput.addEventListener('input', function() {
     const isValid = currentPharmaciesData.some(p => p.name === this.value.trim());
     if (isValid) {
@@ -1065,7 +1110,11 @@ pharmacyInput.addEventListener('input', function() {
     } else {
         startOrderBtn.disabled = true;
     }
+    scheduleRepAutoLogin();
 });
+
+document.getElementById('repPasswordInput')?.addEventListener('input', scheduleRepAutoLogin);
+document.getElementById('repPasswordInput')?.addEventListener('change', scheduleRepAutoLogin);
 
 startOrderBtn.onclick = async (e) => { e.preventDefault(); // 🟢 أضف هذا السطر لمنع إرسال الفورم...
                                       if (productsList.length === 0) { 
