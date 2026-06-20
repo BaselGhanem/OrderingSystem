@@ -1,0 +1,5 @@
+Mobile stable fix - 2026-06-21
+- Kept MAIN functional files and JS features.
+- Restored the proven old responsive stylesheet from OrderingSystem-beforeChatGPT.
+- Restored the old mobile-friendly login layout while keeping the same element IDs used by MAIN JavaScript.
+- Updated cache-busting query strings in index.html.
