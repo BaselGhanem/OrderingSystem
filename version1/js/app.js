@@ -336,6 +336,77 @@ function getProductCodeFromItem(item = {}) {
     return product?.productCode || product?.product_code || product?.code || '';
 }
 
+
+const WORKFLOW_STATUS_LABELS = {
+    pending: 'قيد موافقة المشرف',
+    pending_supervisor_approval: 'قيد موافقة المشرف',
+    supervisor_approved: 'معتمد من المشرف',
+    market_manager_pending: 'بانتظار مدير السوق',
+    market_manager_approved: 'معتمد من مدير السوق',
+    market_manager_rejected: 'مرفوض من مدير السوق',
+    finance_pending: 'بانتظار المالية',
+    finance_approved: 'معتمد مالياً',
+    finance_rejected: 'مرفوض مالياً',
+    orders_staff_pending: 'جاهز للمعالجة',
+    orders_staff_exported: 'تم تصديره',
+    orders_staff_hidden: 'مخفي بعد التصدير',
+    approved: 'موافق عليه',
+    returned: 'مرتجع',
+    rejected: 'مرفوض',
+    deleted_by_market_manager: 'محذوف من مدير السوق'
+};
+
+function getWorkflowStatusLabel(status) {
+    return WORKFLOW_STATUS_LABELS[status] || status || '-';
+}
+
+function isSupervisorPendingStatus(status) {
+    return ['pending', 'pending_supervisor_approval'].includes(status || 'pending');
+}
+
+function isRepApprovedVisibleStatus(status) {
+    return [
+        'approved',
+        'supervisor_approved',
+        'market_manager_pending',
+        'market_manager_approved',
+        'finance_pending',
+        'finance_approved',
+        'orders_staff_pending',
+        'orders_staff_exported',
+        'orders_staff_hidden'
+    ].includes(status || '');
+}
+
+function buildAuditEntry(action, user, role, oldValue = null, newValue = null, notes = '') {
+    return {
+        action,
+        user: user || 'System',
+        role: role || 'system',
+        timestamp: new Date().toISOString(),
+        oldValue,
+        newValue,
+        notes: notes || ''
+    };
+}
+
+async function updateOrderWithAudit(orderId, updates, auditEntry) {
+    const orderRef = doc(db, 'orders', orderId);
+    const snap = await getDoc(orderRef);
+    const current = snap.exists() ? snap.data() : {};
+    const trail = Array.isArray(current.auditTrail) ? current.auditTrail : [];
+    await updateDoc(orderRef, {
+        ...updates,
+        previousStatus: current.status || '',
+        changedBy: auditEntry.user,
+        changedByRole: auditEntry.role,
+        changedAt: new Date(),
+        actionType: auditEntry.action,
+        auditTrail: [...trail, auditEntry],
+        updatedAt: new Date()
+    });
+}
+
 function setDefaultMyOrdersFilters() {
     const fromInput = getEl('myOrdersDateFrom');
     const toInput = getEl('myOrdersDateTo');
@@ -380,7 +451,7 @@ function buildFlatOrderExportRows(orders) {
                 "ملاحظة الصنف": item.note || "-",
                 "الاجمالي الكلي": parseAppNumber(order.grandTotal),
                 "ملاحظة الطلبية": order.orderNote || "-",
-                "الحالة": order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')
+                "الحالة": getWorkflowStatusLabel(order.status)
             });
         });
     });
@@ -447,7 +518,7 @@ function buildPrintableOrder(order) {
                 <div><span>المندوب</span><strong>${escapePrintHtml(order.repName || '-')}</strong></div>
                 <div><span>العميل / الصيدلية</span><strong>${escapePrintHtml(order.pharmacyName || '-')}</strong></div>
                 <div><span>كود الصيدلية</span><strong>${escapePrintHtml(getPharmacyCodeFromOrder(order) || '-')}</strong></div>
-                <div><span>الحالة</span><strong>${order.status === 'approved' ? 'موافق عليه' : (order.status === 'returned' ? 'مرتجع' : 'قيد الموافقة')}</strong></div>
+                <div><span>الحالة</span><strong>${getWorkflowStatusLabel(order.status)}</strong></div>
                 <div><span>الإجمالي</span><strong>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.ا</strong></div>
             </div>
             <table class="print-items-table">
@@ -850,7 +921,7 @@ function bindPharmacyHistoryButton() {
                     <td>${formatDateTime(o.createdAt)}</td>
                     <td>${o.repName || '-'}</td>
                     <td>${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ا</td>
-                    <td><span class="status-badge ${o.status}">${o.status === 'approved' ? 'موافق عليه' : (o.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
+                    <td><span class="status-badge ${o.status}">${getWorkflowStatusLabel(o.status)}</span></td>
                     <td><button class="action-btn edit-btn btn-view-history" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
                 `;
                 tr.querySelector('.btn-view-history').onclick = () => showOrderDetails(o);
@@ -1192,6 +1263,8 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
         const indicator = document.getElementById('saving-indicator');
         if(indicator) indicator.classList.add('active');
 
+        const initialStatus = isAdmin ? "market_manager_pending" : "pending_supervisor_approval";
+        const now = new Date();
         await addDoc(collection(db, "orders"), {
             repId: currentRepId,
             repName: currentRepName,
@@ -1200,16 +1273,25 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
             pharmacyCode: currentPharmacyCode, 
             items: items,
             orderNote: orderNoteValue,
-            grandTotal: parseFloat(grandTotalEl.innerText),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            status: isAdmin ? "approved" : "pending",
+            grandTotal: parseAppNumber(grandTotalEl.innerText),
+            createdAt: now,
+            updatedAt: now,
+            status: initialStatus,
+            previousStatus: '',
+            workflowStage: isAdmin ? 'market_manager' : 'supervisor',
+            supervisorStatus: isAdmin ? 'supervisor_approved' : 'pending_supervisor_approval',
+            supervisorApprovedBy: isAdmin ? (currentManagerName || getManagerName(currentRepName)) : '',
+            supervisorApprovedAt: isAdmin ? now : null,
+            marketManagerStatus: isAdmin ? 'market_manager_pending' : '',
+            financeStatus: '',
+            orderStaffStatus: '',
+            auditTrail: [buildAuditEntry('order_created', currentRepName, isAdmin ? 'supervisor' : 'representative', null, { status: initialStatus }, orderNoteValue)]
         });
         
         clearDraft(); // تنظيف المسودة بعد الإرسال الناجح
 
         const successMessage = isAdmin 
-            ? "تم تسجيل الطلبية واعتمادها بنجاح." 
+            ? "تم تسجيل الطلبية وتحويلها إلى مدير السوق." 
             : "تم ارسال الطلبية بنجاح، في انتظار موافقة المدير.";
         showToast(successMessage, "success");
 
@@ -1258,7 +1340,7 @@ async function loadMyOrders() {
             let orders = [];
             snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
             orders.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
-            currentMyOrdersData = orders.filter(o => o.status === 'approved');
+            currentMyOrdersData = orders.filter(o => isRepApprovedVisibleStatus(o.status));
             applyMyOrdersFilters();
         }, () => showToast("خطأ في جلب البيانات.", "error"));
     } catch(e) { showToast("خطأ في جلب البيانات.", "error"); }
@@ -1297,7 +1379,7 @@ function applyMyOrdersFilters() {
             <td>${order.pharmacyName || '-'}</td>
             <td>${getPharmacyCodeFromOrder(order) || '-'}</td>
             <td>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge approved">موافق عليه</span></td>
+            <td><span class="status-badge ${order.status}">${getWorkflowStatusLabel(order.status)}</span></td>
             <td>
                 <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
             </td>
@@ -1323,7 +1405,7 @@ function updateAdvancedManagerDashboard(orders) {
         const value = parseAppNumber(o.grandTotal);
         if (value < 0 || o.status === 'returned') returnsTotal += Math.abs(value);
         else ordersTotal += value;
-        if (o.status === 'approved') approvedCount++;
+        if (isRepApprovedVisibleStatus(o.status)) approvedCount++;
         if (o.pharmacyName) {
             pharmCounts[o.pharmacyName] = (pharmCounts[o.pharmacyName] || 0) + 1;
             uniquePharms.add(o.pharmacyName);
@@ -1447,7 +1529,7 @@ function renderManagerOrders(orders) {
     }
 
     orders.forEach(order => {
-        const isApproved = order.status === 'approved';
+        const isApproved = !isSupervisorPendingStatus(order.status);
         const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const tr = document.createElement('tr');
@@ -1459,7 +1541,7 @@ function renderManagerOrders(orders) {
             <td>${order.repName || '-'}</td>
             <td>${order.pharmacyName || '-'}</td>
             <td>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
+            <td><span class="status-badge ${order.status}">${getWorkflowStatusLabel(order.status)}</span></td>
             <td>
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
@@ -1470,8 +1552,15 @@ function renderManagerOrders(orders) {
         if (!isApproved) {
             tr.querySelector('.approve-btn').onclick = async () => { 
                 if(confirm("هل توافق على تمرير الطلبية؟")) { 
-                    await updateDoc(doc(db, "orders", order.id), { status: "approved", updatedAt: new Date() }); 
-                    showToast("تمت الموافقة بنجاح", "success");
+                    await updateOrderWithAudit(order.id, {
+                        status: "market_manager_pending",
+                        workflowStage: "market_manager",
+                        supervisorStatus: "supervisor_approved",
+                        supervisorApprovedBy: currentManagerName || 'Supervisor',
+                        supervisorApprovedAt: new Date(),
+                        marketManagerStatus: "market_manager_pending"
+                    }, buildAuditEntry('supervisor_approved', currentManagerName || 'Supervisor', 'supervisor', { status: order.status || 'pending' }, { status: 'market_manager_pending' })); 
+                    showToast("تم اعتماد الطلبية وتحويلها إلى مدير السوق", "success");
                 } 
             };
         }
@@ -1503,7 +1592,15 @@ async function handleBulkAction(actionType) {
     try {
         const promises = orderIds.map(id => {
             if (actionType === 'approve') {
-                return updateDoc(doc(db, "orders", id), { status: "approved", updatedAt: new Date() });
+                const order = managerOrdersData.find(o => o.id === id) || {};
+                return updateOrderWithAudit(id, {
+                    status: "market_manager_pending",
+                    workflowStage: "market_manager",
+                    supervisorStatus: "supervisor_approved",
+                    supervisorApprovedBy: currentManagerName || 'Supervisor',
+                    supervisorApprovedAt: new Date(),
+                    marketManagerStatus: "market_manager_pending"
+                }, buildAuditEntry('supervisor_bulk_approved', currentManagerName || 'Supervisor', 'supervisor', { status: order.status || 'pending' }, { status: 'market_manager_pending' }));
             } else {
                 return deleteDoc(doc(db, "orders", id));
             }
@@ -1572,7 +1669,7 @@ function renderAllOrders(orders) {
             <td class="all-rep-col">${order.repName || '-'}</td>
             <td class="all-pharm-col">${order.pharmacyName || '-'}</td>
             <td>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status}">${order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
+            <td><span class="status-badge ${order.status}">${getWorkflowStatusLabel(order.status)}</span></td>
             <td><button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
         `;
@@ -1879,6 +1976,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         setupAutocomplete(s, sug, productNames, (selectedName) => { 
             const prod = productsList.find(pr => pr.name === selectedName); 
             const pr = prod ? parseFloat(prod.price) : 0; 
+            s.dataset.productCode = prod?.productCode || prod?.product_code || prod?.code || ''; 
             p.innerText = pr.toFixed(2); 
             t.innerText = (pr * q.value).toFixed(2); 
             updateEditTotal(); 
@@ -1947,11 +2045,11 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 const grandTotalEl = document.getElementById('editGrandTotal');
                 const newGrandTotal = grandTotalEl ? parseFloat(grandTotalEl.innerText) : 0;
                 
-                await updateDoc(doc(db, "orders", editingOrderId), { 
+                await updateOrderWithAudit(editingOrderId, { 
                     repId: newRepId, repName: newRepName, managerName: getManagerName(newRepName), 
                     pharmacyName: newPharmName, pharmacyCode: selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || "",
-                    items: items, grandTotal: newGrandTotal, status: "pending", updatedAt: new Date() 
-                });
+                    items: items, grandTotal: newGrandTotal, status: "pending_supervisor_approval", workflowStage: "supervisor", supervisorStatus: "pending_supervisor_approval"
+                }, buildAuditEntry('supervisor_order_edited', currentManagerName || 'Supervisor', 'supervisor', { orderId: editingOrderId }, { grandTotal: newGrandTotal }));
                 showToast("تم تحديث الطلبية بنجاح", "success");
                 closeEditModal();
             } catch (e) { showToast("حدث خطأ أثناء التحديث", "error"); }
@@ -1993,7 +2091,7 @@ async function loadReports() {
                     <td class="rep-col">${o.repName || '-'}</td>
                     <td class="pharm-col">${o.pharmacyName || '-'}</td>
                     <td>${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td><span class="status-badge ${o.status}">${o.status === 'approved' ? 'موافق عليه' : (o.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
+                    <td><span class="status-badge ${o.status}">${getWorkflowStatusLabel(o.status)}</span></td>
                     <td><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>
                 `;
                 tr.querySelector('.btn-view').onclick = () => showOrderDetails(o);
@@ -2144,10 +2242,20 @@ async function handleAllOrdersBulkAction(actionType) {
     const actionText = actionType === 'approve' ? 'الموافقة على' : 'حذف';
     if (!confirm(`تحذير: هل أنت متأكد من ${actionText} ${orderIds.length} طلبية دفعة واحدة؟`)) return;
     try {
-        const promises = orderIds.map(id => actionType === 'approve'
-            ? updateDoc(doc(db, "orders", id), { status: "approved", updatedAt: new Date() })
-            : deleteDoc(doc(db, "orders", id))
-        );
+        const promises = orderIds.map(id => {
+            if (actionType === 'approve') {
+                const order = allOrdersData.find(o => o.id === id) || {};
+                return updateOrderWithAudit(id, {
+                    status: "market_manager_pending",
+                    workflowStage: "market_manager",
+                    supervisorStatus: "supervisor_approved",
+                    supervisorApprovedBy: currentManagerName || 'Supervisor',
+                    supervisorApprovedAt: new Date(),
+                    marketManagerStatus: "market_manager_pending"
+                }, buildAuditEntry('supervisor_bulk_approved_all_orders', currentManagerName || 'Supervisor', 'supervisor', { status: order.status || 'pending' }, { status: 'market_manager_pending' }));
+            }
+            return deleteDoc(doc(db, "orders", id));
+        });
         await Promise.all(promises);
         showToast("تم تنفيذ الأمر بنجاح", "success");
         if(getEl('selectAllAllOrders')) getEl('selectAllAllOrders').checked = false;

@@ -955,3 +955,326 @@ img, table { max-width: 100%; }
     .order-table th, .order-table td { padding: 9px 8px; }
     .premium-auth-box, #loginScreen .auth-box { padding: 16px !important; }
 }
+
+/* ===============================
+   Multi-stage workflow pages
+   =============================== */
+.workflow-page-shell {
+    width: min(100%, 1440px);
+    padding-inline: clamp(10px, 2vw, 24px);
+}
+.workflow-header {
+    margin-bottom: 16px;
+}
+.workflow-header .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+.workflow-header h1 {
+    margin: 0;
+    font-size: clamp(1.1rem, 2.4vw, 1.8rem);
+    color: var(--primary);
+}
+.workflow-header p {
+    margin: 4px 0 0;
+    color: var(--secondary);
+    font-weight: 700;
+    line-height: 1.5;
+}
+.workflow-main {
+    padding: clamp(14px, 2vw, 24px);
+}
+.workflow-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.workflow-stat-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-right: 4px solid #099999;
+    border-radius: 16px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm);
+}
+.workflow-stat-card span {
+    display: block;
+    color: var(--secondary);
+    font-weight: 800;
+    font-size: .82rem;
+}
+.workflow-stat-card strong {
+    display: block;
+    margin-top: 6px;
+    color: var(--primary);
+    font-size: clamp(1.1rem, 2vw, 1.55rem);
+}
+.workflow-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+    gap: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 14px;
+    margin-bottom: 14px;
+}
+.workflow-filters label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--secondary);
+    font-weight: 800;
+    font-size: .85rem;
+}
+.workflow-filters input,
+.workflow-filters select {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    background: #fff;
+    color: var(--dark);
+    font-family: inherit;
+    font-weight: 700;
+    outline: none;
+}
+.workflow-filters input:focus,
+.workflow-filters select:focus {
+    border-color: #099999;
+    box-shadow: 0 0 0 3px rgba(9,153,153,.12);
+}
+.workflow-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+}
+.workflow-toolbar button,
+.workflow-actions-cell button,
+.workflow-modal-footer button {
+    min-height: 40px;
+    touch-action: manipulation;
+}
+.workflow-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+}
+.workflow-table {
+    min-width: 980px;
+    margin: 0;
+}
+.workflow-table th {
+    white-space: nowrap;
+    background: #0f3b5c;
+    color: #fff;
+}
+.workflow-table td {
+    vertical-align: middle;
+}
+.workflow-table input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+.workflow-actions-cell {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-width: 190px;
+}
+.workflow-actions-cell .action-btn {
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: var(--primary);
+    border-radius: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 800;
+}
+.workflow-actions-cell .approve-btn { color: #059669; border-color: rgba(5,150,105,.35); }
+.workflow-actions-cell .reject-btn,
+.workflow-actions-cell .danger-btn { color: #dc2626; border-color: rgba(220,38,38,.35); }
+.workflow-modal {
+    align-items: center;
+    justify-content: center;
+    padding: clamp(8px, 2vw, 24px);
+}
+.workflow-modal-content {
+    width: min(100%, 1180px);
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+}
+.workflow-modal-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 12px;
+}
+.workflow-modal-header h2 {
+    margin: 0 0 8px;
+    color: var(--primary);
+    font-size: clamp(1.05rem, 2vw, 1.45rem);
+}
+.workflow-modal-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    color: var(--secondary);
+    font-size: .9rem;
+}
+.workflow-modal-meta span {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 6px 10px;
+}
+.workflow-modal .close-modal {
+    background: transparent;
+    border: 0;
+    color: var(--danger);
+    font-size: 1.7rem;
+    cursor: pointer;
+}
+.workflow-note-box {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-right: 4px solid #f59e0b;
+    color: #92400e;
+    border-radius: 14px;
+    padding: 10px 12px;
+    line-height: 1.7;
+}
+.workflow-modal-table {
+    flex: 1 1 auto;
+    overflow: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+}
+.workflow-modal-table table {
+    min-width: 1050px;
+}
+.workflow-modal-table input[type="number"] {
+    width: 86px;
+    min-height: 38px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 6px 8px;
+    text-align: center;
+    font-family: inherit;
+    font-weight: 800;
+}
+.workflow-modal-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 12px;
+}
+.workflow-modal-footer > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.workflow-delete-item {
+    border: 1px solid rgba(220,38,38,.35);
+    background: #fff;
+    color: #dc2626;
+    border-radius: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+}
+.item-name-cell {
+    font-weight: 800;
+    color: var(--dark);
+    min-width: 180px;
+}
+.status-badge.pending_supervisor_approval,
+.status-badge.market_manager_pending,
+.status-badge.finance_pending,
+.status-badge.orders_staff_pending,
+.status-badge.supervisor_approved {
+    background: rgba(245, 158, 11, .12);
+    color: #92400e;
+    border: 1px solid rgba(245, 158, 11, .35);
+}
+.status-badge.market_manager_approved,
+.status-badge.finance_approved,
+.status-badge.orders_staff_exported {
+    background: rgba(5, 150, 105, .12);
+    color: #047857;
+    border: 1px solid rgba(5, 150, 105, .35);
+}
+.status-badge.market_manager_rejected,
+.status-badge.finance_rejected,
+.status-badge.rejected,
+.status-badge.deleted_by_market_manager,
+.status-badge.orders_staff_hidden {
+    background: rgba(220, 38, 38, .10);
+    color: #b91c1c;
+    border: 1px solid rgba(220, 38, 38, .30);
+}
+.btn-success {
+    background: #059669;
+    color: #fff;
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-family: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+.btn-danger {
+    background: #dc2626;
+    color: #fff;
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-family: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+@media (max-width: 768px) {
+    .workflow-page-shell { padding-inline: 8px; }
+    .workflow-header { border-radius: 18px; }
+    .workflow-header .logo-area { align-items: flex-start; }
+    .workflow-header .logo { width: 54px; height: auto; }
+    .workflow-main { padding: 12px; border-radius: 18px; }
+    .workflow-filters { grid-template-columns: 1fr; padding: 12px; }
+    .workflow-toolbar { align-items: stretch; }
+    .workflow-toolbar button { width: 100%; }
+    .workflow-table { min-width: 920px; font-size: .82rem; }
+    .workflow-modal { padding: 0; }
+    .workflow-modal-content {
+        width: 100%;
+        height: 100dvh;
+        max-height: 100dvh;
+        border-radius: 0;
+        padding: 12px;
+    }
+    .workflow-modal-header { align-items: flex-start; }
+    .workflow-modal-footer { align-items: stretch; }
+    .workflow-modal-footer > div,
+    .workflow-modal-footer button { width: 100%; }
+    .workflow-modal-table table { min-width: 980px; }
+}
+@media (max-width: 430px) {
+    .workflow-stats-grid { grid-template-columns: 1fr; }
+    .workflow-modal-meta span { width: 100%; border-radius: 12px; }
+}

@@ -114,8 +114,12 @@
 <input class="form-control" id="managerPharmacyFilter" placeholder="ابحث باسم الصيدلية..." style="flex: 1; min-width: 150px;" type="text"/>
 <select class="form-control" id="managerStatusFilter" style="flex: 1; min-width: 150px;">
 <option value="">جميع الحالات</option>
-<option value="pending">قيد الموافقة</option>
-<option value="approved">موافق عليه</option>
+<option value="pending_supervisor_approval">قيد موافقة المشرف</option>
+<option value="pending">قيد الموافقة - قديم</option>
+<option value="market_manager_pending">محول إلى مدير السوق</option>
+<option value="finance_pending">بانتظار المالية</option>
+<option value="orders_staff_pending">جاهز للمعالجة</option>
+<option value="approved">موافق عليه - قديم</option>
 <option value="returned">مرتجع</option>
 </select>
 </div>
@@ -166,8 +170,13 @@
 <input id="filterAllPharmacy" placeholder="تصفية باسم الصيدلية..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;" type="text"/>
 <select id="filterAllStatus" style="flex: 0.5; min-width: 150px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
 <option value="">جميع الحالات</option>
-<option value="pending">قيد الموافقة</option>
-<option value="approved">موافق عليه</option>
+<option value="pending_supervisor_approval">قيد موافقة المشرف</option>
+<option value="pending">قيد الموافقة - قديم</option>
+<option value="market_manager_pending">بانتظار مدير السوق</option>
+<option value="finance_pending">بانتظار المالية</option>
+<option value="orders_staff_pending">جاهز للمعالجة</option>
+<option value="orders_staff_hidden">مخفي بعد التصدير</option>
+<option value="approved">موافق عليه - قديم</option>
 <option value="returned">مرتجع</option>
 </select>
 </div>
