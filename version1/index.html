@@ -4,8 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام الطلبيات</title>
-    <meta http-equiv="refresh" content="0; url=login.html">
-    <script>window.location.replace('login.html');</script>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <script>
+        (function () {
+            const ADMIN_SESSION_KEY = 'dad_admin_session_v2';
+            function safeJson(value) {
+                try { return value ? JSON.parse(value) : null; } catch (e) { return null; }
+            }
+            const orderContext = sessionStorage.getItem('activeOrderContext');
+            if (orderContext) {
+                window.location.replace('order.html');
+                return;
+            }
+            const adminSession = safeJson(localStorage.getItem(ADMIN_SESSION_KEY)) || safeJson(sessionStorage.getItem(ADMIN_SESSION_KEY));
+            if (adminSession && adminSession.type === 'manager') {
+                window.location.replace('supervisor.html');
+                return;
+            }
+            if (adminSession && adminSession.type === 'reports') {
+                window.location.replace('reports.html');
+                return;
+            }
+            window.location.replace('login.html');
+        })();
+    </script>
 </head>
 <body>
     <a href="login.html">الدخول إلى نظام الطلبيات</a>

@@ -363,10 +363,11 @@ function collectMarketModalItems() {
     return { kept, deleted, grandTotal: calculateGrandTotal(kept) };
 }
 
-async function saveMarketEdits() {
-    if (!state.selectedOrder) return;
+async function saveMarketEdits(options = {}) {
+    const { close = true, silent = false } = options;
+    if (!state.selectedOrder) return false;
     const { kept, deleted, grandTotal } = collectMarketModalItems();
-    if (kept.length === 0) return showToast('لا يمكن حفظ طلبية بدون أصناف.', 'warning');
+    if (kept.length === 0) { showToast('لا يمكن حفظ طلبية بدون أصناف.', 'warning'); return false; }
     const oldValue = {
         items: state.selectedOrder.items || [],
         grandTotal: state.selectedOrder.grandTotal || 0
@@ -378,8 +379,18 @@ async function saveMarketEdits() {
         marketManagerEditedBy: 'Market Manager',
         marketManagerDeletedItems: deleted
     }, auditEntry('market_manager_edit', 'Market Manager', 'market_manager', oldValue, { items: kept, grandTotal }, deleted.length ? `Deleted items: ${deleted.length}` : ''));
-    showToast('تم حفظ تعديلات مدير السوق.', 'success');
-    closeMarketOrderModal();
+    if (!silent) showToast('تم حفظ تعديلات مدير السوق.', 'success');
+    if (close) closeMarketOrderModal();
+    return true;
+}
+
+
+async function approveSelectedMarketOrderFromModal() {
+    if (!state.selectedOrder) return;
+    if (!confirm('سيتم حفظ أي تعديلات حالية ثم اعتماد الطلبية وتحويلها إلى Hamza/Finance. هل تريد المتابعة؟')) return;
+    const orderId = state.selectedOrder.id;
+    const saved = await saveMarketEdits({ close: false, silent: true });
+    if (saved) await marketApprove(orderId);
 }
 
 async function marketApprove(orderId) {
@@ -436,7 +447,7 @@ function applyMarketFilters() {
         return statusMatch &&
             inDateRange(order, from, to) &&
             (!rep || (order.repName || '').toLowerCase().includes(rep)) &&
-            (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm));
+            (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
     });
     renderMarketOrders();
 }
@@ -502,7 +513,7 @@ function initMarketManager() {
     $('bulkRejectBtn')?.addEventListener('click', () => marketBulk('reject'));
     $('closeMarketModalBtn')?.addEventListener('click', closeMarketOrderModal);
     $('saveMarketEditsBtn')?.addEventListener('click', saveMarketEdits);
-    $('approveMarketModalBtn')?.addEventListener('click', () => state.selectedOrder && marketApprove(state.selectedOrder.id));
+    $('approveMarketModalBtn')?.addEventListener('click', approveSelectedMarketOrderFromModal);
     $('rejectMarketModalBtn')?.addEventListener('click', () => {
         if (!state.selectedOrder) return;
         const reason = confirmReason('سبب رفض مدير السوق:', true);
@@ -518,8 +529,9 @@ function applyFinanceFilters() {
     const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
     state.visibleOrders = state.orders.filter(order => {
-        const defaultEligible = order.status === 'finance_pending' || order.marketManagerStatus === 'market_manager_approved';
-        const statusMatch = status ? order.status === status || order.financeStatus === status : defaultEligible;
+        const financeState = order.financeStatus || (order.status === 'finance_pending' ? 'finance_pending' : '');
+        const defaultEligible = order.status === 'finance_pending' || (order.marketManagerStatus === 'market_manager_approved' && financeState === 'finance_pending');
+        const statusMatch = status ? order.status === status || financeState === status : defaultEligible;
         return statusMatch && inDateRange(order, from, to) && (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
     });
     renderFinanceOrders();
@@ -530,24 +542,23 @@ function renderFinanceOrders() {
     if (!body) return;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 5, 'لا توجد طلبيات مالية بانتظار الاعتماد');
+    if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 4, 'لا توجد طلبيات مالية بانتظار الاعتماد');
     state.visibleOrders.forEach(order => {
         const tr = document.createElement('tr');
+        const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
         tr.innerHTML = `
             <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
             <td>${escapeHtml(order.pharmacyName || '-')}</td>
             <td>${formatMoney(order.grandTotal)} د.ا</td>
-            <td><span class="status-badge ${order.status}">${statusLabel(order.status)}</span></td>
             <td class="workflow-actions-cell">
-                <button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button>
-                <button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button>
+                ${isPending ? `<button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button>` : `<span class="status-badge ${order.status}">${statusLabel(order.status)}</span>`}
             </td>
         `;
-        tr.querySelector('.approve-btn').onclick = () => confirm('اعتماد الطلبية مالياً وتحويلها إلى Ziad/Zakaria؟') && financeApprove(order.id);
-        tr.querySelector('.reject-btn').onclick = () => {
+        tr.querySelector('.approve-btn')?.addEventListener('click', () => confirm('اعتماد الطلبية مالياً وتحويلها إلى Ziad/Zakaria؟') && financeApprove(order.id));
+        tr.querySelector('.reject-btn')?.addEventListener('click', () => {
             const reason = confirmReason('سبب الرفض المالي:', true);
             if (reason !== null) financeReject(order.id, reason);
-        };
+        });
         body.appendChild(tr);
     });
 }

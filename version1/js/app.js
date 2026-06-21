@@ -1,4 +1,4 @@
-import { db, collection, getDocs, query, where, addDoc, deleteDoc, doc, updateDoc, getDoc, onSnapshot } from './firebase.js';
+import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, onSnapshot } from './firebase.js';
 
 // ==========================================
 // 🚀 1. نظام الإشعارات (Toasts)
@@ -353,7 +353,8 @@ const WORKFLOW_STATUS_LABELS = {
     approved: 'موافق عليه',
     returned: 'مرتجع',
     rejected: 'مرفوض',
-    deleted_by_market_manager: 'محذوف من مدير السوق'
+    deleted_by_market_manager: 'محذوف من مدير السوق',
+    deleted_by_supervisor: 'محذوف من المشرف'
 };
 
 function getWorkflowStatusLabel(status) {
@@ -402,9 +403,26 @@ async function updateOrderWithAudit(orderId, updates, auditEntry) {
         changedByRole: auditEntry.role,
         changedAt: new Date(),
         actionType: auditEntry.action,
-        auditTrail: [...trail, auditEntry],
+        auditTrail: [...trail, { ...auditEntry, previousStatus: current.status || '', orderId }],
         updatedAt: new Date()
     });
+}
+
+
+function isOrderUnderCurrentManager(order = {}) {
+    const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
+    const normalizedUnder = managerReps.map(rep => rep.trim().toLowerCase());
+    return normalizedUnder.includes((order.repName || '').trim().toLowerCase());
+}
+
+function softDeleteOrderBySupervisor(orderId, order = {}, action = 'supervisor_order_soft_deleted') {
+    return updateOrderWithAudit(orderId, {
+        status: 'deleted_by_supervisor',
+        workflowStage: 'deleted',
+        deletedBySupervisor: currentManagerName || 'Supervisor',
+        deletedAt: new Date(),
+        supervisorStatus: 'deleted_by_supervisor'
+    }, buildAuditEntry(action, currentManagerName || 'Supervisor', 'supervisor', { status: order.status || '' }, { status: 'deleted_by_supervisor' }, 'Soft delete only - Firebase document preserved'));
 }
 
 function setDefaultMyOrdersFilters() {
@@ -1590,9 +1608,14 @@ async function handleBulkAction(actionType) {
     if (!confirm(`هل أنت متأكد من ${actionText} ${orderIds.length} طلبية دفعة واحدة؟`)) return;
 
     try {
+        const skipped = [];
         const promises = orderIds.map(id => {
+            const order = managerOrdersData.find(o => o.id === id) || {};
             if (actionType === 'approve') {
-                const order = managerOrdersData.find(o => o.id === id) || {};
+                if (!isSupervisorPendingStatus(order.status)) {
+                    skipped.push(id);
+                    return Promise.resolve('skipped_not_pending');
+                }
                 return updateOrderWithAudit(id, {
                     status: "market_manager_pending",
                     workflowStage: "market_manager",
@@ -1601,13 +1624,12 @@ async function handleBulkAction(actionType) {
                     supervisorApprovedAt: new Date(),
                     marketManagerStatus: "market_manager_pending"
                 }, buildAuditEntry('supervisor_bulk_approved', currentManagerName || 'Supervisor', 'supervisor', { status: order.status || 'pending' }, { status: 'market_manager_pending' }));
-            } else {
-                return deleteDoc(doc(db, "orders", id));
             }
+            return softDeleteOrderBySupervisor(id, order, 'supervisor_bulk_soft_delete');
         });
         
         await Promise.all(promises);
-        showToast("تم تنفيذ العملية المجمعة بنجاح", "success");
+        showToast(skipped.length ? `تم تنفيذ العملية للطلبيات القابلة للاعتماد فقط. تم تجاوز ${skipped.length} طلبية.` : "تم تنفيذ العملية المجمعة بنجاح", skipped.length ? "warning" : "success");
         if(document.getElementById('selectAllOrders')) document.getElementById('selectAllOrders').checked = false;
     } catch (error) {
         showToast("حدث خطأ أثناء التنفيذ", "error");
@@ -2045,11 +2067,14 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 const grandTotalEl = document.getElementById('editGrandTotal');
                 const newGrandTotal = grandTotalEl ? parseFloat(grandTotalEl.innerText) : 0;
                 
+                const workflowReset = isSupervisorPendingStatus(order.status)
+                    ? { status: "pending_supervisor_approval", workflowStage: "supervisor", supervisorStatus: "pending_supervisor_approval" }
+                    : {};
                 await updateOrderWithAudit(editingOrderId, { 
                     repId: newRepId, repName: newRepName, managerName: getManagerName(newRepName), 
                     pharmacyName: newPharmName, pharmacyCode: selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || "",
-                    items: items, grandTotal: newGrandTotal, status: "pending_supervisor_approval", workflowStage: "supervisor", supervisorStatus: "pending_supervisor_approval"
-                }, buildAuditEntry('supervisor_order_edited', currentManagerName || 'Supervisor', 'supervisor', { orderId: editingOrderId }, { grandTotal: newGrandTotal }));
+                    items: items, grandTotal: newGrandTotal, ...workflowReset
+                }, buildAuditEntry('supervisor_order_edited', currentManagerName || 'Supervisor', 'supervisor', { orderId: editingOrderId, status: order.status || '' }, { grandTotal: newGrandTotal }));
                 showToast("تم تحديث الطلبية بنجاح", "success");
                 closeEditModal();
             } catch (e) { showToast("حدث خطأ أثناء التحديث", "error"); }
@@ -2242,9 +2267,18 @@ async function handleAllOrdersBulkAction(actionType) {
     const actionText = actionType === 'approve' ? 'الموافقة على' : 'حذف';
     if (!confirm(`تحذير: هل أنت متأكد من ${actionText} ${orderIds.length} طلبية دفعة واحدة؟`)) return;
     try {
+        const skipped = [];
         const promises = orderIds.map(id => {
+            const order = allOrdersData.find(o => o.id === id) || {};
+            if (!isOrderUnderCurrentManager(order)) {
+                skipped.push(id);
+                return Promise.resolve('skipped_not_under_manager');
+            }
             if (actionType === 'approve') {
-                const order = allOrdersData.find(o => o.id === id) || {};
+                if (!isSupervisorPendingStatus(order.status)) {
+                    skipped.push(id);
+                    return Promise.resolve('skipped_not_pending');
+                }
                 return updateOrderWithAudit(id, {
                     status: "market_manager_pending",
                     workflowStage: "market_manager",
@@ -2254,10 +2288,10 @@ async function handleAllOrdersBulkAction(actionType) {
                     marketManagerStatus: "market_manager_pending"
                 }, buildAuditEntry('supervisor_bulk_approved_all_orders', currentManagerName || 'Supervisor', 'supervisor', { status: order.status || 'pending' }, { status: 'market_manager_pending' }));
             }
-            return deleteDoc(doc(db, "orders", id));
+            return softDeleteOrderBySupervisor(id, order, 'supervisor_bulk_soft_delete_all_orders');
         });
         await Promise.all(promises);
-        showToast("تم تنفيذ الأمر بنجاح", "success");
+        showToast(skipped.length ? `تم تنفيذ الأمر على طلبيات فريقك فقط. تم تجاوز ${skipped.length} طلبية خارج فريقك.` : "تم تنفيذ الأمر بنجاح", skipped.length ? "warning" : "success");
         if(getEl('selectAllAllOrders')) getEl('selectAllAllOrders').checked = false;
     } catch (error) { showToast("حدث خطأ أثناء التنفيذ الشامل", "error"); }
 }

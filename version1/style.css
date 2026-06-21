@@ -1225,6 +1225,7 @@ img, table { max-width: 100%; }
 .status-badge.finance_rejected,
 .status-badge.rejected,
 .status-badge.deleted_by_market_manager,
+.status-badge.deleted_by_supervisor,
 .status-badge.orders_staff_hidden {
     background: rgba(220, 38, 38, .10);
     color: #b91c1c;
