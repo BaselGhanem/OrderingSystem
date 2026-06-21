@@ -1,4 +1,4 @@
-import { db, collection, getDocs, doc, getDoc, updateDoc, onSnapshot } from './firebase.js';
+import { db, collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter, documentId } from './firebase.js';
 
 const COMPANY_LOGO_URL = 'https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png';
 const WORKFLOW_PAGE = document.body?.dataset?.page || '';
@@ -28,8 +28,143 @@ const state = {
     visibleOrders: [],
     selectedOrder: null,
     unsub: null,
-    productsByName: new Map()
+    productsByName: new Map(),
+    onOrdersChange: null,
+    renderToken: 0,
+    allOrdersLoaded: false,
+    allOrdersLoading: false,
+    lastRefreshAt: 0,
+    loadToken: 0,
+    suspendRender: false
 };
+
+const WORKFLOW_CACHE_VERSION = '20260621_perf1';
+const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
+const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
+const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
+
+function debounce(fn, delay = 160) {
+    let timer = null;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+    };
+}
+
+function nextFrame() {
+    return new Promise(resolve => {
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(resolve, { timeout: 120 });
+        } else {
+            setTimeout(resolve, 0);
+        }
+    });
+}
+
+function compactOrder(order = {}) {
+    return {
+        id: order.id || '',
+        status: order.status || '',
+        workflowStage: order.workflowStage || '',
+        createdAt: order.createdAt || null,
+        updatedAt: order.updatedAt || null,
+        changedAt: order.changedAt || null,
+        repName: order.repName || '',
+        representativeName: order.representativeName || '',
+        pharmacyName: order.pharmacyName || '',
+        pharmacyCode: order.pharmacyCode || order.pharmacy_code || order.customerCode || '',
+        pharmacy_code: order.pharmacy_code || '',
+        customerCode: order.customerCode || '',
+        grandTotal: order.grandTotal || 0,
+        total: order.total || 0,
+        orderNote: order.orderNote || '',
+        note: order.note || '',
+        notes: order.notes || '',
+        items: Array.isArray(order.items) ? order.items : [],
+        marketManagerStatus: order.marketManagerStatus || '',
+        marketManagerRejectionReason: order.marketManagerRejectionReason || '',
+        financeStatus: order.financeStatus || '',
+        financeRejectionReason: order.financeRejectionReason || '',
+        orderStaffStatus: order.orderStaffStatus || '',
+        exportedAt: order.exportedAt || null,
+        hiddenByOrderStaff: order.hiddenByOrderStaff === true,
+        hiddenAt: order.hiddenAt || null
+    };
+}
+
+function sortOrders(orders) {
+    return [...orders].sort((a, b) => (normalizeDate(b.createdAt)?.getTime() || 0) - (normalizeDate(a.createdAt)?.getTime() || 0));
+}
+
+function readCache(key) {
+    try {
+        const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (!raw) return null;
+        const payload = JSON.parse(raw);
+        if (!payload || !Array.isArray(payload.orders)) return null;
+        if (Date.now() - (payload.savedAt || 0) > CACHE_MAX_AGE_MS) return null;
+        return payload.orders;
+    } catch (error) {
+        return null;
+    }
+}
+
+function writeCache(key, orders) {
+    const maxCacheRows = key === ALL_ORDERS_CACHE_KEY ? 2000 : 3000;
+    try {
+        const compact = orders.slice(0, maxCacheRows).map(compactOrder);
+        localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), orders: compact }));
+    } catch (error) {
+        try { sessionStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), orders: orders.slice(0, 400).map(compactOrder) })); } catch (_) {}
+    }
+}
+
+function readProductsCache() {
+    try {
+        const raw = localStorage.getItem(`dad_products_${WORKFLOW_CACHE_VERSION}`) || sessionStorage.getItem(`dad_products_${WORKFLOW_CACHE_VERSION}`);
+        if (!raw) return null;
+        const payload = JSON.parse(raw);
+        if (!payload || !Array.isArray(payload.products)) return null;
+        if (Date.now() - (payload.savedAt || 0) > CACHE_MAX_AGE_MS) return null;
+        return payload.products;
+    } catch (_) {
+        return null;
+    }
+}
+
+function writeProductsCache(products) {
+    const compact = products.map(product => ({
+        id: product.id || '',
+        name: product.name || '',
+        productCode: product.productCode || product.product_code || product.code || '',
+        product_code: product.product_code || '',
+        code: product.code || ''
+    }));
+    try {
+        localStorage.setItem(`dad_products_${WORKFLOW_CACHE_VERSION}`, JSON.stringify({ savedAt: Date.now(), products: compact }));
+    } catch (_) {
+        try { sessionStorage.setItem(`dad_products_${WORKFLOW_CACHE_VERSION}`, JSON.stringify({ savedAt: Date.now(), products: compact.slice(0, 1000) })); } catch (__) {}
+    }
+}
+
+function setLoadingRow(tbodyId, colspan, message = 'جاري تحميل البيانات...') {
+    const body = $(tbodyId);
+    if (!body) return;
+    body.innerHTML = `<tr><td colspan="${colspan}"><div class="empty-state"><i class="ph ph-circle-notch ph-spin"></i><h3>${escapeHtml(message)}</h3></div></td></tr>`;
+}
+
+function showDataModeNotice(message) {
+    const el = $('dataModeNotice');
+    if (el) el.textContent = message || '';
+}
+
+function currentPageOrderSource() {
+    const ordersRef = collection(db, 'orders');
+    if (WORKFLOW_PAGE === 'market-manager') return query(ordersRef, where('status', 'in', ['market_manager_pending', 'supervisor_approved']));
+    if (WORKFLOW_PAGE === 'finance-controller') return query(ordersRef, where('status', 'in', ['finance_pending', 'finance_rejected']));
+    if (WORKFLOW_PAGE === 'orders-staff') return query(ordersRef, where('status', 'in', ['orders_staff_pending', 'orders_staff_hidden']));
+    return ordersRef;
+}
 
 function showToast(message, type = 'info') {
     const container = $('toast-container');
@@ -68,6 +203,9 @@ function formatMoney(value) {
 function normalizeDate(value) {
     if (!value) return null;
     if (value.toDate && typeof value.toDate === 'function') return value.toDate();
+    if (typeof value === 'object' && typeof value.seconds === 'number') {
+        return new Date(value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1000000));
+    }
     const d = value instanceof Date ? value : new Date(value);
     return Number.isNaN(d.getTime()) ? null : d;
 }
@@ -186,7 +324,7 @@ async function updateOrderWithAudit(orderId, updates, entry) {
     if (!snap.exists()) throw new Error('Order not found');
     const current = snap.data();
     const trail = Array.isArray(current.auditTrail) ? current.auditTrail : [];
-    await updateDoc(ref, {
+    const localUpdates = {
         ...updates,
         previousStatus: current.status || '',
         changedBy: entry.user,
@@ -195,29 +333,135 @@ async function updateOrderWithAudit(orderId, updates, entry) {
         actionType: entry.action,
         auditTrail: [...trail, { ...entry, previousStatus: current.status || '', orderId }],
         updatedAt: new Date()
-    });
+    };
+    await updateDoc(ref, localUpdates);
+    const index = state.orders.findIndex(order => order.id === orderId);
+    if (index >= 0) state.orders[index] = { ...state.orders[index], ...localUpdates };
+    if (state.selectedOrder?.id === orderId) state.selectedOrder = { ...state.selectedOrder, ...localUpdates };
+    writeCache(state.allOrdersLoaded ? ALL_ORDERS_CACHE_KEY : PAGE_CACHE_KEY, state.orders);
+    if (!state.suspendRender) state.onOrdersChange?.();
 }
 
 async function loadProducts() {
     try {
-        const snap = await getDocs(collection(db, 'products'));
-        snap.forEach(d => {
-            const data = { id: d.id, ...d.data() };
-            if (data.name) state.productsByName.set(data.name, data);
-        });
+        const cached = readProductsCache();
+        if (cached) {
+            cached.forEach(data => { if (data.name) state.productsByName.set(data.name, data); });
+        }
+    } catch (_) {}
+
+    setTimeout(async () => {
+        try {
+            const snap = await getDocs(collection(db, 'products'));
+            const products = [];
+            snap.forEach(d => {
+                const data = { id: d.id, ...d.data() };
+                products.push(data);
+                if (data.name) state.productsByName.set(data.name, data);
+            });
+            writeProductsCache(products);
+            state.onOrdersChange?.();
+        } catch (error) {
+            console.warn('Products could not be loaded', error);
+        }
+    }, 0);
+}
+
+async function refreshOrdersFromFirebase(source = currentPageOrderSource(), cacheKey = PAGE_CACHE_KEY, markAllLoaded = false) {
+    const startedAt = Date.now();
+    const loadToken = ++state.loadToken;
+    try {
+        const snap = await getDocs(source);
+        if (loadToken !== state.loadToken && !markAllLoaded) return state.orders;
+        const fresh = [];
+        snap.forEach(d => fresh.push({ id: d.id, ...d.data() }));
+        state.orders = sortOrders(fresh);
+        state.lastRefreshAt = Date.now();
+        if (markAllLoaded) state.allOrdersLoaded = true;
+        writeCache(cacheKey, state.orders);
+        showDataModeNotice(`آخر تحديث: ${new Date().toLocaleTimeString('en-GB')}`);
+        state.onOrdersChange?.();
+        return state.orders;
     } catch (error) {
-        console.warn('Products could not be loaded', error);
+        console.error('Workflow orders load failed', error);
+        showToast('فشل تحميل الطلبيات من Firebase. تم عرض آخر نسخة مخزنة إن وجدت.', 'error');
+        return state.orders;
+    } finally {
+        console.debug(`workflow load ${WORKFLOW_PAGE}: ${Date.now() - startedAt}ms`);
+    }
+}
+
+async function refreshAllOrdersForStaffPaginated() {
+    const ordersRef = collection(db, 'orders');
+    const pageSize = 250;
+    const maxPages = 80;
+    const loadToken = ++state.loadToken;
+    let lastDoc = null;
+    let allOrders = [];
+
+    try {
+        for (let page = 0; page < maxPages; page++) {
+            const pageQuery = lastDoc
+                ? query(ordersRef, orderBy(documentId()), startAfter(lastDoc), limit(pageSize))
+                : query(ordersRef, orderBy(documentId()), limit(pageSize));
+            const snap = await getDocs(pageQuery);
+            if (loadToken !== state.loadToken) return state.orders;
+            if (snap.empty) break;
+
+            snap.forEach(d => allOrders.push({ id: d.id, ...d.data() }));
+            lastDoc = snap.docs[snap.docs.length - 1];
+            state.orders = sortOrders(allOrders);
+            state.allOrdersLoaded = true;
+            showDataModeNotice(`تم تحميل ${state.orders.length} طلبية من التخزين/Firebase...`);
+            if (page === 0 || allOrders.length % 1000 === 0 || snap.size < pageSize) state.onOrdersChange?.();
+            await nextFrame();
+
+            if (snap.size < pageSize) break;
+        }
+        writeCache(ALL_ORDERS_CACHE_KEY, state.orders);
+        showDataModeNotice(`آخر تحديث للكل: ${new Date().toLocaleTimeString('en-GB')} — ${state.orders.length} طلبية`);
+        return state.orders;
+    } catch (error) {
+        console.error('Paginated all orders load failed', error);
+        showToast('فشل تحميل كل الطلبيات. تم إبقاء آخر بيانات ظاهرة بدون تعليق الصفحة.', 'error');
+        return state.orders;
     }
 }
 
 function subscribeOrders(onChange) {
-    if (state.unsub) state.unsub();
-    state.unsub = onSnapshot(collection(db, 'orders'), snap => {
-        state.orders = [];
-        snap.forEach(d => state.orders.push({ id: d.id, ...d.data() }));
-        state.orders.sort((a, b) => (normalizeDate(b.createdAt)?.getTime() || 0) - (normalizeDate(a.createdAt)?.getTime() || 0));
+    state.onOrdersChange = onChange;
+    const cached = readCache(PAGE_CACHE_KEY);
+    if (cached) {
+        state.orders = sortOrders(cached);
+        showDataModeNotice('تم عرض نسخة مخزنة محليًا، ويتم تحديثها الآن من Firebase.');
         onChange();
-    }, () => showToast('فشل تحميل الطلبيات من Firebase', 'error'));
+    } else {
+        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 10] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 4] : ['ordersStaffBody', 13];
+        setLoadingRow(target[0], target[1]);
+    }
+    refreshOrdersFromFirebase();
+}
+
+async function ensureOrdersStaffAllLoaded() {
+    if (WORKFLOW_PAGE !== 'orders-staff' || state.allOrdersLoaded || state.allOrdersLoading) return;
+    const cached = readCache(ALL_ORDERS_CACHE_KEY);
+    if (cached && cached.length) {
+        state.loadToken++;
+        state.orders = sortOrders(cached);
+        state.allOrdersLoaded = true;
+        showDataModeNotice('تم عرض نسخة محلية للكل، ويتم تحديثها من Firebase بدون تعليق الصفحة.');
+        state.onOrdersChange?.();
+        state.allOrdersLoading = true;
+        refreshAllOrdersForStaffPaginated().finally(() => { state.allOrdersLoading = false; });
+        return;
+    }
+    state.allOrdersLoading = true;
+    setLoadingRow('ordersStaffBody', 13, 'جاري تحميل كل الطلبيات من التخزين المحلي/Firebase...');
+    try {
+        await refreshAllOrdersForStaffPaginated();
+    } finally {
+        state.allOrdersLoading = false;
+    }
 }
 
 function buildItemsPreview(order) {
@@ -237,9 +481,10 @@ function setTableEmpty(tbodyId, colspan, message) {
 }
 
 function bindCommonFilters(applyFn) {
+    const debouncedApply = debounce(applyFn, 180);
     ['filterDateFrom', 'filterDateTo', 'filterPharmacy', 'filterRepresentative', 'filterProduct', 'filterStatus', 'showHiddenMode'].forEach(id => {
-        $(id)?.addEventListener('input', applyFn);
-        $(id)?.addEventListener('change', applyFn);
+        $(id)?.addEventListener('input', debouncedApply);
+        $(id)?.addEventListener('change', debouncedApply);
     });
 }
 
@@ -393,7 +638,7 @@ async function approveSelectedMarketOrderFromModal() {
     if (saved) await marketApprove(orderId);
 }
 
-async function marketApprove(orderId) {
+async function marketApprove(orderId, options = {}) {
     const order = state.orders.find(o => o.id === orderId) || state.selectedOrder || {};
     await updateOrderWithAudit(orderId, {
         status: 'finance_pending',
@@ -403,11 +648,11 @@ async function marketApprove(orderId) {
         marketManagerApprovedAt: new Date(),
         financeStatus: 'finance_pending'
     }, auditEntry('market_manager_approved', 'Market Manager', 'market_manager', { status: order.status }, { status: 'finance_pending' }));
-    showToast('تم اعتماد الطلبية وتحويلها إلى المالية.', 'success');
-    closeMarketOrderModal();
+    if (!options.silent) showToast('تم اعتماد الطلبية وتحويلها إلى المالية.', 'success');
+    if (!options.keepModalOpen) closeMarketOrderModal();
 }
 
-async function marketReject(orderId, reason = '') {
+async function marketReject(orderId, reason = '', options = {}) {
     const order = state.orders.find(o => o.id === orderId) || state.selectedOrder || {};
     await updateOrderWithAudit(orderId, {
         status: 'market_manager_rejected',
@@ -417,8 +662,8 @@ async function marketReject(orderId, reason = '') {
         marketManagerRejectedAt: new Date(),
         marketManagerRejectionReason: reason
     }, auditEntry('market_manager_rejected', 'Market Manager', 'market_manager', { status: order.status }, { status: 'market_manager_rejected' }, reason));
-    showToast('تم رفض الطلبية من مدير السوق.', 'success');
-    closeMarketOrderModal();
+    if (!options.silent) showToast('تم رفض الطلبية من مدير السوق.', 'success');
+    if (!options.keepModalOpen) closeMarketOrderModal();
 }
 
 async function marketDeleteOrder(orderId) {
@@ -455,37 +700,50 @@ function applyMarketFilters() {
 function renderMarketOrders() {
     const body = $('marketOrdersBody');
     if (!body) return;
+    const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) return setTableEmpty('marketOrdersBody', 11, 'لا توجد طلبيات بانتظار مدير السوق');
-    state.visibleOrders.forEach(order => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
-            <td>${escapeHtml(formatDateTime(order.createdAt))}</td>
-            <td>${escapeHtml(order.repName || '-')}</td>
-            <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
-            <td>${escapeHtml(order.pharmacyName || '-')}</td>
-            <td>${buildItemsPreview(order)}</td>
-            <td>${formatMoney(order.grandTotal)} د.ا</td>
-            <td><span class="status-badge ${order.status}">${statusLabel(order.status)}</span></td>
-            <td>${escapeHtml(order.orderNote || '-')}</td>
-            <td class="workflow-actions-cell">
-                <button class="action-btn view-btn" type="button" title="عرض وتعديل"><i class="ph ph-eye"></i></button>
-                <button class="action-btn approve-btn" type="button" title="اعتماد"><i class="ph ph-check-circle"></i></button>
-                <button class="action-btn reject-btn" type="button" title="رفض"><i class="ph ph-x-circle"></i></button>
-                <button class="action-btn danger-btn delete-btn" type="button" title="حذف"><i class="ph ph-trash"></i></button>
-            </td>
-        `;
-        tr.querySelector('.view-btn').onclick = () => openMarketOrderModal(order);
-        tr.querySelector('.approve-btn').onclick = () => confirm('اعتماد الطلبية وتحويلها إلى Hamza/Finance؟') && marketApprove(order.id);
-        tr.querySelector('.reject-btn').onclick = () => {
-            const reason = confirmReason('سبب رفض مدير السوق:', true);
-            if (reason !== null) marketReject(order.id, reason);
-        };
-        tr.querySelector('.delete-btn').onclick = () => confirm('تحذير قوي: سيتم حذف الطلبية من مسار العمل كـ Soft Delete ولن تظهر للمراحل التالية. هل تريد المتابعة؟') && marketDeleteOrder(order.id);
-        body.appendChild(tr);
-    });
+    if (state.visibleOrders.length === 0) return setTableEmpty('marketOrdersBody', 10, 'لا توجد طلبيات بانتظار مدير السوق');
+
+    const renderChunk = async (startIndex = 0) => {
+        if (token !== state.renderToken) return;
+        const fragment = document.createDocumentFragment();
+        const chunk = state.visibleOrders.slice(startIndex, startIndex + 50);
+        chunk.forEach(order => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
+                <td>${escapeHtml(formatDateTime(order.createdAt))}</td>
+                <td>${escapeHtml(order.repName || '-')}</td>
+                <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
+                <td>${escapeHtml(order.pharmacyName || '-')}</td>
+                <td>${buildItemsPreview(order)}</td>
+                <td>${formatMoney(order.grandTotal)} د.ا</td>
+                <td><span class="status-badge ${order.status}">${statusLabel(order.status)}</span></td>
+                <td>${escapeHtml(order.orderNote || '-')}</td>
+                <td class="workflow-actions-cell">
+                    <button class="action-btn view-btn" type="button" title="عرض وتعديل"><i class="ph ph-eye"></i></button>
+                    <button class="action-btn approve-btn" type="button" title="اعتماد"><i class="ph ph-check-circle"></i></button>
+                    <button class="action-btn reject-btn" type="button" title="رفض"><i class="ph ph-x-circle"></i></button>
+                    <button class="action-btn danger-btn delete-btn" type="button" title="حذف"><i class="ph ph-trash"></i></button>
+                </td>
+            `;
+            tr.querySelector('.view-btn').onclick = () => openMarketOrderModal(order);
+            tr.querySelector('.approve-btn').onclick = () => confirm('اعتماد الطلبية وتحويلها إلى Hamza/Finance؟') && marketApprove(order.id);
+            tr.querySelector('.reject-btn').onclick = () => {
+                const reason = confirmReason('سبب رفض مدير السوق:', true);
+                if (reason !== null) marketReject(order.id, reason);
+            };
+            tr.querySelector('.delete-btn').onclick = () => confirm('تحذير قوي: سيتم حذف الطلبية من مسار العمل كـ Soft Delete ولن تظهر للمراحل التالية. هل تريد المتابعة؟') && marketDeleteOrder(order.id);
+            fragment.appendChild(tr);
+        });
+        body.appendChild(fragment);
+        if (startIndex + 50 < state.visibleOrders.length) {
+            await nextFrame();
+            renderChunk(startIndex + 50);
+        }
+    };
+    renderChunk();
 }
 
 async function marketBulk(action) {
@@ -493,13 +751,19 @@ async function marketBulk(action) {
     if (ids.length === 0) return showToast('اختر طلبية واحدة على الأقل.', 'warning');
     if (action === 'approve') {
         if (!confirm(`اعتماد ${ids.length} طلبية وتحويلها إلى المالية؟`)) return;
-        const results = await Promise.allSettled(ids.map(id => marketApprove(id)));
+        state.suspendRender = true;
+        const results = await Promise.allSettled(ids.map(id => marketApprove(id, { silent: true, keepModalOpen: true })));
+        state.suspendRender = false;
+        state.onOrdersChange?.();
         showToast(`تم تنفيذ الاعتماد: ${results.filter(r => r.status === 'fulfilled').length}/${ids.length}`, 'success');
     }
     if (action === 'reject') {
         const reason = confirmReason(`سبب رفض ${ids.length} طلبية من مدير السوق:`, true);
         if (reason === null) return;
-        const results = await Promise.allSettled(ids.map(id => marketReject(id, reason)));
+        state.suspendRender = true;
+        const results = await Promise.allSettled(ids.map(id => marketReject(id, reason, { silent: true, keepModalOpen: true })));
+        state.suspendRender = false;
+        state.onOrdersChange?.();
         showToast(`تم تنفيذ الرفض: ${results.filter(r => r.status === 'fulfilled').length}/${ids.length}`, 'success');
     }
     $('selectAllWorkflow') && ($('selectAllWorkflow').checked = false);
@@ -543,32 +807,45 @@ function applyFinanceFilters() {
 function renderFinanceOrders() {
     const body = $('financeOrdersBody');
     if (!body) return;
+    const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
     if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 4, 'لا توجد طلبيات مالية بانتظار الاعتماد');
-    state.visibleOrders.forEach(order => {
-        const tr = document.createElement('tr');
-        const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
-        const isRejected = order.status === 'finance_rejected' || (order.financeStatus || '') === 'finance_rejected';
-        const rejectionReason = order.financeRejectionReason || order.rejectionReason || '';
-        const actionHtml = isPending
-            ? `<button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button>`
-            : isRejected
-                ? `<span class="status-badge finance_rejected">مرفوض مالياً</span><small class="workflow-reason">${escapeHtml(rejectionReason || 'لا يوجد سبب مسجل')}</small><button class="action-btn approve-btn" type="button"><i class="ph ph-arrow-counter-clockwise"></i> تعديل القرار: اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-pencil-simple"></i> تعديل سبب الرفض</button>`
-                : `<span class="status-badge ${order.status}">${statusLabel(order.status)}</span>`;
-        tr.innerHTML = `
-            <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
-            <td>${escapeHtml(order.pharmacyName || '-')}</td>
-            <td>${formatMoney(order.grandTotal)} د.ا</td>
-            <td class="workflow-actions-cell">${actionHtml}</td>
-        `;
-        tr.querySelector('.approve-btn')?.addEventListener('click', () => confirm('اعتماد الطلبية مالياً وتحويلها إلى Ziad/Zakaria؟') && financeApprove(order.id));
-        tr.querySelector('.reject-btn')?.addEventListener('click', () => {
-            const reason = confirmReason(isRejected ? 'تعديل سبب الرفض المالي:' : 'سبب الرفض المالي:', true);
-            if (reason !== null) financeReject(order.id, reason);
+
+    const renderChunk = async (startIndex = 0) => {
+        if (token !== state.renderToken) return;
+        const fragment = document.createDocumentFragment();
+        const chunk = state.visibleOrders.slice(startIndex, startIndex + 75);
+        chunk.forEach(order => {
+            const tr = document.createElement('tr');
+            const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
+            const isRejected = order.status === 'finance_rejected' || (order.financeStatus || '') === 'finance_rejected';
+            const rejectionReason = order.financeRejectionReason || order.rejectionReason || '';
+            const actionHtml = isPending
+                ? `<button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button>`
+                : isRejected
+                    ? `<span class="status-badge finance_rejected">مرفوض مالياً</span><small class="workflow-reason">${escapeHtml(rejectionReason || 'لا يوجد سبب مسجل')}</small><button class="action-btn approve-btn" type="button"><i class="ph ph-arrow-counter-clockwise"></i> تعديل القرار: اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-pencil-simple"></i> تعديل سبب الرفض</button>`
+                    : `<span class="status-badge ${order.status}">${statusLabel(order.status)}</span>`;
+            tr.innerHTML = `
+                <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
+                <td>${escapeHtml(order.pharmacyName || '-')}</td>
+                <td>${formatMoney(order.grandTotal)} د.ا</td>
+                <td class="workflow-actions-cell">${actionHtml}</td>
+            `;
+            tr.querySelector('.approve-btn')?.addEventListener('click', () => confirm('اعتماد الطلبية مالياً وتحويلها إلى Ziad/Zakaria؟') && financeApprove(order.id));
+            tr.querySelector('.reject-btn')?.addEventListener('click', () => {
+                const reason = confirmReason(isRejected ? 'تعديل سبب الرفض المالي:' : 'سبب الرفض المالي:', true);
+                if (reason !== null) financeReject(order.id, reason);
+            });
+            fragment.appendChild(tr);
         });
-        body.appendChild(tr);
-    });
+        body.appendChild(fragment);
+        if (startIndex + 75 < state.visibleOrders.length) {
+            await nextFrame();
+            renderChunk(startIndex + 75);
+        }
+    };
+    renderChunk();
 }
 
 async function financeApprove(orderId) {
@@ -637,6 +914,12 @@ function applyOrdersStaffFilters() {
     const statusMode = $('showHiddenMode')?.value || 'active';
     const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
+
+    if (statusMode === 'all' && !state.allOrdersLoaded) {
+        ensureOrdersStaffAllLoaded();
+        return;
+    }
+
     state.visibleOrders = state.orders.filter(order => {
         const isHidden = order.status === 'orders_staff_hidden' || order.hiddenByOrderStaff === true;
         const isActive = order.status === 'orders_staff_pending' && !isHidden;
@@ -656,32 +939,45 @@ function applyOrdersStaffFilters() {
 function renderOrdersStaffRows() {
     const body = $('ordersStaffBody');
     if (!body) return;
+    const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
     if (state.visibleOrders.length === 0) return setTableEmpty('ordersStaffBody', 13, 'لا توجد طلبيات جاهزة للمعالجة ضمن الفلاتر الحالية');
-    state.visibleOrders.forEach(order => {
-        const items = Array.isArray(order.items) && order.items.length ? order.items : [{}];
-        items.forEach((item, index) => {
-            const calc = calculateItem(item);
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${index === 0 ? `<input class="workflow-order-checkbox" type="checkbox" value="${order.id}">` : ''}</td>
-                <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
-                <td>${escapeHtml(order.pharmacyName || '-')}</td>
-                <td>${escapeHtml(order.repName || '-')}</td>
-                <td>${escapeHtml(getItemProductCode(calc) || '-')}</td>
-                <td class="item-name-cell">${escapeHtml(calc.name || '-')}</td>
-                <td>${calc.qty}</td>
-                <td>${calc.bonus}</td>
-                <td>${calc.bonusPct}%</td>
-                <td>${formatMoney(calc.total)}</td>
-                <td>${formatMoney(order.grandTotal)}</td>
-                <td>${escapeHtml(calc.note || '-')}</td>
-                <td>${escapeHtml(order.orderNote || order.note || '-')}</td>
-            `;
-            body.appendChild(tr);
+
+    const renderChunk = async (startIndex = 0) => {
+        if (token !== state.renderToken) return;
+        const fragment = document.createDocumentFragment();
+        const chunk = state.visibleOrders.slice(startIndex, startIndex + 25);
+        chunk.forEach(order => {
+            const items = Array.isArray(order.items) && order.items.length ? order.items : [{}];
+            items.forEach((item, index) => {
+                const calc = calculateItem(item);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${index === 0 ? `<input class="workflow-order-checkbox" type="checkbox" value="${order.id}">` : ''}</td>
+                    <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
+                    <td>${escapeHtml(order.pharmacyName || '-')}</td>
+                    <td>${escapeHtml(order.repName || '-')}</td>
+                    <td>${escapeHtml(getItemProductCode(calc) || '-')}</td>
+                    <td class="item-name-cell">${escapeHtml(calc.name || '-')}</td>
+                    <td>${calc.qty}</td>
+                    <td>${calc.bonus}</td>
+                    <td>${calc.bonusPct}%</td>
+                    <td>${formatMoney(calc.total)}</td>
+                    <td>${formatMoney(order.grandTotal)}</td>
+                    <td>${escapeHtml(calc.note || '-')}</td>
+                    <td>${escapeHtml(order.orderNote || order.note || '-')}</td>
+                `;
+                fragment.appendChild(tr);
+            });
         });
-    });
+        body.appendChild(fragment);
+        if (startIndex + 25 < state.visibleOrders.length) {
+            await nextFrame();
+            renderChunk(startIndex + 25);
+        }
+    };
+    renderChunk();
 }
 
 function getOrdersByIds(ids) {
@@ -700,6 +996,7 @@ async function exportOrders(orders) {
 
     const hide = confirm('Do you want to hide these orders so only newly approved orders appear next time?\n\nOK = Yes, hide exported orders.\nCancel = No, keep visible.');
     const action = hide ? 'orders_staff_hide_after_export' : 'orders_staff_export';
+    state.suspendRender = true;
     const results = await Promise.allSettled(orders.map(order => updateOrderWithAudit(order.id, {
         status: hide ? 'orders_staff_hidden' : 'orders_staff_pending',
         orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported',
@@ -708,6 +1005,8 @@ async function exportOrders(orders) {
         hiddenByOrderStaff: !!hide,
         hiddenAt: hide ? new Date() : null
     }, auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: order.status, orderStaffStatus: order.orderStaffStatus || '' }, { status: hide ? 'orders_staff_hidden' : 'orders_staff_pending', orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported' }))));
+    state.suspendRender = false;
+    state.onOrdersChange?.();
     showToast(`تم التصدير وتحديث الحالة: ${results.filter(r => r.status === 'fulfilled').length}/${orders.length}`, 'success');
 }
 
@@ -729,7 +1028,7 @@ async function boot() {
     window.addEventListener('offline', updateOnlineStatus);
     updateOnlineStatus();
 
-    await loadProducts();
+    loadProducts();
     if (WORKFLOW_PAGE === 'market-manager') initMarketManager();
     if (WORKFLOW_PAGE === 'finance-controller') initFinanceController();
     if (WORKFLOW_PAGE === 'orders-staff') initOrdersStaff();

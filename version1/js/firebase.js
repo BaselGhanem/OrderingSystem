@@ -13,7 +13,11 @@ import {
     doc, 
     updateDoc,       
     getDoc,         
-    onSnapshot                         
+    onSnapshot,
+    orderBy,
+    limit,
+    startAfter,
+    documentId                         
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"; // 🟢 تم تعديل الرقم هنا
 
 // إعدادات الاتصال بقاعدة البيانات (كما هي بدون تغيير)
@@ -49,5 +53,9 @@ export {
     doc, 
     updateDoc,   
     getDoc,
-    onSnapshot  
+    onSnapshot,
+    orderBy,
+    limit,
+    startAfter,
+    documentId  
 };
