@@ -530,8 +530,11 @@ function applyFinanceFilters() {
     const to = $('filterDateTo')?.value || '';
     state.visibleOrders = state.orders.filter(order => {
         const financeState = order.financeStatus || (order.status === 'finance_pending' ? 'finance_pending' : '');
-        const defaultEligible = order.status === 'finance_pending' || (order.marketManagerStatus === 'market_manager_approved' && financeState === 'finance_pending');
-        const statusMatch = status ? order.status === status || financeState === status : defaultEligible;
+        const isFinancePending = order.status === 'finance_pending' || (order.marketManagerStatus === 'market_manager_approved' && financeState === 'finance_pending');
+        const isFinanceRejected = order.status === 'finance_rejected' || financeState === 'finance_rejected';
+        const statusMatch = status
+            ? order.status === status || financeState === status
+            : (isFinancePending || isFinanceRejected);
         return statusMatch && inDateRange(order, from, to) && (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
     });
     renderFinanceOrders();
@@ -546,17 +549,22 @@ function renderFinanceOrders() {
     state.visibleOrders.forEach(order => {
         const tr = document.createElement('tr');
         const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
+        const isRejected = order.status === 'finance_rejected' || (order.financeStatus || '') === 'finance_rejected';
+        const rejectionReason = order.financeRejectionReason || order.rejectionReason || '';
+        const actionHtml = isPending
+            ? `<button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button>`
+            : isRejected
+                ? `<span class="status-badge finance_rejected">مرفوض مالياً</span><small class="workflow-reason">${escapeHtml(rejectionReason || 'لا يوجد سبب مسجل')}</small><button class="action-btn approve-btn" type="button"><i class="ph ph-arrow-counter-clockwise"></i> تعديل القرار: اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-pencil-simple"></i> تعديل سبب الرفض</button>`
+                : `<span class="status-badge ${order.status}">${statusLabel(order.status)}</span>`;
         tr.innerHTML = `
             <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
             <td>${escapeHtml(order.pharmacyName || '-')}</td>
             <td>${formatMoney(order.grandTotal)} د.ا</td>
-            <td class="workflow-actions-cell">
-                ${isPending ? `<button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button>` : `<span class="status-badge ${order.status}">${statusLabel(order.status)}</span>`}
-            </td>
+            <td class="workflow-actions-cell">${actionHtml}</td>
         `;
         tr.querySelector('.approve-btn')?.addEventListener('click', () => confirm('اعتماد الطلبية مالياً وتحويلها إلى Ziad/Zakaria؟') && financeApprove(order.id));
         tr.querySelector('.reject-btn')?.addEventListener('click', () => {
-            const reason = confirmReason('سبب الرفض المالي:', true);
+            const reason = confirmReason(isRejected ? 'تعديل سبب الرفض المالي:' : 'سبب الرفض المالي:', true);
             if (reason !== null) financeReject(order.id, reason);
         });
         body.appendChild(tr);
@@ -636,7 +644,7 @@ function applyOrdersStaffFilters() {
         let modeOk = isActive;
         if (statusMode === 'hidden') modeOk = isHidden;
         if (statusMode === 'exported') modeOk = isExported && !isHidden;
-        if (statusMode === 'all') modeOk = ['orders_staff_pending', 'orders_staff_hidden'].includes(order.status) || isExported || order.financeStatus === 'finance_approved';
+        if (statusMode === 'all') modeOk = true;
         const itemMatch = !product || (Array.isArray(order.items) && order.items.some(item => `${item.name || ''} ${getItemProductCode(item)}`.toLowerCase().includes(product)));
         return modeOk && itemMatch && inDateRange(order, from, to) &&
             (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm)) &&
@@ -704,7 +712,6 @@ async function exportOrders(orders) {
 }
 
 function initOrdersStaff() {
-    setDefaultDateFilters();
     bindCommonFilters(applyOrdersStaffFilters);
     $('selectAllWorkflow')?.addEventListener('change', e => document.querySelectorAll('.workflow-order-checkbox').forEach(cb => cb.checked = e.target.checked));
     $('exportSelectedBtn')?.addEventListener('click', () => exportOrders(getOrdersByIds(selectedIds())));

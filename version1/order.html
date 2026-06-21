@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="ar"><head>
-<link href="favicon.ico?v=20260621_review1" rel="icon"/>
+<link href="favicon.ico?v=20260621_fix2" rel="icon"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
 <title>إدخال الطلبية | نظام الطلبيات</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="style.css?v=20260621_review1" rel="stylesheet"/>
+<link href="style.css?v=20260621_fix2" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -76,15 +76,15 @@
 <i class="ph ph-paper-plane-tilt"></i> ارسال الطلبية النهائية
             </button>
 </main><main class="screen glass-panel" id="myOrdersScreen" style="display: none;">
-<h2>طلبياتي المعتمدة</h2>
+<h2>طلبياتي</h2>
 <!-- 🟢 إضافة: ملخص ذكي للطلبيات -->
 <div id="myOrdersSummary" style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
 <div class="card" style="flex: 1; padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid var(--warning); box-shadow: var(--shadow-sm);">
-<small style="color: var(--secondary); font-weight: 700;">الطلبيات المعلقة</small>
+<small style="color: var(--secondary); font-weight: 700;">قيمة الطلبيات</small>
 <h3 id="myOrdersPendingCount" style="margin: 5px 0 0 0; color: var(--primary); font-size: 1.5rem;">0</h3>
 </div>
 <div class="card" style="flex: 1; padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid var(--primary); box-shadow: var(--shadow-sm);">
-<small style="color: var(--secondary); font-weight: 700;">إجمالي القيمة المعلقة (د.ا)</small>
+<small style="color: var(--secondary); font-weight: 700;">إجمالي قيمة الطلبيات (د.ا)</small>
 <h3 id="myOrdersTotalValue" style="margin: 5px 0 0 0; color: var(--primary); font-size: 1.5rem;">0.00</h3>
 </div>
 </div><div aria-label="فلاتر طلبياتي" class="filters-card orders-toolbar">
@@ -97,7 +97,7 @@
 </div>
 <div class="table-responsive mobile-cards">
 <table class="order-table" id="myOrdersTable">
-<thead><tr><th><input id="selectAllMyOrders" type="checkbox"/></th><th>رقم الطلب</th><th>التاريخ</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>التفاصيل</th></tr></thead>
+<thead><tr><th><input id="selectAllMyOrders" type="checkbox"/></th><th>رقم الطلب</th><th>التاريخ</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>سبب الرفض</th><th>التفاصيل</th></tr></thead>
 <tbody id="myOrdersBody"></tbody>
 </table>
 </div>
@@ -213,4 +213,4 @@
 </table>
 </div>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20260621_review1" type="module"></script></body></html>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20260621_fix2" type="module"></script></body></html>

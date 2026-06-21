@@ -361,6 +361,21 @@ function getWorkflowStatusLabel(status) {
     return WORKFLOW_STATUS_LABELS[status] || status || '-';
 }
 
+function getOrderRejectionReason(order = {}) {
+    const reasons = [
+        order.marketManagerRejectionReason,
+        order.financeRejectionReason,
+        order.rejectionReason,
+        order.rejectReason
+    ].filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+    return reasons.length ? String(reasons[0]).trim() : '';
+}
+
+function isRepVisibleOrderStatus(status) {
+    const hiddenStatuses = ['deleted_by_market_manager', 'deleted_by_supervisor'];
+    return !hiddenStatuses.includes(status || '');
+}
+
 function isSupervisorPendingStatus(status) {
     return ['pending', 'pending_supervisor_approval'].includes(status || 'pending');
 }
@@ -371,11 +386,14 @@ function isRepApprovedVisibleStatus(status) {
         'supervisor_approved',
         'market_manager_pending',
         'market_manager_approved',
+        'market_manager_rejected',
         'finance_pending',
         'finance_approved',
+        'finance_rejected',
         'orders_staff_pending',
         'orders_staff_exported',
-        'orders_staff_hidden'
+        'orders_staff_hidden',
+        'rejected'
     ].includes(status || '');
 }
 
@@ -1349,7 +1367,7 @@ async function loadMyOrders() {
     const tbody = getEl('myOrdersBody');
     if (!tbody) return;
     setDefaultMyOrdersFilters();
-    tbody.innerHTML = '<tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     if (unsubMyOrders) unsubMyOrders();
 
     try {
@@ -1358,7 +1376,7 @@ async function loadMyOrders() {
             let orders = [];
             snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
             orders.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
-            currentMyOrdersData = orders.filter(o => isRepApprovedVisibleStatus(o.status));
+            currentMyOrdersData = orders.filter(o => isRepVisibleOrderStatus(o.status));
             applyMyOrdersFilters();
         }, () => showToast("خطأ في جلب البيانات.", "error"));
     } catch(e) { showToast("خطأ في جلب البيانات.", "error"); }
@@ -1372,7 +1390,8 @@ function applyMyOrdersFilters() {
     const pharmacyFilter = (getEl('myOrdersPharmacyFilter')?.value || '').toLowerCase().trim();
     const filtered = currentMyOrdersData.filter(order => {
         const pharmacyName = (order.pharmacyName || '').toLowerCase();
-        return isOrderInDateRange(order, fromVal, toVal) && (!pharmacyFilter || pharmacyName.includes(pharmacyFilter));
+        const pharmacyCode = String(getPharmacyCodeFromOrder(order) || '').toLowerCase();
+        return isOrderInDateRange(order, fromVal, toVal) && (!pharmacyFilter || pharmacyName.includes(pharmacyFilter) || pharmacyCode.includes(pharmacyFilter));
     });
 
     const totalVal = filtered.reduce((sum, order) => sum + parseAppNumber(order.grandTotal), 0);
@@ -1383,7 +1402,7 @@ function applyMyOrdersFilters() {
 
     tbody.innerHTML = '';
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات معتمدة ضمن الفلاتر الحالية</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات ضمن الفلاتر الحالية</h3></div></td></tr>`;
         return;
     }
 
@@ -1397,7 +1416,8 @@ function applyMyOrdersFilters() {
             <td>${order.pharmacyName || '-'}</td>
             <td>${getPharmacyCodeFromOrder(order) || '-'}</td>
             <td>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status}">${getWorkflowStatusLabel(order.status)}</span></td>
+            <td><span class="status-badge ${order.status || 'pending'}">${getWorkflowStatusLabel(order.status || 'pending')}</span></td>
+            <td>${escapePrintHtml(getOrderRejectionReason(order) || '-')}</td>
             <td>
                 <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
             </td>

@@ -1279,3 +1279,12 @@ img, table { max-width: 100%; }
     .workflow-stats-grid { grid-template-columns: 1fr; }
     .workflow-modal-meta span { width: 100%; border-radius: 12px; }
 }
+
+.workflow-reason {
+    display: block;
+    width: 100%;
+    margin: 4px 0 6px;
+    color: #991b1b;
+    font-weight: 700;
+    line-height: 1.5;
+}
