@@ -1288,3 +1288,64 @@ img, table { max-width: 100%; }
     font-weight: 700;
     line-height: 1.5;
 }
+
+/* 20260621_return1 workflow return + responsive fixes */
+.workflow-table-wrap.table-responsive,
+.workflow-table-wrap {
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+    contain: layout paint;
+}
+.workflow-page-shell,
+.workflow-main,
+.workflow-header {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+.workflow-header {
+    overflow: hidden;
+}
+.workflow-header .logo-area {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+.workflow-header .logo-area > div {
+    min-width: 0;
+}
+.workflow-actions-cell .return-rep-btn,
+.workflow-actions-cell .return-supervisor-btn,
+.workflow-actions-cell .return-market-btn,
+.workflow-actions-cell .staff-return-btn {
+    color: #92400e;
+    border-color: rgba(245, 158, 11, .38);
+    background: #fffbeb;
+}
+.status-badge.returned_to_rep,
+.status-badge.returned_to_supervisor,
+.status-badge.returned_to_market_manager,
+.status-badge.returned_to_finance {
+    background: rgba(245, 158, 11, .12);
+    color: #92400e;
+    border: 1px solid rgba(245, 158, 11, .35);
+}
+.status-badge.orders_staff_hidden {
+    background: rgba(5, 150, 105, .12);
+    color: #047857;
+    border: 1px solid rgba(5, 150, 105, .35);
+}
+.status-badge.deleted_by_orders_staff {
+    background: rgba(220, 38, 38, .10);
+    color: #b91c1c;
+    border: 1px solid rgba(220, 38, 38, .30);
+}
+@media (max-width: 768px) {
+    .workflow-table-wrap.table-responsive { padding-bottom: 0 !important; }
+    .workflow-header .logo-area { gap: 10px; }
+    .workflow-header h1 { font-size: 1.15rem; }
+    .workflow-header p { font-size: .86rem; }
+    .workflow-actions-cell { min-width: 220px; }
+}

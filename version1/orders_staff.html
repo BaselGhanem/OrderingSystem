@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
-<link href="favicon.ico?v=20260621_fix2" rel="icon"/>
+<link href="favicon.ico?v=20260621_return1" rel="icon"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
 <title>Ziad / Zakaria Orders Staff | نظام الطلبيات</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="style.css?v=20260621_fix2" rel="stylesheet"/>
+<link href="style.css?v=20260621_return1" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -31,18 +31,42 @@
         <div><label>العرض</label><select id="showHiddenMode"><option value="active">الطلبيات الجديدة فقط</option><option value="exported">المصدّرة وغير المخفية</option><option value="hidden">المخفية بعد التصدير</option><option value="all">الكل</option></select></div>
     </section>
     <section class="workflow-toolbar">
-        <button class="btn-success" id="exportSelectedBtn" type="button"><i class="ph ph-file-xls"></i> Export Selected</button>
-        <button class="btn-secondary" id="exportVisibleBtn" type="button"><i class="ph ph-download-simple"></i> Export All Visible</button>
+        <button class="btn-success" id="exportSelectedBtn" type="button"><i class="ph ph-file-xls"></i> تصدير المحدد</button>
+        <button class="btn-secondary" id="exportVisibleBtn" type="button"><i class="ph ph-download-simple"></i> تصدير كل الظاهر</button>
     </section>
     <div class="table-responsive workflow-table-wrap">
         <table class="order-table workflow-table">
-            <thead><tr><th><input id="selectAllWorkflow" type="checkbox"></th><th>كود الصيدلية</th><th>الصيدلية</th><th>المندوب</th><th>كود المنتج</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>نسبة البونص</th><th>Subtotal</th><th>Grand Total</th><th>Item Note</th><th>Order Note</th></tr></thead>
-            <tbody id="ordersStaffBody"><tr><td colspan="13"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr></tbody>
+            <thead><tr><th><input id="selectAllWorkflow" type="checkbox"></th><th>كود الصيدلية</th><th>الصيدلية</th><th>المندوب</th><th>كود المنتج</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>نسبة البونص</th><th>Subtotal</th><th>Grand Total</th><th>Item Note</th><th>Order Note</th><th>إجراءات</th></tr></thead>
+            <tbody id="ordersStaffBody"><tr><td colspan="14"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr></tbody>
         </table>
     </div>
 </main>
 </div>
+
+<div class="modal-overlay workflow-modal" id="staffOrderModal" style="display:none;">
+    <div class="modal-content glass-panel workflow-modal-content">
+        <div class="workflow-modal-header">
+            <div><h2 id="staffModalTitle">تعديل الطلبية</h2><div class="workflow-modal-meta" id="staffModalMeta"></div></div>
+            <button class="close-modal" id="closeStaffModalBtn" type="button"><i class="ph ph-x-circle"></i></button>
+        </div>
+        <div class="workflow-note-box"><strong>ملاحظة الطلبية:</strong> <span id="staffOrderNote">-</span></div>
+        <div class="table-responsive workflow-modal-table">
+            <table class="order-table workflow-table">
+                <thead><tr><th>#</th><th>كود المنتج</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>نسبة البونص %</th><th>السعر</th><th>المجموع</th><th>ملاحظة الصنف</th><th>حذف</th></tr></thead>
+                <tbody id="staffOrderItemsBody"></tbody>
+            </table>
+        </div>
+        <div class="workflow-modal-footer">
+            <strong>الإجمالي: <span id="staffModalGrandTotal">0.00 د.ا</span></strong>
+            <div>
+                <button class="btn-secondary" id="saveStaffEditsBtn" type="button"><i class="ph ph-floppy-disk"></i> حفظ التعديلات</button>
+                <button class="btn-secondary" id="returnStaffToFinanceBtn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع للمالية</button>
+                <button class="btn-danger" id="deleteStaffOrderBtn" type="button"><i class="ph ph-trash"></i> حذف الطلبية</button>
+            </div>
+        </div>
+    </div>
+</div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260621_perf1" type="module"></script>
+<script src="js/workflow.js?v=20260621_return1" type="module"></script>
 </body>
 </html>

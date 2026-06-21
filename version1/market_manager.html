@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
-<link href="favicon.ico?v=20260621_fix2" rel="icon"/>
+<link href="favicon.ico?v=20260621_return1" rel="icon"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
 <title>Market Manager | نظام الطلبيات</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="style.css?v=20260621_fix2" rel="stylesheet"/>
+<link href="style.css?v=20260621_return1" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -33,7 +33,7 @@
         <div><label>إلى تاريخ</label><input id="filterDateTo" type="date"></div>
         <div><label>المندوب</label><input id="filterRepresentative" type="search" placeholder="بحث باسم المندوب"></div>
         <div><label>الصيدلية</label><input id="filterPharmacy" type="search" placeholder="بحث بالصيدلية أو الكود"></div>
-        <div><label>الحالة</label><select id="filterStatus"><option value="">بانتظار مدير السوق فقط</option><option value="market_manager_pending">بانتظار مدير السوق</option><option value="supervisor_approved">معتمد من المشرف</option></select></div>
+        <div><label>الحالة</label><select id="filterStatus"><option value="">بانتظار مدير السوق فقط</option><option value="market_manager_pending">بانتظار مدير السوق</option><option value="supervisor_approved">معتمد من المشرف</option><option value="returned_to_market_manager">مرجعة لمدير السوق</option></select></div>
     </section>
     <section class="workflow-toolbar">
         <button class="btn-success" id="bulkApproveBtn" type="button"><i class="ph ph-check-circle"></i> اعتماد المحدد</button>
@@ -66,12 +66,14 @@
                 <button class="btn-secondary" id="saveMarketEditsBtn" type="button"><i class="ph ph-floppy-disk"></i> حفظ التعديلات</button>
                 <button class="btn-success" id="approveMarketModalBtn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button>
                 <button class="btn-danger" id="rejectMarketModalBtn" type="button"><i class="ph ph-x-circle"></i> رفض</button>
+                <button class="btn-secondary" id="returnMarketToRepBtn" type="button"><i class="ph ph-arrow-u-down-right"></i> إرجاع للمندوب</button>
+                <button class="btn-secondary" id="returnMarketToSupervisorBtn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع للمشرف</button>
                 <button class="btn-danger" id="deleteMarketModalBtn" type="button"><i class="ph ph-trash"></i> حذف الطلبية</button>
             </div>
         </div>
     </div>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260621_perf1" type="module"></script>
+<script src="js/workflow.js?v=20260621_return1" type="module"></script>
 </body>
 </html>

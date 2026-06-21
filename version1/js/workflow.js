@@ -16,7 +16,12 @@ const STATUS_LABELS = {
     finance_rejected: 'مرفوض مالياً',
     orders_staff_pending: 'جاهز للمعالجة',
     orders_staff_exported: 'تم تصديره',
-    orders_staff_hidden: 'مخفي بعد التصدير',
+    orders_staff_hidden: 'تمت الفوترة',
+    returned_to_rep: 'مرجعة للمندوب',
+    returned_to_supervisor: 'مرجعة للمشرف',
+    returned_to_market_manager: 'مرجعة لمدير السوق',
+    returned_to_finance: 'مرجعة للمالية',
+    deleted_by_orders_staff: 'محذوفة من فريق المعالجة',
     approved: 'موافق عليه',
     returned: 'مرتجع',
     rejected: 'مرفوض',
@@ -38,7 +43,7 @@ const state = {
     suspendRender: false
 };
 
-const WORKFLOW_CACHE_VERSION = '20260621_perf1';
+const WORKFLOW_CACHE_VERSION = '20260621_return1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
@@ -85,6 +90,11 @@ function compactOrder(order = {}) {
         marketManagerRejectionReason: order.marketManagerRejectionReason || '',
         financeStatus: order.financeStatus || '',
         financeRejectionReason: order.financeRejectionReason || '',
+        returnReason: order.returnReason || '',
+        returnTarget: order.returnTarget || '',
+        returnedBy: order.returnedBy || '',
+        returnedByRole: order.returnedByRole || '',
+        returnedAt: order.returnedAt || null,
         orderStaffStatus: order.orderStaffStatus || '',
         exportedAt: order.exportedAt || null,
         hiddenByOrderStaff: order.hiddenByOrderStaff === true,
@@ -160,9 +170,9 @@ function showDataModeNotice(message) {
 
 function currentPageOrderSource() {
     const ordersRef = collection(db, 'orders');
-    if (WORKFLOW_PAGE === 'market-manager') return query(ordersRef, where('status', 'in', ['market_manager_pending', 'supervisor_approved']));
-    if (WORKFLOW_PAGE === 'finance-controller') return query(ordersRef, where('status', 'in', ['finance_pending', 'finance_rejected']));
-    if (WORKFLOW_PAGE === 'orders-staff') return query(ordersRef, where('status', 'in', ['orders_staff_pending', 'orders_staff_hidden']));
+    if (WORKFLOW_PAGE === 'market-manager') return query(ordersRef, where('status', 'in', ['market_manager_pending', 'supervisor_approved', 'returned_to_market_manager']));
+    if (WORKFLOW_PAGE === 'finance-controller') return query(ordersRef, where('status', 'in', ['finance_pending', 'finance_rejected', 'returned_to_finance']));
+    if (WORKFLOW_PAGE === 'orders-staff') return query(ordersRef, where('status', 'in', ['orders_staff_pending', 'orders_staff_hidden', 'orders_staff_exported']));
     return ordersRef;
 }
 
@@ -436,7 +446,7 @@ function subscribeOrders(onChange) {
         showDataModeNotice('تم عرض نسخة مخزنة محليًا، ويتم تحديثها الآن من Firebase.');
         onChange();
     } else {
-        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 10] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 4] : ['ordersStaffBody', 13];
+        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 10] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 4] : ['ordersStaffBody', 14];
         setLoadingRow(target[0], target[1]);
     }
     refreshOrdersFromFirebase();
@@ -456,7 +466,7 @@ async function ensureOrdersStaffAllLoaded() {
         return;
     }
     state.allOrdersLoading = true;
-    setLoadingRow('ordersStaffBody', 13, 'جاري تحميل كل الطلبيات من التخزين المحلي/Firebase...');
+    setLoadingRow('ordersStaffBody', 14, 'جاري تحميل كل الطلبيات من التخزين المحلي/Firebase...');
     try {
         await refreshAllOrdersForStaffPaginated();
     } finally {
@@ -497,6 +507,61 @@ function confirmReason(message, requireReason = false) {
     }
     return reason.trim();
 }
+function confirmRequiredNote(message) {
+    const note = prompt(message, '');
+    if (note === null) return null;
+    if (!note.trim()) {
+        showToast('الملاحظة إجبارية لإرجاع الطلبية خطوة للوراء.', 'warning');
+        return null;
+    }
+    return note.trim();
+}
+
+function returnTargetPayload(target, actor, role, reason) {
+    const base = {
+        returnReason: reason,
+        returnTarget: target,
+        returnedBy: actor,
+        returnedByRole: role,
+        returnedAt: new Date()
+    };
+    if (target === 'representative') return {
+        ...base,
+        status: 'returned_to_rep',
+        workflowStage: 'representative',
+        supervisorStatus: 'returned_to_rep'
+    };
+    if (target === 'supervisor') return {
+        ...base,
+        status: 'returned_to_supervisor',
+        workflowStage: 'supervisor',
+        supervisorStatus: 'returned_to_supervisor',
+        marketManagerStatus: 'returned_to_supervisor'
+    };
+    if (target === 'market_manager') return {
+        ...base,
+        status: 'returned_to_market_manager',
+        workflowStage: 'market_manager',
+        marketManagerStatus: 'returned_to_market_manager',
+        financeStatus: 'returned_to_market_manager'
+    };
+    if (target === 'finance') return {
+        ...base,
+        status: 'returned_to_finance',
+        workflowStage: 'finance',
+        financeStatus: 'returned_to_finance',
+        orderStaffStatus: 'returned_to_finance'
+    };
+    return base;
+}
+
+async function returnOrderStep(orderId, target, reason, actor, role, action) {
+    const order = state.orders.find(o => o.id === orderId) || state.selectedOrder || {};
+    const updates = returnTargetPayload(target, actor, role, reason);
+    await updateOrderWithAudit(orderId, updates, auditEntry(action, actor, role, { status: order.status || '', returnReason: order.returnReason || '' }, { status: updates.status, returnReason: reason }, reason));
+    showToast('تم إرجاع الطلبية وتسجيل الملاحظة بنجاح.', 'success');
+}
+
 
 function fullOrderRows(order) {
     const items = Array.isArray(order.items) ? order.items : [];
@@ -632,7 +697,7 @@ async function saveMarketEdits(options = {}) {
 
 async function approveSelectedMarketOrderFromModal() {
     if (!state.selectedOrder) return;
-    if (!confirm('سيتم حفظ أي تعديلات حالية ثم اعتماد الطلبية وتحويلها إلى Hamza/Finance. هل تريد المتابعة؟')) return;
+    if (!confirm('سيتم حفظ أي تعديلات حالية ثم اعتماد الطلبية وتحويلها إلى المالية. هل تريد المتابعة؟')) return;
     const orderId = state.selectedOrder.id;
     const saved = await saveMarketEdits({ close: false, silent: true });
     if (saved) await marketApprove(orderId);
@@ -675,7 +740,7 @@ async function marketDeleteOrder(orderId) {
         deletedAt: new Date(),
         marketManagerStatus: 'deleted_by_market_manager'
     }, auditEntry('market_manager_order_deleted', 'Market Manager', 'market_manager', { status: order.status, items: order.items || [] }, { status: 'deleted_by_market_manager' }, 'Soft delete only'));
-    showToast('تم حذف الطلبية Soft Delete وحفظ سجل التدقيق.', 'success');
+    showToast('تم حذف الطلبية كحذف ناعم مع حفظ سجل التدقيق.', 'success');
     closeMarketOrderModal();
 }
 
@@ -687,7 +752,7 @@ function applyMarketFilters() {
     const to = $('filterDateTo')?.value || '';
     state.visibleOrders = state.orders.filter(order => {
         const orderStatus = order.status || '';
-        const eligible = ['market_manager_pending', 'supervisor_approved'].includes(orderStatus);
+        const eligible = ['market_manager_pending', 'supervisor_approved', 'returned_to_market_manager'].includes(orderStatus);
         const statusMatch = status ? orderStatus === status : eligible;
         return statusMatch &&
             inDateRange(order, from, to) &&
@@ -725,16 +790,26 @@ function renderMarketOrders() {
                     <button class="action-btn view-btn" type="button" title="عرض وتعديل"><i class="ph ph-eye"></i></button>
                     <button class="action-btn approve-btn" type="button" title="اعتماد"><i class="ph ph-check-circle"></i></button>
                     <button class="action-btn reject-btn" type="button" title="رفض"><i class="ph ph-x-circle"></i></button>
+                    <button class="action-btn return-rep-btn" type="button" title="إرجاع للمندوب"><i class="ph ph-arrow-u-down-right"></i></button>
+                    <button class="action-btn return-supervisor-btn" type="button" title="إرجاع للمشرف"><i class="ph ph-arrow-u-down-left"></i></button>
                     <button class="action-btn danger-btn delete-btn" type="button" title="حذف"><i class="ph ph-trash"></i></button>
                 </td>
             `;
             tr.querySelector('.view-btn').onclick = () => openMarketOrderModal(order);
-            tr.querySelector('.approve-btn').onclick = () => confirm('اعتماد الطلبية وتحويلها إلى Hamza/Finance؟') && marketApprove(order.id);
+            tr.querySelector('.approve-btn').onclick = () => confirm('اعتماد الطلبية وتحويلها إلى المالية؟') && marketApprove(order.id);
             tr.querySelector('.reject-btn').onclick = () => {
                 const reason = confirmReason('سبب رفض مدير السوق:', true);
                 if (reason !== null) marketReject(order.id, reason);
             };
-            tr.querySelector('.delete-btn').onclick = () => confirm('تحذير قوي: سيتم حذف الطلبية من مسار العمل كـ Soft Delete ولن تظهر للمراحل التالية. هل تريد المتابعة؟') && marketDeleteOrder(order.id);
+            tr.querySelector('.return-rep-btn')?.addEventListener('click', () => {
+                const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
+                if (reason !== null) returnOrderStep(order.id, 'representative', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_rep');
+            });
+            tr.querySelector('.return-supervisor-btn')?.addEventListener('click', () => {
+                const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
+                if (reason !== null) returnOrderStep(order.id, 'supervisor', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_supervisor');
+            });
+            tr.querySelector('.delete-btn').onclick = () => confirm('تحذير: سيتم حذف الطلبية من مسار العمل كحذف ناعم ولن تظهر للمراحل التالية. هل تريد المتابعة؟') && marketDeleteOrder(order.id);
             fragment.appendChild(tr);
         });
         body.appendChild(fragment);
@@ -783,7 +858,17 @@ function initMarketManager() {
         const reason = confirmReason('سبب رفض مدير السوق:', true);
         if (reason !== null) marketReject(state.selectedOrder.id, reason);
     });
-    $('deleteMarketModalBtn')?.addEventListener('click', () => state.selectedOrder && confirm('تحذير قوي: هل تريد حذف الطلبية بالكامل من مسار العمل؟') && marketDeleteOrder(state.selectedOrder.id));
+    $('deleteMarketModalBtn')?.addEventListener('click', () => state.selectedOrder && confirm('تحذير: هل تريد حذف الطلبية بالكامل من مسار العمل؟') && marketDeleteOrder(state.selectedOrder.id));
+    $('returnMarketToRepBtn')?.addEventListener('click', () => {
+        if (!state.selectedOrder) return;
+        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
+        if (reason !== null) returnOrderStep(state.selectedOrder.id, 'representative', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_rep').then(closeMarketOrderModal);
+    });
+    $('returnMarketToSupervisorBtn')?.addEventListener('click', () => {
+        if (!state.selectedOrder) return;
+        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
+        if (reason !== null) returnOrderStep(state.selectedOrder.id, 'supervisor', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_supervisor').then(closeMarketOrderModal);
+    });
     subscribeOrders(applyMarketFilters);
 }
 
@@ -796,9 +881,10 @@ function applyFinanceFilters() {
         const financeState = order.financeStatus || (order.status === 'finance_pending' ? 'finance_pending' : '');
         const isFinancePending = order.status === 'finance_pending' || (order.marketManagerStatus === 'market_manager_approved' && financeState === 'finance_pending');
         const isFinanceRejected = order.status === 'finance_rejected' || financeState === 'finance_rejected';
+        const isReturnedToFinance = order.status === 'returned_to_finance' || financeState === 'returned_to_finance';
         const statusMatch = status
             ? order.status === status || financeState === status
-            : (isFinancePending || isFinanceRejected);
+            : (isFinancePending || isFinanceRejected || isReturnedToFinance);
         return statusMatch && inDateRange(order, from, to) && (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
     });
     renderFinanceOrders();
@@ -820,22 +906,30 @@ function renderFinanceOrders() {
             const tr = document.createElement('tr');
             const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
             const isRejected = order.status === 'finance_rejected' || (order.financeStatus || '') === 'finance_rejected';
+            const isReturnedToFinance = order.status === 'returned_to_finance' || (order.financeStatus || '') === 'returned_to_finance';
             const rejectionReason = order.financeRejectionReason || order.rejectionReason || '';
+            const returnReason = order.returnReason || '';
             const actionHtml = isPending
-                ? `<button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button>`
+                ? `<button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button>`
                 : isRejected
-                    ? `<span class="status-badge finance_rejected">مرفوض مالياً</span><small class="workflow-reason">${escapeHtml(rejectionReason || 'لا يوجد سبب مسجل')}</small><button class="action-btn approve-btn" type="button"><i class="ph ph-arrow-counter-clockwise"></i> تعديل القرار: اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-pencil-simple"></i> تعديل سبب الرفض</button>`
-                    : `<span class="status-badge ${order.status}">${statusLabel(order.status)}</span>`;
+                    ? `<span class="status-badge finance_rejected">مرفوض مالياً</span><small class="workflow-reason">${escapeHtml(rejectionReason || 'لا يوجد سبب مسجل')}</small><button class="action-btn approve-btn" type="button"><i class="ph ph-arrow-counter-clockwise"></i> تعديل القرار: اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-pencil-simple"></i> تعديل سبب الرفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button>`
+                    : isReturnedToFinance
+                        ? `<span class="status-badge returned_to_finance">مرجعة للمالية</span><small class="workflow-reason">${escapeHtml(returnReason || 'لا توجد ملاحظة مسجلة')}</small><button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button>`
+                        : `<span class="status-badge ${order.status}">${statusLabel(order.status)}</span>`;
             tr.innerHTML = `
                 <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
                 <td>${escapeHtml(order.pharmacyName || '-')}</td>
                 <td>${formatMoney(order.grandTotal)} د.ا</td>
                 <td class="workflow-actions-cell">${actionHtml}</td>
             `;
-            tr.querySelector('.approve-btn')?.addEventListener('click', () => confirm('اعتماد الطلبية مالياً وتحويلها إلى Ziad/Zakaria؟') && financeApprove(order.id));
+            tr.querySelector('.approve-btn')?.addEventListener('click', () => confirm('اعتماد الطلبية مالياً وتحويلها إلى فريق المعالجة؟') && financeApprove(order.id));
             tr.querySelector('.reject-btn')?.addEventListener('click', () => {
                 const reason = confirmReason(isRejected ? 'تعديل سبب الرفض المالي:' : 'سبب الرفض المالي:', true);
                 if (reason !== null) financeReject(order.id, reason);
+            });
+            tr.querySelector('.return-market-btn')?.addEventListener('click', () => {
+                const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع لمدير السوق:');
+                if (reason !== null) returnOrderStep(order.id, 'market_manager', reason, 'Hamza', 'finance_controller', 'finance_returned_to_market_manager');
             });
             fragment.appendChild(tr);
         });
@@ -942,7 +1036,7 @@ function renderOrdersStaffRows() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) return setTableEmpty('ordersStaffBody', 13, 'لا توجد طلبيات جاهزة للمعالجة ضمن الفلاتر الحالية');
+    if (state.visibleOrders.length === 0) return setTableEmpty('ordersStaffBody', 14, 'لا توجد طلبيات جاهزة للمعالجة ضمن الفلاتر الحالية');
 
     const renderChunk = async (startIndex = 0) => {
         if (token !== state.renderToken) return;
@@ -967,7 +1061,16 @@ function renderOrdersStaffRows() {
                     <td>${formatMoney(order.grandTotal)}</td>
                     <td>${escapeHtml(calc.note || '-')}</td>
                     <td>${escapeHtml(order.orderNote || order.note || '-')}</td>
+                    <td class="workflow-actions-cell">${index === 0 ? `<button class="action-btn staff-edit-btn" type="button"><i class="ph ph-pencil"></i> تعديل</button><button class="action-btn staff-return-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع</button><button class="action-btn danger-btn staff-delete-btn" type="button"><i class="ph ph-trash"></i> حذف</button>` : ''}</td>
                 `;
+                if (index === 0) {
+                    tr.querySelector('.staff-edit-btn')?.addEventListener('click', () => openStaffOrderModal(order));
+                    tr.querySelector('.staff-return-btn')?.addEventListener('click', () => {
+                        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
+                        if (reason !== null) staffReturnToFinance(order.id, reason);
+                    });
+                    tr.querySelector('.staff-delete-btn')?.addEventListener('click', () => staffDeleteOrder(order.id));
+                }
                 fragment.appendChild(tr);
             });
         });
@@ -978,6 +1081,147 @@ function renderOrdersStaffRows() {
         }
     };
     renderChunk();
+}
+
+function fullStaffOrderRows(order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    return items.map((item, index) => {
+        const calc = calculateItem(item);
+        return `
+            <tr data-index="${index}">
+                <td>${index + 1}</td>
+                <td>${escapeHtml(getItemProductCode(calc) || '-')}</td>
+                <td class="item-name-cell">${escapeHtml(calc.name || '-')}</td>
+                <td><input class="staff-qty" type="number" min="0" step="1" value="${calc.qty}"></td>
+                <td><input class="staff-bonus" type="number" min="0" step="1" value="${calc.bonus}"></td>
+                <td><input class="staff-bonus-pct" type="number" min="0" step="0.01" value="${calc.bonusPct}"></td>
+                <td class="staff-price" data-price="${calc.price}">${formatMoney(calc.price)}</td>
+                <td class="staff-subtotal">${formatMoney(calc.total)}</td>
+                <td>${escapeHtml(calc.note || '-')}</td>
+                <td><button class="action-btn staff-delete-item" type="button" title="حذف الصنف"><i class="ph ph-trash"></i></button></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function updateStaffModalTotal() {
+    let total = 0;
+    document.querySelectorAll('#staffOrderItemsBody tr').forEach(row => {
+        if (row.dataset.deleted !== '1') total += parseNumber(row.querySelector('.staff-subtotal')?.textContent);
+    });
+    if ($('staffModalGrandTotal')) $('staffModalGrandTotal').textContent = `${formatMoney(total)} د.ا`;
+}
+
+function recalcStaffRow(row, source = '') {
+    const qtyInput = row.querySelector('.staff-qty');
+    const bonusInput = row.querySelector('.staff-bonus');
+    const pctInput = row.querySelector('.staff-bonus-pct');
+    const price = parseNumber(row.querySelector('.staff-price')?.dataset.price);
+    let qty = Math.max(0, parseNumber(qtyInput.value));
+    let bonus = Math.max(0, parseNumber(bonusInput.value));
+    let pct = Math.max(0, parseNumber(pctInput.value));
+    if (source === 'pct') {
+        bonus = qty > 0 ? Math.round((qty * pct) / 100) : 0;
+        bonusInput.value = bonus;
+    } else {
+        pct = qty > 0 ? Number(((bonus / qty) * 100).toFixed(2)) : 0;
+        pctInput.value = pct;
+    }
+    qtyInput.value = qty;
+    row.querySelector('.staff-subtotal').textContent = formatMoney(qty * price);
+    updateStaffModalTotal();
+}
+
+function openStaffOrderModal(order) {
+    state.selectedOrder = order;
+    $('staffModalTitle').textContent = `تعديل طلبية ${order.id.substring(0, 8).toUpperCase()}`;
+    $('staffModalMeta').innerHTML = `
+        <span><b>المندوب:</b> ${escapeHtml(order.repName || '-')}</span>
+        <span><b>الصيدلية:</b> ${escapeHtml(order.pharmacyName || '-')}</span>
+        <span><b>كود الصيدلية:</b> ${escapeHtml(getPharmacyCode(order) || '-')}</span>
+    `;
+    $('staffOrderNote').textContent = order.orderNote || order.note || 'لا توجد ملاحظات.';
+    $('staffOrderItemsBody').innerHTML = fullStaffOrderRows(order) || `<tr><td colspan="10">لا توجد أصناف.</td></tr>`;
+    document.querySelectorAll('#staffOrderItemsBody tr').forEach(row => {
+        row.querySelector('.staff-qty')?.addEventListener('input', () => recalcStaffRow(row, 'qty'));
+        row.querySelector('.staff-bonus')?.addEventListener('input', () => recalcStaffRow(row, 'bonus'));
+        row.querySelector('.staff-bonus-pct')?.addEventListener('input', () => recalcStaffRow(row, 'pct'));
+        row.querySelector('.staff-delete-item')?.addEventListener('click', () => {
+            if (!confirm('هل أنت متأكد من حذف هذا الصنف من الطلبية؟')) return;
+            row.dataset.deleted = '1';
+            row.style.display = 'none';
+            updateStaffModalTotal();
+        });
+        recalcStaffRow(row);
+    });
+    $('staffOrderModal').style.display = 'flex';
+}
+
+function closeStaffOrderModal() {
+    $('staffOrderModal').style.display = 'none';
+    state.selectedOrder = null;
+}
+
+function collectStaffModalItems() {
+    const originalItems = Array.isArray(state.selectedOrder?.items) ? state.selectedOrder.items : [];
+    const kept = [];
+    const deleted = [];
+    document.querySelectorAll('#staffOrderItemsBody tr').forEach(row => {
+        const index = Number(row.dataset.index);
+        const original = originalItems[index] || {};
+        if (row.dataset.deleted === '1') {
+            deleted.push({ index, item: original });
+            return;
+        }
+        const qty = Math.max(0, parseNumber(row.querySelector('.staff-qty')?.value));
+        const bonus = Math.max(0, parseNumber(row.querySelector('.staff-bonus')?.value));
+        const price = parseNumber(row.querySelector('.staff-price')?.dataset.price);
+        kept.push(calculateItem({
+            ...original,
+            qty,
+            bonus,
+            bonusPct: qty > 0 ? Number(((bonus / qty) * 100).toFixed(2)) : 0,
+            price,
+            total: qty * price,
+            productCode: getItemProductCode(original)
+        }));
+    });
+    return { kept, deleted, grandTotal: calculateGrandTotal(kept) };
+}
+
+async function saveStaffEdits(options = {}) {
+    if (!state.selectedOrder) return false;
+    const { close = true, silent = false } = options;
+    const { kept, deleted, grandTotal } = collectStaffModalItems();
+    if (kept.length === 0) { showToast('لا يمكن حفظ طلبية بدون أصناف.', 'warning'); return false; }
+    await updateOrderWithAudit(state.selectedOrder.id, {
+        items: kept,
+        grandTotal,
+        orderStaffEditedBy: 'Ziad/Zakaria',
+        orderStaffEditedAt: new Date(),
+        orderStaffDeletedItems: deleted
+    }, auditEntry('orders_staff_edit', 'Ziad/Zakaria', 'orders_staff', { items: state.selectedOrder.items || [], grandTotal: state.selectedOrder.grandTotal || 0 }, { items: kept, grandTotal }, deleted.length ? `تم حذف ${deleted.length} صنف` : ''));
+    if (!silent) showToast('تم حفظ تعديل فريق المعالجة.', 'success');
+    if (close) closeStaffOrderModal();
+    return true;
+}
+
+async function staffReturnToFinance(orderId, reason) {
+    await returnOrderStep(orderId, 'finance', reason, 'Ziad/Zakaria', 'orders_staff', 'orders_staff_returned_to_finance');
+}
+
+async function staffDeleteOrder(orderId) {
+    if (!confirm('تحذير: سيتم حذف الطلبية بالكامل من مسار العمل كحذف ناعم. هل تريد المتابعة؟')) return;
+    const order = state.orders.find(o => o.id === orderId) || state.selectedOrder || {};
+    await updateOrderWithAudit(orderId, {
+        status: 'deleted_by_orders_staff',
+        workflowStage: 'deleted',
+        orderStaffStatus: 'deleted_by_orders_staff',
+        deletedByOrdersStaff: 'Ziad/Zakaria',
+        deletedAt: new Date()
+    }, auditEntry('orders_staff_order_deleted', 'Ziad/Zakaria', 'orders_staff', { status: order.status || '', items: order.items || [] }, { status: 'deleted_by_orders_staff' }, 'حذف ناعم من فريق المعالجة'));
+    showToast('تم حذف الطلبية كحذف ناعم وحفظ سجل التدقيق.', 'success');
+    closeStaffOrderModal();
 }
 
 function getOrdersByIds(ids) {
@@ -994,7 +1238,7 @@ async function exportOrders(orders) {
     XLSX.utils.book_append_sheet(wb, ws, 'Orders');
     XLSX.writeFile(wb, `orders_staff_${toDateInputValue(new Date())}.xlsx`);
 
-    const hide = confirm('Do you want to hide these orders so only newly approved orders appear next time?\n\nOK = Yes, hide exported orders.\nCancel = No, keep visible.');
+    const hide = confirm('هل تريد إخفاء هذه الطلبيات بعد التصدير حتى تظهر الطلبيات الجديدة فقط في المرة القادمة؟\n\nموافق = نعم، أخفِ الطلبيات المصدرة.\nإلغاء = لا، أبقِ الطلبيات ظاهرة.');
     const action = hide ? 'orders_staff_hide_after_export' : 'orders_staff_export';
     state.suspendRender = true;
     const results = await Promise.allSettled(orders.map(order => updateOrderWithAudit(order.id, {
@@ -1015,6 +1259,14 @@ function initOrdersStaff() {
     $('selectAllWorkflow')?.addEventListener('change', e => document.querySelectorAll('.workflow-order-checkbox').forEach(cb => cb.checked = e.target.checked));
     $('exportSelectedBtn')?.addEventListener('click', () => exportOrders(getOrdersByIds(selectedIds())));
     $('exportVisibleBtn')?.addEventListener('click', () => exportOrders(state.visibleOrders));
+    $('closeStaffModalBtn')?.addEventListener('click', closeStaffOrderModal);
+    $('saveStaffEditsBtn')?.addEventListener('click', () => saveStaffEdits());
+    $('returnStaffToFinanceBtn')?.addEventListener('click', () => {
+        if (!state.selectedOrder) return;
+        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
+        if (reason !== null) staffReturnToFinance(state.selectedOrder.id, reason).then(closeStaffOrderModal);
+    });
+    $('deleteStaffOrderBtn')?.addEventListener('click', () => state.selectedOrder && staffDeleteOrder(state.selectedOrder.id));
     subscribeOrders(applyOrdersStaffFilters);
 }
 

@@ -349,7 +349,12 @@ const WORKFLOW_STATUS_LABELS = {
     finance_rejected: 'مرفوض مالياً',
     orders_staff_pending: 'جاهز للمعالجة',
     orders_staff_exported: 'تم تصديره',
-    orders_staff_hidden: 'مخفي بعد التصدير',
+    orders_staff_hidden: 'تمت الفوترة',
+    returned_to_rep: 'مرجعة للمندوب',
+    returned_to_supervisor: 'مرجعة للمشرف',
+    returned_to_market_manager: 'مرجعة لمدير السوق',
+    returned_to_finance: 'مرجعة للمالية',
+    deleted_by_orders_staff: 'محذوفة من فريق المعالجة',
     approved: 'موافق عليه',
     returned: 'مرتجع',
     rejected: 'مرفوض',
@@ -363,6 +368,7 @@ function getWorkflowStatusLabel(status) {
 
 function getOrderRejectionReason(order = {}) {
     const reasons = [
+        order.returnReason,
         order.marketManagerRejectionReason,
         order.financeRejectionReason,
         order.rejectionReason,
@@ -377,7 +383,7 @@ function isRepVisibleOrderStatus(status) {
 }
 
 function isSupervisorPendingStatus(status) {
-    return ['pending', 'pending_supervisor_approval'].includes(status || 'pending');
+    return ['pending', 'pending_supervisor_approval', 'returned_to_supervisor'].includes(status || 'pending');
 }
 
 function isRepApprovedVisibleStatus(status) {
@@ -393,6 +399,10 @@ function isRepApprovedVisibleStatus(status) {
         'orders_staff_pending',
         'orders_staff_exported',
         'orders_staff_hidden',
+        'returned_to_rep',
+        'returned_to_supervisor',
+        'returned_to_market_manager',
+        'returned_to_finance',
         'rejected'
     ].includes(status || '');
 }
@@ -441,6 +451,37 @@ function softDeleteOrderBySupervisor(orderId, order = {}, action = 'supervisor_o
         deletedAt: new Date(),
         supervisorStatus: 'deleted_by_supervisor'
     }, buildAuditEntry(action, currentManagerName || 'Supervisor', 'supervisor', { status: order.status || '' }, { status: 'deleted_by_supervisor' }, 'Soft delete only - Firebase document preserved'));
+}
+
+function promptRequiredReturnNote(message) {
+    const note = prompt(message, '');
+    if (note === null) return null;
+    if (!note.trim()) {
+        showToast('الملاحظة إجبارية عند إرجاع الطلبية.', 'warning');
+        return null;
+    }
+    return note.trim();
+}
+
+async function supervisorReturnToRep(orderId, order = {}) {
+    const reason = promptRequiredReturnNote('اكتب ملاحظة الإرجاع للمندوب:');
+    if (reason === null) return;
+    const current = order && Object.keys(order).length ? order : {}; 
+    await updateOrderWithAudit(orderId, {
+        status: 'returned_to_rep',
+        workflowStage: 'representative',
+        supervisorStatus: 'returned_to_rep',
+        returnReason: reason,
+        returnTarget: 'representative',
+        returnedBy: currentManagerName || 'Supervisor',
+        returnedByRole: 'supervisor',
+        returnedAt: new Date()
+    }, buildAuditEntry('supervisor_returned_to_rep', currentManagerName || 'Supervisor', 'supervisor', { status: current.status || '' }, { status: 'returned_to_rep', returnReason: reason }, reason));
+    showToast('تم إرجاع الطلبية للمندوب مع تسجيل الملاحظة.', 'success');
+}
+
+function canRepresentativeEditReturnedOrder(order = {}) {
+    return (order.status || '') === 'returned_to_rep' && String(order.repId || '') === String(currentRepId || '');
 }
 
 function setDefaultMyOrdersFilters() {
@@ -1420,9 +1461,11 @@ function applyMyOrdersFilters() {
             <td>${escapePrintHtml(getOrderRejectionReason(order) || '-')}</td>
             <td>
                 <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
+                ${canRepresentativeEditReturnedOrder(order) ? `<button class="action-btn edit-returned-order-btn" title="تعديل الطلبية المرجعة"><i class="ph ph-pencil"></i></button>` : ''}
             </td>
         `;
         tr.querySelector('.btn-view').onclick = () => showOrderDetails(order);
+        tr.querySelector('.edit-returned-order-btn')?.addEventListener('click', () => openEditOrder(order.id, 'representative'));
         tbody.appendChild(tr);
     });
 }
@@ -1582,12 +1625,13 @@ function renderManagerOrders(orders) {
             <td><span class="status-badge ${order.status}">${getWorkflowStatusLabel(order.status)}</span></td>
             <td>
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
-                ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
+                ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button><button class="action-btn return-rep-btn" title="إرجاع للمندوب"><i class="ph ph-arrow-u-down-right"></i></button>` : ''}
             </td>
         `;
         
         tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'manager');
         if (!isApproved) {
+            tr.querySelector('.return-rep-btn')?.addEventListener('click', () => supervisorReturnToRep(order.id, order));
             tr.querySelector('.approve-btn').onclick = async () => { 
                 if(confirm("هل توافق على تمرير الطلبية؟")) { 
                     await updateOrderWithAudit(order.id, {
@@ -1854,6 +1898,7 @@ async function openEditOrder(orderId, userType) {
     if (!orderDoc.exists()) return showToast("الطلب غير موجود بالقاعدة.", "error");
     const order = orderDoc.data();
     editingOrderId = orderId;
+    const isRepresentativeReturnedEdit = userType === 'representative' && canRepresentativeEditReturnedOrder({ id: orderId, ...order });
 
     let repOptionsHTML = '<option value="">-- اختر المندوب --</option>';
     const mainRepSelect = document.getElementById('repSelect');
@@ -1889,7 +1934,7 @@ async function openEditOrder(orderId, userType) {
                 <div style="display: flex; gap: 15px; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0;">
                     <div style="flex: 1; min-width: 200px;">
                         <label style="font-weight: 600; font-size: 14px; margin-bottom: 8px; display: block; color: #333;">المندوب:</label>
-                        <select id="editRepSelect" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;">
+                        <select id="editRepSelect" ${isRepresentativeReturnedEdit ? 'disabled' : ''} style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;">
                             ${repOptionsHTML}
                         </select>
                     </div>
@@ -2087,14 +2132,14 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 const grandTotalEl = document.getElementById('editGrandTotal');
                 const newGrandTotal = grandTotalEl ? parseFloat(grandTotalEl.innerText) : 0;
                 
-                const workflowReset = isSupervisorPendingStatus(order.status)
-                    ? { status: "pending_supervisor_approval", workflowStage: "supervisor", supervisorStatus: "pending_supervisor_approval" }
+                const workflowReset = (isSupervisorPendingStatus(order.status) || isRepresentativeReturnedEdit)
+                    ? { status: "pending_supervisor_approval", workflowStage: "supervisor", supervisorStatus: "pending_supervisor_approval", returnResolvedAt: new Date(), returnResolvedBy: newRepName }
                     : {};
                 await updateOrderWithAudit(editingOrderId, { 
                     repId: newRepId, repName: newRepName, managerName: getManagerName(newRepName), 
                     pharmacyName: newPharmName, pharmacyCode: selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || "",
                     items: items, grandTotal: newGrandTotal, ...workflowReset
-                }, buildAuditEntry('supervisor_order_edited', currentManagerName || 'Supervisor', 'supervisor', { orderId: editingOrderId, status: order.status || '' }, { grandTotal: newGrandTotal }));
+                }, buildAuditEntry(isRepresentativeReturnedEdit ? 'representative_resubmitted_returned_order' : 'supervisor_order_edited', isRepresentativeReturnedEdit ? newRepName : (currentManagerName || 'Supervisor'), isRepresentativeReturnedEdit ? 'representative' : 'supervisor', { orderId: editingOrderId, status: order.status || '' }, { grandTotal: newGrandTotal, status: workflowReset.status || order.status || '' }));
                 showToast("تم تحديث الطلبية بنجاح", "success");
                 closeEditModal();
             } catch (e) { showToast("حدث خطأ أثناء التحديث", "error"); }
