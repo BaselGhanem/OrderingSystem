@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
+    if (APP_PAGE === 'login') normalizeLoginUrlAfterSwitch();
     const legacyPass = localStorage.getItem('adminPassword');
     if (legacyPass) localStorage.removeItem('adminPassword');
 
@@ -269,7 +270,27 @@ const APP_PAGE = document.body?.dataset?.page || 'legacy';
 const COMPANY_LOGO_URL = 'https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png';
 const ADMIN_SESSION_KEY = 'dad_admin_session_v2';
 const ADMIN_SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
-const LEGACY_ADMIN_KEYS = ['managerName', 'adminType', 'authToken'];
+const LEGACY_ADMIN_KEYS = ['managerName', 'adminType', 'authToken', 'adminPassword'];
+const AUTH_SWITCH_PARAMS = ['switch', 'logout', 'reset', 'forceLogin'];
+
+function isAuthSwitchRequest() {
+    const params = new URLSearchParams(window.location.search);
+    return AUTH_SWITCH_PARAMS.some(key => params.has(key));
+}
+
+function clearRoutingSessions() {
+    clearAdminSession();
+    clearRepSession();
+    sessionStorage.removeItem('activeOrderContext');
+    sessionStorage.removeItem('adminOrderMode');
+}
+
+function normalizeLoginUrlAfterSwitch() {
+    if (!isAuthSwitchRequest()) return;
+    clearRoutingSessions();
+    const cleanPath = window.location.pathname.split('/').pop() || 'login.html';
+    window.history.replaceState(null, document.title, cleanPath);
+}
 
 function getEl(id) { return document.getElementById(id); }
 
@@ -868,6 +889,7 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
 
 async function loadInitialData() {
     try {
+        if (APP_PAGE === 'login') normalizeLoginUrlAfterSwitch();
         if (repSelect) {
             repSelect.innerHTML = '<option value="">⏳ جاري تحميل البيانات...</option>';
             repSelect.disabled = true;
@@ -967,7 +989,8 @@ async function bootstrapPage() {
 
     if (APP_PAGE === 'login') {
         const adminSession = getAdminSession();
-        if (adminSession && adminSession.remember) {
+        const isAdminOrderMode = sessionStorage.getItem('adminOrderMode') === '1';
+        if (adminSession && adminSession.remember && !isAdminOrderMode) {
             if (adminSession.type === 'manager') window.location.href = 'supervisor.html';
             if (adminSession.type === 'reports') window.location.href = 'reports.html';
         }

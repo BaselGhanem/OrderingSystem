@@ -1361,7 +1361,7 @@ img, table { max-width: 100%; }
 .finance-workflow-table { min-width: 1260px; }
 
 
-/* 20260622_orders_staff_tabs1: Orders staff tabs + no-wrap follow-up grid */
+/* 20260622_navigation_fix1: Orders staff tabs + no-wrap follow-up grid */
 .orders-staff-tabs {
     display: flex;
     flex-wrap: wrap;
