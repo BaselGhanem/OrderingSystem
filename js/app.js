@@ -401,7 +401,7 @@ function getOrderRejectionReason(order = {}) {
 }
 
 function isRepVisibleOrderStatus(status) {
-    const hiddenStatuses = ['deleted_by_market_manager', 'deleted_by_supervisor', 'deleted_by_reports'];
+    const hiddenStatuses = ['deleted_by_market_manager', 'deleted_by_supervisor', 'deleted_by_orders_staff', 'deleted_by_reports'];
     return !hiddenStatuses.includes(status || '');
 }
 
@@ -478,6 +478,33 @@ function isOrderWithoutAssignedSupervisor(order = {}) {
 
 function canCurrentSupervisorApproveOrder(order = {}) {
     return isSupervisorPendingStatus(order.status) && (isOrderUnderCurrentManager(order) || isOrderWithoutAssignedSupervisor(order));
+}
+
+function isDeletedOrderStatus(status = '') {
+    return [
+        'deleted_by_supervisor',
+        'deleted_by_market_manager',
+        'deleted_by_orders_staff',
+        'deleted_by_reports'
+    ].includes(status || '');
+}
+
+function canCurrentSupervisorDeleteOrder(order = {}) {
+    const status = order.status || '';
+    if (isDeletedOrderStatus(status)) return false;
+    return isOrderUnderCurrentManager(order) || isOrderWithoutAssignedSupervisor(order);
+}
+
+async function confirmSupervisorDeleteOrder(orderId, order = {}, action = 'supervisor_order_soft_deleted') {
+    if (!canCurrentSupervisorDeleteOrder(order)) {
+        showToast('لا يمكنك حذف هذه الطلبية لأنها تابعة لمشرف آخر.', 'warning');
+        return;
+    }
+    const refLabel = orderId ? orderId.substring(0, 6).toUpperCase() : '';
+    const ok = confirm(`تحذير: سيتم حذف الطلبية ${refLabel} كحذف ناعم مع حفظ سجلها في Firebase. هل تريد المتابعة؟`);
+    if (!ok) return;
+    await softDeleteOrderBySupervisor(orderId, order, action);
+    showToast('تم حذف الطلبية من مسار العمل.', 'success');
 }
 
 async function approveOrderBySupervisor(orderId, order = {}, action = 'supervisor_approved') {
@@ -922,8 +949,8 @@ async function loadInitialData() {
             repSelect.disabled = true;
         }
 
-        const CACHE_KEY = 'dad_app_cache_20260622_product_code_sync1';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_20260622_product_code_sync1';
+        const CACHE_KEY = 'dad_app_cache_20260622_status_delete1';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_20260622_status_delete1';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
         const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);
@@ -1499,7 +1526,8 @@ function applyMyOrdersFilters() {
 
     filtered.forEach(order => {
         const tr = document.createElement('tr');
-        tr.className = `row-${order.status}`;
+        const statusClass = order.status || 'pending';
+        tr.className = `row-${statusClass}`;
         tr.innerHTML = `
             <td><input type="checkbox" class="my-order-checkbox" value="${order.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
             <td>${order.id.substring(0,6).toUpperCase()}</td>
@@ -1507,7 +1535,7 @@ function applyMyOrdersFilters() {
             <td>${order.pharmacyName || '-'}</td>
             <td>${getPharmacyCodeFromOrder(order) || '-'}</td>
             <td>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status || 'pending'}">${getWorkflowStatusLabel(order.status || 'pending')}</span></td>
+            <td><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
             <td>${escapePrintHtml(getOrderRejectionReason(order) || '-')}</td>
             <td>
                 <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
@@ -1664,7 +1692,8 @@ function renderManagerOrders(orders) {
         const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const tr = document.createElement('tr');
-        tr.className = `row-${order.status}`; // 💡 تلوين شرطي
+        const statusClass = order.status || 'pending';
+        tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
         tr.innerHTML = `
             <td><input type="checkbox" class="order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
             <td>${order.id.substring(0, 6).toUpperCase()}</td>
@@ -1672,14 +1701,16 @@ function renderManagerOrders(orders) {
             <td>${order.repName || '-'}</td>
             <td>${order.pharmacyName || '-'}</td>
             <td>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status}">${getWorkflowStatusLabel(order.status)}</span></td>
+            <td><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
             <td>
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button><button class="action-btn return-rep-btn" title="إرجاع للمندوب"><i class="ph ph-arrow-u-down-right"></i></button>` : ''}
+                ${canCurrentSupervisorDeleteOrder(order) ? `<button class="action-btn delete-btn" title="حذف الطلبية"><i class="ph ph-trash"></i></button>` : ''}
             </td>
         `;
         
         tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'manager');
+        tr.querySelector('.delete-btn')?.addEventListener('click', () => confirmSupervisorDeleteOrder(order.id, order, 'supervisor_row_soft_delete'));
         if (!isApproved) {
             tr.querySelector('.return-rep-btn')?.addEventListener('click', () => supervisorReturnToRep(order.id, order));
             tr.querySelector('.approve-btn').onclick = async () => { 
@@ -1781,7 +1812,8 @@ function renderAllOrders(orders) {
     }
     orders.forEach(order => {
         const tr = document.createElement('tr');
-        tr.className = `row-${order.status}`; // 💡 تلوين شرطي
+        const statusClass = order.status || 'pending';
+        tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
         const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const canApproveFromAll = canCurrentSupervisorApproveOrder(order);
@@ -1793,13 +1825,15 @@ function renderAllOrders(orders) {
             <td class="all-rep-col">${order.repName || '-'}</td>
             <td class="all-pharm-col">${order.pharmacyName || '-'}${unassignedBadge}</td>
             <td>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status}">${getWorkflowStatusLabel(order.status)}</span></td>
+            <td><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
             <td><button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
-                ${canApproveFromAll ? `<button class="action-btn approve-all-order-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}</td>
+                ${canApproveFromAll ? `<button class="action-btn approve-all-order-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
+                ${canCurrentSupervisorDeleteOrder(order) ? `<button class="action-btn delete-all-order-btn" title="حذف الطلبية"><i class="ph ph-trash"></i></button>` : ''}</td>
         `;
         tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'all');
         tr.querySelector('.btn-view').onclick = () => showOrderDetails(order);
+        tr.querySelector('.delete-all-order-btn')?.addEventListener('click', () => confirmSupervisorDeleteOrder(order.id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_soft_delete_unassigned_from_all_orders' : 'supervisor_soft_delete_from_all_orders'));
         tr.querySelector('.approve-all-order-btn')?.addEventListener('click', async () => {
             if (!confirm('اعتماد الطلبية وتحويلها إلى مدير السوق؟')) return;
             await approveOrderBySupervisor(order.id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_approved_unassigned_order' : 'supervisor_approved_all_orders');
@@ -1889,10 +1923,11 @@ function showOrderDetails(order) {
     }
     if (APP_PAGE === 'supervisor') {
         const canApprove = canCurrentSupervisorApproveOrder(order);
+        const canDelete = canCurrentSupervisorDeleteOrder(order);
         footer.innerHTML = `
             <button class="btn-secondary" id="detailsEditOrderBtn" type="button"><i class="ph ph-pencil"></i> تعديل الكميات / الأصناف / البونص</button>
             ${canApprove ? `<button class="btn-success" id="detailsApproveOrderBtn" type="button"><i class="ph ph-check-circle"></i> اعتماد الطلبية</button>` : ''}
-            <button class="btn-danger" id="detailsDeleteOrderBtn" type="button"><i class="ph ph-trash"></i> حذف الطلبية</button>
+            ${canDelete ? `<button class="btn-danger" id="detailsDeleteOrderBtn" type="button"><i class="ph ph-trash"></i> حذف الطلبية</button>` : ''}
         `;
         getEl('detailsEditOrderBtn')?.addEventListener('click', () => { modal.style.display = 'none'; openEditOrder(order.id, 'all'); });
         getEl('detailsApproveOrderBtn')?.addEventListener('click', async () => {
@@ -1902,9 +1937,8 @@ function showOrderDetails(order) {
             modal.style.display = 'none';
         });
         getEl('detailsDeleteOrderBtn')?.addEventListener('click', async () => {
-            if (!detailsModalOrder || !confirm('تحذير: سيتم حذف الطلبية كحذف ناعم مع حفظها في Firebase. هل تريد المتابعة؟')) return;
-            await softDeleteOrderBySupervisor(detailsModalOrder.id, detailsModalOrder, 'supervisor_soft_delete_from_popup');
-            showToast('تم حذف الطلبية من مسار العمل.', 'success');
+            if (!detailsModalOrder) return;
+            await confirmSupervisorDeleteOrder(detailsModalOrder.id, detailsModalOrder, isOrderWithoutAssignedSupervisor(detailsModalOrder) ? 'supervisor_soft_delete_unassigned_from_popup' : 'supervisor_soft_delete_from_popup');
             modal.style.display = 'none';
         });
     } else {
@@ -2423,11 +2457,11 @@ async function handleAllOrdersBulkAction(actionType) {
                 }
                 return approveOrderBySupervisor(id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_bulk_approved_unassigned_orders' : 'supervisor_bulk_approved_all_orders');
             }
-            if (!isOrderUnderCurrentManager(order)) {
+            if (!canCurrentSupervisorDeleteOrder(order)) {
                 skipped.push(id);
-                return Promise.resolve('skipped_not_under_manager');
+                return Promise.resolve('skipped_not_allowed_to_delete');
             }
-            return softDeleteOrderBySupervisor(id, order, 'supervisor_bulk_soft_delete_all_orders');
+            return softDeleteOrderBySupervisor(id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_bulk_soft_delete_unassigned_orders' : 'supervisor_bulk_soft_delete_all_orders');
         });
         await Promise.all(promises);
         showToast(skipped.length ? `تم تنفيذ الأمر على الطلبيات المسموحة فقط. تم تجاوز ${skipped.length} طلبية.` : "تم تنفيذ الأمر بنجاح", skipped.length ? "warning" : "success");

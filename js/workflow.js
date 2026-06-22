@@ -22,6 +22,7 @@ const STATUS_LABELS = {
     returned_to_market_manager: 'مرجعة لمدير السوق',
     returned_to_finance: 'مرجعة للمالية',
     deleted_by_orders_staff: 'محذوفة من فريق المعالجة',
+    deleted_by_supervisor: 'محذوف من المشرف',
     approved: 'موافق عليه',
     returned: 'مرتجع',
     rejected: 'مرفوض',
@@ -45,7 +46,7 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
-const WORKFLOW_CACHE_VERSION = '20260622_product_code_sync1';
+const WORKFLOW_CACHE_VERSION = '20260622_status_delete1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
@@ -286,7 +287,7 @@ function getWorkflowFollowUp(order = {}) {
     if (status === 'finance_approved' || status === 'orders_staff_pending' || staffState === 'orders_staff_pending') return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'جاهزة للمعالجة / التصدير' };
     if (status === 'orders_staff_exported' || staffState === 'orders_staff_exported') return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'تم التصدير ولم تُخفَ بعد' };
     if (status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || order.hiddenByOrderStaff === true) return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'تمت الفوترة / مخفية بعد التصدير' };
-    if (status === 'deleted_by_orders_staff' || status === 'deleted_by_market_manager') return { ownerKey: 'none', owner: 'لا يوجد', detail: 'الطلبية محذوفة من مسار العمل' };
+    if (status === 'deleted_by_orders_staff' || status === 'deleted_by_market_manager' || status === 'deleted_by_supervisor' || status === 'deleted_by_reports') return { ownerKey: 'none', owner: 'لا يوجد', detail: 'الطلبية محذوفة من مسار العمل' };
     return { ownerKey: '', owner: '-', detail: statusLabel(status) };
 }
 

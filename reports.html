@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260622_status_delete1">
 
     <style>
         .dashboard-cards {
@@ -318,18 +318,21 @@
                 <h2 style="color: var(--primary);"><i class="ph ph-pencil-simple"></i> عرض وتعديل أصناف الطلبية</h2>
                 <button type="button" onclick="closeEditModal()" style="background:none; border:none; font-size:2rem; cursor:pointer; color:#ef4444;">&times;</button>
             </div>
+            <div id="duplicateOrderMeta" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; color:#0f172a; font-weight:800;"></div>
             <div id="duplicateEditContainer" class="table-responsive"></div>
-            <div style="display:flex; justify-content:space-between; margin-top:25px;">
+            <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top:25px;">
+                <button id="addModalItemBtn" class="btn-secondary"><i class="ph ph-plus-circle"></i> إضافة صنف</button>
                 <button id="saveOrderBtn" class="btn-primary"><i class="ph ph-floppy-disk"></i> حفظ التعديلات</button>
-                <button id="deleteEntireOrderBtn" class="btn-action btn-delete"><i class="ph ph-trash"></i> حذف الطلبية بالكامل</button>
+                <button id="deleteEntireOrderBtn" class="btn-action btn-delete"><i class="ph ph-trash"></i> حذف الطلبية من مسار العمل</button>
             </div>
         </div>
     </div>
 
     <script type="module">
-        import { db, collection, getDocs, doc, updateDoc, deleteDoc } from './js/firebase.js';
+        import { db, collection, getDocs, doc, updateDoc } from './js/firebase.js';
 
         let allOrders = [];
+        let productsCatalog = [];
         
         const repManagerMap = {
             "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
@@ -354,7 +357,13 @@
             setDefaultMonthFilter(); // تطبيق التواريخ الافتراضية عند التحميل
             
             try {
-                const snap = await getDocs(collection(db, "orders"));
+                const [snap, prodSnap] = await Promise.all([
+                    getDocs(collection(db, "orders")),
+                    getDocs(collection(db, "products"))
+                ]);
+                productsCatalog = [];
+                prodSnap.forEach(document => productsCatalog.push({ id: document.id, ...document.data() }));
+                productsCatalog.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
                 snap.forEach(document => {
                     let data = document.data();
                     data.id = document.id; 
@@ -503,7 +512,8 @@
                 let orderDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-GB') : '-';
                 
                 // 🟢 توحيد ترجمة الحالات
-                let statusAr = order.status === 'approved' ? 'موافق عليه' : (order.status === 'returned' ? 'مرتجع' : 'قيد الموافقة');
+                let statusMap = { approved: 'موافق عليه', returned: 'مرتجع', deleted_by_reports: 'محذوف من التقارير', deleted_by_supervisor: 'محذوف من المشرف', deleted_by_market_manager: 'محذوف من مدير السوق', orders_staff_hidden: 'تمت الفوترة', finance_approved: 'معتمد مالياً', finance_pending: 'بانتظار المالية', market_manager_pending: 'بانتظار مدير السوق', pending_supervisor_approval: 'قيد موافقة المشرف' };
+                let statusAr = statusMap[order.status] || order.status || 'قيد الموافقة';
                 let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${order.id}')"><i class="ph ph-eye"></i> الاصناف</button>`;
                 
                 allOrdersTableData.push([
@@ -645,10 +655,57 @@
 
         let currentEditingOrder = null;
 
+        function safeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        function parseReportNumber(value) {
+            const n = Number(String(value ?? '').replace(/,/g, '').replace(/[^0-9.\-]/g, ''));
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        function getReportPharmacyCode(order = {}) {
+            return order.pharmacyCode || order.pharmacy_code || order.customerCode || order.pharmacy_code_no || '';
+        }
+
+        function getReportProductByName(name = '') {
+            return productsCatalog.find(product => String(product.name || '').trim() === String(name || '').trim()) || null;
+        }
+
+        function getReportProductCode(item = {}) {
+            if (item.productCode || item.product_code || item.code) return item.productCode || item.product_code || item.code;
+            const product = getReportProductByName(item.name || '');
+            return product?.productCode || product?.product_code || product?.code || '';
+        }
+
+        function getReportProductPrice(product = {}, fallback = 0) {
+            return parseReportNumber(product.price ?? product.unitPrice ?? product.value ?? fallback);
+        }
+
+        function reportProductOptions(selectedName = '') {
+            const selected = String(selectedName || '').trim();
+            const hasSelected = selected && productsCatalog.some(product => String(product.name || '').trim() === selected);
+            const manualOption = selected && !hasSelected ? `<option value="${safeHtml(selected)}" selected>${safeHtml(selected)}</option>` : '';
+            return `<option value="">اختر الصنف</option>${manualOption}` + productsCatalog.map(product => {
+                const name = String(product.name || '').trim();
+                return `<option value="${safeHtml(name)}"${name === selected ? ' selected' : ''}>${safeHtml(name)}</option>`;
+            }).join('');
+        }
+
         window.openOrderModal = function(orderId) {
             let order = allOrders.find(o => o.id === orderId);
-            if (!order) return alert('خطا: الطلبية غير موجودة');
+            if (!order) return alert('خطأ: الطلبية غير موجودة');
             currentEditingOrder = JSON.parse(JSON.stringify(order));
+            if (!Array.isArray(currentEditingOrder.items)) currentEditingOrder.items = [];
+            const meta = document.getElementById('duplicateOrderMeta');
+            if (meta) {
+                meta.innerHTML = `
+                    <span>الصيدلية: ${safeHtml(currentEditingOrder.pharmacyName || '-')}</span>
+                    <span>كود الصيدلية: ${safeHtml(getReportPharmacyCode(currentEditingOrder) || '-')}</span>
+                    <span>المندوب: ${safeHtml(currentEditingOrder.repName || '-')}</span>
+                    <span>الإجمالي: ${parseReportNumber(currentEditingOrder.grandTotal).toFixed(2)} د.ا</span>
+                `;
+            }
             renderModalTable();
             document.getElementById('editDuplicateModal').style.display = 'flex';
         }
@@ -657,40 +714,57 @@
             document.getElementById('editDuplicateModal').style.display = 'none';
         }
 
-        // 🟢 ميزة: حساب نسبة البونص مباشرة داخل نافذة التعديل/العرض
         function recalcModalBonus(idx) {
             const qtyInp = document.querySelector(`.item-qty[data-idx="${idx}"]`);
             const bonusInp = document.querySelector(`.item-bonus[data-idx="${idx}"]`);
             const pctSpan = document.querySelector(`.modal-bonus-pct[data-idx="${idx}"]`);
-            
-            if(qtyInp && bonusInp && pctSpan) {
-                let q = parseFloat(qtyInp.value) || 0;
-                let b = parseFloat(bonusInp.value) || 0;
-                if(q > 0 && b > 0) {
-                    pctSpan.innerText = Math.round((b / q) * 100) + '% بونص';
-                } else {
-                    pctSpan.innerText = '';
-                }
-            }
+            const priceCell = document.querySelector(`.item-price[data-idx="${idx}"]`);
+            const totalCell = document.querySelector(`.item-total[data-idx="${idx}"]`);
+            let q = Math.max(0, parseReportNumber(qtyInp?.value));
+            let b = Math.max(0, parseReportNumber(bonusInp?.value));
+            let price = parseReportNumber(priceCell?.dataset.price);
+            if (qtyInp) qtyInp.value = q;
+            if (bonusInp) bonusInp.value = b;
+            if (pctSpan) pctSpan.innerText = q > 0 && b > 0 ? Math.round((b / q) * 100) + '% بونص' : '';
+            if (totalCell) totalCell.innerText = (q * price).toFixed(2);
         }
         window.recalcModalBonus = recalcModalBonus;
 
-        function renderModalTable() {
-            let html = `<table class="order-table"><thead><tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>الاجراء</th></tr></thead><tbody>`;
-            currentEditingOrder.items.forEach((item, index) => {
-                // 🟢 استخراج نسبة البونص الافتراضية
-                let qtyVal = parseFloat(item.qty) || 0;
-                let bonusVal = parseFloat(item.bonus) || 0;
-                let pctStr = (qtyVal > 0 && bonusVal > 0) ? Math.round((bonusVal / qtyVal) * 100) + '% بونص' : '';
+        window.updateModalProduct = function(idx) {
+            const select = document.querySelector(`.item-product[data-idx="${idx}"]`);
+            const codeCell = document.querySelector(`.item-code[data-idx="${idx}"]`);
+            const priceCell = document.querySelector(`.item-price[data-idx="${idx}"]`);
+            const product = getReportProductByName(select?.value || '');
+            const code = product?.productCode || product?.product_code || product?.code || '';
+            const price = getReportProductPrice(product, parseReportNumber(priceCell?.dataset.price));
+            if (codeCell) codeCell.innerText = code || '-';
+            if (priceCell) {
+                priceCell.dataset.price = String(price);
+                priceCell.innerText = price.toFixed(2);
+            }
+            recalcModalBonus(idx);
+        }
 
+        function renderModalTable() {
+            let html = `<table class="order-table"><thead><tr><th>كود المنتج</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th><th>ملاحظة</th><th>الإجراء</th></tr></thead><tbody>`;
+            currentEditingOrder.items.forEach((item, index) => {
+                let qtyVal = parseReportNumber(item.qty);
+                let bonusVal = parseReportNumber(item.bonus);
+                let priceVal = parseReportNumber(item.price);
+                const product = getReportProductByName(item.name || '');
+                if (!priceVal && product) priceVal = getReportProductPrice(product, 0);
+                let pctStr = (qtyVal > 0 && bonusVal > 0) ? Math.round((bonusVal / qtyVal) * 100) + '% بونص' : '';
                 html += `<tr>
-                    <td style="font-weight:600;">${item.name}</td>
-                    <td><input type="number" class="form-control-edit item-qty" data-idx="${index}" value="${item.qty}" min="1" oninput="recalcModalBonus(${index})"></td>
+                    <td class="item-code" data-idx="${index}">${safeHtml(getReportProductCode(item) || '-')}</td>
+                    <td><select class="form-control-edit item-product" data-idx="${index}" onchange="updateModalProduct(${index})">${reportProductOptions(item.name || '')}</select></td>
+                    <td><input type="number" class="form-control-edit item-qty" data-idx="${index}" value="${qtyVal}" min="0" oninput="recalcModalBonus(${index})"></td>
                     <td style="position:relative; text-align:center;">
-                        <input type="number" class="form-control-edit item-bonus" data-idx="${index}" value="${item.bonus || 0}" min="0" oninput="recalcModalBonus(${index})">
+                        <input type="number" class="form-control-edit item-bonus" data-idx="${index}" value="${bonusVal}" min="0" oninput="recalcModalBonus(${index})">
                         <span class="modal-bonus-pct" data-idx="${index}" style="display:block; font-size:0.75rem; color:var(--primary); font-weight:bold; margin-top:4px;">${pctStr}</span>
                     </td>
-                    <td>${parseFloat(item.price || 0).toFixed(2)}</td>
+                    <td class="item-price" data-idx="${index}" data-price="${priceVal}">${priceVal.toFixed(2)}</td>
+                    <td class="item-total" data-idx="${index}">${(qtyVal * priceVal).toFixed(2)}</td>
+                    <td><input type="text" class="form-control-edit item-note" data-idx="${index}" value="${safeHtml(item.note || '')}" placeholder="ملاحظة الصنف"></td>
                     <td><button class="btn-action btn-delete" onclick="removeRowFromModal(${index})"><i class="ph ph-trash"></i> حذف</button></td>
                 </tr>`;
             });
@@ -700,54 +774,79 @@
 
         window.removeRowFromModal = function(index) {
             if (currentEditingOrder.items.length === 1) {
-                alert("لا يمكن حذف الصنف الوحيد، قم بحذف الطلبية بالكامل بدلا من ذلك.");
+                alert("لا يمكن حذف الصنف الوحيد، قم بحذف الطلبية بالكامل بدلاً من ذلك.");
                 return;
             }
             currentEditingOrder.items.splice(index, 1);
             renderModalTable();
         }
 
+        document.getElementById('addModalItemBtn').onclick = () => {
+            if (!currentEditingOrder) return;
+            currentEditingOrder.items.push({ name: '', qty: 1, bonus: 0, price: 0, total: 0, note: '' });
+            renderModalTable();
+        };
+
         document.getElementById('saveOrderBtn').onclick = async () => {
-            document.querySelectorAll('.item-qty').forEach(inp => {
-                let idx = inp.getAttribute('data-idx');
-                let newQty = parseInt(inp.value) || 0;
-                currentEditingOrder.items[idx].qty = newQty;
-                currentEditingOrder.items[idx].total = parseFloat(currentEditingOrder.items[idx].price || 0) * newQty;
+            const updatedItems = [];
+            document.querySelectorAll('.item-product').forEach(select => {
+                const idx = select.getAttribute('data-idx');
+                const productName = select.value || '';
+                const product = getReportProductByName(productName);
+                const qty = Math.max(0, parseReportNumber(document.querySelector(`.item-qty[data-idx="${idx}"]`)?.value));
+                const bonus = Math.max(0, parseReportNumber(document.querySelector(`.item-bonus[data-idx="${idx}"]`)?.value));
+                const price = parseReportNumber(document.querySelector(`.item-price[data-idx="${idx}"]`)?.dataset.price);
+                const code = product?.productCode || product?.product_code || product?.code || document.querySelector(`.item-code[data-idx="${idx}"]`)?.innerText || '';
+                if (!productName) return;
+                updatedItems.push({
+                    ...currentEditingOrder.items[idx],
+                    name: productName,
+                    productCode: code,
+                    product_code: code,
+                    code,
+                    qty,
+                    bonus,
+                    bonusPct: qty > 0 ? Number(((bonus / qty) * 100).toFixed(2)) : 0,
+                    price,
+                    total: Number((qty * price).toFixed(3)),
+                    note: document.querySelector(`.item-note[data-idx="${idx}"]`)?.value || ''
+                });
             });
-            document.querySelectorAll('.item-bonus').forEach(inp => {
-                let idx = inp.getAttribute('data-idx');
-                currentEditingOrder.items[idx].bonus = parseInt(inp.value) || 0;
-            });
-
-            let newGrandTotal = 0;
-            currentEditingOrder.items.forEach(i => newGrandTotal += parseFloat(i.total));
-            currentEditingOrder.grandTotal = newGrandTotal;
-
+            if (updatedItems.length === 0) return alert('لا يمكن حفظ طلبية بدون أصناف.');
+            const newGrandTotal = updatedItems.reduce((sum, item) => sum + parseReportNumber(item.total), 0);
             try {
                 const orderRef = doc(db, "orders", currentEditingOrder.id);
                 await updateDoc(orderRef, {
-                    items: currentEditingOrder.items,
-                    grandTotal: newGrandTotal,
-                    updatedAt: new Date()
+                    items: updatedItems,
+                    grandTotal: Number(newGrandTotal.toFixed(3)),
+                    updatedAt: new Date(),
+                    reportsEditedAt: new Date(),
+                    reportsEditedBy: 'Reports Page'
                 });
                 alert("تم حفظ التعديلات بنجاح");
                 location.reload(); 
             } catch (error) {
                 console.error(error);
-                alert("حدث خطا اثناء الحفظ");
+                alert("حدث خطأ أثناء الحفظ");
             }
         };
 
         document.getElementById('deleteEntireOrderBtn').onclick = async () => {
-            if (!confirm("هل انت متاكد من رغبتك في حذف هذه الطلبية نهاييا؟ هذا الاجراء لا يمكن التراجع عنه.")) return;
+            if (!confirm("هل أنت متأكد من حذف هذه الطلبية من مسار العمل؟ سيتم حفظها في Firebase كطلبية محذوفة.")) return;
             try {
                 const orderRef = doc(db, "orders", currentEditingOrder.id);
-                await deleteDoc(orderRef);
-                alert("تم حذف الطلبية بنجاح");
+                await updateDoc(orderRef, {
+                    status: 'deleted_by_reports',
+                    workflowStage: 'deleted',
+                    deletedByReports: 'Reports Page',
+                    deletedAt: new Date(),
+                    updatedAt: new Date()
+                });
+                alert("تم حذف الطلبية من مسار العمل بنجاح");
                 location.reload();
             } catch (error) {
                 console.error(error);
-                alert("حدث خطا اثناء الحذف");
+                alert("حدث خطأ أثناء الحذف");
             }
         };
 

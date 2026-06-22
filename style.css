@@ -1460,7 +1460,7 @@ img, table { max-width: 100%; }
 }
 
 
-/* 20260622_product_code_sync1: market manager popup sizing + action select */
+/* 20260622_status_delete1: market manager popup sizing + action select */
 .workflow-action-select {
     min-height: 42px;
     min-width: 150px;
@@ -1646,4 +1646,101 @@ body[data-page="market-manager"] .modal-action-select {
     body[data-page="market-manager"] .workflow-modal-table {
         max-height: calc(100dvh - 300px);
     }
+}
+
+
+/* 20260622_status_unify1 - Unified workflow status colors across all pages */
+.status-badge {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: .78rem;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.status-badge.pending,
+.status-badge.pending_supervisor_approval,
+.status-badge.market_manager_pending,
+.status-badge.finance_pending,
+.status-badge.orders_staff_pending {
+    background: #fff7ed !important;
+    color: #9a3412 !important;
+    border-color: #fed7aa !important;
+}
+.status-badge.supervisor_approved,
+.status-badge.market_manager_approved,
+.status-badge.finance_approved,
+.status-badge.orders_staff_exported,
+.status-badge.orders_staff_hidden,
+.status-badge.approved {
+    background: #ecfdf5 !important;
+    color: #047857 !important;
+    border-color: #a7f3d0 !important;
+}
+.status-badge.returned,
+.status-badge.returned_to_rep,
+.status-badge.returned_to_supervisor,
+.status-badge.returned_to_market_manager,
+.status-badge.returned_to_finance {
+    background: #fffbeb !important;
+    color: #92400e !important;
+    border-color: #fde68a !important;
+}
+.status-badge.rejected,
+.status-badge.market_manager_rejected,
+.status-badge.finance_rejected,
+.status-badge.deleted_by_supervisor,
+.status-badge.deleted_by_market_manager,
+.status-badge.deleted_by_orders_staff,
+.status-badge.deleted_by_reports {
+    background: #fef2f2 !important;
+    color: #b91c1c !important;
+    border-color: #fecaca !important;
+}
+.order-table tr.row-supervisor_approved td,
+.order-table tr.row-market_manager_approved td,
+.order-table tr.row-finance_approved td,
+.order-table tr.row-approved td,
+.order-table tr.row-orders_staff_exported td,
+.order-table tr.row-orders_staff_hidden td {
+    background-color: rgba(5,150,105,.035) !important;
+}
+.order-table tr.row-pending td,
+.order-table tr.row-pending_supervisor_approval td,
+.order-table tr.row-market_manager_pending td,
+.order-table tr.row-finance_pending td,
+.order-table tr.row-orders_staff_pending td {
+    background-color: rgba(245,158,11,.035) !important;
+}
+.order-table tr.row-returned_to_rep td,
+.order-table tr.row-returned_to_supervisor td,
+.order-table tr.row-returned_to_market_manager td,
+.order-table tr.row-returned_to_finance td,
+.order-table tr.row-returned td {
+    background-color: rgba(245,158,11,.055) !important;
+}
+.order-table tr.row-rejected td,
+.order-table tr.row-market_manager_rejected td,
+.order-table tr.row-finance_rejected td,
+.order-table tr.row-deleted_by_supervisor td,
+.order-table tr.row-deleted_by_market_manager td,
+.order-table tr.row-deleted_by_orders_staff td,
+.order-table tr.row-deleted_by_reports td {
+    background-color: rgba(220,38,38,.04) !important;
+}
+.action-btn.delete-btn,
+.action-btn.delete-all-order-btn {
+    color: #dc2626;
+    background: #fff;
+    border: 1px solid rgba(220,38,38,.22);
+}
+.action-btn.delete-btn:hover,
+.action-btn.delete-all-order-btn:hover {
+    background: #fef2f2;
+    border-color: rgba(220,38,38,.45);
 }
