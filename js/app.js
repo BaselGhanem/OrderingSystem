@@ -255,6 +255,7 @@ let isAdmin = false;
 let currentManagerName = null;
 let editingOrderId = null;
 let allOrdersData = [];
+let detailsModalOrder = null;
 let currentPharmacyCode = null;
 let currentPharmaciesData = [];
 let currentMyOrdersData = [];
@@ -380,7 +381,8 @@ const WORKFLOW_STATUS_LABELS = {
     returned: 'مرتجع',
     rejected: 'مرفوض',
     deleted_by_market_manager: 'محذوف من مدير السوق',
-    deleted_by_supervisor: 'محذوف من المشرف'
+    deleted_by_supervisor: 'محذوف من المشرف',
+    deleted_by_reports: 'محذوف من التقارير'
 };
 
 function getWorkflowStatusLabel(status) {
@@ -399,7 +401,7 @@ function getOrderRejectionReason(order = {}) {
 }
 
 function isRepVisibleOrderStatus(status) {
-    const hiddenStatuses = ['deleted_by_market_manager', 'deleted_by_supervisor'];
+    const hiddenStatuses = ['deleted_by_market_manager', 'deleted_by_supervisor', 'deleted_by_reports'];
     return !hiddenStatuses.includes(status || '');
 }
 
@@ -462,6 +464,31 @@ function isOrderUnderCurrentManager(order = {}) {
     const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
     const normalizedUnder = managerReps.map(rep => rep.trim().toLowerCase());
     return normalizedUnder.includes((order.repName || '').trim().toLowerCase());
+}
+
+function isOrderWithoutAssignedSupervisor(order = {}) {
+    const repName = (order.repName || '').trim();
+    const explicitSupervisor = String(order.managerName || order.supervisorName || order.manager || order.supervisor || '').trim();
+    const mappedSupervisor = repManagerMap[repName] || '';
+    const emptyValues = ['', '-', 'غير محدد', 'غير معرف', 'غير معروف', 'بدون مشرف', 'لا يوجد'];
+    const hasExplicitSupervisor = !emptyValues.includes(explicitSupervisor);
+    const hasMappedSupervisor = !emptyValues.includes(String(mappedSupervisor).trim());
+    return !hasExplicitSupervisor && !hasMappedSupervisor;
+}
+
+function canCurrentSupervisorApproveOrder(order = {}) {
+    return isSupervisorPendingStatus(order.status) && (isOrderUnderCurrentManager(order) || isOrderWithoutAssignedSupervisor(order));
+}
+
+async function approveOrderBySupervisor(orderId, order = {}, action = 'supervisor_approved') {
+    await updateOrderWithAudit(orderId, {
+        status: "market_manager_pending",
+        workflowStage: "market_manager",
+        supervisorStatus: "supervisor_approved",
+        supervisorApprovedBy: currentManagerName || 'Supervisor',
+        supervisorApprovedAt: new Date(),
+        marketManagerStatus: "market_manager_pending"
+    }, buildAuditEntry(action, currentManagerName || 'Supervisor', 'supervisor', { status: order.status || 'pending' }, { status: 'market_manager_pending' }));
 }
 
 function softDeleteOrderBySupervisor(orderId, order = {}, action = 'supervisor_order_soft_deleted') {
@@ -895,8 +922,8 @@ async function loadInitialData() {
             repSelect.disabled = true;
         }
 
-        const CACHE_KEY = 'dad_app_cache_v3';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_v3';
+        const CACHE_KEY = 'dad_app_cache_20260622_compact_tables1';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_20260622_compact_tables1';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
         const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);
@@ -1657,14 +1684,7 @@ function renderManagerOrders(orders) {
             tr.querySelector('.return-rep-btn')?.addEventListener('click', () => supervisorReturnToRep(order.id, order));
             tr.querySelector('.approve-btn').onclick = async () => { 
                 if(confirm("هل توافق على تمرير الطلبية؟")) { 
-                    await updateOrderWithAudit(order.id, {
-                        status: "market_manager_pending",
-                        workflowStage: "market_manager",
-                        supervisorStatus: "supervisor_approved",
-                        supervisorApprovedBy: currentManagerName || 'Supervisor',
-                        supervisorApprovedAt: new Date(),
-                        marketManagerStatus: "market_manager_pending"
-                    }, buildAuditEntry('supervisor_approved', currentManagerName || 'Supervisor', 'supervisor', { status: order.status || 'pending' }, { status: 'market_manager_pending' })); 
+                    await approveOrderBySupervisor(order.id, order, 'supervisor_approved'); 
                     showToast("تم اعتماد الطلبية وتحويلها إلى مدير السوق", "success");
                 } 
             };
@@ -1703,14 +1723,7 @@ async function handleBulkAction(actionType) {
                     skipped.push(id);
                     return Promise.resolve('skipped_not_pending');
                 }
-                return updateOrderWithAudit(id, {
-                    status: "market_manager_pending",
-                    workflowStage: "market_manager",
-                    supervisorStatus: "supervisor_approved",
-                    supervisorApprovedBy: currentManagerName || 'Supervisor',
-                    supervisorApprovedAt: new Date(),
-                    marketManagerStatus: "market_manager_pending"
-                }, buildAuditEntry('supervisor_bulk_approved', currentManagerName || 'Supervisor', 'supervisor', { status: order.status || 'pending' }, { status: 'market_manager_pending' }));
+                return approveOrderBySupervisor(id, order, 'supervisor_bulk_approved');
             }
             return softDeleteOrderBySupervisor(id, order, 'supervisor_bulk_soft_delete');
         });
@@ -1771,19 +1784,27 @@ function renderAllOrders(orders) {
         tr.className = `row-${order.status}`; // 💡 تلوين شرطي
         const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
+        const canApproveFromAll = canCurrentSupervisorApproveOrder(order);
+        const unassignedBadge = isOrderWithoutAssignedSupervisor(order) ? '<small class="workflow-reason" style="color:#92400e;">بدون مشرف محدد</small>' : '';
         tr.innerHTML = `
             <td><input type="checkbox" class="all-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
             <td>${order.id.substring(0,6).toUpperCase()}</td>
             <td>${displayDate}</td>
             <td class="all-rep-col">${order.repName || '-'}</td>
-            <td class="all-pharm-col">${order.pharmacyName || '-'}</td>
+            <td class="all-pharm-col">${order.pharmacyName || '-'}${unassignedBadge}</td>
             <td>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td><span class="status-badge ${order.status}">${getWorkflowStatusLabel(order.status)}</span></td>
-            <td><button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
-                <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
+            <td><button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
+                <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
+                ${canApproveFromAll ? `<button class="action-btn approve-all-order-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}</td>
         `;
         tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'all');
         tr.querySelector('.btn-view').onclick = () => showOrderDetails(order);
+        tr.querySelector('.approve-all-order-btn')?.addEventListener('click', async () => {
+            if (!confirm('اعتماد الطلبية وتحويلها إلى مدير السوق؟')) return;
+            await approveOrderBySupervisor(order.id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_approved_unassigned_order' : 'supervisor_approved_all_orders');
+            showToast('تم اعتماد الطلبية وتحويلها إلى مدير السوق', 'success');
+        });
         tbody.appendChild(tr);
     });
     updateAllOrdersStats(orders);
@@ -1810,6 +1831,7 @@ function showOrderDetails(order) {
     const modal = getEl('detailsModal');
     const body = getEl('modalItemsBody');
     if (!modal || !body) return;
+    detailsModalOrder = order;
     body.innerHTML = '';
     const subtitle = getEl('modalPharmacySubtitle');
     if (subtitle) subtitle.innerText = `الصيدلية: ${order.pharmacyName || '-'} - المندوب: ${order.repName || '-'}${getPharmacyCodeFromOrder(order) ? ' - كود الصيدلية: ' + getPharmacyCodeFromOrder(order) : ''}`;
@@ -1853,6 +1875,42 @@ function showOrderDetails(order) {
         `;
         body.appendChild(row);
     });
+    let footer = getEl('detailsModalActions');
+    if (!footer) {
+        footer = document.createElement('div');
+        footer.id = 'detailsModalActions';
+        footer.className = 'workflow-modal-footer';
+        footer.style.marginTop = '16px';
+        footer.style.display = 'flex';
+        footer.style.justifyContent = 'space-between';
+        footer.style.gap = '10px';
+        footer.style.flexWrap = 'wrap';
+        modal.querySelector('.modal-content')?.appendChild(footer);
+    }
+    if (APP_PAGE === 'supervisor') {
+        const canApprove = canCurrentSupervisorApproveOrder(order);
+        footer.innerHTML = `
+            <button class="btn-secondary" id="detailsEditOrderBtn" type="button"><i class="ph ph-pencil"></i> تعديل الكميات / الأصناف / البونص</button>
+            ${canApprove ? `<button class="btn-success" id="detailsApproveOrderBtn" type="button"><i class="ph ph-check-circle"></i> اعتماد الطلبية</button>` : ''}
+            <button class="btn-danger" id="detailsDeleteOrderBtn" type="button"><i class="ph ph-trash"></i> حذف الطلبية</button>
+        `;
+        getEl('detailsEditOrderBtn')?.addEventListener('click', () => { modal.style.display = 'none'; openEditOrder(order.id, 'all'); });
+        getEl('detailsApproveOrderBtn')?.addEventListener('click', async () => {
+            if (!detailsModalOrder || !confirm('اعتماد الطلبية وتحويلها إلى مدير السوق؟')) return;
+            await approveOrderBySupervisor(detailsModalOrder.id, detailsModalOrder, isOrderWithoutAssignedSupervisor(detailsModalOrder) ? 'supervisor_approved_unassigned_order_from_popup' : 'supervisor_approved_from_popup');
+            showToast('تم اعتماد الطلبية وتحويلها إلى مدير السوق', 'success');
+            modal.style.display = 'none';
+        });
+        getEl('detailsDeleteOrderBtn')?.addEventListener('click', async () => {
+            if (!detailsModalOrder || !confirm('تحذير: سيتم حذف الطلبية كحذف ناعم مع حفظها في Firebase. هل تريد المتابعة؟')) return;
+            await softDeleteOrderBySupervisor(detailsModalOrder.id, detailsModalOrder, 'supervisor_soft_delete_from_popup');
+            showToast('تم حذف الطلبية من مسار العمل.', 'success');
+            modal.style.display = 'none';
+        });
+    } else {
+        footer.innerHTML = '';
+        footer.style.display = 'none';
+    }
     modal.style.display = 'flex';
 }
 
@@ -2358,28 +2416,21 @@ async function handleAllOrdersBulkAction(actionType) {
         const skipped = [];
         const promises = orderIds.map(id => {
             const order = allOrdersData.find(o => o.id === id) || {};
+            if (actionType === 'approve') {
+                if (!canCurrentSupervisorApproveOrder(order)) {
+                    skipped.push(id);
+                    return Promise.resolve('skipped_not_allowed');
+                }
+                return approveOrderBySupervisor(id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_bulk_approved_unassigned_orders' : 'supervisor_bulk_approved_all_orders');
+            }
             if (!isOrderUnderCurrentManager(order)) {
                 skipped.push(id);
                 return Promise.resolve('skipped_not_under_manager');
             }
-            if (actionType === 'approve') {
-                if (!isSupervisorPendingStatus(order.status)) {
-                    skipped.push(id);
-                    return Promise.resolve('skipped_not_pending');
-                }
-                return updateOrderWithAudit(id, {
-                    status: "market_manager_pending",
-                    workflowStage: "market_manager",
-                    supervisorStatus: "supervisor_approved",
-                    supervisorApprovedBy: currentManagerName || 'Supervisor',
-                    supervisorApprovedAt: new Date(),
-                    marketManagerStatus: "market_manager_pending"
-                }, buildAuditEntry('supervisor_bulk_approved_all_orders', currentManagerName || 'Supervisor', 'supervisor', { status: order.status || 'pending' }, { status: 'market_manager_pending' }));
-            }
             return softDeleteOrderBySupervisor(id, order, 'supervisor_bulk_soft_delete_all_orders');
         });
         await Promise.all(promises);
-        showToast(skipped.length ? `تم تنفيذ الأمر على طلبيات فريقك فقط. تم تجاوز ${skipped.length} طلبية خارج فريقك.` : "تم تنفيذ الأمر بنجاح", skipped.length ? "warning" : "success");
+        showToast(skipped.length ? `تم تنفيذ الأمر على الطلبيات المسموحة فقط. تم تجاوز ${skipped.length} طلبية.` : "تم تنفيذ الأمر بنجاح", skipped.length ? "warning" : "success");
         if(getEl('selectAllAllOrders')) getEl('selectAllAllOrders').checked = false;
     } catch (error) { showToast("حدث خطأ أثناء التنفيذ الشامل", "error"); }
 }
@@ -2387,7 +2438,7 @@ async function handleAllOrdersBulkAction(actionType) {
 getEl('bulkApproveAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('approve'));
 getEl('bulkDeleteAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('delete'));
 
-window.closeModal = () => { const modal = getEl('detailsModal'); if (modal) modal.style.display = 'none'; };
+window.closeModal = () => { const modal = getEl('detailsModal'); if (modal) modal.style.display = 'none'; detailsModalOrder = null; };
 
 // تشغيل التحميل المبدئي
 loadInitialData();

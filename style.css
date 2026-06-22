@@ -1361,7 +1361,7 @@ img, table { max-width: 100%; }
 .finance-workflow-table { min-width: 1260px; }
 
 
-/* 20260622_navigation_fix1: Orders staff tabs + no-wrap follow-up grid */
+/* 20260622_compact_tables1: Orders staff tabs + no-wrap follow-up grid */
 .orders-staff-tabs {
     display: flex;
     flex-wrap: wrap;
@@ -1416,4 +1416,45 @@ img, table { max-width: 100%; }
     .orders-staff-tabs { display: grid; grid-template-columns: 1fr; }
     .orders-staff-tab { width: 100%; }
     .staff-followup-table { min-width: 2100px; }
+}
+
+/* 20260622_compact_tables1: compact workflow tables + editable item popup */
+.staff-followup-table {
+    min-width: 1280px !important;
+    width: 100%;
+    table-layout: auto;
+}
+.workflow-table .workflow-product-select,
+.workflow-modal-table .workflow-product-select,
+.workflow-item-note-input {
+    width: 100%;
+    min-width: 220px;
+    border: 1px solid rgba(11, 63, 90, .18);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-family: inherit;
+    background: #fff;
+    color: #0f172a;
+    font-weight: 700;
+}
+.workflow-item-note-input { min-width: 180px; font-weight: 600; }
+.workflow-modal-table .order-table { min-width: 1120px; }
+.workflow-modal-table input[type="number"] {
+    min-width: 82px;
+    border: 1px solid rgba(11, 63, 90, .18);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-family: inherit;
+    text-align: center;
+    font-weight: 800;
+}
+.workflow-actions-cell .duplicate-eye { min-width: 42px; }
+@media (max-width: 768px) {
+    .staff-followup-table { min-width: 1180px !important; }
+    .workflow-modal-table .order-table { min-width: 1080px; }
+}
+.status-badge.deleted_by_reports {
+    background: rgba(220, 38, 38, .10);
+    color: #b91c1c;
+    border: 1px solid rgba(220, 38, 38, .30);
 }

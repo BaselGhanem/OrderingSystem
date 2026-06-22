@@ -25,7 +25,8 @@ const STATUS_LABELS = {
     approved: 'موافق عليه',
     returned: 'مرتجع',
     rejected: 'مرفوض',
-    deleted_by_market_manager: 'محذوف من مدير السوق'
+    deleted_by_market_manager: 'محذوف من مدير السوق',
+    deleted_by_reports: 'محذوف من التقارير'
 };
 
 const state = {
@@ -44,7 +45,7 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
-const WORKFLOW_CACHE_VERSION = '20260622_navigation_fix1';
+const WORKFLOW_CACHE_VERSION = '20260622_compact_tables1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
@@ -153,7 +154,8 @@ function writeProductsCache(products) {
         name: product.name || '',
         productCode: product.productCode || product.product_code || product.code || '',
         product_code: product.product_code || '',
-        code: product.code || ''
+        code: product.code || '',
+        price: product.price ?? product.unitPrice ?? product.value ?? 0
     }));
     try {
         localStorage.setItem(`dad_products_${WORKFLOW_CACHE_VERSION}`, JSON.stringify({ savedAt: Date.now(), products: compact }));
@@ -296,6 +298,51 @@ function getItemProductCode(item = {}) {
     if (item.productCode || item.product_code || item.code) return item.productCode || item.product_code || item.code;
     const product = state.productsByName.get(item.name || '');
     return product?.productCode || product?.product_code || product?.code || '';
+}
+
+function productCatalog() {
+    return Array.from(state.productsByName.values()).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
+}
+
+function getProductByName(name = '') {
+    return state.productsByName.get(String(name || '').trim()) || null;
+}
+
+function getProductPrice(product = {}, fallback = 0) {
+    return parseNumber(product.price ?? product.unitPrice ?? product.value ?? fallback);
+}
+
+function productOptionsHtml(selectedName = '') {
+    const products = productCatalog();
+    const selected = String(selectedName || '').trim();
+    const hasSelected = selected && products.some(product => String(product.name || '').trim() === selected);
+    const options = products.map(product => {
+        const name = String(product.name || '').trim();
+        const selectedAttr = name === selected ? ' selected' : '';
+        return `<option value="${escapeHtml(name)}"${selectedAttr}>${escapeHtml(name)}</option>`;
+    }).join('');
+    const manualOption = selected && !hasSelected ? `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>` : '';
+    return `<option value="">اختر الصنف</option>${manualOption}${options}`;
+}
+
+function itemCountLabel(order = {}) {
+    const count = Array.isArray(order.items) ? order.items.length : 0;
+    if (!count) return '0';
+    return `${count} صنف`;
+}
+
+function buildOrderSummaryRowActions(kind = 'staff') {
+    if (kind === 'market') {
+        return `<button class="action-btn view-btn" type="button" title="عرض وتعديل"><i class="ph ph-eye"></i> عرض</button>
+                <button class="action-btn approve-btn" type="button" title="اعتماد"><i class="ph ph-check-circle"></i></button>
+                <button class="action-btn reject-btn" type="button" title="رفض"><i class="ph ph-x-circle"></i></button>
+                <button class="action-btn return-rep-btn" type="button" title="إرجاع للمندوب"><i class="ph ph-arrow-u-down-right"></i></button>
+                <button class="action-btn return-supervisor-btn" type="button" title="إرجاع للمشرف"><i class="ph ph-arrow-u-down-left"></i></button>
+                <button class="action-btn danger-btn delete-btn" type="button" title="حذف"><i class="ph ph-trash"></i></button>`;
+    }
+    return `<button class="action-btn staff-edit-btn" type="button" title="عرض وتعديل"><i class="ph ph-eye"></i> عرض</button>
+            <button class="action-btn staff-return-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع</button>
+            <button class="action-btn danger-btn staff-delete-btn" type="button"><i class="ph ph-trash"></i> حذف</button>`;
 }
 
 function getBonusPct(item = {}) {
@@ -491,7 +538,7 @@ function subscribeOrders(onChange) {
         showDataModeNotice('تم عرض نسخة مخزنة محليًا، ويتم تحديثها الآن من Firebase.');
         onChange();
     } else {
-        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 10] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 8] : ['ordersStaffBody', 19];
+        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 9] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 8] : ['ordersStaffBody', 12];
         setLoadingRow(target[0], target[1]);
     }
     refreshOrdersFromFirebase();
@@ -608,45 +655,68 @@ async function returnOrderStep(orderId, target, reason, actor, role, action) {
 }
 
 
+function buildWorkflowItemRow(item = {}, index = 0, prefix = 'mm') {
+    const calc = calculateItem(item);
+    return `
+        <tr data-index="${index}">
+            <td>${index + 1}</td>
+            <td class="${prefix}-code-cell" data-original-code="${escapeHtml(getItemProductCode(calc) || '')}">${escapeHtml(getItemProductCode(calc) || '-')}</td>
+            <td class="item-name-cell">
+                <select class="${prefix}-product workflow-product-select">
+                    ${productOptionsHtml(calc.name || '')}
+                </select>
+            </td>
+            <td><input class="${prefix}-qty" type="number" min="0" step="1" value="${calc.qty}"></td>
+            <td><input class="${prefix}-bonus" type="number" min="0" step="1" value="${calc.bonus}"></td>
+            <td><input class="${prefix}-bonus-pct" type="number" min="0" step="0.01" value="${calc.bonusPct}"></td>
+            <td class="${prefix}-price" data-price="${calc.price}">${formatMoney(calc.price)}</td>
+            <td class="${prefix}-subtotal">${formatMoney(calc.total)}</td>
+            <td><input class="${prefix}-note workflow-item-note-input" type="text" value="${escapeHtml(calc.note || '')}" placeholder="ملاحظة الصنف"></td>
+            <td><button class="action-btn ${prefix === 'mm' ? 'workflow-delete-item' : 'staff-delete-item'}" type="button" title="حذف الصنف"><i class="ph ph-trash"></i></button></td>
+        </tr>
+    `;
+}
+
 function fullOrderRows(order) {
     const items = Array.isArray(order.items) ? order.items : [];
-    return items.map((item, index) => {
-        const calc = calculateItem(item);
-        return `
-            <tr data-index="${index}">
-                <td>${index + 1}</td>
-                <td>${escapeHtml(getItemProductCode(calc) || '-')}</td>
-                <td class="item-name-cell" title="${escapeHtml(calc.name || '-')}">${escapeHtml(calc.name || '-')}</td>
-                <td><input class="mm-qty" type="number" min="0" step="1" value="${calc.qty}"></td>
-                <td><input class="mm-bonus" type="number" min="0" step="1" value="${calc.bonus}"></td>
-                <td><input class="mm-bonus-pct" type="number" min="0" step="0.01" value="${calc.bonusPct}"></td>
-                <td class="mm-price" data-price="${calc.price}">${formatMoney(calc.price)}</td>
-                <td class="mm-subtotal">${formatMoney(calc.total)}</td>
-                <td class="workflow-note-cell" title="${escapeHtml(calc.note || '-')}">${escapeHtml(calc.note || '-')}</td>
-                <td><button class="action-btn workflow-delete-item" type="button" title="حذف الصنف"><i class="ph ph-trash"></i></button></td>
-            </tr>
-        `;
-    }).join('');
+    return items.map((item, index) => buildWorkflowItemRow(item, index, 'mm')).join('');
+}
+
+function updateMarketRowProduct(row) {
+    const select = row.querySelector('.mm-product');
+    const selectedName = select?.value || '';
+    const product = getProductByName(selectedName);
+    const codeCell = row.querySelector('.mm-code-cell');
+    const fallbackCode = codeCell?.dataset.originalCode || (codeCell?.textContent === '-' ? '' : codeCell?.textContent) || '';
+    const code = product?.productCode || product?.product_code || product?.code || fallbackCode;
+    const price = getProductPrice(product, parseNumber(row.querySelector('.mm-price')?.dataset.price));
+    const priceCell = row.querySelector('.mm-price');
+    if (codeCell) codeCell.textContent = code || '-';
+    if (priceCell) {
+        priceCell.dataset.price = String(price);
+        priceCell.textContent = formatMoney(price);
+    }
 }
 
 function recalcMarketRow(row, source = '') {
+    updateMarketRowProduct(row);
     const qtyInput = row.querySelector('.mm-qty');
     const bonusInput = row.querySelector('.mm-bonus');
     const pctInput = row.querySelector('.mm-bonus-pct');
     const price = parseNumber(row.querySelector('.mm-price')?.dataset.price);
-    let qty = Math.max(0, parseNumber(qtyInput.value));
-    let bonus = Math.max(0, parseNumber(bonusInput.value));
-    let pct = Math.max(0, parseNumber(pctInput.value));
+    let qty = Math.max(0, parseNumber(qtyInput?.value));
+    let bonus = Math.max(0, parseNumber(bonusInput?.value));
+    let pct = Math.max(0, parseNumber(pctInput?.value));
 
     if (source === 'pct') {
         bonus = qty > 0 ? Math.round((qty * pct) / 100) : 0;
-        bonusInput.value = bonus;
+        if (bonusInput) bonusInput.value = bonus;
     } else {
         pct = qty > 0 ? Number(((bonus / qty) * 100).toFixed(2)) : 0;
-        pctInput.value = pct;
+        if (pctInput) pctInput.value = pct;
     }
 
-    qtyInput.value = qty;
+    if (qtyInput) qtyInput.value = qty;
     const subtotal = qty * price;
     row.querySelector('.mm-subtotal').textContent = formatMoney(subtotal);
     updateMarketModalTotal();
@@ -655,9 +725,34 @@ function recalcMarketRow(row, source = '') {
 function updateMarketModalTotal() {
     let total = 0;
     document.querySelectorAll('#marketOrderItemsBody tr').forEach(row => {
-        total += parseNumber(row.querySelector('.mm-subtotal')?.textContent);
+        if (row.dataset.deleted !== '1') total += parseNumber(row.querySelector('.mm-subtotal')?.textContent);
     });
     if ($('marketModalGrandTotal')) $('marketModalGrandTotal').textContent = `${formatMoney(total)} د.ا`;
+}
+
+function bindMarketItemRow(row) {
+    row.querySelector('.mm-product')?.addEventListener('change', () => recalcMarketRow(row, 'product'));
+    row.querySelector('.mm-qty')?.addEventListener('input', () => recalcMarketRow(row, 'qty'));
+    row.querySelector('.mm-bonus')?.addEventListener('input', () => recalcMarketRow(row, 'bonus'));
+    row.querySelector('.mm-bonus-pct')?.addEventListener('input', () => recalcMarketRow(row, 'pct'));
+    row.querySelector('.workflow-delete-item')?.addEventListener('click', () => {
+        if (!confirm('هل أنت متأكد من حذف هذا الصنف من الطلبية؟ سيتم تسجيل العملية في سجل التدقيق.')) return;
+        row.dataset.deleted = '1';
+        row.style.display = 'none';
+        updateMarketModalTotal();
+    });
+    recalcMarketRow(row);
+}
+
+function addMarketItemRow(item = {}) {
+    const body = $('marketOrderItemsBody');
+    if (!body) return;
+    const empty = body.querySelector('td[colspan]')?.closest('tr');
+    if (empty) empty.remove();
+    const index = body.querySelectorAll('tr').length;
+    body.insertAdjacentHTML('beforeend', buildWorkflowItemRow({ qty: 1, bonus: 0, ...item }, index, 'mm'));
+    bindMarketItemRow(body.lastElementChild);
+    updateMarketModalTotal();
 }
 
 function openMarketOrderModal(order) {
@@ -671,18 +766,7 @@ function openMarketOrderModal(order) {
     `;
     $('marketOrderNote').textContent = getOrderNote(order) || 'لا توجد ملاحظات.';
     $('marketOrderItemsBody').innerHTML = fullOrderRows(order) || `<tr><td colspan="10">لا توجد أصناف.</td></tr>`;
-    document.querySelectorAll('#marketOrderItemsBody tr').forEach(row => {
-        row.querySelector('.mm-qty')?.addEventListener('input', () => recalcMarketRow(row, 'qty'));
-        row.querySelector('.mm-bonus')?.addEventListener('input', () => recalcMarketRow(row, 'bonus'));
-        row.querySelector('.mm-bonus-pct')?.addEventListener('input', () => recalcMarketRow(row, 'pct'));
-        row.querySelector('.workflow-delete-item')?.addEventListener('click', () => {
-            if (!confirm('هل أنت متأكد من حذف هذا الصنف من الطلبية؟ سيتم تسجيل العملية في سجل التدقيق.')) return;
-            row.dataset.deleted = '1';
-            row.style.display = 'none';
-            updateMarketModalTotal();
-        });
-        recalcMarketRow(row);
-    });
+    document.querySelectorAll('#marketOrderItemsBody tr').forEach(bindMarketItemRow);
     $('marketOrderModal').style.display = 'flex';
 }
 
@@ -705,14 +789,21 @@ function collectMarketModalItems() {
         const qty = Math.max(0, parseNumber(row.querySelector('.mm-qty')?.value));
         const bonus = Math.max(0, parseNumber(row.querySelector('.mm-bonus')?.value));
         const price = parseNumber(row.querySelector('.mm-price')?.dataset.price);
+        const productName = row.querySelector('.mm-product')?.value || original.name || '';
+        const product = getProductByName(productName);
+        const productCode = product?.productCode || product?.product_code || product?.code || row.querySelector('.mm-code-cell')?.textContent || getItemProductCode(original);
         kept.push(calculateItem({
             ...original,
+            name: productName,
             qty,
             bonus,
             bonusPct: qty > 0 ? Number(((bonus / qty) * 100).toFixed(2)) : 0,
             price,
             total: qty * price,
-            productCode: getItemProductCode(original)
+            note: row.querySelector('.mm-note')?.value || '',
+            productCode,
+            product_code: productCode,
+            code: productCode
         }));
     });
     return { kept, deleted, grandTotal: calculateGrandTotal(kept) };
@@ -813,7 +904,7 @@ function renderMarketOrders() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) return setTableEmpty('marketOrdersBody', 10, 'لا توجد طلبيات بانتظار مدير السوق');
+    if (state.visibleOrders.length === 0) return setTableEmpty('marketOrdersBody', 9, 'لا توجد طلبيات بانتظار مدير السوق');
 
     const renderChunk = async (startIndex = 0) => {
         if (token !== state.renderToken) return;
@@ -825,20 +916,12 @@ function renderMarketOrders() {
                 <td><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
                 <td>${escapeHtml(formatDateTime(order.createdAt))}</td>
                 <td>${escapeHtml(order.repName || '-')}</td>
-                <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
-                <td>${escapeHtml(order.pharmacyName || '-')}</td>
-                <td>${buildItemsPreview(order)}</td>
+                <td class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
+                <td><button class="action-btn view-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
                 <td>${formatMoney(order.grandTotal)} د.ا</td>
-                <td><span class="status-badge ${order.status}">${statusLabel(order.status)}</span></td>
-                <td>${escapeHtml(getOrderNote(order) || '-')}</td>
-                <td class="workflow-actions-cell">
-                    <button class="action-btn view-btn" type="button" title="عرض وتعديل"><i class="ph ph-eye"></i></button>
-                    <button class="action-btn approve-btn" type="button" title="اعتماد"><i class="ph ph-check-circle"></i></button>
-                    <button class="action-btn reject-btn" type="button" title="رفض"><i class="ph ph-x-circle"></i></button>
-                    <button class="action-btn return-rep-btn" type="button" title="إرجاع للمندوب"><i class="ph ph-arrow-u-down-right"></i></button>
-                    <button class="action-btn return-supervisor-btn" type="button" title="إرجاع للمشرف"><i class="ph ph-arrow-u-down-left"></i></button>
-                    <button class="action-btn danger-btn delete-btn" type="button" title="حذف"><i class="ph ph-trash"></i></button>
-                </td>
+                <td><span class="status-badge ${escapeHtml(order.status || '')}">${escapeHtml(statusLabel(order.status))}</span></td>
+                <td class="workflow-note-cell" title="${escapeHtml(getOrderNote(order) || '-')}">${escapeHtml(getOrderNote(order) || '-')}</td>
+                <td class="workflow-actions-cell">${buildOrderSummaryRowActions('market')}</td>
             `;
             tr.querySelector('.view-btn').onclick = () => openMarketOrderModal(order);
             tr.querySelector('.approve-btn').onclick = () => confirm('اعتماد الطلبية وتحويلها إلى المالية؟') && marketApprove(order.id);
@@ -896,6 +979,7 @@ function initMarketManager() {
     $('bulkApproveBtn')?.addEventListener('click', () => marketBulk('approve'));
     $('bulkRejectBtn')?.addEventListener('click', () => marketBulk('reject'));
     $('closeMarketModalBtn')?.addEventListener('click', closeMarketOrderModal);
+    $('addMarketItemBtn')?.addEventListener('click', () => addMarketItemRow());
     $('saveMarketEditsBtn')?.addEventListener('click', saveMarketEdits);
     $('approveMarketModalBtn')?.addEventListener('click', approveSelectedMarketOrderFromModal);
     $('rejectMarketModalBtn')?.addEventListener('click', () => {
@@ -1132,54 +1216,44 @@ function renderOrdersStaffRows() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) return setTableEmpty('ordersStaffBody', 19, 'لا توجد طلبيات ضمن الفلاتر الحالية');
+    if (state.visibleOrders.length === 0) return setTableEmpty('ordersStaffBody', 12, 'لا توجد طلبيات ضمن الفلاتر الحالية');
 
     const renderChunk = async (startIndex = 0) => {
         if (token !== state.renderToken) return;
         const fragment = document.createDocumentFragment();
-        const chunk = state.visibleOrders.slice(startIndex, startIndex + 25);
+        const chunk = state.visibleOrders.slice(startIndex, startIndex + 50);
         chunk.forEach(order => {
-            const items = Array.isArray(order.items) && order.items.length ? order.items : [{}];
-            items.forEach((item, index) => {
-                const calc = calculateItem(item);
-                const tr = document.createElement('tr');
-                const followUp = getWorkflowFollowUp(order);
-                tr.innerHTML = `
-                    <td>${index === 0 ? `<input class="workflow-order-checkbox" type="checkbox" value="${order.id}">` : ''}</td>
-                    <td class="staff-date-cell">${index === 0 ? escapeHtml(formatDateTime(order.createdAt)) : ''}</td>
-                    <td>${index === 0 ? escapeHtml(getPharmacyCode(order) || '-') : ''}</td>
-                    <td class="staff-pharmacy-cell" title="${index === 0 ? escapeHtml(order.pharmacyName || '-') : ''}">${index === 0 ? escapeHtml(order.pharmacyName || '-') : ''}</td>
-                    <td class="staff-rep-cell" title="${index === 0 ? escapeHtml(order.repName || order.representativeName || '-') : ''}">${index === 0 ? escapeHtml(order.repName || order.representativeName || '-') : ''}</td>
-                    <td>${index === 0 ? `<span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span>` : ''}</td>
-                    <td>${index === 0 ? escapeHtml(followUp.owner || '-') : ''}</td>
-                    <td class="workflow-note-cell" title="${index === 0 ? escapeHtml(followUp.detail || '-') : ''}">${index === 0 ? escapeHtml(followUp.detail || '-') : ''}</td>
-                    <td>${escapeHtml(getItemProductCode(calc) || '-')}</td>
-                    <td class="item-name-cell" title="${escapeHtml(calc.name || '-')}">${escapeHtml(calc.name || '-')}</td>
-                    <td>${calc.qty}</td>
-                    <td>${calc.bonus}</td>
-                    <td>${calc.bonusPct}%</td>
-                    <td>${formatMoney(calc.total)}</td>
-                    <td>${index === 0 ? formatMoney(order.grandTotal) : ''}</td>
-                    <td class="workflow-note-cell" title="${escapeHtml(calc.note || '-')}">${escapeHtml(calc.note || '-')}</td>
-                    <td class="workflow-note-cell" title="${index === 0 ? escapeHtml(getOrderNote(order) || '-') : ''}">${index === 0 ? escapeHtml(getOrderNote(order) || '-') : ''}</td>
-                    <td class="workflow-note-cell" title="${index === 0 ? escapeHtml(order.returnReason || '-') : ''}">${index === 0 ? escapeHtml(order.returnReason || '-') : ''}</td>
-                    <td class="workflow-actions-cell">${index === 0 ? `<button class="action-btn staff-edit-btn" type="button"><i class="ph ph-pencil"></i> تعديل</button><button class="action-btn staff-return-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع</button><button class="action-btn danger-btn staff-delete-btn" type="button"><i class="ph ph-trash"></i> حذف</button>` : ''}</td>
-                `;
-                if (index === 0) {
-                    tr.querySelector('.staff-edit-btn')?.addEventListener('click', () => openStaffOrderModal(order));
-                    tr.querySelector('.staff-return-btn')?.addEventListener('click', () => {
-                        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
-                        if (reason !== null) staffReturnToFinance(order.id, reason);
-                    });
-                    tr.querySelector('.staff-delete-btn')?.addEventListener('click', () => staffDeleteOrder(order.id));
-                }
-                fragment.appendChild(tr);
+            const followUp = getWorkflowFollowUp(order);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
+                <td class="staff-date-cell">${escapeHtml(formatDateTime(order.createdAt))}</td>
+                <td class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
+                <td class="staff-rep-cell" title="${escapeHtml(order.repName || order.representativeName || '-')}">${escapeHtml(order.repName || order.representativeName || '-')}</td>
+                <td><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span></td>
+                <td>${escapeHtml(followUp.owner || '-')}</td>
+                <td class="workflow-note-cell" title="${escapeHtml(followUp.detail || '-')}">${escapeHtml(followUp.detail || '-')}</td>
+                <td><button class="action-btn staff-edit-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
+                <td>${formatMoney(order.grandTotal)} د.ا</td>
+                <td class="workflow-note-cell" title="${escapeHtml(getOrderNote(order) || '-')}">${escapeHtml(getOrderNote(order) || '-')}</td>
+                <td class="workflow-note-cell" title="${escapeHtml(order.returnReason || '-')}">${escapeHtml(order.returnReason || '-')}</td>
+                <td class="workflow-actions-cell">
+                    <button class="action-btn staff-return-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع</button>
+                    <button class="action-btn danger-btn staff-delete-btn" type="button"><i class="ph ph-trash"></i> حذف</button>
+                </td>
+            `;
+            tr.querySelectorAll('.staff-edit-btn').forEach(btn => btn.addEventListener('click', () => openStaffOrderModal(order)));
+            tr.querySelector('.staff-return-btn')?.addEventListener('click', () => {
+                const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
+                if (reason !== null) staffReturnToFinance(order.id, reason);
             });
+            tr.querySelector('.staff-delete-btn')?.addEventListener('click', () => staffDeleteOrder(order.id));
+            fragment.appendChild(tr);
         });
         body.appendChild(fragment);
-        if (startIndex + 25 < state.visibleOrders.length) {
+        if (startIndex + 50 < state.visibleOrders.length) {
             await nextFrame();
-            renderChunk(startIndex + 25);
+            renderChunk(startIndex + 50);
         }
     };
     renderChunk();
@@ -1187,23 +1261,7 @@ function renderOrdersStaffRows() {
 
 function fullStaffOrderRows(order) {
     const items = Array.isArray(order.items) ? order.items : [];
-    return items.map((item, index) => {
-        const calc = calculateItem(item);
-        return `
-            <tr data-index="${index}">
-                <td>${index + 1}</td>
-                <td>${escapeHtml(getItemProductCode(calc) || '-')}</td>
-                <td class="item-name-cell" title="${escapeHtml(calc.name || '-')}">${escapeHtml(calc.name || '-')}</td>
-                <td><input class="staff-qty" type="number" min="0" step="1" value="${calc.qty}"></td>
-                <td><input class="staff-bonus" type="number" min="0" step="1" value="${calc.bonus}"></td>
-                <td><input class="staff-bonus-pct" type="number" min="0" step="0.01" value="${calc.bonusPct}"></td>
-                <td class="staff-price" data-price="${calc.price}">${formatMoney(calc.price)}</td>
-                <td class="staff-subtotal">${formatMoney(calc.total)}</td>
-                <td class="workflow-note-cell" title="${escapeHtml(calc.note || '-')}">${escapeHtml(calc.note || '-')}</td>
-                <td><button class="action-btn staff-delete-item" type="button" title="حذف الصنف"><i class="ph ph-trash"></i></button></td>
-            </tr>
-        `;
-    }).join('');
+    return items.map((item, index) => buildWorkflowItemRow(item, index, 'staff')).join('');
 }
 
 function updateStaffModalTotal() {
@@ -1214,23 +1272,65 @@ function updateStaffModalTotal() {
     if ($('staffModalGrandTotal')) $('staffModalGrandTotal').textContent = `${formatMoney(total)} د.ا`;
 }
 
+function updateStaffRowProduct(row) {
+    const select = row.querySelector('.staff-product');
+    const selectedName = select?.value || '';
+    const product = getProductByName(selectedName);
+    const codeCell = row.querySelector('.staff-code-cell');
+    const fallbackCode = codeCell?.dataset.originalCode || (codeCell?.textContent === '-' ? '' : codeCell?.textContent) || '';
+    const code = product?.productCode || product?.product_code || product?.code || fallbackCode;
+    const price = getProductPrice(product, parseNumber(row.querySelector('.staff-price')?.dataset.price));
+    const priceCell = row.querySelector('.staff-price');
+    if (codeCell) codeCell.textContent = code || '-';
+    if (priceCell) {
+        priceCell.dataset.price = String(price);
+        priceCell.textContent = formatMoney(price);
+    }
+}
+
 function recalcStaffRow(row, source = '') {
+    updateStaffRowProduct(row);
     const qtyInput = row.querySelector('.staff-qty');
     const bonusInput = row.querySelector('.staff-bonus');
     const pctInput = row.querySelector('.staff-bonus-pct');
     const price = parseNumber(row.querySelector('.staff-price')?.dataset.price);
-    let qty = Math.max(0, parseNumber(qtyInput.value));
-    let bonus = Math.max(0, parseNumber(bonusInput.value));
-    let pct = Math.max(0, parseNumber(pctInput.value));
+    let qty = Math.max(0, parseNumber(qtyInput?.value));
+    let bonus = Math.max(0, parseNumber(bonusInput?.value));
+    let pct = Math.max(0, parseNumber(pctInput?.value));
     if (source === 'pct') {
         bonus = qty > 0 ? Math.round((qty * pct) / 100) : 0;
-        bonusInput.value = bonus;
+        if (bonusInput) bonusInput.value = bonus;
     } else {
         pct = qty > 0 ? Number(((bonus / qty) * 100).toFixed(2)) : 0;
-        pctInput.value = pct;
+        if (pctInput) pctInput.value = pct;
     }
-    qtyInput.value = qty;
+    if (qtyInput) qtyInput.value = qty;
     row.querySelector('.staff-subtotal').textContent = formatMoney(qty * price);
+    updateStaffModalTotal();
+}
+
+function bindStaffItemRow(row) {
+    row.querySelector('.staff-product')?.addEventListener('change', () => recalcStaffRow(row, 'product'));
+    row.querySelector('.staff-qty')?.addEventListener('input', () => recalcStaffRow(row, 'qty'));
+    row.querySelector('.staff-bonus')?.addEventListener('input', () => recalcStaffRow(row, 'bonus'));
+    row.querySelector('.staff-bonus-pct')?.addEventListener('input', () => recalcStaffRow(row, 'pct'));
+    row.querySelector('.staff-delete-item')?.addEventListener('click', () => {
+        if (!confirm('هل أنت متأكد من حذف هذا الصنف من الطلبية؟')) return;
+        row.dataset.deleted = '1';
+        row.style.display = 'none';
+        updateStaffModalTotal();
+    });
+    recalcStaffRow(row);
+}
+
+function addStaffItemRow(item = {}) {
+    const body = $('staffOrderItemsBody');
+    if (!body) return;
+    const empty = body.querySelector('td[colspan]')?.closest('tr');
+    if (empty) empty.remove();
+    const index = body.querySelectorAll('tr').length;
+    body.insertAdjacentHTML('beforeend', buildWorkflowItemRow({ qty: 1, bonus: 0, ...item }, index, 'staff'));
+    bindStaffItemRow(body.lastElementChild);
     updateStaffModalTotal();
 }
 
@@ -1244,18 +1344,7 @@ function openStaffOrderModal(order) {
     `;
     $('staffOrderNote').textContent = getOrderNote(order) || 'لا توجد ملاحظات.';
     $('staffOrderItemsBody').innerHTML = fullStaffOrderRows(order) || `<tr><td colspan="10">لا توجد أصناف.</td></tr>`;
-    document.querySelectorAll('#staffOrderItemsBody tr').forEach(row => {
-        row.querySelector('.staff-qty')?.addEventListener('input', () => recalcStaffRow(row, 'qty'));
-        row.querySelector('.staff-bonus')?.addEventListener('input', () => recalcStaffRow(row, 'bonus'));
-        row.querySelector('.staff-bonus-pct')?.addEventListener('input', () => recalcStaffRow(row, 'pct'));
-        row.querySelector('.staff-delete-item')?.addEventListener('click', () => {
-            if (!confirm('هل أنت متأكد من حذف هذا الصنف من الطلبية؟')) return;
-            row.dataset.deleted = '1';
-            row.style.display = 'none';
-            updateStaffModalTotal();
-        });
-        recalcStaffRow(row);
-    });
+    document.querySelectorAll('#staffOrderItemsBody tr').forEach(bindStaffItemRow);
     $('staffOrderModal').style.display = 'flex';
 }
 
@@ -1278,14 +1367,21 @@ function collectStaffModalItems() {
         const qty = Math.max(0, parseNumber(row.querySelector('.staff-qty')?.value));
         const bonus = Math.max(0, parseNumber(row.querySelector('.staff-bonus')?.value));
         const price = parseNumber(row.querySelector('.staff-price')?.dataset.price);
+        const productName = row.querySelector('.staff-product')?.value || original.name || '';
+        const product = getProductByName(productName);
+        const productCode = product?.productCode || product?.product_code || product?.code || row.querySelector('.staff-code-cell')?.textContent || getItemProductCode(original);
         kept.push(calculateItem({
             ...original,
+            name: productName,
             qty,
             bonus,
             bonusPct: qty > 0 ? Number(((bonus / qty) * 100).toFixed(2)) : 0,
             price,
             total: qty * price,
-            productCode: getItemProductCode(original)
+            note: row.querySelector('.staff-note')?.value || '',
+            productCode,
+            product_code: productCode,
+            code: productCode
         }));
     });
     return { kept, deleted, grandTotal: calculateGrandTotal(kept) };
@@ -1405,6 +1501,7 @@ function initOrdersStaff() {
     $('exportSelectedBtn')?.addEventListener('click', () => exportOrders(getOrdersByIds(selectedIds())));
     $('exportVisibleBtn')?.addEventListener('click', () => exportOrders(state.visibleOrders));
     $('closeStaffModalBtn')?.addEventListener('click', closeStaffOrderModal);
+    $('addStaffItemBtn')?.addEventListener('click', () => addStaffItemRow());
     $('saveStaffEditsBtn')?.addEventListener('click', () => saveStaffEdits());
     $('returnStaffToFinanceBtn')?.addEventListener('click', () => {
         if (!state.selectedOrder) return;
