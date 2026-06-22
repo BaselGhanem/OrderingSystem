@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <link rel="icon" href="favicon.ico?v=20260622_settings_bulk_products1">
+    <link rel="icon" href="favicon.ico?v=20260622_product_code_sync1">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>إعدادات الموقع | DAR ALDAWAA</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20260622_settings_bulk_products1">
+    <link rel="stylesheet" href="style.css?v=20260622_product_code_sync1">
     <style>
         :root {
             --settings-accent: #099999;
@@ -617,12 +617,12 @@
             <div class="products-workflow-panel">
                 <div class="info-panel">
                     <strong><i class="ph ph-microsoft-excel-logo"></i> أسرع طريقة لتعديل الأصناف:</strong>
-                    نزّل ملف الأصناف كما هو من Firebase، عدّل <code>name</code> أو <code>code</code> أو <code>productCode</code> أو <code>price</code>، ثم ارفع نفس الملف. النظام يحدث السجلات حسب <code>Document_ID</code> ولا يحذف أي صنف غير موجود في الملف.
+                    نزّل ملف الأصناف كما هو من Firebase، عدّل <code>name</code> أو <code>code</code> أو <code>productCode</code> أو <code>price</code>، ثم ارفع نفس الملف. النظام يحدث السجلات حسب <code>Document_ID</code> ولا يحذف أي صنف غير موجود في الملف. إذا تغيّر كود الصنف، سيتم تبديل الكود القديم بالجديد داخل الطلبيات الموجودة فقط، بدون تعديل السعر أو الكمية أو الإجمالي.
                 </div>
                 <div class="workflow-steps">
                     <div class="workflow-step"><span>1</span><div>تنزيل ملف الأصناف الحالي من قاعدة البيانات.</div></div>
                     <div class="workflow-step"><span>2</span><div>تعديل الاسم أو الكود أو السعر داخل Excel فقط.</div></div>
-                    <div class="workflow-step"><span>3</span><div>رفع نفس الملف لتحديث Firebase مباشرة.</div></div>
+                    <div class="workflow-step"><span>3</span><div>رفع نفس الملف لتحديث Firebase مباشرة. تغيير الكود ينعكس على كودات الطلبيات القديمة فقط.</div></div>
                 </div>
                 <div class="upload-panel">
                     <strong>تعديل الأصناف بدون حذف البيانات القديمة</strong>
@@ -982,6 +982,80 @@
             price: Number(parseSafeNumber(price).toFixed(2))
         });
 
+        const normalizeProductCode = (value) => String(value || '').trim();
+
+        const mergeCodeChange = (map, oldCode, newCode) => {
+            const previousCode = normalizeProductCode(oldCode);
+            const nextCode = normalizeProductCode(newCode);
+            if (!previousCode || !nextCode || previousCode === nextCode) return;
+            map.set(previousCode, nextCode);
+        };
+
+        async function syncProductCodeChangesWithOrders(codeChanges, statusId = 'productsStatus') {
+            const entries = Array.from(codeChanges.entries()).filter(([oldCode, newCode]) => oldCode && newCode && oldCode !== newCode);
+            if (entries.length === 0) return { changedOrders: 0, changedItems: 0 };
+
+            setStatus(statusId, `جاري تحديث كودات الأصناف داخل الطلبيات الحالية...`, '#f59e0b');
+
+            const changesMap = new Map(entries);
+            const ordersSnap = await getDocs(collection(db, 'orders'));
+            const operations = [];
+            let changedItems = 0;
+
+            ordersSnap.docs.forEach(orderDoc => {
+                const order = orderDoc.data() || {};
+                const items = Array.isArray(order.items) ? order.items : [];
+                if (items.length === 0) return;
+
+                let orderChanged = false;
+                const updatedItems = items.map(item => {
+                    if (!item || typeof item !== 'object') return item;
+                    const currentCode = normalizeProductCode(item.productCode || item.product_code || item.code);
+                    const nextCode = changesMap.get(currentCode);
+                    if (!nextCode) return item;
+
+                    orderChanged = true;
+                    changedItems += 1;
+                    return {
+                        ...item,
+                        productCode: nextCode,
+                        product_code: nextCode,
+                        code: nextCode
+                    };
+                });
+
+                if (!orderChanged) return;
+
+                const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+                operations.push({
+                    id: orderDoc.id,
+                    payload: {
+                        items: updatedItems,
+                        productCodeSyncAt: new Date(),
+                        auditTrail: [
+                            ...trail,
+                            {
+                                action: 'product_code_sync',
+                                actor: 'setting.html',
+                                role: 'settings',
+                                at: new Date().toISOString(),
+                                syncCount: entries.length,
+                                note: 'تم تحديث كودات الأصناف داخل الطلبية حسب ملف الأصناف في الإعدادات بدون تعديل الأسعار أو الكميات أو الإجماليات.'
+                            }
+                        ]
+                    }
+                });
+            });
+
+            if (operations.length === 0) {
+                setStatus(statusId, `تم تحديث الأصناف. لا توجد طلبيات تحتوي الكودات القديمة.`, '#10b981');
+                return { changedOrders: 0, changedItems: 0 };
+            }
+
+            await runInChunks(operations, operation => updateDoc(doc(db, 'orders', operation.id), operation.payload), 100, statusId, 'تم تحديث كودات الطلبيات');
+            return { changedOrders: operations.length, changedItems };
+        }
+
         const getFilteredProducts = () => {
             const queryValue = String(document.getElementById('productsSearchInput')?.value || '').trim().toLowerCase();
             if (!queryValue) return productsRowsCache;
@@ -1182,14 +1256,22 @@
 
             try {
                 const productData = buildProductPayload({ name: nameVal, productCode: codeVal, price: priceVal });
-                await updateDoc(doc(db, 'products', id), productData);
                 const cached = productsRowsCache.find(product => product.id === id);
+                const oldCode = cached?.productCode || cached?.raw?.productCode || cached?.raw?.product_code || cached?.raw?.code || '';
+                const codeChanges = new Map();
+                mergeCodeChange(codeChanges, oldCode, productData.productCode);
+
+                await updateDoc(doc(db, 'products', id), productData);
+                let syncResult = { changedOrders: 0, changedItems: 0 };
+                if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+
                 if (cached) Object.assign(cached, { name: productData.name, productCode: productData.productCode, price: productData.price, raw: { ...cached.raw, ...productData } });
                 invalidateOperationalCaches('products');
                 row.querySelector('.product-price').value = priceVal.toFixed(2);
                 row.classList.remove('row-edited');
                 button.innerText = 'تم';
-                setStatus('productsStatus', 'تم حفظ تعديل المنتج بنجاح.', '#10b981');
+                const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية.` : '';
+                setStatus('productsStatus', `تم حفظ تعديل المنتج بنجاح.${syncMessage}`, '#10b981');
             } catch (error) {
                 console.error('Error updating product:', error);
                 alert('حدث خطأ أثناء حفظ التعديل.');
@@ -1247,8 +1329,17 @@
                     return;
                 }
 
-                setStatus('productsStatus', 'جاري حذف المنتجات القديمة...', '#f59e0b');
+                setStatus('productsStatus', 'جاري قراءة الأصناف الحالية قبل الاستبدال...', '#f59e0b');
                 const snap = await getDocs(collection(db, 'products'));
+                const existingById = new Map();
+                snap.docs.forEach(item => existingById.set(item.id, item.data()));
+                const codeChanges = new Map();
+                validRows.forEach(row => {
+                    if (!row.documentId || !existingById.has(row.documentId)) return;
+                    mergeCodeChange(codeChanges, productCodeFromData(existingById.get(row.documentId)), row.productCode);
+                });
+
+                setStatus('productsStatus', 'جاري حذف المنتجات القديمة...', '#f59e0b');
                 await runInChunks(snap.docs, item => deleteDoc(doc(db, 'products', item.id)), 250, 'productsStatus', 'تم حذف');
 
                 setStatus('productsStatus', `جاري إضافة ${validRows.length} منتج جديد...`, '#f59e0b');
@@ -1258,9 +1349,13 @@
                     return addDoc(collection(db, 'products'), productData);
                 }, 250, 'productsStatus', 'تم رفع');
 
+                let syncResult = { changedOrders: 0, changedItems: 0 };
+                if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+
                 invalidateOperationalCaches('products');
                 fileInput.value = '';
-                setStatus('productsStatus', `تم الاستبدال الكامل بنجاح. تمت إضافة ${validRows.length} منتج.`, '#10b981');
+                const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية موجودة بالكود الجديد فقط.` : '';
+                setStatus('productsStatus', `تم الاستبدال الكامل بنجاح. تمت إضافة ${validRows.length} منتج.${syncMessage}`, '#10b981');
                 await loadProducts();
             } catch (error) {
                 console.error('Error during products import:', error);
@@ -1364,19 +1459,24 @@
 
                 const currentSnap = await getDocs(collection(db, 'products'));
                 const existingIds = new Set(currentSnap.docs.map(item => item.id));
+                const existingById = new Map();
                 const codeToId = new Map();
                 currentSnap.docs.forEach(item => {
-                    const code = productCodeFromData(item.data());
+                    const data = item.data();
+                    existingById.set(item.id, data);
+                    const code = productCodeFromData(data);
                     if (code && !codeToId.has(code)) codeToId.set(code, item.id);
                 });
 
                 let updates = 0;
                 let creates = 0;
+                const codeChanges = new Map();
                 const operations = rows.map(row => {
                     const payload = buildProductPayload(row);
                     const targetId = row.documentId || codeToId.get(row.productCode) || '';
                     if (targetId && existingIds.has(targetId)) {
                         updates += 1;
+                        mergeCodeChange(codeChanges, productCodeFromData(existingById.get(targetId)), payload.productCode);
                         return { type: 'update', id: targetId, payload };
                     }
                     if (targetId && row.documentId) {
@@ -1387,7 +1487,12 @@
                     return { type: 'create', payload };
                 });
 
-                const confirmed = confirm(`سيتم تحديث ${updates} صنف، وإضافة ${creates} صنف جديد عند الحاجة. لن يتم حذف أي صنف غير موجود في الملف. هل تريد المتابعة؟`);
+                const codeChangeText = codeChanges.size > 0 ? `
+
+سيتم أيضاً تحديث كودات الأصناف القديمة داخل الطلبيات الموجودة: ${codeChanges.size} تغيير كود. الأسعار والأسماء والكميات والإجماليات داخل الطلبيات لن تتغير.` : '';
+                const confirmed = confirm(`سيتم تحديث ${updates} صنف، وإضافة ${creates} صنف جديد عند الحاجة. لن يتم حذف أي صنف غير موجود في الملف.${codeChangeText}
+
+هل تريد المتابعة؟`);
                 if (!confirmed) return;
 
                 await runInChunks(operations, operation => {
@@ -1395,9 +1500,13 @@
                     return setDoc(doc(db, 'products', operation.id), operation.payload, { merge: true });
                 }, 250, 'productsStatus', 'تمت معالجة');
 
+                let syncResult = { changedOrders: 0, changedItems: 0 };
+                if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+
                 invalidateOperationalCaches('products');
                 fileInput.value = '';
-                setStatus('productsStatus', `تم تحديث الأصناف بنجاح. تحديث: ${updates}، إضافة: ${creates}.`, '#10b981');
+                const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية موجودة بالكود الجديد فقط.` : '';
+                setStatus('productsStatus', `تم تحديث الأصناف بنجاح. تحديث: ${updates}، إضافة: ${creates}.${syncMessage}`, '#10b981');
                 await loadProducts();
             } catch (error) {
                 console.error('Error during products patch import:', error);
@@ -1414,6 +1523,7 @@
             if (!confirmed) return;
 
             try {
+                const codeChanges = new Map();
                 await runInChunks(targetRows, async row => {
                     const id = row.dataset.id;
                     const productData = buildProductPayload({
@@ -1423,14 +1533,20 @@
                     });
 
                     if (!productData.name || !productData.productCode) throw new Error(`صف ناقص البيانات: ${id}`);
-                    await updateDoc(doc(db, 'products', id), productData);
                     const cached = productsRowsCache.find(product => product.id === id);
+                    mergeCodeChange(codeChanges, cached?.productCode || cached?.raw?.productCode || cached?.raw?.product_code || cached?.raw?.code || '', productData.productCode);
+
+                    await updateDoc(doc(db, 'products', id), productData);
                     if (cached) Object.assign(cached, { name: productData.name, productCode: productData.productCode, price: productData.price, raw: { ...cached.raw, ...productData } });
                     row.classList.remove('row-edited');
                 }, 100, 'productsStatus', 'تم حفظ');
 
+                let syncResult = { changedOrders: 0, changedItems: 0 };
+                if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+
                 invalidateOperationalCaches('products');
-                setStatus('productsStatus', `تم حفظ ${targetRows.length} صنف من الجدول الظاهر.`, '#10b981');
+                const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية موجودة بالكود الجديد فقط.` : '';
+                setStatus('productsStatus', `تم حفظ ${targetRows.length} صنف من الجدول الظاهر.${syncMessage}`, '#10b981');
             } catch (error) {
                 console.error('Error while saving visible products:', error);
                 setStatus('productsStatus', 'حدث خطأ أثناء حفظ الأصناف الظاهرة. تأكد من عدم وجود اسم أو كود فارغ.', '#dc2626');
