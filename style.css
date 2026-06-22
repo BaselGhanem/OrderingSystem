@@ -1458,3 +1458,192 @@ img, table { max-width: 100%; }
     color: #b91c1c;
     border: 1px solid rgba(220, 38, 38, .30);
 }
+
+
+/* 20260622_market_popup_actions1: market manager popup sizing + action select */
+.workflow-action-select {
+    min-height: 42px;
+    min-width: 150px;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid rgba(11, 63, 90, .22);
+    border-radius: 13px;
+    padding: 9px 40px 9px 14px;
+    font-family: inherit;
+    font-weight: 800;
+    color: #0b3f5a;
+    background:
+        linear-gradient(45deg, transparent 50%, #0b3f5a 50%) calc(100% - 18px) 18px / 7px 7px no-repeat,
+        linear-gradient(135deg, #0b3f5a 50%, transparent 50%) calc(100% - 13px) 18px / 7px 7px no-repeat,
+        #ffffff;
+    box-shadow: 0 8px 18px rgba(11, 63, 90, .07);
+    cursor: pointer;
+    outline: none;
+}
+.workflow-action-select:hover,
+.workflow-action-select:focus {
+    border-color: rgba(9, 153, 153, .55);
+    box-shadow: 0 0 0 3px rgba(9, 153, 153, .12), 0 10px 22px rgba(11, 63, 90, .08);
+}
+.workflow-actions-cell {
+    display: flex;
+    justify-content: center;
+    min-width: 160px;
+    overflow: visible;
+}
+.workflow-actions-cell .workflow-action-select {
+    width: 100%;
+    max-width: 170px;
+}
+body[data-page="market-manager"] .workflow-table-wrap {
+    overflow-x: auto;
+    overflow-y: visible;
+}
+body[data-page="market-manager"] .workflow-modal {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: clamp(6px, 1.4vw, 18px) !important;
+}
+body[data-page="market-manager"] .workflow-modal-content {
+    width: min(96vw, 1080px) !important;
+    max-width: min(96vw, 1080px) !important;
+    height: auto;
+    max-height: 88dvh !important;
+    min-height: 0;
+    padding: clamp(12px, 1.25vw, 18px) !important;
+    border-radius: 22px !important;
+    gap: 8px;
+    overflow: hidden !important;
+}
+body[data-page="market-manager"] .workflow-modal-header {
+    flex: 0 0 auto;
+    padding-bottom: 8px;
+}
+body[data-page="market-manager"] .workflow-modal-header h2 {
+    font-size: clamp(1rem, 1.5vw, 1.3rem);
+    margin-bottom: 6px;
+}
+body[data-page="market-manager"] .workflow-modal-meta {
+    gap: 6px;
+    font-size: .82rem;
+}
+body[data-page="market-manager"] .workflow-modal-meta span {
+    padding: 5px 9px;
+}
+body[data-page="market-manager"] .workflow-note-box {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: .9rem;
+    line-height: 1.55;
+}
+body[data-page="market-manager"] .workflow-modal-table {
+    flex: 1 1 auto;
+    min-height: 170px;
+    max-height: calc(88dvh - 230px);
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable both-edges;
+    border-radius: 12px;
+}
+body[data-page="market-manager"] .workflow-modal-table .order-table {
+    min-width: 980px !important;
+    width: max-content;
+    font-size: .82rem;
+    table-layout: auto;
+}
+body[data-page="market-manager"] .workflow-modal-table th,
+body[data-page="market-manager"] .workflow-modal-table td {
+    white-space: nowrap;
+    padding: 8px 9px;
+    vertical-align: middle;
+}
+body[data-page="market-manager"] .workflow-modal-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+body[data-page="market-manager"] .workflow-modal-table .workflow-product-select {
+    min-width: 210px;
+    max-width: 250px;
+    height: 36px;
+    padding: 6px 8px;
+    font-size: .82rem !important;
+}
+body[data-page="market-manager"] .workflow-modal-table input[type="number"] {
+    width: 72px;
+    min-width: 72px;
+    min-height: 34px;
+    padding: 5px 7px;
+    font-size: .82rem !important;
+}
+body[data-page="market-manager"] .workflow-modal-table .workflow-item-note-input {
+    min-width: 150px;
+    max-width: 190px;
+    height: 34px;
+    padding: 5px 8px;
+    font-size: .82rem !important;
+}
+body[data-page="market-manager"] .workflow-delete-item {
+    min-height: 34px;
+    padding: 6px 8px;
+}
+body[data-page="market-manager"] .workflow-modal-footer {
+    flex: 0 0 auto;
+    padding-top: 8px;
+    gap: 8px;
+}
+body[data-page="market-manager"] .workflow-modal-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+body[data-page="market-manager"] .workflow-modal-controls button,
+body[data-page="market-manager"] .workflow-modal-controls .workflow-action-select {
+    min-height: 40px;
+}
+body[data-page="market-manager"] .modal-action-select {
+    min-width: 190px;
+}
+@media (max-width: 768px) {
+    body[data-page="market-manager"] .workflow-modal {
+        align-items: flex-end !important;
+        padding: 0 !important;
+    }
+    body[data-page="market-manager"] .workflow-modal-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100dvh;
+        max-height: 100dvh !important;
+        border-radius: 24px 24px 0 0 !important;
+        padding: 12px !important;
+    }
+    body[data-page="market-manager"] .workflow-modal-table {
+        max-height: calc(100dvh - 280px);
+        min-height: 220px;
+    }
+    body[data-page="market-manager"] .workflow-modal-table .order-table {
+        min-width: 980px !important;
+        font-size: .8rem;
+    }
+    body[data-page="market-manager"] .workflow-modal-controls,
+    body[data-page="market-manager"] .workflow-modal-controls button,
+    body[data-page="market-manager"] .workflow-modal-controls .workflow-action-select {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+@media (max-width: 430px) {
+    body[data-page="market-manager"] .workflow-modal-meta span {
+        width: auto;
+        max-width: 100%;
+    }
+    body[data-page="market-manager"] .workflow-note-box {
+        font-size: .84rem;
+    }
+    body[data-page="market-manager"] .workflow-modal-table {
+        max-height: calc(100dvh - 300px);
+    }
+}

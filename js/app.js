@@ -922,8 +922,8 @@ async function loadInitialData() {
             repSelect.disabled = true;
         }
 
-        const CACHE_KEY = 'dad_app_cache_20260622_compact_tables1';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_20260622_compact_tables1';
+        const CACHE_KEY = 'dad_app_cache_20260622_market_popup_actions1';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_20260622_market_popup_actions1';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
         const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);

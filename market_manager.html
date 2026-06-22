@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
-<link href="favicon.ico?v=20260622_compact_tables1" rel="icon"/>
+<link href="favicon.ico?v=20260622_market_popup_actions1" rel="icon"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
 <title>Market Manager | نظام الطلبيات</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="style.css?v=20260622_compact_tables1" rel="stylesheet"/>
+<link href="style.css?v=20260622_market_popup_actions1" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -62,19 +62,22 @@
         </div>
         <div class="workflow-modal-footer">
             <strong>الإجمالي: <span id="marketModalGrandTotal">0.00 د.ا</span></strong>
-            <div>
+            <div class="workflow-modal-controls">
                 <button class="btn-secondary" id="addMarketItemBtn" type="button"><i class="ph ph-plus-circle"></i> إضافة صنف</button>
                 <button class="btn-secondary" id="saveMarketEditsBtn" type="button"><i class="ph ph-floppy-disk"></i> حفظ التعديلات</button>
-                <button class="btn-success" id="approveMarketModalBtn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button>
-                <button class="btn-danger" id="rejectMarketModalBtn" type="button"><i class="ph ph-x-circle"></i> رفض</button>
-                <button class="btn-secondary" id="returnMarketToRepBtn" type="button"><i class="ph ph-arrow-u-down-right"></i> إرجاع للمندوب</button>
-                <button class="btn-secondary" id="returnMarketToSupervisorBtn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع للمشرف</button>
-                <button class="btn-danger" id="deleteMarketModalBtn" type="button"><i class="ph ph-trash"></i> حذف الطلبية</button>
+                <select class="workflow-action-select modal-action-select" id="marketModalActionSelect" aria-label="اتخاذ إجراء على الطلبية">
+                    <option value="">اتخاذ إجراء</option>
+                    <option value="approve">اعتماد وتحويل للمالية</option>
+                    <option value="reject">رفض الطلبية</option>
+                    <option value="return_rep">إرجاع للمندوب</option>
+                    <option value="return_supervisor">إرجاع للمشرف</option>
+                    <option value="delete">حذف الطلبية</option>
+                </select>
             </div>
         </div>
     </div>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260622_compact_tables1" type="module"></script>
+<script src="js/workflow.js?v=20260622_market_popup_actions1" type="module"></script>
 </body>
 </html>

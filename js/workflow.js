@@ -45,7 +45,7 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
-const WORKFLOW_CACHE_VERSION = '20260622_compact_tables1';
+const WORKFLOW_CACHE_VERSION = '20260622_market_popup_actions1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
@@ -333,12 +333,15 @@ function itemCountLabel(order = {}) {
 
 function buildOrderSummaryRowActions(kind = 'staff') {
     if (kind === 'market') {
-        return `<button class="action-btn view-btn" type="button" title="عرض وتعديل"><i class="ph ph-eye"></i> عرض</button>
-                <button class="action-btn approve-btn" type="button" title="اعتماد"><i class="ph ph-check-circle"></i></button>
-                <button class="action-btn reject-btn" type="button" title="رفض"><i class="ph ph-x-circle"></i></button>
-                <button class="action-btn return-rep-btn" type="button" title="إرجاع للمندوب"><i class="ph ph-arrow-u-down-right"></i></button>
-                <button class="action-btn return-supervisor-btn" type="button" title="إرجاع للمشرف"><i class="ph ph-arrow-u-down-left"></i></button>
-                <button class="action-btn danger-btn delete-btn" type="button" title="حذف"><i class="ph ph-trash"></i></button>`;
+        return `<select class="workflow-action-select market-row-action-select" aria-label="اتخاذ إجراء">
+                    <option value="">اتخاذ إجراء</option>
+                    <option value="view">عرض وتعديل</option>
+                    <option value="approve">اعتماد وتحويل للمالية</option>
+                    <option value="reject">رفض الطلبية</option>
+                    <option value="return_rep">إرجاع للمندوب</option>
+                    <option value="return_supervisor">إرجاع للمشرف</option>
+                    <option value="delete">حذف الطلبية</option>
+                </select>`;
     }
     return `<button class="action-btn staff-edit-btn" type="button" title="عرض وتعديل"><i class="ph ph-eye"></i> عرض</button>
             <button class="action-btn staff-return-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع</button>
@@ -767,11 +770,13 @@ function openMarketOrderModal(order) {
     $('marketOrderNote').textContent = getOrderNote(order) || 'لا توجد ملاحظات.';
     $('marketOrderItemsBody').innerHTML = fullOrderRows(order) || `<tr><td colspan="10">لا توجد أصناف.</td></tr>`;
     document.querySelectorAll('#marketOrderItemsBody tr').forEach(bindMarketItemRow);
+    if ($('marketModalActionSelect')) $('marketModalActionSelect').value = '';
     $('marketOrderModal').style.display = 'flex';
 }
 
 function closeMarketOrderModal() {
-    $('marketOrderModal').style.display = 'none';
+    if ($('marketOrderModal')) $('marketOrderModal').style.display = 'none';
+    if ($('marketModalActionSelect')) $('marketModalActionSelect').value = '';
     state.selectedOrder = null;
 }
 
@@ -898,6 +903,62 @@ function applyMarketFilters() {
     renderMarketOrders();
 }
 
+function handleMarketAction(order, action) {
+    if (!order || !action) return;
+    if (action === 'view') {
+        openMarketOrderModal(order);
+        return;
+    }
+    if (action === 'approve') {
+        if (confirm('اعتماد الطلبية وتحويلها إلى المالية؟')) marketApprove(order.id);
+        return;
+    }
+    if (action === 'reject') {
+        const reason = confirmReason('سبب رفض مدير السوق:', true);
+        if (reason !== null) marketReject(order.id, reason);
+        return;
+    }
+    if (action === 'return_rep') {
+        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
+        if (reason !== null) returnOrderStep(order.id, 'representative', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_rep');
+        return;
+    }
+    if (action === 'return_supervisor') {
+        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
+        if (reason !== null) returnOrderStep(order.id, 'supervisor', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_supervisor');
+        return;
+    }
+    if (action === 'delete') {
+        if (confirm('تحذير: سيتم حذف الطلبية من مسار العمل كحذف ناعم ولن تظهر للمراحل التالية. هل تريد المتابعة؟')) marketDeleteOrder(order.id);
+    }
+}
+
+function handleMarketModalAction(action) {
+    if (!state.selectedOrder || !action) return;
+    if (action === 'approve') {
+        approveSelectedMarketOrderFromModal();
+        return;
+    }
+    if (action === 'reject') {
+        const reason = confirmReason('سبب رفض مدير السوق:', true);
+        if (reason !== null) marketReject(state.selectedOrder.id, reason);
+        return;
+    }
+    if (action === 'return_rep') {
+        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
+        if (reason !== null) returnOrderStep(state.selectedOrder.id, 'representative', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_rep').then(closeMarketOrderModal);
+        return;
+    }
+    if (action === 'return_supervisor') {
+        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
+        if (reason !== null) returnOrderStep(state.selectedOrder.id, 'supervisor', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_supervisor').then(closeMarketOrderModal);
+        return;
+    }
+    if (action === 'delete') {
+        if (confirm('تحذير: هل تريد حذف الطلبية بالكامل من مسار العمل؟')) marketDeleteOrder(state.selectedOrder.id);
+    }
+}
+
 function renderMarketOrders() {
     const body = $('marketOrdersBody');
     if (!body) return;
@@ -923,21 +984,12 @@ function renderMarketOrders() {
                 <td class="workflow-note-cell" title="${escapeHtml(getOrderNote(order) || '-')}">${escapeHtml(getOrderNote(order) || '-')}</td>
                 <td class="workflow-actions-cell">${buildOrderSummaryRowActions('market')}</td>
             `;
-            tr.querySelector('.view-btn').onclick = () => openMarketOrderModal(order);
-            tr.querySelector('.approve-btn').onclick = () => confirm('اعتماد الطلبية وتحويلها إلى المالية؟') && marketApprove(order.id);
-            tr.querySelector('.reject-btn').onclick = () => {
-                const reason = confirmReason('سبب رفض مدير السوق:', true);
-                if (reason !== null) marketReject(order.id, reason);
-            };
-            tr.querySelector('.return-rep-btn')?.addEventListener('click', () => {
-                const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
-                if (reason !== null) returnOrderStep(order.id, 'representative', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_rep');
+            tr.querySelector('.view-btn')?.addEventListener('click', () => openMarketOrderModal(order));
+            tr.querySelector('.market-row-action-select')?.addEventListener('change', event => {
+                const action = event.target.value;
+                event.target.value = '';
+                handleMarketAction(order, action);
             });
-            tr.querySelector('.return-supervisor-btn')?.addEventListener('click', () => {
-                const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
-                if (reason !== null) returnOrderStep(order.id, 'supervisor', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_supervisor');
-            });
-            tr.querySelector('.delete-btn').onclick = () => confirm('تحذير: سيتم حذف الطلبية من مسار العمل كحذف ناعم ولن تظهر للمراحل التالية. هل تريد المتابعة؟') && marketDeleteOrder(order.id);
             fragment.appendChild(tr);
         });
         body.appendChild(fragment);
@@ -979,24 +1031,15 @@ function initMarketManager() {
     $('bulkApproveBtn')?.addEventListener('click', () => marketBulk('approve'));
     $('bulkRejectBtn')?.addEventListener('click', () => marketBulk('reject'));
     $('closeMarketModalBtn')?.addEventListener('click', closeMarketOrderModal);
+    $('marketOrderModal')?.addEventListener('click', event => {
+        if (event.target?.id === 'marketOrderModal') closeMarketOrderModal();
+    });
     $('addMarketItemBtn')?.addEventListener('click', () => addMarketItemRow());
     $('saveMarketEditsBtn')?.addEventListener('click', saveMarketEdits);
-    $('approveMarketModalBtn')?.addEventListener('click', approveSelectedMarketOrderFromModal);
-    $('rejectMarketModalBtn')?.addEventListener('click', () => {
-        if (!state.selectedOrder) return;
-        const reason = confirmReason('سبب رفض مدير السوق:', true);
-        if (reason !== null) marketReject(state.selectedOrder.id, reason);
-    });
-    $('deleteMarketModalBtn')?.addEventListener('click', () => state.selectedOrder && confirm('تحذير: هل تريد حذف الطلبية بالكامل من مسار العمل؟') && marketDeleteOrder(state.selectedOrder.id));
-    $('returnMarketToRepBtn')?.addEventListener('click', () => {
-        if (!state.selectedOrder) return;
-        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
-        if (reason !== null) returnOrderStep(state.selectedOrder.id, 'representative', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_rep').then(closeMarketOrderModal);
-    });
-    $('returnMarketToSupervisorBtn')?.addEventListener('click', () => {
-        if (!state.selectedOrder) return;
-        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
-        if (reason !== null) returnOrderStep(state.selectedOrder.id, 'supervisor', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_supervisor').then(closeMarketOrderModal);
+    $('marketModalActionSelect')?.addEventListener('change', event => {
+        const action = event.target.value;
+        event.target.value = '';
+        handleMarketModalAction(action);
     });
     subscribeOrders(applyMarketFilters);
 }
