@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar"><head>
+<link href="favicon.ico?v=20260622_workflow2" rel="icon"/>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
+<title>لوحة المدير | نظام الطلبيات</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="style.css?v=20260622_workflow2" rel="stylesheet"/>
+<meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
+<meta content="no-cache" http-equiv="Pragma"/>
+<meta content="0" http-equiv="Expires"/>
+</head><body data-page="supervisor"><div class="offline-banner" id="offline-banner">
+<i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال. النظام يعمل محلياً وسيتم المزامنة لاحقاً.
+    </div><div class="saving-indicator" id="saving-indicator">
+<div class="spinner"></div> جارٍ الحفظ والتحديث...
+    </div><div class="bg-shapes">
+<div class="shape shape-1"></div>
+<div class="shape shape-2"></div>
+</div><div class="app-container"><header class="glass-panel">
+<div class="logo-area">
+<img alt="Dar Al Dawaa Logo" class="logo" src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png"/>
+<h1>نظام الطلبيات</h1>
+</div>
+<div class="user-info" id="userInfo" style="display: none;">
+<div class="tabs" id="mainTabs">
+<button class="btn-tab active" id="navOrderBtn" type="button">طلب جديد</button>
+<button class="btn-tab" id="navMyOrdersBtn" type="button">طلبياتي <span id="pendingBadge" style="display:none; background:var(--warning); color:white; border-radius:50%; padding:2px 6px; font-size:10px; margin-right:4px;">0</span></button>
+<button class="btn-tab" id="navReportsBtn" type="button">التقارير</button>
+</div>
+<span id="currentRepName"><i class="ph ph-user"></i> المندوب: <b>-</b></span>
+<button class="btn-icon" id="logoutBtn" title="تسجيل خروج" type="button"><i class="ph ph-sign-out"></i></button>
+</div>
+</header><main class="screen active glass-panel" id="managerScreen" style="display: block;">
+<h2><i class="ph ph-users-four"></i> لوحة تحكم المدير</h2>
+<div class="manager-sub-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; align-items: center; flex-wrap: wrap;">
+<button class="btn-subtab active" id="managerMyTeamBtn">طلبيات فريقي</button>
+<button class="btn-subtab" id="managerAllOrdersBtn">جميع طلبيات الشركة</button>
+<button id="managerAddNewOrderBtn" style="background: #004a99; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; margin-right: auto; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.3s; box-shadow: 0 4px 6px rgba(0,74,153,0.2);">
+<i class="ph ph-plus-circle"></i> إضافة طلبية لمندوبي
+                </button>
+</div>
+<!-- Dashboard متقدم للمدير -->
+<div id="advancedManagerDashboard" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
+<!-- عدد الطلبيات -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #004a99; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">عدد السجلات المعروضة</small>
+<h3 id="dashDailyCount" style="margin: 5px 0 0 0; color: var(--primary);">0</h3>
+</div>
+<!-- إجمالي الطلبيات (موجب فقط) -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #28a745; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">إجمالي الطلبيات</small>
+<h3 id="dashTotalValue" style="margin: 5px 0 0 0; color: #059669;">0.00 د.ا</h3>
+</div>
+<!-- إجمالي المرتجعات -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #dc2626; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">إجمالي المرتجعات</small>
+<h3 id="dashReturnsValue" style="margin: 5px 0 0 0; color: #dc2626;">0.00 د.ا</h3>
+</div>
+<!-- صافي المبيعات -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #7c3aed; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">صافي المبيعات</small>
+<h3 id="dashNetValue" style="margin: 5px 0 0 0; color: #059669;">0.00 د.ا</h3>
+</div>
+<!-- نسبة الموافقات -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #10b981; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">نسبة الموافقات</small>
+<h3 id="dashApprovalRate" style="margin: 5px 0 0 0; color: var(--primary);">0%</h3>
+</div>
+<!-- عدد الصيدليات -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #0ea5e9; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">عدد الصيدليات</small>
+<h3 id="dashUniquePharmacies" style="margin: 5px 0 0 0; color: var(--primary);">0</h3>
+</div>
+<!-- الصيدلية الأكثر طلباً -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #f59e0b; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">الصيدلية الأكثر طلباً</small>
+<h3 id="dashTopPharmacy" style="margin: 5px 0 0 0; color: var(--primary); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</h3>
+</div>
+</div>
+<div class="glass-panel" id="managerDateFilters" style="margin-bottom: 20px; padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0;">
+<div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+<div style="flex: 1; min-width: 140px;">
+<label style="display: block; margin-bottom: 8px; font-weight: bold; color: var(--secondary);"><i class="ph ph-calendar"></i> من تاريخ</label>
+<input id="managerFilterFrom" style="width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #cbd5e1; outline: none; font-family: inherit;" type="date"/>
+</div>
+<div style="flex: 1; min-width: 140px;">
+<label style="display: block; margin-bottom: 8px; font-weight: bold; color: var(--secondary);"><i class="ph ph-calendar"></i> إلى تاريخ</label>
+<input id="managerFilterTo" style="width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #cbd5e1; outline: none; font-family: inherit;" type="date"/>
+</div>
+<div style="display: flex; gap: 10px; flex: 2; min-width: 250px;">
+<button class="btn-primary" id="btnTodayOrders" style="flex: 1; height: 45px; border-radius: 8px;" type="button">
+<i class="ph ph-calendar-star"></i> طلبيات اليوم
+                        </button>
+<button class="btn-secondary" id="btnClearManagerFilter" style="flex: 1; height: 45px; border-radius: 8px;" type="button">
+<i class="ph ph-arrow-counter-clockwise"></i> تصفير التاريخ
+                        </button>
+</div>
+</div>
+</div>
+<!-- قسم فريقي -->
+<div id="teamOrdersSection">
+<div id="managerControls" style="margin-bottom: 20px;">
+<!-- تم إخفاء البطاقات القديمة لأننا أضفنا Dashboard شامل فوق -->
+<div style="display: none; gap: 15px; margin-bottom: 15px;">
+<div class="card"><strong>عدد الطلبيات:</strong> <span id="managerOrdersCount">0</span></div>
+<div class="card"><strong>قيمة الطلبيات:</strong> <span id="managerOrdersTotal">0.00</span> د.ا</div>
+</div>
+<div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+<select class="form-control" id="managerRepFilter" style="flex: 1; min-width: 150px;">
+<option value="">جميع المندوبين</option>
+</select>
+<input class="form-control" id="managerPharmacyFilter" placeholder="ابحث باسم الصيدلية..." style="flex: 1; min-width: 150px;" type="text"/>
+<select class="form-control" id="managerStatusFilter" style="flex: 1; min-width: 150px;">
+<option value="">جميع الحالات</option>
+<option value="pending_supervisor_approval">قيد موافقة المشرف</option>
+<option value="pending">قيد الموافقة - قديم</option>
+<option value="market_manager_pending">محول إلى مدير السوق</option>
+<option value="returned_to_supervisor">مرجعة للمشرف</option>
+<option value="returned_to_rep">مرجعة للمندوب</option>
+<option value="finance_pending">بانتظار المالية</option>
+<option value="orders_staff_pending">جاهز للمعالجة</option>
+<option value="returned_to_market_manager">مرجعة لمدير السوق</option>
+<option value="returned_to_finance">مرجعة للمالية</option>
+<option value="approved">موافق عليه - قديم</option>
+<option value="returned">مرتجع</option>
+</select>
+</div>
+<div style="display: flex; gap: 10px;">
+<button class="btn-success" id="bulkApproveBtn" style="background:#28a745; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-check-circle"></i> موافقة على المحدد</button>
+<button class="btn-danger" id="bulkDeleteBtn" style="background:#dc3545; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-trash"></i> حذف المحدد</button><button class="btn-secondary print-btn" id="printManagerOrdersBtn" type="button"><i class="ph ph-printer"></i> طباعة المحدد</button>
+</div>
+</div>
+<div class="table-responsive mobile-cards">
+<table class="order-table" id="managerOrdersTable">
+<thead><tr><th><input id="selectAllOrders" type="checkbox"/></th><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
+<tbody id="managerOrdersBody"></tbody>
+</table>
+</div>
+</div>
+<!-- قسم جميع الطلبيات -->
+<div id="allOrdersSection" style="display: none;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+<h3><i class="ph ph-building-office"></i> جميع طلبيات الشركة</h3>
+<button class="btn-secondary" id="exportAllOrdersBtn" style="background:#107c41; color:white; border:none;" type="button">
+<i class="ph ph-file-xls"></i> تصدير جميع الطلبيات
+                    </button>
+<div id="allOrdersStats" style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+<div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow-sm); flex: 1; text-align: center; border: 1px solid #e2e8f0;">
+<div id="totalOrdersCount" style="font-size: 2rem; font-weight: 800; color: var(--primary);">0</div>
+<div style="color: var(--secondary);">عدد السجلات</div>
+</div>
+<div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow-sm); flex: 1; text-align: center; border: 1px solid #e2e8f0;">
+<div id="totalOrdersSum" style="font-size: 2rem; font-weight: 800; color: #059669;">0.00</div>
+<div style="color: var(--secondary);">إجمالي الطلبيات (د.ا)</div>
+</div>
+<div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow-sm); flex: 1; text-align: center; border: 1px solid #fca5a5;">
+<div id="totalReturnsSum" style="font-size: 2rem; font-weight: 800; color: #dc2626;">0.00</div>
+<div style="color: var(--secondary);">إجمالي المرتجعات (د.ا)</div>
+</div>
+<div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow-sm); flex: 1; text-align: center; border: 2px solid #7c3aed;">
+<div id="totalNetSum" style="font-size: 2rem; font-weight: 800;">0.00</div>
+<div style="color: var(--secondary); font-weight: 700;">صافي المبيعات (د.ا)</div>
+</div>
+<div style="display: flex; gap: 10px; margin-bottom: 15px;">
+<button class="btn-success" id="bulkApproveAllBtn" style="background:#28a745; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-check-circle"></i> موافقة على المحدد</button>
+<button class="btn-danger" id="bulkDeleteAllBtn" style="background:#dc3545; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-trash"></i> حذف المحدد</button><button class="btn-secondary print-btn" id="printAllOrdersBtn" type="button"><i class="ph ph-printer"></i> طباعة المحدد</button>
+</div>
+</div>
+</div>
+<div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+<input id="filterAllRep" placeholder="تصفية باسم المندوب..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;" type="text"/>
+<input id="filterAllPharmacy" placeholder="تصفية باسم الصيدلية..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;" type="text"/>
+<select id="filterAllStatus" style="flex: 0.5; min-width: 150px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+<option value="">جميع الحالات</option>
+<option value="pending_supervisor_approval">قيد موافقة المشرف</option>
+<option value="pending">قيد الموافقة - قديم</option>
+<option value="market_manager_pending">بانتظار مدير السوق</option>
+<option value="finance_pending">بانتظار المالية</option>
+<option value="orders_staff_pending">جاهز للمعالجة</option>
+<option value="returned_to_market_manager">مرجعة لمدير السوق</option>
+<option value="returned_to_finance">مرجعة للمالية</option>
+<option value="orders_staff_hidden">تمت الفوترة</option>
+<option value="approved">موافق عليه - قديم</option>
+<option value="returned">مرتجع</option>
+</select>
+</div>
+<div class="table-responsive mobile-cards">
+<table class="order-table" id="allOrdersTable">
+<thead><tr><th><input id="selectAllAllOrders" type="checkbox"/></th><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
+<tbody id="allOrdersBody"></tbody>
+</table>
+</div>
+</div>
+</main><div class="modal-overlay" id="detailsModal" style="display: none; z-index: 10010;">
+<div class="modal-content glass-panel">
+<div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+<div>
+<h3 style="color: var(--primary); margin: 0;"><i class="ph ph-receipt"></i> تفاصيل الفاتورة</h3>
+<small id="modalPharmacySubtitle" style="color: var(--secondary); font-weight: 600; display: block; margin-top: 5px;"></small>
+</div>
+<button class="close-modal" onclick="closeModal()" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger);" type="button"><i class="ph ph-x-circle"></i></button>
+</div>
+<div id="modalOrderNoteContainer" style="display: none; background: #fffbeb; color: #b45309; padding: 12px 15px; border-radius: 8px; margin-bottom: 15px; border-right: 4px solid #f59e0b;">
+<i class="ph ph-warning-circle" style="font-size: 1.2rem; vertical-align: text-bottom;"></i>
+<strong>ملاحظة المندوب:</strong> <span id="modalOrderNoteText"></span>
+</div>
+<div class="table-responsive mobile-cards">
+<table class="order-table">
+<thead>
+<tr>
+<th>الصنف</th>
+<th>كود المنتج</th><th>الكمية</th>
+<th>البونص</th>
+<th>السعر</th>
+<th>المجموع</th>
+<th>الملاحظة</th>
+</tr>
+</thead>
+<tbody id="modalItemsBody"></tbody>
+</table>
+</div>
+</div>
+</div><div class="modal-overlay" id="editOrderModal" style="display: none;">
+<div class="modal-content glass-panel" style="max-width: 1200px; padding: 20px;">
+<div id="editOrderContainer"></div>
+</div>
+</div><div class="modal-overlay" id="addPharmacyModal" style="display: none;">
+<div class="modal-content glass-panel" style="max-width: 500px;">
+<div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+<h3><i class="ph ph-storefront"></i> إضافة صيدلية جديدة</h3>
+<button class="close-modal" onclick="document.getElementById('addPharmacyModal').style.display='none'" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger);" type="button"><i class="ph ph-x-circle"></i></button>
+</div>
+<div class="input-group">
+<label>اختر المندوب</label>
+<select id="newPharmacyRepSelect">
+<option value="">-- اختر المندوب --</option>
+</select>
+</div>
+<div class="input-group">
+<label>اسم الصيدلية</label>
+<input id="newPharmacyName" placeholder="أدخل اسم الصيدلية..." type="text"/>
+</div>
+<div class="input-group">
+<label>كود الصيدلية</label>
+<input id="newPharmacyCode" placeholder="أدخل كود الصيدلية (اختياري)..." type="text"/>
+</div>
+<button class="btn-primary" id="saveNewPharmacyBtn" style="width: 100%; margin-top: 15px;" type="button">
+                حفظ الصيدلية
+            </button>
+</div>
+</div><div class="modal-overlay" id="featureUpdateModal" style="display: none; z-index: 10000;">
+<div class="modal-content glass-panel" style="max-width: 450px; text-align: center; padding: 40px 30px;">
+<div style="background: rgba(15, 59, 92, 0.1); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+<i class="ph ph-bell-ringing" style="font-size: 3.5rem; color: var(--primary);"></i>
+</div>
+<h2 style="color: var(--primary); margin-bottom: 15px; font-weight: 800;">تنبيهات احترافية! 🚀</h2>
+<p style="color: var(--secondary); font-size: 1.1rem; line-height: 1.7; margin-bottom: 30px;">
+                قمنا باستبدال النوافذ المزعجة السابقة بنظام <strong>إشعارات ذكي ومريح (Toasts)</strong> يظهر أسفل الشاشة ولن يعيق عملك أبداً.
+            </p>
+<button class="btn-primary" id="closeFeatureUpdateBtn" style="width: 100%; height: 50px; font-size: 1.1rem;">
+                علمت ذلك، شكراً
+            </button>
+</div>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20260622_workflow2" type="module"></script></body></html>
