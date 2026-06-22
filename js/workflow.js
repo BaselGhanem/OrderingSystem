@@ -40,10 +40,11 @@ const state = {
     allOrdersLoading: false,
     lastRefreshAt: 0,
     loadToken: 0,
-    suspendRender: false
+    suspendRender: false,
+    ordersStaffTab: 'approved'
 };
 
-const WORKFLOW_CACHE_VERSION = '20260622_workflow2';
+const WORKFLOW_CACHE_VERSION = '20260622_orders_staff_tabs1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
@@ -176,7 +177,7 @@ function currentPageOrderSource() {
     const ordersRef = collection(db, 'orders');
     if (WORKFLOW_PAGE === 'market-manager') return query(ordersRef, where('status', 'in', ['market_manager_pending', 'supervisor_approved', 'returned_to_market_manager']));
     if (WORKFLOW_PAGE === 'finance-controller') return query(ordersRef, where('status', 'in', ['finance_pending', 'finance_rejected', 'returned_to_finance']));
-    if (WORKFLOW_PAGE === 'orders-staff') return query(ordersRef, where('status', 'in', ['orders_staff_pending', 'orders_staff_hidden', 'orders_staff_exported']));
+    if (WORKFLOW_PAGE === 'orders-staff') return query(ordersRef, where('status', 'in', ['orders_staff_pending', 'orders_staff_hidden', 'orders_staff_exported', 'finance_approved']));
     return ordersRef;
 }
 
@@ -344,8 +345,14 @@ function inDateRange(order, from, to) {
 function setDefaultDateFilters() {
     const from = $('filterDateFrom');
     const to = $('filterDateTo');
+    const today = toDateInputValue(new Date());
+    if (WORKFLOW_PAGE === 'orders-staff') {
+        if (from) from.value = today;
+        if (to) to.value = today;
+        return;
+    }
     if (from && !from.value) from.value = firstDayOfMonth();
-    if (to && !to.value) to.value = toDateInputValue(new Date());
+    if (to && !to.value) to.value = today;
 }
 
 function selectedIds(selector = '.workflow-order-checkbox') {
@@ -609,13 +616,13 @@ function fullOrderRows(order) {
             <tr data-index="${index}">
                 <td>${index + 1}</td>
                 <td>${escapeHtml(getItemProductCode(calc) || '-')}</td>
-                <td class="item-name-cell">${escapeHtml(calc.name || '-')}</td>
+                <td class="item-name-cell" title="${escapeHtml(calc.name || '-')}">${escapeHtml(calc.name || '-')}</td>
                 <td><input class="mm-qty" type="number" min="0" step="1" value="${calc.qty}"></td>
                 <td><input class="mm-bonus" type="number" min="0" step="1" value="${calc.bonus}"></td>
                 <td><input class="mm-bonus-pct" type="number" min="0" step="0.01" value="${calc.bonusPct}"></td>
                 <td class="mm-price" data-price="${calc.price}">${formatMoney(calc.price)}</td>
                 <td class="mm-subtotal">${formatMoney(calc.total)}</td>
-                <td>${escapeHtml(calc.note || '-')}</td>
+                <td class="workflow-note-cell" title="${escapeHtml(calc.note || '-')}">${escapeHtml(calc.note || '-')}</td>
                 <td><button class="action-btn workflow-delete-item" type="button" title="حذف الصنف"><i class="ph ph-trash"></i></button></td>
             </tr>
         `;
@@ -910,16 +917,36 @@ function initMarketManager() {
     subscribeOrders(applyMarketFilters);
 }
 
+function orderToFinanceExportRow(order) {
+    return {
+        'التاريخ': formatDateTime(order.createdAt),
+        'كود الصيدلية': getPharmacyCode(order),
+        'اسم الصيدلية': order.pharmacyName || '',
+        'المندوب': order.repName || order.representativeName || '',
+        'ملاحظة الطلبية': getOrderNote(order),
+        'قيمة الطلبية': parseNumber(order.grandTotal)
+    };
+}
+
 function exportFinanceOrders(orders, scope = 'visible') {
     if (orders.length === 0) return showToast('لا توجد طلبيات للتصدير.', 'warning');
     if (typeof XLSX === 'undefined') return showToast('مكتبة Excel غير محملة. أعد فتح الصفحة وحاول مرة أخرى.', 'error');
-    const rows = orders.flatMap(orderToExportRows);
-    if (rows.length === 0) return showToast('لا توجد أصناف قابلة للتصدير.', 'warning');
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const rows = orders.map(orderToFinanceExportRow);
+    if (rows.length === 0) return showToast('لا توجد طلبيات قابلة للتصدير.', 'warning');
+    const headers = ['التاريخ', 'كود الصيدلية', 'اسم الصيدلية', 'المندوب', 'ملاحظة الطلبية', 'قيمة الطلبية'];
+    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+    ws['!cols'] = [
+        { wch: 20 },
+        { wch: 15 },
+        { wch: 28 },
+        { wch: 22 },
+        { wch: 42 },
+        { wch: 15 }
+    ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Finance Orders');
     XLSX.writeFile(wb, `finance_orders_${scope}_${toDateInputValue(new Date())}.xlsx`);
-    showToast('تم تصدير ملف Excel بنجاح بدون تغيير حالة الطلبيات.', 'success');
+    showToast('تم تصدير ملف Excel المختصر بنجاح بدون تغيير حالة الطلبيات.', 'success');
 }
 
 function applyFinanceFilters() {
@@ -1069,7 +1096,7 @@ function applyOrdersStaffFilters() {
     const pharm = ($('filterPharmacy')?.value || '').toLowerCase().trim();
     const rep = ($('filterRepresentative')?.value || '').toLowerCase().trim();
     const product = ($('filterProduct')?.value || '').toLowerCase().trim();
-    const statusMode = $('showHiddenMode')?.value || 'followup';
+    const statusMode = $('showHiddenMode')?.value || 'active';
     const requiredOwner = $('filterRequiredOwner')?.value || '';
     const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
@@ -1083,7 +1110,7 @@ function applyOrdersStaffFilters() {
         const status = getPrimaryStatus(order);
         const followUp = getWorkflowFollowUp(order);
         const isHidden = status === 'orders_staff_hidden' || order.hiddenByOrderStaff === true;
-        const isActive = status === 'orders_staff_pending' && !isHidden;
+        const isActive = (status === 'orders_staff_pending' || status === 'finance_approved' || (order.financeStatus === 'finance_approved' && !status)) && !isHidden;
         const isExported = status === 'orders_staff_exported' || order.orderStaffStatus === 'orders_staff_exported' || order.exportedAt;
         let modeOk = isActive;
         if (statusMode === 'followup') modeOk = true;
@@ -1119,23 +1146,23 @@ function renderOrdersStaffRows() {
                 const followUp = getWorkflowFollowUp(order);
                 tr.innerHTML = `
                     <td>${index === 0 ? `<input class="workflow-order-checkbox" type="checkbox" value="${order.id}">` : ''}</td>
-                    <td>${index === 0 ? escapeHtml(formatDateTime(order.createdAt)) : ''}</td>
+                    <td class="staff-date-cell">${index === 0 ? escapeHtml(formatDateTime(order.createdAt)) : ''}</td>
                     <td>${index === 0 ? escapeHtml(getPharmacyCode(order) || '-') : ''}</td>
-                    <td>${index === 0 ? escapeHtml(order.pharmacyName || '-') : ''}</td>
-                    <td>${index === 0 ? escapeHtml(order.repName || order.representativeName || '-') : ''}</td>
+                    <td class="staff-pharmacy-cell" title="${index === 0 ? escapeHtml(order.pharmacyName || '-') : ''}">${index === 0 ? escapeHtml(order.pharmacyName || '-') : ''}</td>
+                    <td class="staff-rep-cell" title="${index === 0 ? escapeHtml(order.repName || order.representativeName || '-') : ''}">${index === 0 ? escapeHtml(order.repName || order.representativeName || '-') : ''}</td>
                     <td>${index === 0 ? `<span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span>` : ''}</td>
                     <td>${index === 0 ? escapeHtml(followUp.owner || '-') : ''}</td>
-                    <td class="workflow-note-cell">${index === 0 ? escapeHtml(followUp.detail || '-') : ''}</td>
+                    <td class="workflow-note-cell" title="${index === 0 ? escapeHtml(followUp.detail || '-') : ''}">${index === 0 ? escapeHtml(followUp.detail || '-') : ''}</td>
                     <td>${escapeHtml(getItemProductCode(calc) || '-')}</td>
-                    <td class="item-name-cell">${escapeHtml(calc.name || '-')}</td>
+                    <td class="item-name-cell" title="${escapeHtml(calc.name || '-')}">${escapeHtml(calc.name || '-')}</td>
                     <td>${calc.qty}</td>
                     <td>${calc.bonus}</td>
                     <td>${calc.bonusPct}%</td>
                     <td>${formatMoney(calc.total)}</td>
                     <td>${index === 0 ? formatMoney(order.grandTotal) : ''}</td>
-                    <td>${escapeHtml(calc.note || '-')}</td>
-                    <td class="workflow-note-cell">${index === 0 ? escapeHtml(getOrderNote(order) || '-') : ''}</td>
-                    <td class="workflow-note-cell">${index === 0 ? escapeHtml(order.returnReason || '-') : ''}</td>
+                    <td class="workflow-note-cell" title="${escapeHtml(calc.note || '-')}">${escapeHtml(calc.note || '-')}</td>
+                    <td class="workflow-note-cell" title="${index === 0 ? escapeHtml(getOrderNote(order) || '-') : ''}">${index === 0 ? escapeHtml(getOrderNote(order) || '-') : ''}</td>
+                    <td class="workflow-note-cell" title="${index === 0 ? escapeHtml(order.returnReason || '-') : ''}">${index === 0 ? escapeHtml(order.returnReason || '-') : ''}</td>
                     <td class="workflow-actions-cell">${index === 0 ? `<button class="action-btn staff-edit-btn" type="button"><i class="ph ph-pencil"></i> تعديل</button><button class="action-btn staff-return-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع</button><button class="action-btn danger-btn staff-delete-btn" type="button"><i class="ph ph-trash"></i> حذف</button>` : ''}</td>
                 `;
                 if (index === 0) {
@@ -1166,13 +1193,13 @@ function fullStaffOrderRows(order) {
             <tr data-index="${index}">
                 <td>${index + 1}</td>
                 <td>${escapeHtml(getItemProductCode(calc) || '-')}</td>
-                <td class="item-name-cell">${escapeHtml(calc.name || '-')}</td>
+                <td class="item-name-cell" title="${escapeHtml(calc.name || '-')}">${escapeHtml(calc.name || '-')}</td>
                 <td><input class="staff-qty" type="number" min="0" step="1" value="${calc.qty}"></td>
                 <td><input class="staff-bonus" type="number" min="0" step="1" value="${calc.bonus}"></td>
                 <td><input class="staff-bonus-pct" type="number" min="0" step="0.01" value="${calc.bonusPct}"></td>
                 <td class="staff-price" data-price="${calc.price}">${formatMoney(calc.price)}</td>
                 <td class="staff-subtotal">${formatMoney(calc.total)}</td>
-                <td>${escapeHtml(calc.note || '-')}</td>
+                <td class="workflow-note-cell" title="${escapeHtml(calc.note || '-')}">${escapeHtml(calc.note || '-')}</td>
                 <td><button class="action-btn staff-delete-item" type="button" title="حذف الصنف"><i class="ph ph-trash"></i></button></td>
             </tr>
         `;
@@ -1299,6 +1326,24 @@ async function staffDeleteOrder(orderId) {
     closeStaffOrderModal();
 }
 
+function syncOrdersStaffTabFromMode() {
+    if (WORKFLOW_PAGE !== 'orders-staff') return;
+    const mode = $('showHiddenMode')?.value || 'active';
+    state.ordersStaffTab = mode === 'active' ? 'approved' : 'followup';
+    document.querySelectorAll('.orders-staff-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.staffTab === state.ordersStaffTab);
+    });
+}
+
+function setOrdersStaffTab(tab) {
+    if (WORKFLOW_PAGE !== 'orders-staff') return;
+    state.ordersStaffTab = tab === 'followup' ? 'followup' : 'approved';
+    const modeSelect = $('showHiddenMode');
+    if (modeSelect) modeSelect.value = state.ordersStaffTab === 'approved' ? 'active' : 'followup';
+    syncOrdersStaffTabFromMode();
+    applyOrdersStaffFilters();
+}
+
 function getOrdersByIds(ids) {
     const uniq = new Set(ids);
     return state.visibleOrders.filter(order => uniq.has(order.id));
@@ -1348,7 +1393,14 @@ async function exportOrders(orders) {
 
 function initOrdersStaff() {
     setDefaultDateFilters();
-    bindCommonFilters(applyOrdersStaffFilters);
+    if ($('showHiddenMode')) $('showHiddenMode').value = 'active';
+    syncOrdersStaffTabFromMode();
+    bindCommonFilters(() => {
+        syncOrdersStaffTabFromMode();
+        applyOrdersStaffFilters();
+    });
+    $('approvedByFinanceTab')?.addEventListener('click', () => setOrdersStaffTab('approved'));
+    $('followupOrdersTab')?.addEventListener('click', () => setOrdersStaffTab('followup'));
     $('selectAllWorkflow')?.addEventListener('change', e => document.querySelectorAll('.workflow-order-checkbox').forEach(cb => cb.checked = e.target.checked));
     $('exportSelectedBtn')?.addEventListener('click', () => exportOrders(getOrdersByIds(selectedIds())));
     $('exportVisibleBtn')?.addEventListener('click', () => exportOrders(state.visibleOrders));

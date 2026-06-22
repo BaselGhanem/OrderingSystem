@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
-<link href="favicon.ico?v=20260622_workflow2" rel="icon"/>
+<link href="favicon.ico?v=20260622_orders_staff_tabs1" rel="icon"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
 <title>Ziad / Zakaria Orders Staff | نظام الطلبيات</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="style.css?v=20260622_workflow2" rel="stylesheet"/>
+<link href="style.css?v=20260622_orders_staff_tabs1" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -18,17 +18,21 @@
 <div class="bg-shapes"><div class="shape shape-1"></div><div class="shape shape-2"></div></div>
 <div class="app-container workflow-page-shell">
 <header class="glass-panel workflow-header">
-    <div class="logo-area"><img alt="Dar Al Dawaa Logo" class="logo" src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png"/><div><h1>Orders Processing</h1><p>صفحة Ziad / Zakaria لتصدير الطلبيات المعتمدة مالياً</p></div></div>
+    <div class="logo-area"><img alt="Dar Al Dawaa Logo" class="logo" src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png"/><div><h1>Orders Processing</h1><p>صفحة Ziad / Zakaria لمتابعة الطلبيات ومعالجة الطلبيات المعتمدة مالياً</p></div></div>
 </header>
 <main class="glass-panel workflow-main">
     <section class="workflow-stats-grid"><div class="workflow-stat-card"><span>عدد الطلبيات</span><strong id="ordersCount">0</strong></div><div class="workflow-stat-card"><span>القيمة المعروضة</span><strong id="ordersValue">0.00 د.ا</strong></div></section>
+    <section class="orders-staff-tabs" aria-label="تبويبات قسم الطلبيات">
+        <button class="orders-staff-tab active" id="approvedByFinanceTab" data-staff-tab="approved" type="button"><i class="ph ph-check-circle"></i> الطلبيات الموافق عليها من حمزة</button>
+        <button class="orders-staff-tab" id="followupOrdersTab" data-staff-tab="followup" type="button"><i class="ph ph-chart-line-up"></i> متابعة حالة الطلبيات</button>
+    </section>
     <section class="workflow-filters">
         <div><label>من تاريخ</label><input id="filterDateFrom" type="date"></div>
         <div><label>إلى تاريخ</label><input id="filterDateTo" type="date"></div>
         <div><label>الصيدلية</label><input id="filterPharmacy" type="search" placeholder="بحث بالصيدلية أو الكود"></div>
         <div><label>المندوب</label><input id="filterRepresentative" type="search" placeholder="بحث باسم المندوب"></div>
         <div><label>الصنف</label><input id="filterProduct" type="search" placeholder="بحث بالصنف أو كود المنتج"></div>
-        <div><label>العرض</label><select id="showHiddenMode"><option value="followup" selected>متابعة كل الطلبيات</option><option value="active">جاهزة لقسم الطلبيات فقط</option><option value="exported">المصدّرة وغير المخفية</option><option value="hidden">المخفية بعد التصدير</option><option value="all">الكل</option></select></div>
+        <div><label>العرض</label><select id="showHiddenMode"><option value="active" selected>جاهزة لقسم الطلبيات فقط</option><option value="followup">متابعة كل الطلبيات</option><option value="exported">المصدّرة وغير المخفية</option><option value="hidden">المخفية بعد التصدير</option><option value="all">الكل</option></select></div>
         <div><label>المطلوب من</label><select id="filterRequiredOwner"><option value="">الكل</option><option value="supervisor">المشرف</option><option value="market_manager">مدير السوق</option><option value="finance_controller">المراقب المالي</option><option value="orders_staff">قسم الطلبيات</option><option value="representative">المندوب</option></select></div>
     </section>
     <section class="workflow-toolbar">
@@ -68,6 +72,6 @@
     </div>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260622_workflow2" type="module"></script>
+<script src="js/workflow.js?v=20260622_orders_staff_tabs1" type="module"></script>
 </body>
 </html>

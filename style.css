@@ -1359,3 +1359,61 @@ img, table { max-width: 100%; }
 }
 .staff-followup-table { min-width: 1780px; }
 .finance-workflow-table { min-width: 1260px; }
+
+
+/* 20260622_orders_staff_tabs1: Orders staff tabs + no-wrap follow-up grid */
+.orders-staff-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 16px 0 14px;
+}
+.orders-staff-tab {
+    border: 1px solid rgba(11, 63, 90, .18);
+    background: rgba(255, 255, 255, .78);
+    color: #0f2f3d;
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-family: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 42px;
+    box-shadow: 0 8px 18px rgba(11, 63, 90, .06);
+}
+.orders-staff-tab.active {
+    background: #0b3f5a;
+    color: #fff;
+    border-color: #0b3f5a;
+}
+.staff-followup-table {
+    min-width: 2200px;
+    width: max-content;
+    table-layout: auto;
+}
+.staff-followup-table th,
+.staff-followup-table td {
+    white-space: nowrap !important;
+    vertical-align: middle;
+}
+.staff-followup-table .workflow-note-cell,
+.staff-followup-table .item-name-cell,
+.staff-followup-table .staff-pharmacy-cell,
+.staff-followup-table .staff-rep-cell {
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.staff-followup-table .workflow-note-cell { max-width: 340px; }
+.staff-followup-table .item-name-cell { max-width: 300px; min-width: 220px; }
+.staff-followup-table .staff-pharmacy-cell { max-width: 260px; min-width: 180px; }
+.staff-followup-table .staff-rep-cell { max-width: 180px; min-width: 130px; }
+.staff-followup-table .staff-date-cell { min-width: 155px; direction: ltr; text-align: center; }
+@media (max-width: 768px) {
+    .orders-staff-tabs { display: grid; grid-template-columns: 1fr; }
+    .orders-staff-tab { width: 100%; }
+    .staff-followup-table { min-width: 2100px; }
+}
