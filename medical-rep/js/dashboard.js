@@ -323,7 +323,7 @@ async function loadDashboard(force = false) {
     const button = C.$(`refreshBtn`);
     try {
         C.setLoading(button, true, force ? `تحديث مباشر` : `تحميل`);
-        state.core = await loadCoreData(force);
+        state.core = await loadCoreData(force, { includeLegacySales: true });
         state.rows = buildRowsForRep(state.session, state.core);
         C.$(`lastRefresh`).textContent = new Date().toLocaleTimeString(`ar-JO`, { hour: `2-digit`, minute: `2-digit` });
         C.$(`cacheStatus`).textContent = state.core.cacheText || `-`;

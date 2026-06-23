@@ -22,6 +22,33 @@ async function getInvoicedOrders(force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS) 
         if (cached) return { rows: cached.data || [], fromCache: true, cacheAge: C.cacheAgeText(cached) };
     }
 
+    const rows = await fetchModernInvoicedOrders();
+    C.cacheSet(key, rows);
+    return { rows, fromCache: false, cacheAge: `الآن` };
+}
+
+async function getMedicalRepDashboardOrders(force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS) {
+    const key = `orders_medrep_dashboard_legacy_plus_invoiced_v4`;
+    if (!force) {
+        const cached = C.cacheGet(key, ttlMs);
+        if (cached) return { rows: cached.data || [], fromCache: true, cacheAge: C.cacheAgeText(cached) };
+    }
+
+    const ordersById = new Map();
+    const modernRows = await fetchModernInvoicedOrders();
+    modernRows.forEach(order => ordersById.set(order.id, { ...order, medicalRepSaleSource: `invoiced` }));
+
+    const legacyRows = await fetchLegacySalesOrders();
+    legacyRows.forEach(order => {
+        if (!ordersById.has(order.id)) ordersById.set(order.id, { ...order, medicalRepSaleSource: `legacy` });
+    });
+
+    const rows = [...ordersById.values()];
+    C.cacheSet(key, rows);
+    return { rows, fromCache: false, cacheAge: `الآن` };
+}
+
+async function fetchModernInvoicedOrders() {
     const ordersById = new Map();
     const invoicedQueries = [
         query(collection(db, `orders`), where(`status`, `==`, `orders_staff_hidden`)),
@@ -32,20 +59,44 @@ async function getInvoicedOrders(force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS) 
     for (const q of invoicedQueries) {
         try {
             const snap = await getDocs(q);
-            snap.forEach(item => ordersById.set(item.id, { id: item.id, ...item.data() }));
+            snap.forEach(item => {
+                const order = { id: item.id, ...item.data() };
+                if (isInvoicedOrder(order)) ordersById.set(item.id, order);
+            });
         } catch (error) {
             console.warn(`تعذر تنفيذ استعلام الطلبيات المفوترة:`, error);
         }
     }
-
-    const rows = [...ordersById.values()];
-    C.cacheSet(key, rows);
-    return { rows, fromCache: false, cacheAge: `الآن` };
+    return [...ordersById.values()];
 }
 
-async function loadCoreData(force = false) {
+async function fetchLegacySalesOrders() {
+    const ordersById = new Map();
+    const legacyQueries = [
+        query(collection(db, `orders`), where(`status`, `==`, `approved`)),
+        query(collection(db, `orders`), where(`status`, `==`, ``)),
+        query(collection(db, `orders`), where(`status`, `==`, null))
+    ];
+
+    for (const q of legacyQueries) {
+        try {
+            const snap = await getDocs(q);
+            snap.forEach(item => {
+                const order = { id: item.id, ...item.data() };
+                if (isLegacySalesOrder(order)) ordersById.set(item.id, order);
+            });
+        } catch (error) {
+            console.warn(`تعذر تنفيذ استعلام الطلبيات القديمة لشاشة مندوب الدعاية:`, error);
+        }
+    }
+    return [...ordersById.values()];
+}
+
+async function loadCoreData(force = false, options = {}) {
+    const includeLegacySales = options.includeLegacySales === true;
+    const ordersLoader = includeLegacySales ? getMedicalRepDashboardOrders : getInvoicedOrders;
     const [ordersPack, pharmaciesPack, areaRulesPack, otherSharesPack, targetsPack] = await Promise.all([
-        getInvoicedOrders(force),
+        ordersLoader(force),
         getCollectionCached(`pharmacies`, force),
         getCollectionCached(`medicalRepAreaRules`, force),
         getCollectionCached(`medicalRepOtherShares`, force),
@@ -73,6 +124,36 @@ function isInvoicedOrder(order = {}) {
         !!order.hiddenByOrderStaff ||
         exportHistory.some(entry => entry?.hideAfterExport === true || entry?.invoiced === true) ||
         auditTrail.some(entry => [`orders_staff_hidden`, `orders_staff_hide_after_export`, `orders_staff_invoiced_and_hidden_after_export`].includes(entry?.action));
+}
+
+function isLegacySalesOrder(order = {}) {
+    if (isInvoicedOrder(order)) return false;
+    const modernWorkflowKeys = [
+        `orderStaffStatus`,
+        `financeStatus`,
+        `marketManagerStatus`,
+        `supervisorStatus`,
+        `workflowStage`,
+        `hiddenByOrderStaff`,
+        `exportedAt`,
+        `financeApprovedAt`,
+        `marketManagerApprovedAt`,
+        `supervisorApprovedAt`,
+        `previousStatus`,
+        `actionType`,
+        `changedByRole`
+    ];
+    const hasModernWorkflow = modernWorkflowKeys.some(key => Object.prototype.hasOwnProperty.call(order, key));
+    if (hasModernWorkflow) return false;
+
+    const rawStatus = Object.prototype.hasOwnProperty.call(order, `status`) ? String(order.status || ``).trim() : ``;
+    const normalizedStatus = C.normalizeArabic(rawStatus).toLowerCase();
+    const blockedStatuses = [`pending`, `rejected`, `deleted`, `cancelled`, `canceled`, `returned`, `draft`, `طلب جديد`, `مرفوض`, `محذوف`, `ملغي`, `مرتجع`];
+    if (blockedStatuses.some(status => normalizedStatus === C.normalizeArabic(status).toLowerCase())) return false;
+
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (!items.length) return false;
+    return !rawStatus || normalizedStatus === `approved` || normalizedStatus === C.normalizeArabic(`معتمد`).toLowerCase();
 }
 
 function orderDate(order = {}) {
@@ -147,7 +228,7 @@ function buildRowsForTeam(teamName = ``, data = {}) {
 
 function buildRowsFromMaps(orders, pharmaciesByCode, pharmaciesByName, areaRuleMap, otherShareMap, meta = {}) {
     const result = [];
-    orders.filter(isInvoicedOrder).forEach(order => {
+    orders.filter(order => isInvoicedOrder(order) || isLegacySalesOrder(order)).forEach(order => {
         const area = getOrderArea(order, pharmaciesByCode, pharmaciesByName);
         const areaKey = C.normalizeArabic(area);
         const date = orderDate(order);
@@ -180,7 +261,7 @@ function buildRowsFromMaps(orders, pharmaciesByCode, pharmaciesByName, areaRuleM
                 sourceQty: qty,
                 sourceValue: value,
                 unitPrice: qty ? value / qty : C.parseNumber(item.price),
-                invoiceStatus: order.orderStaffStatus || order.status || `-`
+                invoiceStatus: order.medicalRepSaleSource === `legacy` ? `legacy_sale` : (order.orderStaffStatus || order.status || `-`)
             };
 
             if (C.isOtherArea(area)) {
@@ -255,6 +336,7 @@ function targetForRows(rows = [], targets = [], filters = {}) {
 export {
     getCollectionCached,
     getInvoicedOrders,
+    getMedicalRepDashboardOrders,
     loadCoreData,
     buildRowsForRep,
     buildRowsForTeam,
