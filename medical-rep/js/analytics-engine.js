@@ -2,36 +2,48 @@ import { db, collection, getDocs, query, where } from './firebase.js';
 
 const C = window.medrepCommon;
 
-async function getCollectionCached(collectionName, force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS) {
+async function readCachedPack(key, ttlMs, options = {}) {
+    const cached = C.cacheGet(key, ttlMs);
+    if (cached) {
+        return { rows: cached.data || [], fromCache: true, cacheAge: C.cacheAgeText(cached), isStale: C.cacheIsStale(cached) };
+    }
+    if (options.allowStale) {
+        const stale = C.cacheGet(key, 0);
+        if (stale) return { rows: stale.data || [], fromCache: true, cacheAge: C.cacheAgeText(stale), isStale: true };
+    }
+    return null;
+}
+
+async function getCollectionCached(collectionName, force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS, options = {}) {
     const key = `collection_${collectionName}`;
     if (!force) {
-        const cached = C.cacheGet(key, ttlMs);
-        if (cached) return { rows: cached.data || [], fromCache: true, cacheAge: C.cacheAgeText(cached) };
+        const cached = await readCachedPack(key, ttlMs, options);
+        if (cached) return cached;
     }
     const snap = await getDocs(collection(db, collectionName));
     const rows = [];
     snap.forEach(item => rows.push({ id: item.id, ...item.data() }));
     C.cacheSet(key, rows);
-    return { rows, fromCache: false, cacheAge: `الآن` };
+    return { rows, fromCache: false, cacheAge: `الآن`, isStale: false };
 }
 
-async function getInvoicedOrders(force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS) {
+async function getInvoicedOrders(force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS, options = {}) {
     const key = `orders_invoiced_hidden_v3`;
     if (!force) {
-        const cached = C.cacheGet(key, ttlMs);
-        if (cached) return { rows: cached.data || [], fromCache: true, cacheAge: C.cacheAgeText(cached) };
+        const cached = await readCachedPack(key, ttlMs, options);
+        if (cached) return cached;
     }
 
     const rows = await fetchModernInvoicedOrders();
     C.cacheSet(key, rows);
-    return { rows, fromCache: false, cacheAge: `الآن` };
+    return { rows, fromCache: false, cacheAge: `الآن`, isStale: false };
 }
 
-async function getMedicalRepDashboardOrders(force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS) {
-    const key = `orders_medrep_dashboard_legacy_plus_invoiced_v4`;
+async function getMedicalRepDashboardOrders(force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS, options = {}) {
+    const key = `orders_medrep_dashboard_legacy_plus_invoiced_v5`;
     if (!force) {
-        const cached = C.cacheGet(key, ttlMs);
-        if (cached) return { rows: cached.data || [], fromCache: true, cacheAge: C.cacheAgeText(cached) };
+        const cached = await readCachedPack(key, ttlMs, options);
+        if (cached) return cached;
     }
 
     const ordersById = new Map();
@@ -45,7 +57,7 @@ async function getMedicalRepDashboardOrders(force = false, ttlMs = C.DEFAULT_CAC
 
     const rows = [...ordersById.values()];
     C.cacheSet(key, rows);
-    return { rows, fromCache: false, cacheAge: `الآن` };
+    return { rows, fromCache: false, cacheAge: `الآن`, isStale: false };
 }
 
 async function fetchModernInvoicedOrders() {
@@ -94,21 +106,28 @@ async function fetchLegacySalesOrders() {
 
 async function loadCoreData(force = false, options = {}) {
     const includeLegacySales = options.includeLegacySales === true;
+    const cacheOptions = { allowStale: options.allowStale === true };
     const ordersLoader = includeLegacySales ? getMedicalRepDashboardOrders : getInvoicedOrders;
     const [ordersPack, pharmaciesPack, areaRulesPack, otherSharesPack, targetsPack] = await Promise.all([
-        ordersLoader(force),
-        getCollectionCached(`pharmacies`, force),
-        getCollectionCached(`medicalRepAreaRules`, force),
-        getCollectionCached(`medicalRepOtherShares`, force),
-        getCollectionCached(`medicalRepTargets`, force)
+        ordersLoader(force, C.DEFAULT_CACHE_TTL_MS, cacheOptions),
+        getCollectionCached(`pharmacies`, force, C.DEFAULT_CACHE_TTL_MS, cacheOptions),
+        getCollectionCached(`medicalRepAreaRules`, force, C.DEFAULT_CACHE_TTL_MS, cacheOptions),
+        getCollectionCached(`medicalRepOtherShares`, force, C.DEFAULT_CACHE_TTL_MS, cacheOptions),
+        getCollectionCached(`medicalRepTargets`, force, C.DEFAULT_CACHE_TTL_MS, cacheOptions)
     ]);
+    const packs = [ordersPack, pharmaciesPack, areaRulesPack, otherSharesPack, targetsPack];
+    const fromCache = packs.some(pack => pack.fromCache);
+    const hasStaleCache = packs.some(pack => pack.isStale);
+    const oldestCache = packs.filter(pack => pack.fromCache).sort((a, b) => String(b.cacheAge).localeCompare(String(a.cacheAge)))[0];
     return {
         orders: ordersPack.rows,
         pharmacies: pharmaciesPack.rows,
         areaRules: areaRulesPack.rows,
         otherShares: otherSharesPack.rows,
         targets: targetsPack.rows,
-        cacheText: ordersPack.fromCache || pharmaciesPack.fromCache || areaRulesPack.fromCache || otherSharesPack.fromCache || targetsPack.fromCache ? `من التخزين المحلي - ${ordersPack.cacheAge}` : `مباشر من Firebase`
+        cacheText: fromCache ? `التخزين الداخلي - ${oldestCache?.cacheAge || ordersPack.cacheAge}` : `Firebase مباشر`,
+        hasStaleCache,
+        fromCache
     };
 }
 

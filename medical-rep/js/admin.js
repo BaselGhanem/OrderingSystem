@@ -326,7 +326,7 @@ async function importByKind(kind) {
         if (!clean.length) return C.showToast(`لا توجد صفوف صالحة للاستيراد.`, `error`);
         const count = await upsertRows(config.collectionName, clean, config.docId);
         C.clearMedrepCache();
-        C.showToast(`تم رفع ${count} سجل بنجاح. وتم تحديث التخزين المحلي.`, `success`);
+        C.showToast(`تم رفع ${count} سجل بنجاح. وتم تحديث التخزين الداخلي.`, `success`);
         await refreshAll();
     } catch (error) {
         console.error(error);

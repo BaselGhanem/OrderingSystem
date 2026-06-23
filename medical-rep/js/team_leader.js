@@ -6,7 +6,8 @@ const state = {
     rows: [],
     filtered: [],
     teams: [],
-    selectedTeam: ``
+    selectedTeam: ``,
+    backgroundRefreshing: false
 };
 
 function requireAccess() {
@@ -76,6 +77,12 @@ function aggregateBy(rows = [], keyFactory, seedFactory, reducer) {
     return [...map.values()];
 }
 
+function setFeatureVisibility(feature, visible) {
+    document.querySelectorAll(`[data-feature="${feature}"]`).forEach(element => {
+        element.hidden = !visible;
+    });
+}
+
 function render() {
     const totalValue = C.sumRows(state.filtered, `allocatedValue`);
     const totalQty = C.sumRows(state.filtered, `allocatedQty`);
@@ -91,6 +98,12 @@ function render() {
         from: C.$(`dateFrom`)?.value || ``,
         to: C.$(`dateTo`)?.value || ``
     });
+    const showOther = state.rows.some(row => row.channel === `others`);
+    const showTarget = C.parseNumber(target.value) > 0 || C.parseNumber(target.qty) > 0;
+    const channelFilter = C.$(`channelFilter`);
+    if (!showOther && channelFilter?.value === `others`) channelFilter.value = `all`;
+    setFeatureVisibility(`others`, showOther);
+    setFeatureVisibility(`target`, showTarget);
     const achValue = target.value ? (totalValue / target.value) * 100 : null;
 
     C.$(`teamName`).textContent = state.selectedTeam || `-`;
@@ -219,11 +232,29 @@ function renderDetails() {
     `).join(``);
 }
 
+async function refreshTeamInBackground() {
+    if (state.backgroundRefreshing) return;
+    state.backgroundRefreshing = true;
+    try {
+        state.core = await loadCoreData(true, { includeLegacySales: true });
+        state.teams = distinctTeams(state.core);
+        populateTeamFilter();
+        rebuildRows();
+        C.$(`lastRefresh`).textContent = new Date().toLocaleTimeString(`ar-JO`, { hour: `2-digit`, minute: `2-digit` });
+        C.$(`cacheStatus`).textContent = state.core.cacheText || `Firebase مباشر`;
+        C.$(`teamCacheMode`) && (C.$(`teamCacheMode`).textContent = state.core.cacheText || `Firebase مباشر`);
+    } catch (error) {
+        console.warn(`تعذر تحديث بيانات الفريق في الخلفية:`, error);
+    } finally {
+        state.backgroundRefreshing = false;
+    }
+}
+
 async function loadTeam(force = false) {
     const button = C.$(`refreshBtn`);
     try {
         C.setLoading(button, true, force ? `تحديث مباشر` : `تحميل`);
-        state.core = await loadCoreData(force);
+        state.core = await loadCoreData(force, { includeLegacySales: true, allowStale: !force });
         state.teams = distinctTeams(state.core);
         if (!state.selectedTeam) {
             const access = requireAccess();
@@ -233,6 +264,8 @@ async function loadTeam(force = false) {
         rebuildRows();
         C.$(`lastRefresh`).textContent = new Date().toLocaleTimeString(`ar-JO`, { hour: `2-digit`, minute: `2-digit` });
         C.$(`cacheStatus`).textContent = state.core.cacheText || `-`;
+        C.$(`teamCacheMode`) && (C.$(`teamCacheMode`).textContent = state.core.cacheText || `-`);
+        if (!force && state.core.hasStaleCache) refreshTeamInBackground();
     } catch (error) {
         console.error(error);
         C.showToast(`تعذر تحميل بيانات الفريق.`, `error`);

@@ -10,7 +10,8 @@ const state = {
     ui: {
         showOther: false,
         showTarget: false
-    }
+    },
+    backgroundRefreshing: false
 };
 
 function requireSession() {
@@ -397,6 +398,24 @@ function renderRowsTable(showOther) {
     `).join(``);
 }
 
+async function refreshInBackground() {
+    if (state.backgroundRefreshing) return;
+    state.backgroundRefreshing = true;
+    try {
+        const freshCore = await loadCoreData(true, { includeLegacySales: true });
+        state.core = freshCore;
+        state.rows = buildRowsForRep(state.session, state.core);
+        C.$(`lastRefresh`).textContent = new Date().toLocaleTimeString(`ar-JO`, { hour: `2-digit`, minute: `2-digit` });
+        C.$(`cacheStatus`).textContent = state.core.cacheText || `Firebase مباشر`;
+        populateFilters();
+        applyFilters();
+    } catch (error) {
+        console.warn(`تعذر تحديث بيانات الدعاية الطبية في الخلفية:`, error);
+    } finally {
+        state.backgroundRefreshing = false;
+    }
+}
+
 function openOrderModal(orderId) {
     const order = state.orderGroups.find(item => item.orderId === orderId);
     if (!order) return;
@@ -447,13 +466,14 @@ async function loadDashboard(force = false) {
     const button = C.$(`refreshBtn`);
     try {
         C.setLoading(button, true, force ? `تحديث مباشر` : `تحميل`);
-        state.core = await loadCoreData(force, { includeLegacySales: true });
+        state.core = await loadCoreData(force, { includeLegacySales: true, allowStale: !force });
         state.rows = buildRowsForRep(state.session, state.core);
         C.$(`lastRefresh`).textContent = new Date().toLocaleTimeString(`ar-JO`, { hour: `2-digit`, minute: `2-digit` });
         C.$(`cacheStatus`).textContent = state.core.cacheText || `-`;
         populateFilters();
         applyFilters();
         if (!state.rows.length) C.showToast(`لا توجد مبيعات محتسبة. تحقق من رفع ربط المناطق.`, `warning`);
+        if (!force && state.core.hasStaleCache) refreshInBackground();
     } catch (error) {
         console.error(error);
         C.showToast(`تعذر تحميل بيانات المبيعات. تحقق من الصلاحيات والاتصال.`, `error`);

@@ -3,8 +3,9 @@ const MEDREP_ADMIN_SESSION_KEY = `dad_medical_rep_admin_v1`;
 const MEDREP_TEAM_SESSION_KEY = `dad_medical_rep_team_session_v1`;
 const ADMIN_SECRET_HASH = `MjAyNjA0`;
 const OTHER_AREA_KEYS = [`اخرين`, `آخرين`, `others`, `other`, `منطقة اخرين`, `منطقة آخرين`];
-const CACHE_PREFIX = `dad_medrep_cache_v2_`;
-const DEFAULT_CACHE_TTL_MS = 1000 * 60 * 20;
+const CACHE_PREFIX = `dad_medrep_cache_v3_`;
+const DEFAULT_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
+const BACKGROUND_REFRESH_AFTER_MS = 1000 * 60 * 10;
 
 function $(id) {
     return document.getElementById(id);
@@ -317,6 +318,11 @@ function cacheAgeText(payload) {
     return `قبل ${minutes} دقيقة`;
 }
 
+function cacheIsStale(payload, thresholdMs = BACKGROUND_REFRESH_AFTER_MS) {
+    if (!payload?.savedAt) return true;
+    return Date.now() - payload.savedAt > thresholdMs;
+}
+
 function saveAdminImpersonation(rep = {}) {
     saveSession({
         role: `medical_rep`,
@@ -379,9 +385,11 @@ window.medrepCommon = {
     cacheRemove,
     clearMedrepCache,
     cacheAgeText,
+    cacheIsStale,
     saveAdminImpersonation,
     sumRows,
     groupBy,
     ADMIN_SECRET_HASH,
-    DEFAULT_CACHE_TTL_MS
+    DEFAULT_CACHE_TTL_MS,
+    BACKGROUND_REFRESH_AFTER_MS
 };
