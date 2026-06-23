@@ -1,23 +1,20 @@
-Add these collection matches to your existing Firestore rules if the new medical-rep pages show "Missing or insufficient permissions".
-
-Important: keep your current orders/pharmacies rules unchanged. The portal reads orders and pharmacies, and writes only its own setup collections from medical-rep/admin.html.
+// Add inside: match /databases/{database}/documents { ... }
+// مبدئيًا للتشغيل والاختبار. شدد الصلاحيات لاحقًا إذا تم تفعيل Firebase Auth.
 
 match /medicalReps/{docId} {
-  allow read: if true;
-  allow write: if true;
+  allow read, write: if true;
 }
-
 match /medicalRepAreaRules/{docId} {
-  allow read: if true;
-  allow write: if true;
+  allow read, write: if true;
 }
-
 match /medicalRepOtherShares/{docId} {
-  allow read: if true;
-  allow write: if true;
+  allow read, write: if true;
+}
+match /medicalRepTargets/{docId} {
+  allow read, write: if true;
 }
 
-match /medicalRepTargets/{docId} {
-  allow read: if true;
-  allow write: if true;
-}
+// Required existing reads for analytics:
+// orders: read invoiced orders only in UI logic.
+// pharmacies: read area by pharmacy_code.
+// If your current rules block these reads, add read permission according to your current security model.

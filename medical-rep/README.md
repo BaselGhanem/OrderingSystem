@@ -1,72 +1,48 @@
-# Medical Promotion Portal
+# Medical Rep Portal
 
-Independent folder: `/medical-rep/`
+بوابة مستقلة داخل فولدر `medical-rep` ولا تعدّل منطق نظام البيع الحالي.
 
-Entry points:
-- `medical-rep/index.html`: medical rep login by employee number and birth date.
-- `medical-rep/dashboard.html`: read-only medical rep dashboard.
-- `medical-rep/admin.html`: upload/update setup files.
+## الملفات الرئيسية
 
-Firestore collections created by the portal:
-- `medicalReps`: medical rep login data.
-- `medicalRepAreaRules`: direct area attribution rules by Team / Medrep / Item Name / Area.
-- `medicalRepOtherShares`: allocation percentages for Area = اخرين / آخرين / others.
-- `medicalRepTargets`: optional future targets by year/month/medrep/item.
+- `index.html`: دخول مندوب الدعاية الطبية بالرقم الوظيفي وتاريخ الميلاد.
+- `dashboard.html`: شاشة المندوب الطبي، قراءة فقط، بدون عرض البونص.
+- `team_leader.html`: شاشة Team Leader لمبيعات كل أصناف الفريق وكل صيدلية بأصناف الفريق فقط.
+- `admin.html`: رفع بيانات الدخول، ربط المناطق، نسب اخرين، Targets، وفتح شاشة أي مندوب مباشرة.
+- `debug-firestore.html`: فحص خفيف لأسماء الحقول في Firestore.
 
-Existing collections read by the portal:
-- `orders`: only invoiced/hidden-after-export orders are used.
-- `pharmacies`: used to resolve pharmacy area when the order itself does not carry an area field.
+## مجموعات Firestore الجديدة
 
-Core logic:
-- If an invoiced sale line is in a direct area and the uploaded area rule matches item + area + medrep, the full line value and quantity are counted for that medical rep.
-- If an invoiced sale line is in Area = اخرين / آخرين / others, the line value and quantity are multiplied by the uploaded `Percentage from others` for the same item and medrep.
-- The medical rep portal is read-only and cannot create, approve, edit, delete, export, or alter sales orders.
+- `medicalReps`
+- `medicalRepAreaRules`
+- `medicalRepOtherShares`
+- `medicalRepTargets`
 
-Admin upload files:
-1. Medical reps login file:
-   - Employee No
-   - Birth Date
-   - Medrep
-   - Team
-   - Active
+## مصدر المبيعات
 
-2. Area rules file:
-   - Team
-   - Medrep
-   - Item Name
-   - Area
+تقرأ البوابة من:
 
-3. Other shares file:
-   - Team
-   - Item Name
-   - Medrep
-   - Percentage from others
+- `orders`: الطلبيات المفوترة فقط.
+- `pharmacies`: لجلب المنطقة عبر الربط `orders.pharmacyCode = pharmacies.pharmacy_code`.
 
-4. Targets file:
-   - Year
-   - Month
-   - Team
-   - Medrep
-   - Item Name
-   - Target Value
-   - Target Qty
+## منطق الاحتساب
 
-## Firebase field mapping confirmed on 2026-06-23
+- البيع المباشر: الصنف + المنطقة يذهبان للمندوب المحدد في `medicalRepAreaRules` بنسبة 100%.
+- منطقة اخرين: إذا كانت المنطقة `اخرين / آخرين / others` يتم احتساب قيمة وكمية الصنف حسب نسبة المندوب في `medicalRepOtherShares`.
 
-The dashboard reads invoiced orders from `orders` using these indicators:
-- `status == orders_staff_hidden`
-- `orderStaffStatus == orders_staff_hidden`
-- `hiddenByOrderStaff == true`
+## الحماية التشغيلية
 
-Order item fields used:
-- `items[].name`
-- `items[].qty`
-- `items[].price`
-- `items[].total`
+- مندوب الدعاية الطبية لا يستطيع تعديل أو اعتماد أو حذف أي طلبية.
+- لا يتم عرض البونص في لوحة المندوب أو Team Leader أو التصدير.
+- الأدمن يستطيع فتح شاشة أي مندوب من `admin.html` بدون كلمة سر المندوب.
 
-Pharmacy area mapping:
-- Order field: `orders.pharmacyCode`
-- Pharmacy field: `pharmacies.pharmacy_code`
-- Area field: `pharmacies.area`
+## التخزين الداخلي
 
-This means `orders` does not need an area field. The portal maps the order to the pharmacy, then reads the pharmacy area.
+تم تفعيل تخزين داخلي Local Storage للبيانات الثقيلة:
+
+- الطلبيات المفوترة.
+- الصيدليات.
+- ربط المناطق.
+- نسب اخرين.
+- Targets.
+
+زر `تحديث` يجبر الصفحة على جلب مباشر من Firebase وتحديث التخزين المحلي.

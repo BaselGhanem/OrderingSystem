@@ -1,7 +1,10 @@
-const MEDREP_SESSION_KEY = `dad_medical_rep_session_v1`;
+const MEDREP_SESSION_KEY = `dad_medical_rep_session_v2`;
 const MEDREP_ADMIN_SESSION_KEY = `dad_medical_rep_admin_v1`;
+const MEDREP_TEAM_SESSION_KEY = `dad_medical_rep_team_session_v1`;
 const ADMIN_SECRET_HASH = `MjAyNjA0`;
 const OTHER_AREA_KEYS = [`اخرين`, `آخرين`, `others`, `other`, `منطقة اخرين`, `منطقة آخرين`];
+const CACHE_PREFIX = `dad_medrep_cache_v2_`;
+const DEFAULT_CACHE_TTL_MS = 1000 * 60 * 20;
 
 function $(id) {
     return document.getElementById(id);
@@ -69,6 +72,7 @@ function toDate(value) {
     if (!value) return null;
     if (value.toDate && typeof value.toDate === `function`) return value.toDate();
     if (value.seconds) return new Date(value.seconds * 1000);
+    if (value._seconds) return new Date(value._seconds * 1000);
     const date = value instanceof Date ? value : new Date(value);
     return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -90,6 +94,12 @@ function formatDate(value) {
     const date = toDate(value);
     if (!date) return `-`;
     return date.toLocaleDateString(`en-GB`);
+}
+
+function formatDateTime(value) {
+    const date = toDate(value);
+    if (!date) return `-`;
+    return date.toLocaleString(`en-GB`, { hour: `2-digit`, minute: `2-digit` });
 }
 
 function isWithinRange(value, fromValue, toValue) {
@@ -167,6 +177,29 @@ function clearAdminSession() {
     sessionStorage.removeItem(MEDREP_ADMIN_SESSION_KEY);
 }
 
+function readTeamSession() {
+    try {
+        return JSON.parse(localStorage.getItem(MEDREP_TEAM_SESSION_KEY) || sessionStorage.getItem(MEDREP_TEAM_SESSION_KEY) || `null`);
+    } catch (error) {
+        localStorage.removeItem(MEDREP_TEAM_SESSION_KEY);
+        sessionStorage.removeItem(MEDREP_TEAM_SESSION_KEY);
+        return null;
+    }
+}
+
+function saveTeamSession(session = {}, remember = false) {
+    const payload = JSON.stringify({ ...session, role: `medical_team_leader`, savedAt: Date.now() });
+    const target = remember ? localStorage : sessionStorage;
+    const other = remember ? sessionStorage : localStorage;
+    target.setItem(MEDREP_TEAM_SESSION_KEY, payload);
+    other.removeItem(MEDREP_TEAM_SESSION_KEY);
+}
+
+function clearTeamSession() {
+    localStorage.removeItem(MEDREP_TEAM_SESSION_KEY);
+    sessionStorage.removeItem(MEDREP_TEAM_SESSION_KEY);
+}
+
 function setLoading(button, loading, text = `جاري المعالجة...`) {
     if (!button) return;
     if (loading) {
@@ -239,6 +272,78 @@ function downloadWorkbook(rows, sheetName, fileName) {
     XLSX.writeFile(workbook, fileName);
 }
 
+function cacheKey(key) {
+    return `${CACHE_PREFIX}${key}`;
+}
+
+function cacheGet(key, ttlMs = DEFAULT_CACHE_TTL_MS) {
+    try {
+        const raw = localStorage.getItem(cacheKey(key));
+        if (!raw) return null;
+        const payload = JSON.parse(raw);
+        if (!payload || !payload.savedAt) return null;
+        if (ttlMs !== 0 && Date.now() - payload.savedAt > ttlMs) return null;
+        return payload;
+    } catch (error) {
+        localStorage.removeItem(cacheKey(key));
+        return null;
+    }
+}
+
+function cacheSet(key, data) {
+    try {
+        localStorage.setItem(cacheKey(key), JSON.stringify({ savedAt: Date.now(), data }));
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+function cacheRemove(key) {
+    localStorage.removeItem(cacheKey(key));
+}
+
+function clearMedrepCache() {
+    Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(CACHE_PREFIX)) localStorage.removeItem(key);
+    });
+}
+
+function cacheAgeText(payload) {
+    if (!payload?.savedAt) return `غير متاح`;
+    const minutes = Math.max(0, Math.round((Date.now() - payload.savedAt) / 60000));
+    if (minutes < 1) return `الآن`;
+    if (minutes === 1) return `قبل دقيقة`;
+    return `قبل ${minutes} دقيقة`;
+}
+
+function saveAdminImpersonation(rep = {}) {
+    saveSession({
+        role: `medical_rep`,
+        employeeNo: rep.employeeNo || rep.id || ``,
+        name: rep.name || rep.medrep || ``,
+        normalizedName: rep.normalizedName || normalizeArabic(rep.name || rep.medrep || ``),
+        team: rep.team || ``,
+        active: rep.active !== false,
+        adminPreview: true,
+        loginMethod: `admin_direct_open`
+    }, true);
+}
+
+function sumRows(rows = [], valueKey = `allocatedValue`) {
+    return rows.reduce((sum, row) => sum + parseNumber(row[valueKey]), 0);
+}
+
+function groupBy(rows = [], keyFactory) {
+    const map = new Map();
+    rows.forEach(row => {
+        const key = keyFactory(row);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(row);
+    });
+    return map;
+}
+
 window.medrepCommon = {
     $,
     escapeHtml,
@@ -251,6 +356,7 @@ window.medrepCommon = {
     toDateInputValue,
     firstDayOfMonth,
     formatDate,
+    formatDateTime,
     isWithinRange,
     makeDocId,
     readSession,
@@ -259,11 +365,23 @@ window.medrepCommon = {
     readAdminSession,
     saveAdminSession,
     clearAdminSession,
+    readTeamSession,
+    saveTeamSession,
+    clearTeamSession,
     setLoading,
     showToast,
     isOtherArea,
     rowValue,
     readExcelFile,
     downloadWorkbook,
-    ADMIN_SECRET_HASH
+    cacheGet,
+    cacheSet,
+    cacheRemove,
+    clearMedrepCache,
+    cacheAgeText,
+    saveAdminImpersonation,
+    sumRows,
+    groupBy,
+    ADMIN_SECRET_HASH,
+    DEFAULT_CACHE_TTL_MS
 };

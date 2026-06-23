@@ -99,13 +99,7 @@ function renderSummary() {
 }
 
 function renderTables() {
-    renderSimpleTable(`repsPreview`, state.reps.slice(0, 80), [`employeeNo`, `name`, `team`, `birthDate`, `active`], {
-        employeeNo: `الرقم الوظيفي`,
-        name: `المندوب الطبي`,
-        team: `الفريق`,
-        birthDate: `تاريخ الميلاد`,
-        active: `فعال`
-    });
+    renderRepsTable();
     renderSimpleTable(`areaRulesPreview`, state.areaRules.slice(0, 80), [`team`, `medrep`, `itemName`, `area`], {
         team: `الفريق`,
         medrep: `المندوب`,
@@ -127,6 +121,39 @@ function renderTables() {
         targetValue: `Target Value`,
         targetQty: `Target Qty`
     });
+}
+
+function renderRepsTable() {
+    const target = C.$(`repsPreview`);
+    if (!target) return;
+    if (!state.reps.length) {
+        target.innerHTML = `<div class="empty-state compact"><i class="ph ph-users-three"></i><span>لا توجد بيانات مندوبين مرفوعة بعد.</span></div>`;
+        return;
+    }
+    target.innerHTML = `
+        <div class="table-scroll">
+            <table class="data-table compact-table admin-reps-table">
+                <thead><tr><th>الرقم</th><th>المندوب الطبي</th><th>الفريق</th><th>تاريخ الميلاد</th><th>الحالة</th><th>فتح مباشر</th></tr></thead>
+                <tbody>
+                    ${state.reps.slice(0, 120).map(row => `
+                        <tr>
+                            <td>${C.escapeHtml(row.employeeNo || row.id || `-`)}</td>
+                            <td class="item-name">${C.escapeHtml(row.name || `-`)}</td>
+                            <td>${C.escapeHtml(row.team || `-`)}</td>
+                            <td>${C.escapeHtml(row.birthDate || `-`)}</td>
+                            <td>${row.active === false ? `<span class="badge badge-danger">غير فعال</span>` : `<span class="badge badge-direct">فعال</span>`}</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button class="btn btn-mini btn-primary" type="button" data-open-rep="${C.escapeHtml(row.employeeNo || row.id || ``)}"><i class="ph ph-user-focus"></i> كمندوب</button>
+                                    <button class="btn btn-mini btn-light" type="button" data-open-team="${C.escapeHtml(row.team || ``)}"><i class="ph ph-users-three"></i> Team</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join(``)}
+                </tbody>
+            </table>
+        </div>
+    `;
 }
 
 function renderSimpleTable(id, rows, keys, labels) {
@@ -298,7 +325,8 @@ async function importByKind(kind) {
         }
         if (!clean.length) return C.showToast(`لا توجد صفوف صالحة للاستيراد.`, `error`);
         const count = await upsertRows(config.collectionName, clean, config.docId);
-        C.showToast(`تم رفع ${count} سجل بنجاح.`, `success`);
+        C.clearMedrepCache();
+        C.showToast(`تم رفع ${count} سجل بنجاح. وتم تحديث التخزين المحلي.`, `success`);
         await refreshAll();
     } catch (error) {
         console.error(error);
@@ -371,6 +399,20 @@ function exportCurrent(kind) {
     C.downloadWorkbook(config.rows, config.sheet, config.name);
 }
 
+function openRepDashboard(employeeNo) {
+    const rep = state.reps.find(row => String(row.employeeNo || row.id || ``) === String(employeeNo || ``));
+    if (!rep) return C.showToast(`تعذر تحديد المندوب.`, `error`);
+    if (rep.active === false) return C.showToast(`هذا المندوب غير فعال.`, `warning`);
+    C.saveAdminImpersonation(rep);
+    window.open(`dashboard.html`, `_blank`);
+}
+
+function openTeamLeader(team) {
+    if (!team) return C.showToast(`اسم الفريق غير موجود لهذا المندوب.`, `warning`);
+    C.saveTeamSession({ team, adminPreview: true }, true);
+    window.open(`team_leader.html?team=${encodeURIComponent(team)}`, `_blank`);
+}
+
 function bindEvents() {
     C.$(`adminLoginBtn`)?.addEventListener(`click`, () => {
         const pass = C.$(`adminPassword`)?.value || ``;
@@ -400,6 +442,12 @@ function bindEvents() {
     C.$(`importTargetsBtn`)?.addEventListener(`click`, () => importByKind(`targets`));
     document.querySelectorAll(`[data-template]`).forEach(button => button.addEventListener(`click`, () => downloadTemplate(button.dataset.template)));
     document.querySelectorAll(`[data-export]`).forEach(button => button.addEventListener(`click`, () => exportCurrent(button.dataset.export)));
+    document.body.addEventListener(`click`, event => {
+        const repButton = event.target.closest(`[data-open-rep]`);
+        if (repButton) openRepDashboard(repButton.dataset.openRep);
+        const teamButton = event.target.closest(`[data-open-team]`);
+        if (teamButton) openTeamLeader(teamButton.dataset.openTeam);
+    });
     C.$(`refreshBtn`)?.addEventListener(`click`, refreshAll);
 }
 
