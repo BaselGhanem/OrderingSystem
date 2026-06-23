@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <link rel="icon" href="favicon.ico?v=20260623_market_audit_fix4">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Audit | نظام الطلبيات</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="style.css?v=20260623_market_audit_fix4">
+    <style>
+        :root {
+            --audit-teal: #099999;
+            --audit-navy: #0f3b5c;
+            --audit-muted: #64748b;
+            --audit-border: rgba(15, 59, 92, .14);
+            --audit-surface: rgba(255, 255, 255, .92);
+        }
+        body {
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .audit-shell {
+            width: min(1540px, calc(100% - clamp(16px, 3vw, 44px)));
+            margin: 22px auto;
+            display: grid;
+            gap: 16px;
+        }
+        .audit-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: clamp(16px, 2.4vw, 24px);
+        }
+        .audit-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .audit-title img {
+            width: 56px;
+            height: 56px;
+            object-fit: contain;
+            background: #fff;
+            border-radius: 18px;
+            padding: 7px;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, .08);
+        }
+        .audit-title h1 {
+            margin: 0;
+            color: var(--audit-navy);
+            font-size: clamp(1.25rem, 2.6vw, 1.9rem);
+            line-height: 1.2;
+        }
+        .audit-title p {
+            margin: 5px 0 0;
+            color: var(--audit-muted);
+            font-weight: 700;
+        }
+        .audit-actions,
+        .audit-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .audit-btn {
+            min-height: 42px;
+            border: 0;
+            border-radius: 14px;
+            padding: 10px 14px;
+            font-family: 'Cairo', system-ui, sans-serif;
+            font-weight: 900;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #fff;
+            background: linear-gradient(135deg, var(--audit-navy), var(--audit-teal));
+            box-shadow: 0 12px 28px rgba(9, 153, 153, .16);
+            white-space: nowrap;
+        }
+        .audit-btn.secondary {
+            background: #fff;
+            color: var(--audit-navy);
+            border: 1px solid var(--audit-border);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
+        }
+        .audit-filters,
+        .audit-stats {
+            display: grid;
+            gap: 12px;
+        }
+        .audit-stats {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        .audit-stat {
+            padding: 16px;
+            border-radius: 20px;
+            background: var(--audit-surface);
+            border: 1px solid var(--audit-border);
+            box-shadow: 0 12px 32px rgba(15, 23, 42, .06);
+        }
+        .audit-stat span {
+            display: block;
+            color: var(--audit-muted);
+            font-weight: 800;
+            font-size: .86rem;
+        }
+        .audit-stat strong {
+            display: block;
+            margin-top: 8px;
+            color: var(--audit-navy);
+            font-size: clamp(1.25rem, 3vw, 1.75rem);
+            font-weight: 900;
+        }
+        .audit-filters {
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            padding: 16px;
+        }
+        .audit-field {
+            display: grid;
+            gap: 6px;
+        }
+        .audit-field label {
+            color: var(--audit-navy);
+            font-weight: 900;
+            font-size: .85rem;
+        }
+        .audit-field input,
+        .audit-field select {
+            width: 100%;
+            min-height: 42px;
+            border-radius: 14px;
+            border: 1px solid #dbe4ee;
+            background: rgba(255,255,255,.92);
+            padding: 8px 11px;
+            font-family: 'Cairo', system-ui, sans-serif;
+            font-weight: 800;
+            color: #12344d;
+            outline: none;
+        }
+        .audit-field input:focus,
+        .audit-field select:focus {
+            border-color: rgba(9,153,153,.55);
+            box-shadow: 0 0 0 3px rgba(9,153,153,.10);
+        }
+        .audit-table-card {
+            padding: 0;
+            overflow: hidden;
+        }
+        .audit-table-scroll {
+            width: 100%;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+            max-height: calc(100dvh - 360px);
+            min-height: 360px;
+        }
+        .audit-table {
+            width: 100%;
+            min-width: 1180px;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        .audit-table th,
+        .audit-table td {
+            padding: 12px 11px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: right;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        .audit-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: #f8fafc;
+            color: var(--audit-navy);
+            font-weight: 900;
+        }
+        .audit-table tbody tr:hover {
+            background: rgba(9,153,153,.055);
+        }
+        .audit-mini {
+            color: var(--audit-muted);
+            font-size: .78rem;
+            font-weight: 700;
+        }
+        .audit-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 28px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: rgba(9,153,153,.10);
+            color: var(--audit-navy);
+            border: 1px solid rgba(9,153,153,.24);
+            font-weight: 900;
+            font-size: .77rem;
+        }
+        .audit-badge.warn {
+            color: #92400e;
+            background: #fffbeb;
+            border-color: #fde68a;
+        }
+        .audit-badge.danger {
+            color: #b91c1c;
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+        .audit-badge.done {
+            color: #047857;
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+        }
+        .audit-row-btn {
+            border: 1px solid rgba(9,153,153,.28);
+            color: var(--audit-navy);
+            background: #fff;
+            min-height: 36px;
+            padding: 7px 11px;
+            border-radius: 12px;
+            font-family: 'Cairo', system-ui, sans-serif;
+            font-weight: 900;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .audit-panel-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .56);
+            z-index: 9999;
+            display: none;
+            align-items: stretch;
+            justify-content: flex-start;
+            padding: clamp(8px, 2vw, 20px);
+        }
+        .audit-panel {
+            width: min(980px, 100%);
+            max-height: calc(100dvh - clamp(16px, 4vw, 40px));
+            overflow: auto;
+            margin-inline-start: auto;
+            padding: clamp(14px, 2vw, 22px);
+            border-radius: 24px;
+            background: rgba(255,255,255,.97);
+            box-shadow: 0 30px 80px rgba(15, 23, 42, .26);
+            display: grid;
+            gap: 14px;
+        }
+        .audit-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 12px;
+        }
+        .audit-panel-header h2 {
+            margin: 0;
+            color: var(--audit-navy);
+            font-size: clamp(1.1rem, 2.5vw, 1.55rem);
+        }
+        .audit-close {
+            border: 0;
+            background: transparent;
+            color: #dc2626;
+            font-size: 1.8rem;
+            cursor: pointer;
+        }
+        .audit-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .audit-info-box,
+        .audit-history-card {
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            border-radius: 18px;
+            padding: 13px;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, .055);
+        }
+        .audit-info-box span {
+            display: block;
+            color: var(--audit-muted);
+            font-size: .76rem;
+            font-weight: 800;
+            margin-bottom: 3px;
+        }
+        .audit-info-box strong {
+            display: block;
+            color: var(--audit-navy);
+            font-weight: 900;
+            overflow-wrap: anywhere;
+        }
+        .audit-history-card h3 {
+            margin: 0 0 12px;
+            color: var(--audit-navy);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1rem;
+        }
+        .audit-history-list {
+            display: grid;
+            gap: 10px;
+        }
+        .audit-history-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 11px;
+            background: #f8fafc;
+        }
+        .audit-history-item strong {
+            display: block;
+            color: #0f172a;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+        .audit-history-item span,
+        .audit-history-item small {
+            display: block;
+            color: var(--audit-muted);
+            font-weight: 700;
+            line-height: 1.6;
+        }
+        .audit-history-item details {
+            margin-top: 8px;
+        }
+        .audit-history-item summary {
+            cursor: pointer;
+            color: var(--audit-teal);
+            font-weight: 900;
+        }
+        .audit-history-item pre {
+            direction: ltr;
+            text-align: left;
+            white-space: pre-wrap;
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 12px;
+            padding: 10px;
+            overflow: auto;
+            max-height: 220px;
+            font-family: Consolas, monospace;
+            font-size: .78rem;
+        }
+        .audit-empty {
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            padding: 16px;
+            text-align: center;
+            color: var(--audit-muted);
+            font-weight: 900;
+            background: #f8fafc;
+        }
+        .audit-timeline {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .audit-step {
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #475569;
+            padding: 10px;
+            text-align: center;
+            font-weight: 900;
+            min-height: 56px;
+            display: grid;
+            place-items: center;
+            gap: 4px;
+        }
+        .audit-step.done {
+            background: #ecfdf5;
+            color: #047857;
+            border-color: #a7f3d0;
+        }
+        .audit-step.active {
+            background: #fffbeb;
+            color: #92400e;
+            border-color: #fde68a;
+        }
+        .audit-step.danger {
+            background: #fef2f2;
+            color: #b91c1c;
+            border-color: #fecaca;
+        }
+        .audit-current-owner {
+            margin-top: 10px;
+            border-radius: 14px;
+            background: rgba(9,153,153,.09);
+            border: 1px solid rgba(9,153,153,.22);
+            padding: 10px;
+            color: var(--audit-navy);
+            font-weight: 900;
+            line-height: 1.7;
+        }
+        @media (max-width: 1180px) {
+            .audit-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .audit-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 720px) {
+            .audit-shell { width: calc(100% - 14px); margin: 10px auto; }
+            .audit-header { align-items: stretch; }
+            .audit-actions, .audit-actions .audit-btn { width: 100%; }
+            .audit-filters, .audit-stats, .audit-detail-grid { grid-template-columns: 1fr; }
+            .audit-table-scroll { max-height: calc(100dvh - 430px); min-height: 280px; }
+            .audit-panel-overlay { padding: 0; }
+            .audit-panel { border-radius: 22px 22px 0 0; max-height: 100dvh; height: 100dvh; }
+            .audit-timeline { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body data-page="audit">
+    <div class="offline-banner" id="offline-banner"><i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال.</div>
+    <div class="bg-shapes"><div class="shape shape-1"></div><div class="shape shape-2"></div></div>
+
+    <main class="audit-shell">
+        <header class="audit-header glass-panel">
+            <div class="audit-title">
+                <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="Dar Al Dawaa Logo">
+                <div>
+                    <h1>Audit Center</h1>
+                    <p>متابعة مسار الطلبية، سجل التدقيق، سجل التصدير، وسجل الطباعة.</p>
+                </div>
+            </div>
+            <div class="audit-actions">
+                <button class="audit-btn secondary" id="refreshBtn" type="button"><i class="ph ph-arrow-clockwise"></i> تحديث</button>
+                <button class="audit-btn secondary" id="exportAuditBtn" type="button"><i class="ph ph-file-xls"></i> تصدير Excel</button>
+                <a class="audit-btn secondary" href="market_manager.html"><i class="ph ph-briefcase"></i> مدير السوق</a>
+                <a class="audit-btn" href="setting.html"><i class="ph ph-gear-six"></i> الإعدادات</a>
+            </div>
+        </header>
+
+        <section class="audit-stats">
+            <div class="audit-stat"><span>إجمالي الطلبيات</span><strong id="statOrders">0</strong></div>
+            <div class="audit-stat"><span>إجمالي حركات التدقيق</span><strong id="statAudit">0</strong></div>
+            <div class="audit-stat"><span>سجلات التصدير</span><strong id="statExport">0</strong></div>
+            <div class="audit-stat"><span>سجلات الطباعة</span><strong id="statPrint">0</strong></div>
+        </section>
+
+        <section class="audit-filters glass-panel">
+            <div class="audit-field">
+                <label for="dateFrom">من تاريخ</label>
+                <input id="dateFrom" type="date">
+            </div>
+            <div class="audit-field">
+                <label for="dateTo">إلى تاريخ</label>
+                <input id="dateTo" type="date">
+            </div>
+            <div class="audit-field">
+                <label for="searchBox">بحث عام</label>
+                <input id="searchBox" type="search" placeholder="رقم الطلبية / الصيدلية / المندوب / الكود">
+            </div>
+            <div class="audit-field">
+                <label for="statusFilter">الحالة</label>
+                <select id="statusFilter">
+                    <option value="">كل الحالات</option>
+                    <option value="pending_supervisor_approval">قيد موافقة المشرف</option>
+                    <option value="supervisor_approved">معتمد من المشرف</option>
+                    <option value="market_manager_pending">بانتظار مدير السوق</option>
+                    <option value="finance_pending">بانتظار المالية</option>
+                    <option value="finance_approved">معتمد مالياً</option>
+                    <option value="orders_staff_pending">جاهز للمعالجة</option>
+                    <option value="orders_staff_exported">تم تصديره</option>
+                    <option value="orders_staff_hidden">تمت الفوترة</option>
+                    <option value="returned_to_rep">مرجعة للمندوب</option>
+                    <option value="returned_to_supervisor">مرجعة للمشرف</option>
+                    <option value="returned_to_market_manager">مرجعة لمدير السوق</option>
+                    <option value="returned_to_finance">مرجعة للمالية</option>
+                    <option value="market_manager_rejected">مرفوض من مدير السوق</option>
+                    <option value="finance_rejected">مرفوض مالياً</option>
+                    <option value="deleted_by_supervisor">محذوف من المشرف</option>
+                    <option value="deleted_by_market_manager">محذوف من مدير السوق</option>
+                    <option value="deleted_by_orders_staff">محذوف من قسم الطلبيات</option>
+                </select>
+            </div>
+            <div class="audit-field">
+                <label for="ownerFilter">المطلوب من</label>
+                <select id="ownerFilter">
+                    <option value="">الكل</option>
+                    <option value="representative">المندوب</option>
+                    <option value="supervisor">المشرف</option>
+                    <option value="market_manager">مدير السوق</option>
+                    <option value="finance_controller">المالية</option>
+                    <option value="orders_staff">قسم الطلبيات</option>
+                    <option value="none">لا يوجد</option>
+                </select>
+            </div>
+            <div class="audit-field">
+                <label for="historyFilter">نوع السجل</label>
+                <select id="historyFilter">
+                    <option value="">الكل</option>
+                    <option value="has_audit">يحتوي سجل تدقيق</option>
+                    <option value="no_audit">بدون سجل تدقيق</option>
+                    <option value="has_export">يحتوي سجل تصدير</option>
+                    <option value="has_print">يحتوي سجل طباعة</option>
+                </select>
+            </div>
+        </section>
+
+        <section class="audit-toolbar">
+            <span class="audit-badge" id="visibleCount">0 سجل ظاهر</span>
+            <span class="audit-badge warn" id="lastLoadedAt">لم يتم التحميل بعد</span>
+        </section>
+
+        <section class="audit-table-card glass-panel">
+            <div class="audit-table-scroll">
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>الطلبية</th>
+                            <th>الصيدلية</th>
+                            <th>المندوب</th>
+                            <th>الحالة</th>
+                            <th>المطلوب من</th>
+                            <th>تدقيق</th>
+                            <th>تصدير</th>
+                            <th>طباعة</th>
+                            <th>عرض</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditBody">
+                        <tr><td colspan="10"><div class="audit-empty">جاري تحميل سجل التدقيق...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div class="audit-panel-overlay" id="auditPanelOverlay">
+        <section class="audit-panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
+            <div class="audit-panel-header">
+                <div>
+                    <h2 id="panelTitle">تفاصيل الطلبية</h2>
+                    <div class="audit-mini" id="panelSubtitle"></div>
+                </div>
+                <button class="audit-close" id="closePanelBtn" type="button" aria-label="إغلاق"><i class="ph ph-x-circle"></i></button>
+            </div>
+            <div id="panelContent"></div>
+        </section>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script type="module">
+        import { db, collection, getDocs } from './js/firebase.js';
+
+        const $ = id => document.getElementById(id);
+        const state = {
+            orders: [],
+            visible: [],
+            selectedOrder: null
+        };
+
+        const STATUS_LABELS = {
+            pending: 'قيد موافقة المشرف',
+            pending_supervisor_approval: 'قيد موافقة المشرف',
+            supervisor_approved: 'معتمد من المشرف',
+            market_manager_pending: 'بانتظار مدير السوق',
+            market_manager_approved: 'معتمد من مدير السوق',
+            market_manager_rejected: 'مرفوض من مدير السوق',
+            finance_pending: 'بانتظار المالية',
+            finance_approved: 'معتمد مالياً',
+            finance_rejected: 'مرفوض مالياً',
+            orders_staff_pending: 'جاهز للمعالجة',
+            orders_staff_exported: 'تم تصديره',
+            orders_staff_hidden: 'تمت الفوترة',
+            orders_staff_edited_returned_to_finance: 'تم تعديله وإرجاعه للمالية',
+            returned_to_rep: 'مرجعة للمندوب',
+            returned_to_supervisor: 'مرجعة للمشرف',
+            returned_to_market_manager: 'مرجعة لمدير السوق',
+            returned_to_finance: 'مرجعة للمالية',
+            deleted_by_orders_staff: 'محذوفة من قسم الطلبيات',
+            deleted_by_supervisor: 'محذوف من المشرف',
+            deleted_by_market_manager: 'محذوف من مدير السوق',
+            deleted_by_reports: 'محذوف من التقارير',
+            approved: 'موافق عليه',
+            returned: 'مرتجع',
+            rejected: 'مرفوض',
+            order_created: 'تم إنشاء الطلبية',
+            market_manager_edit: 'تعديل مدير السوق',
+            market_manager_approved: 'اعتماد مدير السوق',
+            market_manager_rejected: 'رفض مدير السوق',
+            market_manager_order_deleted: 'حذف مدير السوق',
+            market_manager_returned_to_rep: 'إرجاع للمندوب',
+            market_manager_returned_to_supervisor: 'إرجاع للمشرف',
+            supervisor_approved_action: 'اعتماد المشرف',
+            finance_export: 'تصدير المالية',
+            finance_approved: 'اعتماد المالية',
+            finance_rejected: 'رفض المالية',
+            orders_staff_export: 'تصدير قسم الطلبيات',
+            orders_staff_export_hide: 'تصدير وإخفاء بعد الفوترة',
+            orders_staff_print: 'طباعة قسم الطلبيات',
+            orders_staff_order_deleted: 'حذف قسم الطلبيات',
+            orders_staff_edit_returned_to_finance: 'تعديل وإرجاع للمالية'
+        };
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function parseNumber(value) {
+            if (value === null || value === undefined || value === '') return 0;
+            if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+            const normalized = String(value)
+                .replace(/,/g, '')
+                .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+                .replace(/[^0-9.\-]/g, '')
+                .trim();
+            const n = Number(normalized);
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        function normalizeDate(value) {
+            if (!value) return null;
+            if (value.toDate && typeof value.toDate === 'function') return value.toDate();
+            if (typeof value === 'object' && typeof value.seconds === 'number') {
+                return new Date(value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1000000));
+            }
+            const d = value instanceof Date ? value : new Date(value);
+            return Number.isNaN(d.getTime()) ? null : d;
+        }
+
+        function formatDateTime(value) {
+            const d = normalizeDate(value);
+            return d ? d.toLocaleString('en-GB') : '-';
+        }
+
+        function formatMoney(value) {
+            return parseNumber(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function statusLabel(status) {
+            return STATUS_LABELS[status] || status || '-';
+        }
+
+        function primaryStatus(order = {}) {
+            return order.status || order.workflowStage || order.supervisorStatus || order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
+        }
+
+        function getPharmacyCode(order = {}) {
+            return order.pharmacyCode || order.pharmacy_code || order.customerCode || '';
+        }
+
+        function getOrderNote(order = {}) {
+            return order.orderNote || order.note || order.notes || order.repNote || order.representativeNote || '';
+        }
+
+        function arrayCount(value) {
+            return Array.isArray(value) ? value.length : 0;
+        }
+
+        function historyDate(value) {
+            return formatDateTime(value);
+        }
+
+        function getWorkflowFollowUp(order = {}) {
+            const status = primaryStatus(order);
+            const supervisorState = order.supervisorStatus || '';
+            const marketState = order.marketManagerStatus || '';
+            const financeState = order.financeStatus || '';
+            const staffState = order.orderStaffStatus || '';
+            const returnReason = order.returnReason || order.rejectionReason || order.marketManagerRejectionReason || order.financeRejectionReason || '';
+            const returnedBy = order.returnedBy ? ` من ${order.returnedBy}` : '';
+
+            if (status === 'returned_to_rep') return { ownerKey: 'representative', owner: 'المندوب', detail: returnReason || `مطلوب تعديل الطلبية${returnedBy}` };
+            if (status === 'pending' || status === 'pending_supervisor_approval' || supervisorState === 'pending_supervisor_approval') return { ownerKey: 'supervisor', owner: 'المشرف', detail: 'بانتظار موافقة المشرف' };
+            if (status === 'returned_to_supervisor') return { ownerKey: 'supervisor', owner: 'المشرف', detail: returnReason || `مطلوب مراجعة المشرف${returnedBy}` };
+            if (status === 'supervisor_approved' || status === 'market_manager_pending' || marketState === 'market_manager_pending') return { ownerKey: 'market_manager', owner: 'مدير السوق', detail: 'بانتظار موافقة مدير السوق' };
+            if (status === 'returned_to_market_manager') return { ownerKey: 'market_manager', owner: 'مدير السوق', detail: returnReason || `مطلوب مراجعة مدير السوق${returnedBy}` };
+            if (status === 'market_manager_rejected' || marketState === 'market_manager_rejected') return { ownerKey: 'market_manager', owner: 'مدير السوق', detail: order.marketManagerRejectionReason || 'مرفوض من مدير السوق' };
+            if (status === 'market_manager_approved' || status === 'finance_pending' || financeState === 'finance_pending') return { ownerKey: 'finance_controller', owner: 'المالية', detail: 'بانتظار الاعتماد المالي' };
+            if (status === 'finance_rejected' || financeState === 'finance_rejected') return { ownerKey: 'finance_controller', owner: 'المالية', detail: order.financeRejectionReason || 'مرفوض مالياً' };
+            if (status === 'returned_to_finance') return { ownerKey: 'finance_controller', owner: 'المالية', detail: returnReason || `مرجعة للمالية${returnedBy}` };
+            if (status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || order.hiddenByOrderStaff || order.isInvoiced) return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'تمت الفوترة / مخفية بعد التصدير' };
+            if (status === 'orders_staff_exported' || staffState === 'orders_staff_exported' || order.exportedAt) return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'تم التصدير ولم تُخفَ بعد' };
+            if (status === 'finance_approved' || status === 'orders_staff_pending' || staffState === 'orders_staff_pending') return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'جاهزة للمعالجة / التصدير' };
+            if (String(status).startsWith('deleted_')) return { ownerKey: 'none', owner: 'لا يوجد', detail: 'الطلبية محذوفة من مسار العمل' };
+            return { ownerKey: '', owner: '-', detail: statusLabel(status) };
+        }
+
+        function workflowStepState(order = {}, stepKey = '') {
+            const status = primaryStatus(order);
+            const deleted = String(status).startsWith('deleted_') || order.workflowStage === 'deleted';
+            if (deleted) return 'danger';
+            const completed = {
+                supervisor: ['supervisor_approved', 'market_manager_pending', 'market_manager_approved', 'finance_pending', 'finance_approved', 'orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(status) || order.supervisorStatus === 'supervisor_approved',
+                market_manager: ['market_manager_approved', 'finance_pending', 'finance_approved', 'orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(status) || order.marketManagerStatus === 'market_manager_approved',
+                finance: ['finance_approved', 'orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(status) || order.financeStatus === 'finance_approved',
+                orders_staff: ['orders_staff_exported', 'orders_staff_hidden'].includes(status) || ['orders_staff_exported', 'orders_staff_hidden'].includes(order.orderStaffStatus || '')
+            };
+            const owner = getWorkflowFollowUp(order).ownerKey;
+            if (owner === stepKey) return 'active';
+            return completed[stepKey] ? 'done' : 'pending';
+        }
+
+        function timelineHtml(order = {}) {
+            const steps = [
+                { key: 'supervisor', label: 'المشرف', icon: 'ph-user-check' },
+                { key: 'market_manager', label: 'مدير السوق', icon: 'ph-briefcase' },
+                { key: 'finance', label: 'المالية', icon: 'ph-calculator' },
+                { key: 'orders_staff', label: 'قسم الطلبيات', icon: 'ph-package' }
+            ];
+            const follow = getWorkflowFollowUp(order);
+            const cards = steps.map(step => `
+                <div class="audit-step ${workflowStepState(order, step.key)}">
+                    <i class="ph ${step.icon}"></i>
+                    <span>${escapeHtml(step.label)}</span>
+                </div>
+            `).join('');
+            return `
+                <div class="audit-timeline">${cards}</div>
+                <div class="audit-current-owner"><b>المطلوب من:</b> ${escapeHtml(follow.owner)} — ${escapeHtml(follow.detail)}</div>
+            `;
+        }
+
+        function serializeForPre(value) {
+            if (value === null || value === undefined || value === '') return '';
+            try {
+                return JSON.stringify(value, (key, val) => {
+                    if (val && typeof val.toDate === 'function') return val.toDate().toISOString();
+                    return val;
+                }, 2);
+            } catch (error) {
+                return String(value);
+            }
+        }
+
+        function auditListHtml(order = {}) {
+            const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+            if (!trail.length) return `<div class="audit-empty">لا يوجد سجل تدقيق محفوظ لهذه الطلبية.</div>`;
+            return `<div class="audit-history-list">${trail.slice().reverse().map(entry => {
+                const action = entry.action || entry.type || 'إجراء';
+                const user = entry.user || entry.actor || entry.changedBy || 'System';
+                const role = entry.role || entry.changedByRole || '-';
+                const ts = entry.timestamp || entry.at || entry.changedAt || entry.createdAt;
+                const notes = entry.notes || entry.note || entry.reason || '';
+                const technical = serializeForPre({ oldValue: entry.oldValue || entry.previousValue || entry.from || null, newValue: entry.newValue || entry.to || null, previousStatus: entry.previousStatus || null, orderId: entry.orderId || order.id || null });
+                return `
+                    <div class="audit-history-item">
+                        <strong>${escapeHtml(statusLabel(action))}</strong>
+                        <span>${escapeHtml(user)} / ${escapeHtml(role)} — ${escapeHtml(historyDate(ts))}</span>
+                        ${notes ? `<small>${escapeHtml(notes)}</small>` : ''}
+                        ${technical && technical !== '{}' ? `<details><summary>التفاصيل التقنية</summary><pre>${escapeHtml(technical)}</pre></details>` : ''}
+                    </div>
+                `;
+            }).join('')}</div>`;
+        }
+
+        function exportListHtml(order = {}) {
+            const history = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+            const rows = history.length ? history : (order.exportedAt ? [{ exportedAt: order.exportedAt, exportedBy: order.exportedBy || '-', source: 'legacy_export', fileName: order.exportFileName || '' }] : []);
+            if (!rows.length) return `<div class="audit-empty">لا يوجد سجل تصدير لهذه الطلبية.</div>`;
+            return `<div class="audit-history-list">${rows.slice().reverse().map(entry => `
+                <div class="audit-history-item">
+                    <strong>${escapeHtml(entry.fileName || entry.source || 'تصدير')}</strong>
+                    <span>${escapeHtml(entry.exportedBy || entry.user || '-')} — ${escapeHtml(historyDate(entry.exportedAt || entry.timestamp))}</span>
+                    ${entry.hideAfterExport || entry.invoiced ? '<small>تمت الفوترة وإخفاء الطلبية من العرض الافتراضي.</small>' : ''}
+                    <details><summary>التفاصيل التقنية</summary><pre>${escapeHtml(serializeForPre(entry))}</pre></details>
+                </div>
+            `).join('')}</div>`;
+        }
+
+        function printListHtml(order = {}) {
+            const history = Array.isArray(order.printHistory) ? order.printHistory : [];
+            const rows = history.length ? history : (order.lastPrintedAt ? [{ printedAt: order.lastPrintedAt, printedBy: order.lastPrintedBy || '-', source: 'legacy_print' }] : []);
+            if (!rows.length) return `<div class="audit-empty">لا يوجد سجل طباعة لهذه الطلبية.</div>`;
+            return `<div class="audit-history-list">${rows.slice().reverse().map(entry => `
+                <div class="audit-history-item">
+                    <strong>${escapeHtml(entry.source || 'طباعة')}</strong>
+                    <span>${escapeHtml(entry.printedBy || entry.user || '-')} — ${escapeHtml(historyDate(entry.printedAt || entry.timestamp))}</span>
+                    <details><summary>التفاصيل التقنية</summary><pre>${escapeHtml(serializeForPre(entry))}</pre></details>
+                </div>
+            `).join('')}</div>`;
+        }
+
+        function setToast(message, type = 'info') {
+            const container = $('toast-container');
+            if (!container) return alert(message);
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icon = type === 'success' ? 'ph-check-circle' : type === 'error' ? 'ph-warning-circle' : type === 'warning' ? 'ph-warning' : 'ph-info';
+            toast.innerHTML = `<i class="ph ${icon}" style="font-size:1.25rem"></i><span>${escapeHtml(message)}</span>`;
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.style.transform = 'translateX(0)';
+                toast.style.opacity = '1';
+            });
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.25s forwards';
+                setTimeout(() => toast.remove(), 250);
+            }, 3200);
+        }
+
+        function toDateInputValue(date = new Date()) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function inDateRange(order = {}, from = '', to = '') {
+            const d = normalizeDate(order.createdAt || order.date || order.timestamp);
+            if (!d) return true;
+            if (from) {
+                const start = new Date(`${from}T00:00:00`);
+                if (d < start) return false;
+            }
+            if (to) {
+                const end = new Date(`${to}T23:59:59`);
+                if (d > end) return false;
+            }
+            return true;
+        }
+
+        function badgeClass(status = '') {
+            if (String(status).startsWith('deleted_') || String(status).includes('rejected')) return 'danger';
+            if (String(status).includes('hidden') || String(status).includes('approved') || String(status).includes('exported')) return 'done';
+            if (String(status).includes('pending') || String(status).startsWith('returned_')) return 'warn';
+            return '';
+        }
+
+        function updateStats() {
+            const allAudit = state.orders.reduce((sum, order) => sum + arrayCount(order.auditTrail), 0);
+            const allExport = state.orders.reduce((sum, order) => sum + arrayCount(order.exportHistory) + (order.exportedAt ? 1 : 0), 0);
+            const allPrint = state.orders.reduce((sum, order) => sum + arrayCount(order.printHistory) + (order.lastPrintedAt ? 1 : 0), 0);
+            $('statOrders').textContent = state.orders.length.toLocaleString('en-US');
+            $('statAudit').textContent = allAudit.toLocaleString('en-US');
+            $('statExport').textContent = allExport.toLocaleString('en-US');
+            $('statPrint').textContent = allPrint.toLocaleString('en-US');
+        }
+
+        function applyFilters() {
+            const q = ($('searchBox').value || '').trim().toLowerCase();
+            const status = $('statusFilter').value || '';
+            const owner = $('ownerFilter').value || '';
+            const history = $('historyFilter').value || '';
+            const from = $('dateFrom').value || '';
+            const to = $('dateTo').value || '';
+
+            state.visible = state.orders.filter(order => {
+                const orderStatus = primaryStatus(order);
+                const follow = getWorkflowFollowUp(order);
+                const haystack = [
+                    order.id,
+                    order.orderNumber,
+                    order.repName,
+                    order.representativeName,
+                    order.pharmacyName,
+                    getPharmacyCode(order),
+                    statusLabel(orderStatus),
+                    getOrderNote(order)
+                ].join(' ').toLowerCase();
+                const auditCount = arrayCount(order.auditTrail);
+                const exportCount = arrayCount(order.exportHistory) + (order.exportedAt ? 1 : 0);
+                const printCount = arrayCount(order.printHistory) + (order.lastPrintedAt ? 1 : 0);
+                if (q && !haystack.includes(q)) return false;
+                if (status && orderStatus !== status) return false;
+                if (owner && follow.ownerKey !== owner) return false;
+                if (!inDateRange(order, from, to)) return false;
+                if (history === 'has_audit' && auditCount === 0) return false;
+                if (history === 'no_audit' && auditCount > 0) return false;
+                if (history === 'has_export' && exportCount === 0) return false;
+                if (history === 'has_print' && printCount === 0) return false;
+                return true;
+            });
+            renderTable();
+        }
+
+        function renderTable() {
+            const body = $('auditBody');
+            $('visibleCount').textContent = `${state.visible.length.toLocaleString('en-US')} سجل ظاهر`;
+            if (!state.visible.length) {
+                body.innerHTML = `<tr><td colspan="10"><div class="audit-empty">لا توجد طلبيات مطابقة للفلاتر الحالية.</div></td></tr>`;
+                return;
+            }
+            body.innerHTML = state.visible.map(order => {
+                const status = primaryStatus(order);
+                const follow = getWorkflowFollowUp(order);
+                const auditCount = arrayCount(order.auditTrail);
+                const exportCount = arrayCount(order.exportHistory) + (order.exportedAt ? 1 : 0);
+                const printCount = arrayCount(order.printHistory) + (order.lastPrintedAt ? 1 : 0);
+                return `
+                    <tr>
+                        <td>${escapeHtml(formatDateTime(order.createdAt || order.date || order.timestamp))}</td>
+                        <td><strong>${escapeHtml(String(order.id || '').substring(0, 10).toUpperCase())}</strong><div class="audit-mini">${formatMoney(order.grandTotal || order.total || 0)} د.أ</div></td>
+                        <td><strong>${escapeHtml(order.pharmacyName || '-')}</strong><div class="audit-mini">${escapeHtml(getPharmacyCode(order) || '-')}</div></td>
+                        <td>${escapeHtml(order.repName || order.representativeName || '-')}</td>
+                        <td><span class="audit-badge ${badgeClass(status)}">${escapeHtml(statusLabel(status))}</span></td>
+                        <td><span class="audit-badge ${follow.ownerKey === 'none' ? 'danger' : follow.ownerKey ? 'warn' : ''}">${escapeHtml(follow.owner || '-')}</span><div class="audit-mini">${escapeHtml(follow.detail || '-')}</div></td>
+                        <td>${auditCount.toLocaleString('en-US')}</td>
+                        <td>${exportCount.toLocaleString('en-US')}</td>
+                        <td>${printCount.toLocaleString('en-US')}</td>
+                        <td><button class="audit-row-btn" type="button" data-id="${escapeHtml(order.id)}"><i class="ph ph-eye"></i> التفاصيل</button></td>
+                    </tr>
+                `;
+            }).join('');
+            body.querySelectorAll('[data-id]').forEach(button => {
+                button.addEventListener('click', () => openPanel(button.dataset.id));
+            });
+        }
+
+        function openPanel(orderId) {
+            const order = state.orders.find(item => item.id === orderId);
+            if (!order) return;
+            state.selectedOrder = order;
+            const status = primaryStatus(order);
+            const follow = getWorkflowFollowUp(order);
+            $('panelTitle').textContent = `طلبية ${String(order.id || '').substring(0, 10).toUpperCase()}`;
+            $('panelSubtitle').textContent = `${order.pharmacyName || '-'} / ${order.repName || order.representativeName || '-'} / ${statusLabel(status)}`;
+            $('panelContent').innerHTML = `
+                <div class="audit-detail-grid">
+                    <div class="audit-info-box"><span>تاريخ الطلبية</span><strong>${escapeHtml(formatDateTime(order.createdAt || order.date || order.timestamp))}</strong></div>
+                    <div class="audit-info-box"><span>آخر تحديث</span><strong>${escapeHtml(formatDateTime(order.updatedAt || order.changedAt || order.modifiedAt))}</strong></div>
+                    <div class="audit-info-box"><span>الصيدلية</span><strong>${escapeHtml(order.pharmacyName || '-')}</strong></div>
+                    <div class="audit-info-box"><span>كود الصيدلية</span><strong>${escapeHtml(getPharmacyCode(order) || '-')}</strong></div>
+                    <div class="audit-info-box"><span>المندوب</span><strong>${escapeHtml(order.repName || order.representativeName || '-')}</strong></div>
+                    <div class="audit-info-box"><span>قيمة الطلبية</span><strong>${formatMoney(order.grandTotal || order.total || 0)} د.أ</strong></div>
+                    <div class="audit-info-box"><span>الحالة الحالية</span><strong>${escapeHtml(statusLabel(status))}</strong></div>
+                    <div class="audit-info-box"><span>المطلوب من</span><strong>${escapeHtml(follow.owner)} — ${escapeHtml(follow.detail)}</strong></div>
+                </div>
+                <div class="audit-info-box"><span>ملاحظة الطلبية</span><strong>${escapeHtml(getOrderNote(order) || 'لا توجد ملاحظات.')}</strong></div>
+                <div class="audit-history-card">
+                    <h3><i class="ph ph-git-branch"></i> مسار الطلبية</h3>
+                    ${timelineHtml(order)}
+                </div>
+                <div class="audit-history-card">
+                    <h3><i class="ph ph-clock-counter-clockwise"></i> سجل التدقيق</h3>
+                    ${auditListHtml(order)}
+                </div>
+                <div class="audit-history-card">
+                    <h3><i class="ph ph-file-arrow-down"></i> سجل التصدير</h3>
+                    ${exportListHtml(order)}
+                </div>
+                <div class="audit-history-card">
+                    <h3><i class="ph ph-printer"></i> سجل الطباعة</h3>
+                    ${printListHtml(order)}
+                </div>
+            `;
+            $('auditPanelOverlay').style.display = 'flex';
+        }
+
+        function closePanel() {
+            $('auditPanelOverlay').style.display = 'none';
+            state.selectedOrder = null;
+        }
+
+        async function loadOrders() {
+            $('auditBody').innerHTML = `<tr><td colspan="10"><div class="audit-empty">جاري تحميل سجل التدقيق...</div></td></tr>`;
+            try {
+                const snap = await getDocs(collection(db, 'orders'));
+                state.orders = snap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => {
+                    const da = normalizeDate(a.createdAt || a.date || a.timestamp)?.getTime() || 0;
+                    const dbt = normalizeDate(b.createdAt || b.date || b.timestamp)?.getTime() || 0;
+                    return dbt - da;
+                });
+                updateStats();
+                $('lastLoadedAt').textContent = `آخر تحميل: ${new Date().toLocaleString('en-GB')}`;
+                applyFilters();
+            } catch (error) {
+                console.error(error);
+                $('auditBody').innerHTML = `<tr><td colspan="10"><div class="audit-empty">تعذر تحميل البيانات. تحقق من صلاحيات Firebase أو الاتصال.</div></td></tr>`;
+                setToast('تعذر تحميل بيانات التدقيق.', 'error');
+            }
+        }
+
+        function exportVisibleAudit() {
+            if (!state.visible.length) return setToast('لا توجد بيانات ظاهرة للتصدير.', 'warning');
+            if (typeof XLSX === 'undefined') return setToast('مكتبة Excel غير محملة.', 'error');
+            const rows = [];
+            state.visible.forEach(order => {
+                const status = primaryStatus(order);
+                const follow = getWorkflowFollowUp(order);
+                const base = {
+                    'رقم الطلبية': order.id || '',
+                    'تاريخ الطلبية': formatDateTime(order.createdAt || order.date || order.timestamp),
+                    'كود الصيدلية': getPharmacyCode(order),
+                    'اسم الصيدلية': order.pharmacyName || '',
+                    'المندوب': order.repName || order.representativeName || '',
+                    'الحالة': statusLabel(status),
+                    'المطلوب من': follow.owner || '',
+                    'تفصيل المطلوب': follow.detail || '',
+                    'قيمة الطلبية': parseNumber(order.grandTotal || order.total || 0),
+                    'ملاحظة الطلبية': getOrderNote(order)
+                };
+                const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+                if (!trail.length) {
+                    rows.push({ ...base, 'نوع السجل': 'لا يوجد تدقيق', 'الإجراء': '', 'المستخدم': '', 'الدور': '', 'وقت الحركة': '', 'ملاحظة الحركة': '' });
+                    return;
+                }
+                trail.forEach(entry => rows.push({
+                    ...base,
+                    'نوع السجل': 'Audit',
+                    'الإجراء': statusLabel(entry.action || entry.type || ''),
+                    'المستخدم': entry.user || entry.actor || entry.changedBy || '',
+                    'الدور': entry.role || entry.changedByRole || '',
+                    'وقت الحركة': historyDate(entry.timestamp || entry.at || entry.changedAt || entry.createdAt),
+                    'ملاحظة الحركة': entry.notes || entry.note || entry.reason || '',
+                    'Old Value': serializeForPre(entry.oldValue || entry.previousValue || entry.from || ''),
+                    'New Value': serializeForPre(entry.newValue || entry.to || '')
+                }));
+                const exports = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+                exports.forEach(entry => rows.push({
+                    ...base,
+                    'نوع السجل': 'Export',
+                    'الإجراء': entry.source || entry.fileName || 'تصدير',
+                    'المستخدم': entry.exportedBy || entry.user || '',
+                    'الدور': '',
+                    'وقت الحركة': historyDate(entry.exportedAt || entry.timestamp),
+                    'ملاحظة الحركة': entry.hideAfterExport || entry.invoiced ? 'تمت الفوترة / إخفاء بعد التصدير' : ''
+                }));
+                const prints = Array.isArray(order.printHistory) ? order.printHistory : [];
+                prints.forEach(entry => rows.push({
+                    ...base,
+                    'نوع السجل': 'Print',
+                    'الإجراء': entry.source || 'طباعة',
+                    'المستخدم': entry.printedBy || entry.user || '',
+                    'الدور': '',
+                    'وقت الحركة': historyDate(entry.printedAt || entry.timestamp),
+                    'ملاحظة الحركة': ''
+                }));
+            });
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws['!cols'] = [
+                { wch: 28 }, { wch: 20 }, { wch: 16 }, { wch: 28 }, { wch: 22 },
+                { wch: 20 }, { wch: 18 }, { wch: 35 }, { wch: 14 }, { wch: 36 },
+                { wch: 14 }, { wch: 24 }, { wch: 22 }, { wch: 18 }, { wch: 22 }, { wch: 42 }
+            ];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Audit');
+            XLSX.writeFile(wb, `orders_audit_${toDateInputValue(new Date())}.xlsx`);
+            setToast('تم تصدير ملف التدقيق.', 'success');
+        }
+
+        function bindEvents() {
+            ['dateFrom', 'dateTo', 'searchBox', 'statusFilter', 'ownerFilter', 'historyFilter'].forEach(id => {
+                $(id).addEventListener(id === 'searchBox' ? 'input' : 'change', applyFilters);
+            });
+            $('refreshBtn').addEventListener('click', loadOrders);
+            $('exportAuditBtn').addEventListener('click', exportVisibleAudit);
+            $('closePanelBtn').addEventListener('click', closePanel);
+            $('auditPanelOverlay').addEventListener('click', event => {
+                if (event.target.id === 'auditPanelOverlay') closePanel();
+            });
+            window.addEventListener('online', () => $('offline-banner').classList.remove('show'));
+            window.addEventListener('offline', () => $('offline-banner').classList.add('show'));
+            if (!navigator.onLine) $('offline-banner').classList.add('show');
+        }
+
+        bindEvents();
+        loadOrders();
+    </script>
+</body>
+</html>
