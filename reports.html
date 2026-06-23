@@ -162,12 +162,6 @@
                     <input type="text" id="filterItem" list="itemDatalist" class="filter-select" placeholder="اختر أو اكتب هنا...">
                     <datalist id="itemDatalist"></datalist>
                 </div>
-                <div class="filter-group report-visibility-filter">
-                    <label><i class="ph ph-eye"></i> نطاق العرض</label>
-                    <div class="inline-check-grid" style="font-weight:800; color:#0f766e;">
-                        يتم عرض كل الطلبيات المطابقة للفلاتر، بما فيها المفوترة/المخفية والمرفوضة والمحذوفة.
-                    </div>
-                </div>
                 <div class="filter-group" style="display: flex; gap: 10px;">
                     <button id="resetFiltersBtn" class="btn-secondary" style="width: 100%; height: 48px;"><i class="ph ph-arrow-counter-clockwise"></i> تصفير</button>
                 </div>
@@ -505,6 +499,10 @@
             return status === 'rejected' || status === 'market_manager_rejected' || status === 'finance_rejected' || order.marketManagerStatus === 'market_manager_rejected' || order.financeStatus === 'finance_rejected';
         }
 
+        function isFinanciallyExcludedReportOrder(order = {}) {
+            return isDeletedReportOrder(order) || isRejectedReportOrder(order);
+        }
+
         function isDefaultExcludedOrder(order = {}) {
             return isDeletedReportOrder(order) || isHiddenReportOrder(order) || isRejectedReportOrder(order);
         }
@@ -723,8 +721,28 @@
                 let repName = order.repName || 'غير محدد';
                 allRepsSet.add(repName);
                 repOrdersCountMap[repName] = (repOrdersCountMap[repName] || 0) + 1;
-                
+
                 let orderTotal = parseReportNumber(order.grandTotal);
+                let orderDate = reportDateText(order.createdAtNormalized || order.createdAt);
+                let statusAr = reportStatusLabel(order.status);
+                let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${order.id}')"><i class="ph ph-eye"></i> الاصناف</button>`;
+
+                // تبقى المرفوضة والمحذوفة ظاهرة في جدول كل الطلبيات، لكنها لا تدخل في أي تجميع مالي/بيعي.
+                const affectsSalesTotals = !isFinanciallyExcludedReportOrder(order);
+
+                allOrdersTableData.push([
+                    order.id.substring(0,6).toUpperCase(),
+                    orderDate,
+                    order.managerName || '-',
+                    repName,
+                    pharmName,
+                    orderTotal,
+                    statusAr,
+                    btnHtml
+                ]);
+
+                if (!affectsSalesTotals) return;
+
                 const isReturnValue = orderTotal < 0 || order.status === 'returned';
                 if (orderTotal >= 0) grossSalesSum += orderTotal;
                 else returnsSum += Math.abs(orderTotal);
@@ -736,21 +754,6 @@
                 repOrdersValueMap[repName] = (repOrdersValueMap[repName] || 0) + orderTotal;
                 areaOrdersValueMap[pharmName] = (areaOrdersValueMap[pharmName] || 0) + orderTotal; // للصيدليات
                 grandTotalSum += orderTotal;
-
-                let orderDate = reportDateText(order.createdAtNormalized || order.createdAt);
-                let statusAr = reportStatusLabel(order.status);
-                let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${order.id}')"><i class="ph ph-eye"></i> الاصناف</button>`;
-                
-                allOrdersTableData.push([
-                    order.id.substring(0,6).toUpperCase(),
-                    orderDate,
-                    order.managerName || '-',
-                    repName,
-                    pharmName,
-                    orderTotal,
-                    statusAr,
-                    btnHtml
-                ]);
 
                 if (order.items && Array.isArray(order.items)) {
                     order.items.forEach(item => {
