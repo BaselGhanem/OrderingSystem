@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=20260623_modal_finance_note_fix1">
+    <link rel="stylesheet" href="style.css?v=20260623_reports_visibility_fix1">
 
     <style>
         .dashboard-cards {
@@ -144,7 +144,7 @@
                 <div class="stat-card"><div class="value" id="cardTotalValue">0.00</div><div class="label"><i class="ph ph-currency-circle-dollar"></i> صافي المبيعات (د.أ)</div></div>
                 <div class="stat-card"><div class="value" id="cardGrossSales">0.00</div><div class="label"><i class="ph ph-trend-up"></i> المبيعات قبل المرتجعات</div></div>
                 <div class="stat-card"><div class="value" id="cardReturnsValue">0.00</div><div class="label"><i class="ph ph-arrow-counter-clockwise"></i> قيمة المرتجعات</div></div>
-                <div class="stat-card"><div class="value" id="cardExcludedCount">0</div><div class="label"><i class="ph ph-funnel-x"></i> مستثناة افتراضياً</div></div>
+                <div class="stat-card"><div class="value" id="cardExcludedCount">0</div><div class="label"><i class="ph ph-database"></i> إجمالي السجلات المحملة</div></div>
             </div>
 
             <div class="glass-panel filters-container">
@@ -163,11 +163,9 @@
                     <datalist id="itemDatalist"></datalist>
                 </div>
                 <div class="filter-group report-visibility-filter">
-                    <label><i class="ph ph-eye"></i> إظهار حالات مستثناة</label>
-                    <div class="inline-check-grid">
-                        <label><input type="checkbox" id="includeDeletedOrders"> المحذوفة</label>
-                        <label><input type="checkbox" id="includeHiddenOrders"> المفوترة/المخفية</label>
-                        <label><input type="checkbox" id="includeRejectedOrders"> المرفوضة</label>
+                    <label><i class="ph ph-eye"></i> نطاق العرض</label>
+                    <div class="inline-check-grid" style="font-weight:800; color:#0f766e;">
+                        يتم عرض كل الطلبيات المطابقة للفلاتر، بما فيها المفوترة/المخفية والمرفوضة والمحذوفة.
                     </div>
                 </div>
                 <div class="filter-group" style="display: flex; gap: 10px;">
@@ -614,21 +612,11 @@
             const fItem = document.getElementById('filterItem').value.trim().toLowerCase();
             const fDateFrom = document.getElementById('filterDateFrom').value;
             const fDateTo = document.getElementById('filterDateTo').value;
-            const includeDeleted = document.getElementById('includeDeletedOrders')?.checked === true;
-            const includeHidden = document.getElementById('includeHiddenOrders')?.checked === true;
-            const includeRejected = document.getElementById('includeRejectedOrders')?.checked === true;
-
             let filteredOrders = [];
             let managers = new Set(), reps = new Set(), pharmacies = new Set(), items = new Set();
-            let excludedCount = 0;
 
             allOrders.forEach(rawOrder => {
                 const order = normalizeReportOrder(rawOrder);
-                const deleted = isDeletedReportOrder(order);
-                const hidden = isHiddenReportOrder(order);
-                const rejected = isRejectedReportOrder(order);
-                const excludedByDefault = (deleted && !includeDeleted) || (hidden && !includeHidden) || (rejected && !includeRejected);
-                if (excludedByDefault) excludedCount += 1;
 
                 let matchMan = fMan === '' || order.managerName === fMan;
                 let matchRep = fRep === '' || order.repName === fRep;
@@ -647,14 +635,12 @@
                     matchItem = (order.items || []).some(i => `${i.name || ''} ${i.productCode || i.product_code || i.code || ''}`.toLowerCase().includes(fItem));
                 }
 
-                if (!excludedByDefault) {
-                    if (matchRep && matchPharm && matchItem && matchDate) managers.add(order.managerName || 'غير محدد');
-                    if (matchMan && matchPharm && matchItem && matchDate) reps.add(order.repName || 'غير محدد');
-                    if (matchMan && matchRep && matchItem && matchDate) pharmacies.add(order.pharmacyName || 'غير معروف');
-                    if (matchMan && matchRep && matchPharm && matchDate) (order.items || []).forEach(i => items.add(i.name));
-                }
+                if (matchRep && matchPharm && matchItem && matchDate) managers.add(order.managerName || 'غير محدد');
+                if (matchMan && matchPharm && matchItem && matchDate) reps.add(order.repName || 'غير محدد');
+                if (matchMan && matchRep && matchItem && matchDate) pharmacies.add(order.pharmacyName || 'غير معروف');
+                if (matchMan && matchRep && matchPharm && matchDate) (order.items || []).forEach(i => items.add(i.name));
 
-                if (!excludedByDefault && matchMan && matchRep && matchPharm && matchDate && matchItem) {
+                if (matchMan && matchRep && matchPharm && matchDate && matchItem) {
                     if (fItem !== '') {
                         let matchedItems = (order.items || []).filter(i => `${i.name || ''} ${i.productCode || i.product_code || i.code || ''}`.toLowerCase().includes(fItem));
                         let orderClone = JSON.parse(JSON.stringify(order));
@@ -667,7 +653,7 @@
                 }
             });
 
-            document.getElementById('cardExcludedCount').innerText = excludedCount;
+            document.getElementById('cardExcludedCount').innerText = allOrders.length;
             updateSelect('filterManager', managers, fMan, 'الكل');
             updateSelect('filterRep', reps, fRep, 'الكل');
             updateDatalist('pharmacyDatalist', pharmacies);
@@ -694,7 +680,7 @@
             });
         }
 
-        ['filterManager', 'filterRep', 'filterDateFrom', 'filterDateTo', 'includeDeletedOrders', 'includeHiddenOrders', 'includeRejectedOrders'].forEach(id => {
+        ['filterManager', 'filterRep', 'filterDateFrom', 'filterDateTo'].forEach(id => {
             document.getElementById(id)?.addEventListener('change', applyFilters);
         });
         ['filterPharmacy', 'filterItem'].forEach(id => {
@@ -706,7 +692,6 @@
             document.getElementById('filterRep').value = "";
             document.getElementById('filterPharmacy').value = "";
             document.getElementById('filterItem').value = "";
-            ['includeDeletedOrders', 'includeHiddenOrders', 'includeRejectedOrders'].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
             setDefaultMonthFilter(); // تصفير التواريخ يعيدها للشهر الحالي بدلاً من مسحها
             applyFilters();
         });
