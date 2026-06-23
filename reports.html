@@ -39,6 +39,42 @@
             font-family: 'Cairo', sans-serif; color: #1e293b;
         }
         .filter-select:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(0, 74, 153, 0.1); }
+        .premium-autocomplete { position: relative; }
+        .premium-autocomplete input {
+            padding-inline-start: 42px; padding-inline-end: 14px;
+            background: linear-gradient(180deg, #ffffff, #f8fafc);
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+        .premium-autocomplete input:focus {
+            border-color: #099999;
+            box-shadow: 0 0 0 4px rgba(9, 153, 153, 0.12), 0 12px 30px rgba(15, 23, 42, 0.08);
+        }
+        .premium-autocomplete .search-icon {
+            position: absolute; inset-inline-start: 14px; top: 50%; transform: translateY(-50%);
+            color: #099999; font-size: 1.15rem; pointer-events: none; z-index: 2;
+        }
+        .autocomplete-panel {
+            position: absolute; z-index: 80; top: calc(100% + 8px); left: 0; right: 0;
+            background: rgba(255, 255, 255, 0.98); border: 1px solid rgba(15, 23, 42, 0.10);
+            border-radius: 16px; box-shadow: 0 22px 45px rgba(15, 23, 42, 0.14);
+            overflow: hidden; max-height: 290px; overflow-y: auto; backdrop-filter: blur(14px);
+        }
+        .autocomplete-panel[hidden] { display: none; }
+        .autocomplete-option {
+            display: grid; grid-template-columns: 1fr auto; gap: 10px; width: 100%;
+            padding: 12px 14px; border: 0; background: transparent; text-align: right;
+            font-family: 'Cairo', sans-serif; cursor: pointer; color: #0f172a; align-items: center;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.75);
+        }
+        .autocomplete-option:last-child { border-bottom: 0; }
+        .autocomplete-option:hover, .autocomplete-option.active { background: linear-gradient(135deg, rgba(9,153,153,0.10), rgba(0,74,153,0.08)); }
+        .autocomplete-option .name { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .autocomplete-option .code {
+            direction: ltr; color: #64748b; font-size: 0.78rem; font-weight: 800;
+            background: #f1f5f9; border-radius: 999px; padding: 4px 8px; white-space: nowrap;
+        }
+        .autocomplete-empty { padding: 14px; color: #64748b; font-weight: 700; text-align: center; }
 
         .report-cards-grid {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -154,8 +190,11 @@
                 <div class="filter-group"><label><i class="ph ph-user"></i> المندوب</label><select id="filterRep" class="filter-select"></select></div>
                 <div class="filter-group">
                     <label><i class="ph ph-storefront"></i> الصيدلية</label>
-                    <input type="text" id="filterPharmacy" list="pharmacyDatalist" class="filter-select" placeholder="اختر أو اكتب هنا...">
-                    <datalist id="pharmacyDatalist"></datalist>
+                    <div class="premium-autocomplete">
+                        <i class="ph ph-magnifying-glass search-icon"></i>
+                        <input type="text" id="filterPharmacy" class="filter-select" placeholder="ابحث باسم أو كود الصيدلية..." autocomplete="off">
+                        <div id="pharmacyAutocompletePanel" class="autocomplete-panel" hidden></div>
+                    </div>
                 </div>
                 <div class="filter-group">
                     <label><i class="ph ph-pill"></i> الصنف</label>
@@ -356,6 +395,10 @@
         import { db, collection, getDocs, doc, updateDoc } from './js/firebase.js';
 
         let allOrders = [];
+        let pharmacyAutocompleteOptions = [];
+        let activePharmacyAutocompleteOptions = [];
+        let activePharmacyOptionIndex = -1;
+        let pharmacyFilterTimer = null;
         let productsCatalog = [];
         
         const repManagerMap = {
@@ -593,6 +636,7 @@
                     return dateB - dateA;
                 });
 
+                buildPharmacyAutocompleteIndex();
                 applyFilters(); 
                 
                 document.getElementById('loadingScreen').style.display = 'none';
@@ -614,7 +658,7 @@
             let managers = new Set(), reps = new Set(), pharmacies = new Set(), items = new Set();
 
             allOrders.forEach(rawOrder => {
-                const order = normalizeReportOrder(rawOrder);
+                const order = rawOrder;
 
                 let matchMan = fMan === '' || order.managerName === fMan;
                 let matchRep = fRep === '' || order.repName === fRep;
@@ -654,12 +698,93 @@
             document.getElementById('cardExcludedCount').innerText = allOrders.length;
             updateSelect('filterManager', managers, fMan, 'الكل');
             updateSelect('filterRep', reps, fRep, 'الكل');
-            updateDatalist('pharmacyDatalist', pharmacies);
+            updatePharmacyAutocompleteOptions(pharmacies);
             updateDatalist('itemDatalist', items);
 
             processReports(filteredOrders);
         }
 
+
+        function normalizeAutocompleteText(value = '') {
+            return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        }
+
+        function buildPharmacyAutocompleteIndex() {
+            const map = new Map();
+            allOrders.forEach(order => {
+                const name = String(order.pharmacyName || 'غير معروف').trim();
+                const code = String(order.pharmacyCode || '').trim();
+                if (!name) return;
+                const key = `${name}||${code}`;
+                if (!map.has(key)) {
+                    map.set(key, {
+                        name,
+                        code,
+                        search: normalizeAutocompleteText(`${name} ${code}`)
+                    });
+                }
+            });
+            pharmacyAutocompleteOptions = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+            activePharmacyAutocompleteOptions = pharmacyAutocompleteOptions;
+        }
+
+        function updatePharmacyAutocompleteOptions(set) {
+            const allowed = new Set(Array.from(set).map(value => String(value || '').trim()));
+            activePharmacyAutocompleteOptions = allowed.size
+                ? pharmacyAutocompleteOptions.filter(option => allowed.has(option.name))
+                : pharmacyAutocompleteOptions;
+            renderPharmacyAutocomplete();
+        }
+
+        function renderPharmacyAutocomplete() {
+            const input = document.getElementById('filterPharmacy');
+            const panel = document.getElementById('pharmacyAutocompletePanel');
+            if (!input || !panel || document.activeElement !== input) return;
+
+            const query = normalizeAutocompleteText(input.value);
+            const options = activePharmacyAutocompleteOptions
+                .filter(option => !query || option.search.includes(query))
+                .slice(0, 30);
+
+            activePharmacyOptionIndex = -1;
+
+            if (!options.length) {
+                panel.innerHTML = `<div class="autocomplete-empty">لا توجد صيدلية مطابقة</div>`;
+                panel.hidden = false;
+                return;
+            }
+
+            panel.innerHTML = options.map((option, index) => `
+                <button type="button" class="autocomplete-option" data-index="${index}" data-value="${safeHtml(option.name)}">
+                    <span class="name">${safeHtml(option.name)}</span>
+                    ${option.code ? `<span class="code">${safeHtml(option.code)}</span>` : '<span></span>'}
+                </button>
+            `).join('');
+            panel.hidden = false;
+
+            panel.querySelectorAll('.autocomplete-option').forEach((button, index) => {
+                button.addEventListener('mousedown', event => event.preventDefault());
+                button.addEventListener('click', () => {
+                    input.value = options[index].name;
+                    panel.hidden = true;
+                    applyFilters();
+                });
+            });
+        }
+
+        function schedulePharmacyFilter() {
+            clearTimeout(pharmacyFilterTimer);
+            pharmacyFilterTimer = setTimeout(() => applyFilters(), 260);
+        }
+
+        function markActivePharmacyOption(panel, index) {
+            const buttons = Array.from(panel.querySelectorAll('.autocomplete-option'));
+            buttons.forEach(button => button.classList.remove('active'));
+            if (!buttons.length) return;
+            activePharmacyOptionIndex = Math.max(0, Math.min(index, buttons.length - 1));
+            buttons[activePharmacyOptionIndex].classList.add('active');
+            buttons[activePharmacyOptionIndex].scrollIntoView({ block: 'nearest' });
+        }
 
         function updateSelect(id, set, selectedVal, defaultText) {
             const sel = document.getElementById(id);
@@ -681,8 +806,34 @@
         ['filterManager', 'filterRep', 'filterDateFrom', 'filterDateTo'].forEach(id => {
             document.getElementById(id)?.addEventListener('change', applyFilters);
         });
-        ['filterPharmacy', 'filterItem'].forEach(id => {
-            document.getElementById(id).addEventListener('input', applyFilters);
+        document.getElementById('filterItem').addEventListener('input', applyFilters);
+
+        const pharmacyInput = document.getElementById('filterPharmacy');
+        const pharmacyPanel = document.getElementById('pharmacyAutocompletePanel');
+        pharmacyInput.addEventListener('input', () => {
+            renderPharmacyAutocomplete();
+            schedulePharmacyFilter();
+        });
+        pharmacyInput.addEventListener('focus', renderPharmacyAutocomplete);
+        pharmacyInput.addEventListener('keydown', event => {
+            if (pharmacyPanel.hidden) return;
+            const buttons = Array.from(pharmacyPanel.querySelectorAll('.autocomplete-option'));
+            if (!buttons.length) return;
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                markActivePharmacyOption(pharmacyPanel, activePharmacyOptionIndex + 1);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                markActivePharmacyOption(pharmacyPanel, activePharmacyOptionIndex <= 0 ? buttons.length - 1 : activePharmacyOptionIndex - 1);
+            } else if (event.key === 'Enter' && activePharmacyOptionIndex >= 0) {
+                event.preventDefault();
+                buttons[activePharmacyOptionIndex].click();
+            } else if (event.key === 'Escape') {
+                pharmacyPanel.hidden = true;
+            }
+        });
+        pharmacyInput.addEventListener('blur', () => {
+            setTimeout(() => { pharmacyPanel.hidden = true; }, 120);
         });
 
         document.getElementById('resetFiltersBtn').addEventListener('click', () => {

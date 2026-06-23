@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
-<link href="favicon.ico?v=20260623_market_audit_fix4" rel="icon"/>
+<link href="favicon.ico?v=20260623_modal_finance_note_fix1" rel="icon"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
 <title>Market Manager | نظام الطلبيات</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="style.css?v=20260623_market_audit_fix4" rel="stylesheet"/>
+<link href="style.css?v=20260623_modal_finance_note_fix1" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -22,7 +22,6 @@
         <img alt="Dar Al Dawaa Logo" class="logo" src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png"/>
         <div><h1>Market Manager Approval</h1><p>مراجعة وتعديل واعتماد الطلبيات بعد موافقة المشرف</p></div>
     </div>
-    <a class="workflow-header-link" href="audit.html"><i class="ph ph-clock-counter-clockwise"></i> صفحة التدقيق</a>
 </header>
 <main class="glass-panel workflow-main">
     <section class="workflow-stats-grid">
@@ -55,6 +54,12 @@
             <button class="close-modal" id="closeMarketModalBtn" type="button"><i class="ph ph-x-circle"></i></button>
         </div>
         <div class="workflow-note-box"><strong>ملاحظة الطلبية:</strong> <span id="marketOrderNote">-</span></div>
+        <div class="workflow-insights-grid">
+            <div id="marketWorkflowTimeline"></div>
+            <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-clock-counter-clockwise"></i> سجل التدقيق</div><div id="marketAuditViewer"></div></div>
+            <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-file-arrow-down"></i> سجل التصدير</div><div id="marketExportHistory"></div></div>
+            <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-printer"></i> سجل الطباعة</div><div id="marketPrintHistory"></div></div>
+        </div>
         <div class="table-responsive workflow-modal-table">
             <table class="order-table workflow-table">
                 <thead><tr><th>#</th><th>كود المنتج</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>نسبة البونص %</th><th>السعر</th><th>المجموع</th><th>ملاحظة الصنف</th><th>حذف</th></tr></thead>
@@ -79,6 +84,6 @@
     </div>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260623_market_audit_fix4" type="module"></script>
+<script src="js/workflow.js?v=20260623_modal_finance_note_fix1" type="module"></script>
 </body>
 </html>
