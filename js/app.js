@@ -248,6 +248,7 @@ const repPasswordsMap = {
     "محمد عبدربه": "NDAyOQ=="
 };
 let productsList = [];
+let pharmaciesList = [];
 let currentRepId = null;
 let currentRepName = null;
 let currentPharmacyName = null;
@@ -305,6 +306,41 @@ function parseAppNumber(value) {
         .trim();
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getPharmacyName(pharmacy = {}) {
+    return String(pharmacy.name || pharmacy.pharmacyName || pharmacy.customerName || '').trim();
+}
+
+function getPharmacyRepId(pharmacy = {}) {
+    return String(pharmacy.rep_id || pharmacy.repId || pharmacy.representativeId || pharmacy.representative_id || '').trim();
+}
+
+function getPharmaciesForRep(repId) {
+    const selectedRepId = String(repId || '').trim();
+    if (!selectedRepId) return [];
+    return pharmaciesList
+        .filter(pharmacy => getPharmacyRepId(pharmacy) === selectedRepId)
+        .sort((a, b) => getPharmacyName(a).localeCompare(getPharmacyName(b), 'ar'));
+}
+
+function getUniquePharmacyNames(pharmacies = []) {
+    return Array.from(new Set(pharmacies.map(getPharmacyName).filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b, 'ar'));
+}
+
+async function ensurePharmaciesLoaded() {
+    if (pharmaciesList.length > 0) return true;
+    try {
+        const pharmSnap = await getDocs(collection(db, "pharmacies"));
+        pharmaciesList = [];
+        pharmSnap.forEach(d => pharmaciesList.push({ id: d.id, ...d.data() }));
+        pharmaciesList.sort((a, b) => getPharmacyName(a).localeCompare(getPharmacyName(b), 'ar'));
+        return true;
+    } catch (error) {
+        console.error('فشل تحميل الصيدليات:', error);
+        return false;
+    }
 }
 
 function normalizeDateValue(value) {
@@ -1050,27 +1086,48 @@ async function loadInitialData() {
             repSelect.disabled = true;
         }
 
-        const CACHE_KEY = 'dad_app_cache_20260623_modal_finance_note_fix1';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_20260623_modal_finance_note_fix1';
+        const CACHE_KEY = 'dad_app_cache_20260623_rep_pharmacy_cache_fix8';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_20260623_rep_pharmacy_cache_fix8';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
         const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);
         const now = new Date().getTime();
         let repsData = [];
         let prodsData = [];
+        let pharmaciesData = [];
+        let useFreshFirebaseLoad = true;
 
         if (cachedDataStr && cacheTimeStr && (now - parseInt(cacheTimeStr, 10) < CACHE_EXPIRY)) {
-            const parsed = JSON.parse(cachedDataStr);
-            repsData = parsed.reps || [];
-            prodsData = parsed.products || [];
-        } else {
-            const repsSnap = await getDocs(collection(db, "reps"));
-            const prodSnap = await getDocs(collection(db, "products"));
+            try {
+                const parsed = JSON.parse(cachedDataStr);
+                if (Array.isArray(parsed.reps) && Array.isArray(parsed.products) && Array.isArray(parsed.pharmacies)) {
+                    repsData = parsed.reps;
+                    prodsData = parsed.products;
+                    pharmaciesData = parsed.pharmacies;
+                    useFreshFirebaseLoad = false;
+                }
+            } catch (error) {
+                useFreshFirebaseLoad = true;
+            }
+        }
+
+        if (useFreshFirebaseLoad) {
+            const [repsSnap, prodSnap, pharmSnap] = await Promise.all([
+                getDocs(collection(db, "reps")),
+                getDocs(collection(db, "products")),
+                getDocs(collection(db, "pharmacies"))
+            ]);
             repsSnap.forEach(d => repsData.push({ id: d.id, ...d.data() }));
             prodSnap.forEach(d => prodsData.push({ id: d.id, ...d.data() }));
-            localStorage.setItem(CACHE_KEY, JSON.stringify({ reps: repsData, products: prodsData }));
+            pharmSnap.forEach(d => pharmaciesData.push({ id: d.id, ...d.data() }));
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ reps: repsData, products: prodsData, pharmacies: pharmaciesData }));
             localStorage.setItem(CACHE_TIME_KEY, now.toString());
         }
+
+        pharmaciesList = pharmaciesData
+            .map(pharmacy => ({ ...pharmacy }))
+            .filter(pharmacy => getPharmacyName(pharmacy));
+        pharmaciesList.sort((a, b) => getPharmacyName(a).localeCompare(getPharmacyName(b), 'ar'));
 
         if (repSelect) {
             repSelect.innerHTML = '<option value="">-- اختر المندوب --</option>';
@@ -1092,6 +1149,7 @@ async function loadInitialData() {
             productCode: prod.productCode || prod.product_code || prod.code || ''
         }));
         productsList.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+
         await bootstrapPage();
     } catch(e) {
         console.error("خطأ في تحميل البيانات الأولية:", e);
@@ -1346,48 +1404,62 @@ function updateGrandTotal() {
     autoSaveDraft();
 }
 
-if (repSelect) repSelect.onchange = async (e) => {
-    if (!e.target.value) {
-        document.getElementById('repPasswordGroup').style.display = 'none';
-        return;
-    }
-    
-    // 🟢 إظهار حقل الرقم السري عند اختيار المندوب
-    document.getElementById('repPasswordGroup').style.display = 'block';
-    
-    // 🟢 استرجاع كلمة المرور إذا كانت محفوظة
-    const savedPass = localStorage.getItem('savedRepPass_' + e.target.value);
-    if (savedPass) {
-        document.getElementById('repPasswordInput').value = savedPass;
-        if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = true;
-    } else {
-        document.getElementById('repPasswordInput').value = '';
-        if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = false;
-    }
+async function handleRepSelectionChange(e) {
+    const selectedRepId = e.target.value;
+    const repPasswordGroup = document.getElementById('repPasswordGroup');
+    const repPasswordInput = document.getElementById('repPasswordInput');
+    const rememberRepPass = document.getElementById('rememberRepPass');
 
-    pharmacyInput.value = '';
-    pharmacyInput.placeholder = 'جاري التحميل...';
-    try {
-        const q = query(collection(db, "pharmacies"), where("rep_id", "==", e.target.value));
-        const snap = await getDocs(q);
-        let pharmacyNames = [];
-        currentPharmaciesData = []; 
-        snap.forEach(d => {
-            currentPharmaciesData.push(d.data()); 
-            pharmacyNames.push(d.data().name);
-        });
-        setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => startOrderBtn.disabled = false);
-        pharmacyInput.disabled = false;
-        pharmacyInput.placeholder = 'ابحث او اختر الصيدلية...';
-    } catch (error) {
-        pharmacyInput.placeholder = 'خطأ في التحميل، الرجاء المحاولة مرة أخرى';
+    currentPharmaciesData = [];
+    if (pharmacyInput) {
+        pharmacyInput.value = '';
+        pharmacyInput.classList.remove('input-error');
     }
-};
+    if (startOrderBtn) startOrderBtn.disabled = true;
+
+    if (!selectedRepId) {
+        if (repPasswordGroup) repPasswordGroup.style.display = 'none';
+        if (pharmacyInput) {
+            pharmacyInput.disabled = true;
+            pharmacyInput.placeholder = 'اختر المندوب أولاً';
+        }
+        return;
+    }
+
+    if (repPasswordGroup) repPasswordGroup.style.display = 'block';
+
+    const savedPass = localStorage.getItem('savedRepPass_' + selectedRepId);
+    if (repPasswordInput) repPasswordInput.value = savedPass || '';
+    if (rememberRepPass) rememberRepPass.checked = !!savedPass;
+
+    if (pharmacyInput) pharmacyInput.placeholder = 'جاري التحميل...';
+
+    const pharmaciesReady = await ensurePharmaciesLoaded();
+    if (!pharmaciesReady) {
+        if (pharmacyInput) pharmacyInput.placeholder = 'خطأ في التحميل، الرجاء المحاولة مرة أخرى';
+        return;
+    }
+
+    currentPharmaciesData = getPharmaciesForRep(selectedRepId);
+    const pharmacyNames = getUniquePharmacyNames(currentPharmaciesData);
+
+    if (pharmacyInput) {
+        setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => {
+            if (startOrderBtn) startOrderBtn.disabled = false;
+        });
+        pharmacyInput.disabled = false;
+        pharmacyInput.placeholder = pharmacyNames.length ? 'ابحث او اختر الصيدلية...' : 'لا توجد صيدليات لهذا المندوب';
+    }
+
+    setTimeout(() => { validatePharmacyInput(); }, 100);
+}
+
+if (repSelect) repSelect.onchange = handleRepSelectionChange;
 if (pharmacyInput) pharmacyInput.oninput = () => { if (startOrderBtn) startOrderBtn.disabled = !pharmacyInput.value.trim(); };
 
 function validatePharmacyInput() {
     const pharmacyName = pharmacyInput.value.trim();
-    const isValid = pharmacyName !== "" && currentPharmaciesData.some(p => p.name === pharmacyName);
+    const isValid = pharmacyName !== "" && currentPharmaciesData.some(p => getPharmacyName(p) === pharmacyName);
     
     if (!isValid && pharmacyName !== "") {
         pharmacyInput.classList.add('input-error');
@@ -1404,7 +1476,7 @@ function validatePharmacyInput() {
 
 pharmacyInput?.addEventListener('blur', validatePharmacyInput);
 pharmacyInput?.addEventListener('input', function() {
-    const isValid = currentPharmaciesData.some(p => p.name === this.value.trim());
+    const isValid = currentPharmaciesData.some(p => getPharmacyName(p) === this.value.trim());
     if (isValid) {
         this.classList.remove('input-error');
         startOrderBtn.disabled = false;
@@ -1412,72 +1484,6 @@ pharmacyInput?.addEventListener('input', function() {
         startOrderBtn.disabled = true;
     }
 });
-
-if (startOrderBtn) startOrderBtn.onclick = async (e) => { e.preventDefault(); // 🟢 أضف هذا السطر لمنع إرسال الفورم...
-                                      if (productsList.length === 0) { 
-        showToast("الرجاء الانتظار... يتم تحميل المنتجات.", "info"); 
-        return; 
-    }
-    const selectedRepNameText = repSelect.options[repSelect.selectedIndex].text;
-    const repPassInput = document.getElementById('repPasswordInput');
-    const enteredPass = repPassInput.value.trim();
-    const expectedHash = repPasswordsMap[selectedRepNameText];
-
-    if (!enteredPass) {
-        repPassInput.classList.add('input-error');
-        return showToast("الرجاء إدخال الرقم السري الخاص بك.", "warning");
-    }
-
-if (expectedHash && btoa(enteredPass) !== expectedHash) {
-        repPassInput.classList.add('input-error');
-        return showToast("الرقم السري للمندوب غير صحيح!", "error");
-    }
-    
-    repPassInput.classList.remove('input-error');
-    // 🟢 حفظ كلمة المرور إذا كان خيار التذكر مفعلاً
-    if (document.getElementById('rememberRepPass') && document.getElementById('rememberRepPass').checked) {
-        localStorage.setItem('savedRepPass_' + repSelect.value, enteredPass);
-    } else {
-        localStorage.removeItem('savedRepPass_' + repSelect.value);
-        repPassInput.value = ''; // تنظيف الحقل كإجراء أمني إذا لم يطلب التذكر
-    }
-    const pharmacyName = pharmacyInput.value.trim();
-    const selectedPharm = currentPharmaciesData.find(p => p.name === pharmacyName);
-    
-    if (!selectedPharm) {
-        pharmacyInput.classList.add('input-error');
-        showToast("الرجاء اختيار صيدلية صحيحة من القائمة حصراً.", "error");
-        return;
-    }
-    
-    currentRepId = repSelect.value;
-    currentRepName = repSelect.options[repSelect.selectedIndex].text;
-    saveRepSession(currentRepId, currentRepName);
-    localStorage.setItem('dad_last_rep_id', currentRepId);
-    currentPharmacyName = pharmacyName;
-    currentPharmacyCode = selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || selectedPharm.customerCode || "";
-
-    const adminOrderSession = getAdminSession();
-    const isAdminOrder = sessionStorage.getItem('adminOrderMode') === '1' && adminOrderSession?.type === 'manager';
-    sessionStorage.setItem('activeOrderContext', JSON.stringify({
-        repId: currentRepId,
-        repName: currentRepName,
-        pharmacyName: currentPharmacyName,
-        pharmacyCode: currentPharmacyCode,
-        isAdminOrder,
-        managerName: isAdminOrder ? adminOrderSession.name : null
-    }));
-
-    window.location.href = 'order.html';
-};
-
-const originalRepOnChange = repSelect?.onchange;
-if (repSelect) repSelect.onchange = async (e) => {
-    if (originalRepOnChange) await originalRepOnChange(e);
-    startOrderBtn.disabled = true;
-    pharmacyInput.classList.remove('input-error');
-    setTimeout(() => { validatePharmacyInput(); }, 100);
-};
 
 if (submitOrderBtn) submitOrderBtn.onclick = async () => {
     if (!navigator.onLine) {
@@ -2154,16 +2160,9 @@ async function openEditOrder(orderId, userType) {
         });
     }
 
-    let editPharmaciesData = [];
-    let editPharmacyNames = [];
-    try {
-        const q = query(collection(db, "pharmacies"), where("rep_id", "==", order.repId));
-        const pharmSnap = await getDocs(q);
-        pharmSnap.forEach(d => {
-            editPharmaciesData.push(d.data());
-            editPharmacyNames.push(d.data().name);
-        });
-    } catch (error) {}
+    await ensurePharmaciesLoaded();
+    let editPharmaciesData = getPharmaciesForRep(order.repId);
+    let editPharmacyNames = getUniquePharmacyNames(editPharmaciesData);
 
     const editModal = document.getElementById('editOrderModal');
     if (editModal) editModal.style.display = 'flex';
@@ -2247,13 +2246,11 @@ async function openEditOrder(orderId, userType) {
         }
 
         editPharmInput.placeholder = 'جاري تحميل الصيدليات...';
-        try {
-            const q = query(collection(db, "pharmacies"), where("rep_id", "==", selectedRepId));
-            const pharmSnap = await getDocs(q);
-            pharmSnap.forEach(d => { editPharmaciesData.push(d.data()); editPharmacyNames.push(d.data().name); });
-            editPharmInput.placeholder = 'ابحث عن الصيدلية...';
-            setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
-        } catch (error) { editPharmInput.placeholder = 'خطأ في التحميل'; }
+        await ensurePharmaciesLoaded();
+        editPharmaciesData = getPharmaciesForRep(selectedRepId);
+        editPharmacyNames = getUniquePharmacyNames(editPharmaciesData);
+        editPharmInput.placeholder = editPharmacyNames.length ? 'ابحث عن الصيدلية...' : 'لا توجد صيدليات لهذا المندوب';
+        setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
     });
 
     editPharmInput.addEventListener('blur', function() {
