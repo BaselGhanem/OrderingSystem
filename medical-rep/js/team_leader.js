@@ -125,6 +125,26 @@ function render() {
     renderRepSummary();
     renderPharmacyItems();
     renderDetails();
+    applyMobileTableLabels();
+}
+
+
+function applyMobileTableLabels() {
+    const configs = {
+        itemSummaryBody: [`الصنف`, `الكمية`, `القيمة`, `اخرين`, `مندوبون`],
+        repSummaryBody: [`المندوب`, `الكمية`, `القيمة`, `اخرين`, `أصناف`],
+        pharmacyItemBody: [`الصيدلية`, `كود الصيدلية`, `المنطقة`, `الصنف`, `المندوب الطبي`, `الكمية`, `القيمة`, `اخرين`],
+        detailsBody: [`التاريخ`, `المنطقة`, `الصيدلية`, `الصنف`, `المندوب الطبي`, `كمية أصلية`, `كمية محتسبة`, `قيمة أصلية`, `قيمة محتسبة`, `النسبة`, `النوع`]
+    };
+    Object.entries(configs).forEach(([tbodyId, labels]) => {
+        const body = C.$(tbodyId);
+        if (!body) return;
+        body.querySelectorAll(`tr`).forEach(row => {
+            Array.from(row.children).filter(cell => cell.tagName === `TD`).forEach((cell, index) => {
+                if (labels[index]) cell.setAttribute(`data-label`, labels[index]);
+            });
+        });
+    });
 }
 
 function renderItemSummary() {

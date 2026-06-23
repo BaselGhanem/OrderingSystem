@@ -212,6 +212,53 @@ function renderDashboard(showOtherFromFilters = false) {
     renderOrdersTable(showOther);
     renderMobileCards(showOther);
     renderRowsTable(showOther);
+    applyMobileTableLabels();
+}
+
+
+function applyMobileTableLabels() {
+    const configs = {
+        itemSummaryBody: {
+            4: [`الصنف`, `الكمية`, `قيمة البيع`, `عدد السطور`],
+            6: [`الصنف`, `الكمية`, `مباشر`, `اخرين`, `الإجمالي`, `% اخرين`]
+        },
+        otherSummaryBody: {
+            6: [`الصنف`, `نسبتك`, `كمية اخرين الأصلية`, `قيمة اخرين الأصلية`, `حصتك كمية`, `حصتك قيمة`]
+        },
+        ordersBody: {
+            7: [`التاريخ`, `الصيدلية`, `المنطقة`, `عدد الأصناف`, `الكمية`, `القيمة`, `تفاصيل`],
+            8: [`التاريخ`, `الصيدلية`, `المنطقة`, `عدد الأصناف`, `الكمية`, `القيمة`, `اخرين`, `تفاصيل`]
+        },
+        salesRowsBody: {
+            8: [`التاريخ`, `المنطقة`, `الصيدلية`, `كود الصيدلية`, `الصنف`, `الكمية`, `القيمة`, `تفاصيل الطلب`],
+            12: [`التاريخ`, `المنطقة`, `الصيدلية`, `كود الصيدلية`, `الصنف`, `الكمية الأصلية`, `الكمية المحتسبة`, `قيمة السطر`, `القيمة المحتسبة`, `نسبتك`, `النوع`, `تفاصيل الطلب`]
+        }
+    };
+    Object.entries(configs).forEach(([tbodyId, options]) => {
+        const body = C.$(tbodyId);
+        if (!body) return;
+        body.querySelectorAll(`tr`).forEach(row => {
+            const cells = Array.from(row.children).filter(cell => cell.tagName === `TD`);
+            const labels = options[cells.length] || options.default || [];
+            cells.forEach((cell, index) => {
+                if (labels[index]) cell.setAttribute(`data-label`, labels[index]);
+            });
+        });
+    });
+}
+
+function applyModalTableLabels() {
+    const modal = C.$(`orderModalContent`);
+    if (!modal) return;
+    modal.querySelectorAll(`tbody tr`).forEach(row => {
+        const cells = Array.from(row.children).filter(cell => cell.tagName === `TD`);
+        const labels = cells.length === 3
+            ? [`الصنف`, `الكمية`, `القيمة`]
+            : [`الصنف`, `الكمية الأصلية`, `الكمية المحتسبة`, `قيمة السطر`, `القيمة المحتسبة`, `النسبة`, `النوع`];
+        cells.forEach((cell, index) => {
+            if (labels[index]) cell.setAttribute(`data-label`, labels[index]);
+        });
+    });
 }
 
 function renderInsightCards() {
@@ -459,6 +506,7 @@ function openOrderModal(orderId) {
             </table>
         </div>
     `;
+    applyModalTableLabels();
     C.$(`orderModal`).hidden = false;
 }
 

@@ -3,9 +3,33 @@ const MEDREP_ADMIN_SESSION_KEY = `dad_medical_rep_admin_v1`;
 const MEDREP_TEAM_SESSION_KEY = `dad_medical_rep_team_session_v1`;
 const ADMIN_SECRET_HASH = `MjAyNjA0`;
 const OTHER_AREA_KEYS = [`اخرين`, `آخرين`, `others`, `other`, `منطقة اخرين`, `منطقة آخرين`];
-const CACHE_PREFIX = `dad_medrep_cache_v3_`;
-const DEFAULT_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
-const BACKGROUND_REFRESH_AFTER_MS = 1000 * 60 * 10;
+const CACHE_PREFIX = `dad_medrep_cache_v7_`;
+const DEFAULT_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+const BACKGROUND_REFRESH_AFTER_MS = 1000 * 60 * 30;
+
+
+function lockPageHorizontalScroll() {
+    try {
+        if (!document.body || !document.body.classList.contains(`medrep-dashboard-app`)) return;
+        const reset = () => {
+            if (window.scrollX !== 0) window.scrollTo(0, window.scrollY);
+            if (document.documentElement) document.documentElement.scrollLeft = 0;
+            if (document.body) document.body.scrollLeft = 0;
+        };
+        reset();
+        window.addEventListener(`resize`, reset, { passive: true });
+        window.addEventListener(`orientationchange`, () => setTimeout(reset, 120), { passive: true });
+        window.addEventListener(`scroll`, reset, { passive: true });
+    } catch (error) {
+        console.warn(`تعذر ضبط الإزاحة الأفقية:`, error);
+    }
+}
+
+if (document.readyState === `loading`) {
+    document.addEventListener(`DOMContentLoaded`, lockPageHorizontalScroll, { once: true });
+} else {
+    lockPageHorizontalScroll();
+}
 
 function $(id) {
     return document.getElementById(id);
