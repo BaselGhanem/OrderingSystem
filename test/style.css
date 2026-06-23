@@ -2522,3 +2522,60 @@ table tbody td {
     font-weight: 900;
     margin-bottom: 10px;
 }
+
+
+/* 20260623_modal_filters_ui_fix1: clean order view modal and full-screen item tables */
+body[data-page="orders-staff"] .workflow-modal {
+    padding: 8px !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+}
+body[data-page="orders-staff"] .workflow-modal-content {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    height: calc(100vh - 16px) !important;
+    max-height: calc(100vh - 16px) !important;
+    padding: clamp(12px, 1.8vw, 22px) !important;
+    overflow: hidden !important;
+}
+body[data-page="orders-staff"] .workflow-modal-table {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: auto !important;
+}
+body[data-page="orders-staff"] .workflow-modal-table .order-table {
+    width: max-content !important;
+    min-width: 100% !important;
+    table-layout: auto !important;
+}
+.workflow-modal-table .item-name-cell,
+#duplicateEditContainer .reports-product-col {
+    width: auto !important;
+    max-width: none !important;
+}
+.workflow-modal-table .workflow-product-select,
+#duplicateEditContainer .reports-product-select {
+    max-width: none !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+}
+#editDuplicateModal {
+    padding: 8px !important;
+    align-items: stretch !important;
+}
+#editDuplicateModal .modal-content {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    height: calc(100vh - 16px) !important;
+    max-height: calc(100vh - 16px) !important;
+}
+#duplicateEditContainer {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: auto !important;
+}
+#duplicateEditContainer .reports-edit-table {
+    width: max-content !important;
+    min-width: 100% !important;
+    table-layout: auto !important;
+}

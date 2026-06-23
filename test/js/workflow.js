@@ -47,7 +47,7 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
-const WORKFLOW_CACHE_VERSION = '20260623_orders_staff_ready_visibility_fix1';
+const WORKFLOW_CACHE_VERSION = '20260623_modal_filters_ui_fix1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
@@ -471,6 +471,14 @@ function productOptionsHtml(selectedName = '') {
     return `<option value="">اختر الصنف</option>${manualOption}${options}`;
 }
 
+function workflowProductFieldWidth(selectedName = '') {
+    const names = [selectedName, ...productCatalog().map(product => product?.name || '')]
+        .map(name => String(name || '').trim())
+        .filter(Boolean);
+    const longest = names.reduce((max, name) => Math.max(max, name.length), 0);
+    return Math.max(longest + 8, 32);
+}
+
 function itemCountLabel(order = {}) {
     const count = Array.isArray(order.items) ? order.items.length : 0;
     if (!count) return '0';
@@ -843,7 +851,7 @@ function buildWorkflowItemRow(item = {}, index = 0, prefix = 'mm') {
             <td>${index + 1}</td>
             <td class="${prefix}-code-cell" data-original-code="${escapeHtml(getItemProductCode(calc) || '')}">${escapeHtml(getItemProductCode(calc) || '-')}</td>
             <td class="item-name-cell">
-                <select class="${prefix}-product workflow-product-select">
+                <select class="${prefix}-product workflow-product-select" style="min-width:${workflowProductFieldWidth(calc.name || '')}ch; width:100%;">
                     ${productOptionsHtml(calc.name || '')}
                 </select>
             </td>
@@ -1420,7 +1428,8 @@ function applyOrdersStaffFilters() {
     const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
 
-    if ((statusMode === 'all' || statusMode === 'followup') && !state.allOrdersLoaded) {
+    const normalizedStatusMode = statusMode === 'all' ? 'followup' : statusMode;
+    if (normalizedStatusMode === 'followup' && !state.allOrdersLoaded) {
         ensureOrdersStaffAllLoaded();
         return;
     }
@@ -1433,10 +1442,9 @@ function applyOrdersStaffFilters() {
         const isActive = (status === 'orders_staff_pending' || status === 'finance_approved' || staffState === 'orders_staff_pending' || order.financeStatus === 'finance_approved') && !isHidden && status !== 'orders_staff_exported';
         const isExported = status === 'orders_staff_exported' || staffState === 'orders_staff_exported' || orderHasStaffExportEvidence(order);
         let modeOk = isActive;
-        if (statusMode === 'followup') modeOk = true;
-        if (statusMode === 'hidden') modeOk = isHidden;
-        if (statusMode === 'exported') modeOk = isExported && !isHidden;
-        if (statusMode === 'all') modeOk = true;
+        if (normalizedStatusMode === 'followup') modeOk = true;
+        if (normalizedStatusMode === 'hidden') modeOk = isHidden;
+        if (normalizedStatusMode === 'exported') modeOk = isExported && !isHidden;
         const itemMatch = !product || (Array.isArray(order.items) && order.items.some(item => `${item.name || ''} ${getItemProductCode(item)}`.toLowerCase().includes(product)));
         return modeOk && itemMatch && inDateRange(order, from, to) &&
             (!requiredOwner || followUp.ownerKey === requiredOwner) &&
@@ -1580,7 +1588,6 @@ function openStaffOrderModal(order) {
         <span><b>كود الصيدلية:</b> ${escapeHtml(getPharmacyCode(order) || '-')}</span>
     `;
     $('staffOrderNote').textContent = getOrderNote(order) || 'لا توجد ملاحظات.';
-    renderWorkflowInsights('staff', order);
     const canEdit = canOrdersStaffTouchOrder(order);
     ['addStaffItemBtn', 'saveStaffEditsBtn', 'returnStaffToFinanceBtn', 'deleteStaffOrderBtn'].forEach(id => { const btn = $(id); if (btn) btn.disabled = !canEdit; });
     $('staffOrderItemsBody').innerHTML = fullStaffOrderRows(order) || `<tr><td colspan="10">لا توجد أصناف.</td></tr>`;
@@ -1696,7 +1703,7 @@ async function staffDeleteOrder(orderId) {
 function syncOrdersStaffTabFromMode() {
     if (WORKFLOW_PAGE !== 'orders-staff') return;
     const mode = $('showHiddenMode')?.value || 'active';
-    state.ordersStaffTab = mode === 'active' ? 'approved' : 'followup';
+    state.ordersStaffTab = (mode === 'active') ? 'approved' : 'followup';
     document.querySelectorAll('.orders-staff-tab').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.staffTab === state.ordersStaffTab);
     });

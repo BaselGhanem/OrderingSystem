@@ -107,6 +107,21 @@
             overflow-y: auto; border-radius: 20px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
         }
         .form-control-edit { width: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; text-align: center; font-family: inherit;}
+
+        /* 20260623_modal_filters_ui_fix1: wider clean autocomplete suggestions */
+        .premium-autocomplete { min-width: min(100%, 360px); }
+        .autocomplete-panel {
+            inset-inline-start: 0; inset-inline-end: auto; left: auto; right: auto;
+            width: max-content; min-width: 100%; max-width: min(860px, calc(100vw - 32px));
+        }
+        .autocomplete-option {
+            grid-template-columns: minmax(260px, 1fr);
+            min-width: min(760px, calc(100vw - 44px));
+            max-width: min(860px, calc(100vw - 32px));
+        }
+        .autocomplete-option .name { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.55; }
+        .autocomplete-option .code { display: none !important; }
+
     </style>
 </head>
 <body>
@@ -345,12 +360,6 @@
                 <button type="button" onclick="closeEditModal()" style="background:none; border:none; font-size:2rem; cursor:pointer; color:#ef4444;">&times;</button>
             </div>
             <div id="duplicateOrderMeta" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; color:#0f172a; font-weight:800;"></div>
-            <div class="workflow-insights-grid reports-insights-grid">
-                <div id="reportsWorkflowTimeline"></div>
-                <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-clock-counter-clockwise"></i> سجل التدقيق</div><div id="reportsAuditViewer"></div></div>
-                <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-file-arrow-down"></i> سجل التصدير</div><div id="reportsExportHistory"></div></div>
-                <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-printer"></i> سجل الطباعة</div><div id="reportsPrintHistory"></div></div>
-            </div>
             <div id="duplicateEditContainer" class="table-responsive"></div>
             <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top:25px;">
                 <button id="addModalItemBtn" class="btn-secondary"><i class="ph ph-plus-circle"></i> إضافة صنف</button>
@@ -917,7 +926,6 @@
                     <span>الإجمالي: ${parseReportNumber(currentEditingOrder.grandTotal).toFixed(2)} د.ا</span>
                 `;
             }
-            renderReportsInsights(currentEditingOrder);
             renderModalTable();
             document.getElementById('editDuplicateModal').style.display = 'flex';
         }

@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
-<link href="favicon.ico?v=20260623_orders_staff_ready_visibility_fix1" rel="icon"/>
+<link href="favicon.ico?v=20260623_modal_filters_ui_fix1" rel="icon"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
 <title>Ziad / Zakaria Orders Staff | نظام الطلبيات</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="style.css?v=20260623_orders_staff_ready_visibility_fix1" rel="stylesheet"/>
+<link href="style.css?v=20260623_modal_filters_ui_fix1" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -32,7 +32,7 @@
         <div><label>الصيدلية</label><input id="filterPharmacy" type="search" placeholder="بحث بالصيدلية أو الكود"></div>
         <div><label>المندوب</label><input id="filterRepresentative" type="search" placeholder="بحث باسم المندوب"></div>
         <div><label>الصنف</label><input id="filterProduct" type="search" placeholder="بحث بالصنف أو كود المنتج"></div>
-        <div><label>العرض</label><select id="showHiddenMode"><option value="active" selected>جاهزة لقسم الطلبيات فقط</option><option value="followup">متابعة كل الطلبيات</option><option value="exported">المصدّرة وغير المخفية</option><option value="hidden">المفوترة والمخفية بعد التصدير</option><option value="all">الكل</option></select></div>
+        <div><label>العرض</label><select id="showHiddenMode"><option value="active" selected>جاهزة لقسم الطلبيات فقط</option><option value="followup">متابعة كل الطلبيات</option><option value="exported">المصدّرة فقط</option><option value="hidden">المفوترة والمخفية بعد التصدير</option></select></div>
         <div><label>المطلوب من</label><select id="filterRequiredOwner"><option value="">الكل</option><option value="supervisor">المشرف</option><option value="market_manager">مدير السوق</option><option value="finance_controller">المراقب المالي</option><option value="orders_staff">قسم الطلبيات</option><option value="representative">المندوب</option></select></div>
     </section>
     <section class="workflow-toolbar">
@@ -55,12 +55,6 @@
             <button class="close-modal" id="closeStaffModalBtn" type="button"><i class="ph ph-x-circle"></i></button>
         </div>
         <div class="workflow-note-box"><strong>ملاحظة الطلبية:</strong> <span id="staffOrderNote">-</span></div>
-        <div class="workflow-insights-grid">
-            <div id="staffWorkflowTimeline"></div>
-            <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-clock-counter-clockwise"></i> سجل التدقيق</div><div id="staffAuditViewer"></div></div>
-            <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-file-arrow-down"></i> سجل التصدير</div><div id="staffExportHistory"></div></div>
-            <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-printer"></i> سجل الطباعة</div><div id="staffPrintHistory"></div></div>
-        </div>
         <div class="table-responsive workflow-modal-table">
             <table class="order-table workflow-table">
                 <thead><tr><th>#</th><th>كود المنتج</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>نسبة البونص %</th><th>السعر</th><th>المجموع</th><th>ملاحظة الصنف</th><th>حذف</th></tr></thead>
@@ -79,6 +73,6 @@
     </div>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260623_orders_staff_ready_visibility_fix1" type="module"></script>
+<script src="js/workflow.js?v=20260623_modal_filters_ui_fix1" type="module"></script>
 </body>
 </html>
