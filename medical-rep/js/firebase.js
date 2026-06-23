@@ -13,7 +13,8 @@ import {
     updateDoc,
     deleteDoc,
     writeBatch,
-    serverTimestamp
+    serverTimestamp,
+    Timestamp
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -44,5 +45,6 @@ export {
     updateDoc,
     deleteDoc,
     writeBatch,
-    serverTimestamp
+    serverTimestamp,
+    Timestamp
 };

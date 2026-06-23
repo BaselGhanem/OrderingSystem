@@ -7,6 +7,7 @@ import {
     writeBatch,
     serverTimestamp
 } from './firebase.js';
+import { getCollectionSmart } from './analytics-engine.js';
 
 const C = window.medrepCommon;
 const COLLECTIONS = {
@@ -64,20 +65,18 @@ async function upsertRows(collectionName, rows, docIdFactory) {
     return done;
 }
 
-async function loadCollection(collectionName) {
-    const snap = await getDocs(collection(db, collectionName));
-    const rows = [];
-    snap.forEach(item => rows.push({ id: item.id, ...item.data() }));
-    return rows;
+async function loadCollection(collectionName, force = false) {
+    const pack = await getCollectionSmart(collectionName, force);
+    return pack.rows || [];
 }
 
-async function refreshAll() {
+async function refreshAll(force = false) {
     try {
         const [reps, areaRules, otherShares, targets] = await Promise.all([
-            loadCollection(COLLECTIONS.reps),
-            loadCollection(COLLECTIONS.areaRules),
-            loadCollection(COLLECTIONS.otherShares),
-            loadCollection(COLLECTIONS.targets)
+            loadCollection(COLLECTIONS.reps, force),
+            loadCollection(COLLECTIONS.areaRules, force),
+            loadCollection(COLLECTIONS.otherShares, force),
+            loadCollection(COLLECTIONS.targets, force)
         ]);
         state.reps = reps.sort((a, b) => String(a.name || ``).localeCompare(String(b.name || ``), `ar`));
         state.areaRules = areaRules;
@@ -325,9 +324,10 @@ async function importByKind(kind) {
         }
         if (!clean.length) return C.showToast(`لا توجد صفوف صالحة للاستيراد.`, `error`);
         const count = await upsertRows(config.collectionName, clean, config.docId);
-        C.clearMedrepCache();
-        C.showToast(`تم رفع ${count} سجل بنجاح. وتم تحديث التخزين الداخلي.`, `success`);
-        await refreshAll();
+        C.cacheRemove(`collection_${config.collectionName}`);
+        C.cacheRemove(`meta_collection_${config.collectionName}`);
+        C.showToast(`تم رفع ${count} سجل بنجاح. وتم تحديث تخزين هذا الملف فقط.`, `success`);
+        await refreshAll(true);
     } catch (error) {
         console.error(error);
         C.showToast(error.message || `تعذر تنفيذ الرفع.`, `error`);
@@ -448,7 +448,7 @@ function bindEvents() {
         const teamButton = event.target.closest(`[data-open-team]`);
         if (teamButton) openTeamLeader(teamButton.dataset.openTeam);
     });
-    C.$(`refreshBtn`)?.addEventListener(`click`, refreshAll);
+    C.$(`refreshBtn`)?.addEventListener(`click`, () => refreshAll(true));
 }
 
 bindEvents();

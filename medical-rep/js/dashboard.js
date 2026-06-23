@@ -10,8 +10,7 @@ const state = {
     ui: {
         showOther: false,
         showTarget: false
-    },
-    backgroundRefreshing: false
+    }
 };
 
 function requireSession() {
@@ -212,53 +211,6 @@ function renderDashboard(showOtherFromFilters = false) {
     renderOrdersTable(showOther);
     renderMobileCards(showOther);
     renderRowsTable(showOther);
-    applyMobileTableLabels();
-}
-
-
-function applyMobileTableLabels() {
-    const configs = {
-        itemSummaryBody: {
-            4: [`الصنف`, `الكمية`, `قيمة البيع`, `عدد السطور`],
-            6: [`الصنف`, `الكمية`, `مباشر`, `اخرين`, `الإجمالي`, `% اخرين`]
-        },
-        otherSummaryBody: {
-            6: [`الصنف`, `نسبتك`, `كمية اخرين الأصلية`, `قيمة اخرين الأصلية`, `حصتك كمية`, `حصتك قيمة`]
-        },
-        ordersBody: {
-            7: [`التاريخ`, `الصيدلية`, `المنطقة`, `عدد الأصناف`, `الكمية`, `القيمة`, `تفاصيل`],
-            8: [`التاريخ`, `الصيدلية`, `المنطقة`, `عدد الأصناف`, `الكمية`, `القيمة`, `اخرين`, `تفاصيل`]
-        },
-        salesRowsBody: {
-            8: [`التاريخ`, `المنطقة`, `الصيدلية`, `كود الصيدلية`, `الصنف`, `الكمية`, `القيمة`, `تفاصيل الطلب`],
-            12: [`التاريخ`, `المنطقة`, `الصيدلية`, `كود الصيدلية`, `الصنف`, `الكمية الأصلية`, `الكمية المحتسبة`, `قيمة السطر`, `القيمة المحتسبة`, `نسبتك`, `النوع`, `تفاصيل الطلب`]
-        }
-    };
-    Object.entries(configs).forEach(([tbodyId, options]) => {
-        const body = C.$(tbodyId);
-        if (!body) return;
-        body.querySelectorAll(`tr`).forEach(row => {
-            const cells = Array.from(row.children).filter(cell => cell.tagName === `TD`);
-            const labels = options[cells.length] || options.default || [];
-            cells.forEach((cell, index) => {
-                if (labels[index]) cell.setAttribute(`data-label`, labels[index]);
-            });
-        });
-    });
-}
-
-function applyModalTableLabels() {
-    const modal = C.$(`orderModalContent`);
-    if (!modal) return;
-    modal.querySelectorAll(`tbody tr`).forEach(row => {
-        const cells = Array.from(row.children).filter(cell => cell.tagName === `TD`);
-        const labels = cells.length === 3
-            ? [`الصنف`, `الكمية`, `القيمة`]
-            : [`الصنف`, `الكمية الأصلية`, `الكمية المحتسبة`, `قيمة السطر`, `القيمة المحتسبة`, `النسبة`, `النوع`];
-        cells.forEach((cell, index) => {
-            if (labels[index]) cell.setAttribute(`data-label`, labels[index]);
-        });
-    });
 }
 
 function renderInsightCards() {
@@ -445,24 +397,6 @@ function renderRowsTable(showOther) {
     `).join(``);
 }
 
-async function refreshInBackground() {
-    if (state.backgroundRefreshing) return;
-    state.backgroundRefreshing = true;
-    try {
-        const freshCore = await loadCoreData(true, { includeLegacySales: true });
-        state.core = freshCore;
-        state.rows = buildRowsForRep(state.session, state.core);
-        C.$(`lastRefresh`).textContent = new Date().toLocaleTimeString(`ar-JO`, { hour: `2-digit`, minute: `2-digit` });
-        C.$(`cacheStatus`).textContent = state.core.cacheText || `Firebase مباشر`;
-        populateFilters();
-        applyFilters();
-    } catch (error) {
-        console.warn(`تعذر تحديث بيانات الدعاية الطبية في الخلفية:`, error);
-    } finally {
-        state.backgroundRefreshing = false;
-    }
-}
-
 function openOrderModal(orderId) {
     const order = state.orderGroups.find(item => item.orderId === orderId);
     if (!order) return;
@@ -506,22 +440,38 @@ function openOrderModal(orderId) {
             </table>
         </div>
     `;
-    applyModalTableLabels();
     C.$(`orderModal`).hidden = false;
+}
+
+function applyCoreData(core, options = {}) {
+    state.core = core;
+    state.rows = buildRowsForRep(state.session, state.core);
+    C.$(`lastRefresh`).textContent = new Date().toLocaleTimeString(`ar-JO`, { hour: `2-digit`, minute: `2-digit` });
+    C.$(`cacheStatus`).textContent = state.core.cacheText || `-`;
+    populateFilters();
+    applyFilters();
+    if (!state.rows.length && !options.silent) C.showToast(`لا توجد مبيعات محتسبة. تحقق من رفع ربط المناطق.`, `warning`);
+}
+
+async function hydrateBackground(backgroundPromise) {
+    if (!backgroundPromise) return;
+    try {
+        const freshCore = await backgroundPromise;
+        if (!freshCore) return;
+        applyCoreData(freshCore, { silent: true });
+        if (freshCore.changedCount) C.showToast(`تم تحديث ${freshCore.changedCount} سجل جديد/معدل.`, `success`);
+    } catch (error) {
+        console.warn(`تعذر إكمال التحديث التفاضلي بالخلفية:`, error);
+    }
 }
 
 async function loadDashboard(force = false) {
     const button = C.$(`refreshBtn`);
     try {
-        C.setLoading(button, true, force ? `تحديث مباشر` : `تحميل`);
-        state.core = await loadCoreData(force, { includeLegacySales: true, allowStale: !force });
-        state.rows = buildRowsForRep(state.session, state.core);
-        C.$(`lastRefresh`).textContent = new Date().toLocaleTimeString(`ar-JO`, { hour: `2-digit`, minute: `2-digit` });
-        C.$(`cacheStatus`).textContent = state.core.cacheText || `-`;
-        populateFilters();
-        applyFilters();
-        if (!state.rows.length) C.showToast(`لا توجد مبيعات محتسبة. تحقق من رفع ربط المناطق.`, `warning`);
-        if (!force && state.core.hasStaleCache) refreshInBackground();
+        C.setLoading(button, true, force ? `تحديث` : `تحميل`);
+        const core = await loadCoreData(force, { includeLegacySales: true, cacheFirst: true });
+        applyCoreData(core, { silent: false });
+        hydrateBackground(core.backgroundPromise);
     } catch (error) {
         console.error(error);
         C.showToast(`تعذر تحميل بيانات المبيعات. تحقق من الصلاحيات والاتصال.`, `error`);

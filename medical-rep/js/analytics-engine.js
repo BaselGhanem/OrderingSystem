@@ -1,51 +1,160 @@
-import { db, collection, getDocs, query, where } from './firebase.js';
+import { db, collection, getDocs, query, where, Timestamp } from './firebase.js';
 
 const C = window.medrepCommon;
+const CACHE_NEVER_EXPIRES = 0;
+const ORDERS_CACHE_KEY = `orders_medrep_dashboard_smart_v6`;
+const INVOICED_CACHE_KEY = `orders_invoiced_smart_v6`;
+const ORDER_INCREMENTAL_FIELDS = [`updatedAt`, `changedAt`, `createdAt`, `exportedAt`, `hiddenAt`, `financeApprovedAt`, `marketManagerApprovedAt`, `supervisorApprovedAt`];
+const PHARMACY_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
 
-async function readCachedPack(key, ttlMs, options = {}) {
-    const cached = C.cacheGet(key, ttlMs);
-    if (cached) {
-        return { rows: cached.data || [], fromCache: true, cacheAge: C.cacheAgeText(cached), isStale: C.cacheIsStale(cached) };
-    }
-    if (options.allowStale) {
-        const stale = C.cacheGet(key, 0);
-        if (stale) return { rows: stale.data || [], fromCache: true, cacheAge: C.cacheAgeText(stale), isStale: true };
-    }
-    return null;
+function nowIso() {
+    return new Date().toISOString();
 }
 
-async function getCollectionCached(collectionName, force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS, options = {}) {
-    const key = `collection_${collectionName}`;
-    if (!force) {
-        const cached = await readCachedPack(key, ttlMs, options);
-        if (cached) return cached;
-    }
-    const snap = await getDocs(collection(db, collectionName));
+function metaKey(key) {
+    return `meta_${key}`;
+}
+
+function readRowsCache(key, ttlMs = CACHE_NEVER_EXPIRES) {
+    const payload = C.cacheGet(key, ttlMs);
+    if (!payload) return null;
+    return { rows: Array.isArray(payload.data) ? payload.data : [], savedAt: payload.savedAt, cacheAge: C.cacheAgeText(payload) };
+}
+
+function readMeta(key) {
+    const payload = C.cacheGet(metaKey(key), CACHE_NEVER_EXPIRES);
+    return payload?.data || {};
+}
+
+function writeRowsCache(key, rows, extraMeta = {}) {
+    C.cacheSet(key, rows || []);
+    C.cacheSet(metaKey(key), { ...readMeta(key), ...extraMeta, lastSyncAt: nowIso(), rowsCount: Array.isArray(rows) ? rows.length : 0 });
+}
+
+function mergeRowsById(baseRows = [], changedRows = []) {
+    const map = new Map();
+    baseRows.forEach(row => {
+        if (row?.id) map.set(row.id, row);
+    });
+    changedRows.forEach(row => {
+        if (row?.id) map.set(row.id, row);
+    });
+    return [...map.values()];
+}
+
+function snapshotToRows(snap) {
     const rows = [];
     snap.forEach(item => rows.push({ id: item.id, ...item.data() }));
-    C.cacheSet(key, rows);
-    return { rows, fromCache: false, cacheAge: `الآن`, isStale: false };
+    return rows;
 }
 
-async function getInvoicedOrders(force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS, options = {}) {
-    const key = `orders_invoiced_hidden_v3`;
-    if (!force) {
-        const cached = await readCachedPack(key, ttlMs, options);
-        if (cached) return cached;
-    }
-
-    const rows = await fetchModernInvoicedOrders();
-    C.cacheSet(key, rows);
-    return { rows, fromCache: false, cacheAge: `الآن`, isStale: false };
+async function fetchFullCollection(collectionName) {
+    const snap = await getDocs(collection(db, collectionName));
+    return snapshotToRows(snap);
 }
 
-async function getMedicalRepDashboardOrders(force = false, ttlMs = C.DEFAULT_CACHE_TTL_MS, options = {}) {
-    const key = `orders_medrep_dashboard_legacy_plus_invoiced_v5`;
-    if (!force) {
-        const cached = await readCachedPack(key, ttlMs, options);
-        if (cached) return cached;
+async function fetchChangedByIsoFields(collectionName, fields = [], sinceIso = ``) {
+    if (!sinceIso) return [];
+    const rowsById = new Map();
+    for (const field of fields) {
+        try {
+            const snap = await getDocs(query(collection(db, collectionName), where(field, `>`, sinceIso)));
+            snapshotToRows(snap).forEach(row => rowsById.set(row.id, row));
+        } catch (error) {
+            console.warn(`تعذر تحديث ${collectionName}.${field} تفاضليًا:`, error);
+        }
+    }
+    return [...rowsById.values()];
+}
+
+async function fetchChangedByTimestampField(collectionName, field = `updatedAt`, sinceIso = ``) {
+    if (!sinceIso) return [];
+    const sinceDate = C.toDate(sinceIso) || new Date(Date.now() - 1000 * 60 * 60 * 24);
+    try {
+        const snap = await getDocs(query(collection(db, collectionName), where(field, `>`, Timestamp.fromDate(sinceDate))));
+        return snapshotToRows(snap);
+    } catch (timestampError) {
+        try {
+            const snap = await getDocs(query(collection(db, collectionName), where(field, `>`, sinceIso)));
+            return snapshotToRows(snap);
+        } catch (stringError) {
+            console.warn(`تعذر تحديث ${collectionName} تفاضليًا:`, timestampError, stringError);
+            return [];
+        }
+    }
+}
+
+async function getCollectionSmart(collectionName, force = false, options = {}) {
+    const key = `collection_${collectionName}`;
+    const cached = readRowsCache(key, CACHE_NEVER_EXPIRES);
+    const meta = readMeta(key);
+    const isPharmacies = collectionName === `pharmacies`;
+    const isMappingCollection = [`medicalReps`, `medicalRepAreaRules`, `medicalRepOtherShares`, `medicalRepTargets`].includes(collectionName);
+
+    if (cached && !force) {
+        return { rows: cached.rows, fromCache: true, cacheAge: cached.cacheAge, cacheOnly: true };
     }
 
+    if (cached && force && isMappingCollection && meta.lastSyncAt) {
+        const changed = await fetchChangedByTimestampField(collectionName, `updatedAt`, meta.lastSyncAt);
+        const rows = mergeRowsById(cached.rows, changed);
+        writeRowsCache(key, rows, { syncMode: `incremental`, changedCount: changed.length });
+        return { rows, fromCache: false, cacheAge: `الآن`, changedCount: changed.length, syncMode: `incremental` };
+    }
+
+    if (cached && force && isPharmacies) {
+        const age = Date.now() - (cached.savedAt || 0);
+        if (age < PHARMACY_CACHE_MAX_AGE_MS) {
+            return { rows: cached.rows, fromCache: true, cacheAge: cached.cacheAge, cacheOnly: true, syncMode: `pharmacy_cache_24h` };
+        }
+    }
+
+    const rows = await fetchFullCollection(collectionName);
+    writeRowsCache(key, rows, { syncMode: `full` });
+    return { rows, fromCache: false, cacheAge: `الآن`, syncMode: `full` };
+}
+
+async function getInvoicedOrders(force = false) {
+    return getOrdersSmart(INVOICED_CACHE_KEY, false, force);
+}
+
+async function getMedicalRepDashboardOrders(force = false) {
+    return getOrdersSmart(ORDERS_CACHE_KEY, true, force);
+}
+
+async function getOrdersSmart(cacheKey, includeLegacySales = true, force = false) {
+    const cached = readRowsCache(cacheKey, CACHE_NEVER_EXPIRES);
+    const meta = readMeta(cacheKey);
+
+    if (cached && !force) {
+        return { rows: cached.rows, fromCache: true, cacheAge: cached.cacheAge, cacheOnly: true };
+    }
+
+    if (cached && meta.lastSyncAt) {
+        const changedRows = await fetchChangedByIsoFields(`orders`, ORDER_INCREMENTAL_FIELDS, meta.lastSyncAt);
+        const mergedRaw = mergeRowsById(cached.rows, changedRows);
+        const rows = includeLegacySales ? keepMedicalRepEligibleOrders(mergedRaw) : keepInvoicedOnly(mergedRaw);
+        writeRowsCache(cacheKey, rows, { syncMode: `incremental`, changedCount: changedRows.length });
+        return { rows, fromCache: false, cacheAge: `الآن`, changedCount: changedRows.length, syncMode: `incremental` };
+    }
+
+    const rows = includeLegacySales ? await fetchFullMedicalRepOrders() : await fetchModernInvoicedOrders();
+    writeRowsCache(cacheKey, rows, { syncMode: `full` });
+    return { rows, fromCache: false, cacheAge: `الآن`, syncMode: `full` };
+}
+
+function keepInvoicedOnly(rows = []) {
+    return rows.filter(order => isInvoicedOrder(order)).map(order => ({ ...order, medicalRepSaleSource: `invoiced` }));
+}
+
+function keepMedicalRepEligibleOrders(rows = []) {
+    return rows.filter(order => isInvoicedOrder(order) || isLegacySalesOrder(order)).map(order => ({
+        ...order,
+        medicalRepSaleSource: isLegacySalesOrder(order) ? `legacy` : `invoiced`
+    }));
+}
+
+async function fetchFullMedicalRepOrders() {
     const ordersById = new Map();
     const modernRows = await fetchModernInvoicedOrders();
     modernRows.forEach(order => ordersById.set(order.id, { ...order, medicalRepSaleSource: `invoiced` }));
@@ -55,9 +164,7 @@ async function getMedicalRepDashboardOrders(force = false, ttlMs = C.DEFAULT_CAC
         if (!ordersById.has(order.id)) ordersById.set(order.id, { ...order, medicalRepSaleSource: `legacy` });
     });
 
-    const rows = [...ordersById.values()];
-    C.cacheSet(key, rows);
-    return { rows, fromCache: false, cacheAge: `الآن`, isStale: false };
+    return [...ordersById.values()];
 }
 
 async function fetchModernInvoicedOrders() {
@@ -71,9 +178,8 @@ async function fetchModernInvoicedOrders() {
     for (const q of invoicedQueries) {
         try {
             const snap = await getDocs(q);
-            snap.forEach(item => {
-                const order = { id: item.id, ...item.data() };
-                if (isInvoicedOrder(order)) ordersById.set(item.id, order);
+            snapshotToRows(snap).forEach(order => {
+                if (isInvoicedOrder(order)) ordersById.set(order.id, order);
             });
         } catch (error) {
             console.warn(`تعذر تنفيذ استعلام الطلبيات المفوترة:`, error);
@@ -93,9 +199,8 @@ async function fetchLegacySalesOrders() {
     for (const q of legacyQueries) {
         try {
             const snap = await getDocs(q);
-            snap.forEach(item => {
-                const order = { id: item.id, ...item.data() };
-                if (isLegacySalesOrder(order)) ordersById.set(item.id, order);
+            snapshotToRows(snap).forEach(order => {
+                if (isLegacySalesOrder(order)) ordersById.set(order.id, order);
             });
         } catch (error) {
             console.warn(`تعذر تنفيذ استعلام الطلبيات القديمة لشاشة مندوب الدعاية:`, error);
@@ -104,31 +209,71 @@ async function fetchLegacySalesOrders() {
     return [...ordersById.values()];
 }
 
-async function loadCoreData(force = false, options = {}) {
+function readCoreCache(includeLegacySales = false) {
+    const orderKey = includeLegacySales ? ORDERS_CACHE_KEY : INVOICED_CACHE_KEY;
+    const orders = readRowsCache(orderKey, CACHE_NEVER_EXPIRES);
+    const pharmacies = readRowsCache(`collection_pharmacies`, CACHE_NEVER_EXPIRES);
+    const areaRules = readRowsCache(`collection_medicalRepAreaRules`, CACHE_NEVER_EXPIRES);
+    const otherShares = readRowsCache(`collection_medicalRepOtherShares`, CACHE_NEVER_EXPIRES);
+    const targets = readRowsCache(`collection_medicalRepTargets`, CACHE_NEVER_EXPIRES);
+    if (!orders || !pharmacies || !areaRules) return null;
+    return {
+        orders: orders.rows,
+        pharmacies: pharmacies.rows,
+        areaRules: areaRules.rows,
+        otherShares: otherShares?.rows || [],
+        targets: targets?.rows || [],
+        cacheText: `من التخزين المحلي - ${orders.cacheAge}`,
+        fromCache: true
+    };
+}
+
+async function syncCoreData(force = false, options = {}) {
     const includeLegacySales = options.includeLegacySales === true;
-    const cacheOptions = { allowStale: options.allowStale === true };
     const ordersLoader = includeLegacySales ? getMedicalRepDashboardOrders : getInvoicedOrders;
     const [ordersPack, pharmaciesPack, areaRulesPack, otherSharesPack, targetsPack] = await Promise.all([
-        ordersLoader(force, C.DEFAULT_CACHE_TTL_MS, cacheOptions),
-        getCollectionCached(`pharmacies`, force, C.DEFAULT_CACHE_TTL_MS, cacheOptions),
-        getCollectionCached(`medicalRepAreaRules`, force, C.DEFAULT_CACHE_TTL_MS, cacheOptions),
-        getCollectionCached(`medicalRepOtherShares`, force, C.DEFAULT_CACHE_TTL_MS, cacheOptions),
-        getCollectionCached(`medicalRepTargets`, force, C.DEFAULT_CACHE_TTL_MS, cacheOptions)
+        ordersLoader(force),
+        getCollectionSmart(`pharmacies`, force),
+        getCollectionSmart(`medicalRepAreaRules`, force),
+        getCollectionSmart(`medicalRepOtherShares`, force),
+        getCollectionSmart(`medicalRepTargets`, force)
     ]);
-    const packs = [ordersPack, pharmaciesPack, areaRulesPack, otherSharesPack, targetsPack];
-    const fromCache = packs.some(pack => pack.fromCache);
-    const hasStaleCache = packs.some(pack => pack.isStale);
-    const oldestCache = packs.filter(pack => pack.fromCache).sort((a, b) => String(b.cacheAge).localeCompare(String(a.cacheAge)))[0];
+    const changed = [ordersPack, pharmaciesPack, areaRulesPack, otherSharesPack, targetsPack].reduce((sum, pack) => sum + C.parseNumber(pack.changedCount || 0), 0);
+    const hasCache = [ordersPack, pharmaciesPack, areaRulesPack, otherSharesPack, targetsPack].some(pack => pack.fromCache);
     return {
         orders: ordersPack.rows,
         pharmacies: pharmaciesPack.rows,
         areaRules: areaRulesPack.rows,
         otherShares: otherSharesPack.rows,
         targets: targetsPack.rows,
-        cacheText: fromCache ? `التخزين الداخلي - ${oldestCache?.cacheAge || ordersPack.cacheAge}` : `Firebase مباشر`,
-        hasStaleCache,
-        fromCache
+        cacheText: hasCache ? `من التخزين المحلي - ${ordersPack.cacheAge}` : (changed ? `تم تحديث ${changed} سجل جديد/معدل` : `محدث - لا توجد تغييرات جديدة`),
+        fromCache: hasCache,
+        changedCount: changed
     };
+}
+
+async function loadCoreData(force = false, options = {}) {
+    const includeLegacySales = options.includeLegacySales === true;
+    const cacheFirst = options.cacheFirst !== false;
+
+    if (!force && cacheFirst) {
+        const cachedCore = readCoreCache(includeLegacySales);
+        if (cachedCore) {
+            cachedCore.backgroundPromise = syncCoreData(true, options);
+            return cachedCore;
+        }
+    }
+
+    if (force && cacheFirst) {
+        const cachedCore = readCoreCache(includeLegacySales);
+        if (cachedCore) {
+            cachedCore.backgroundPromise = syncCoreData(true, options);
+            cachedCore.cacheText = `من التخزين المحلي - تحديث بالخلفية`;
+            return cachedCore;
+        }
+    }
+
+    return syncCoreData(true, options);
 }
 
 function isInvoicedOrder(order = {}) {
@@ -353,7 +498,7 @@ function targetForRows(rows = [], targets = [], filters = {}) {
 }
 
 export {
-    getCollectionCached,
+    getCollectionSmart,
     getInvoicedOrders,
     getMedicalRepDashboardOrders,
     loadCoreData,
