@@ -389,6 +389,41 @@ function getWorkflowStatusLabel(status) {
     return WORKFLOW_STATUS_LABELS[status] || status || '-';
 }
 
+function appOrderHasAuditAction(order = {}, actions = []) {
+    const allowed = new Set(actions);
+    const rows = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+    return rows.some(entry => allowed.has(entry?.action || entry?.type || ''));
+}
+
+function appOrderHasHiddenInvoiceEvidence(order = {}) {
+    const exportRows = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+    return order.status === 'orders_staff_hidden' ||
+        order.orderStaffStatus === 'orders_staff_hidden' ||
+        order.hiddenByOrderStaff === true ||
+        order.isInvoiced === true ||
+        !!order.invoicedAt ||
+        exportRows.some(entry => entry?.hideAfterExport === true || entry?.invoiced === true) ||
+        appOrderHasAuditAction(order, ['orders_staff_hidden', 'orders_staff_hide_after_export', 'orders_staff_invoiced_and_hidden_after_export']);
+}
+
+function appOrderHasExportEvidence(order = {}) {
+    return order.status === 'orders_staff_exported' ||
+        order.orderStaffStatus === 'orders_staff_exported' ||
+        !!order.exportedAt ||
+        (Array.isArray(order.exportHistory) && order.exportHistory.length > 0) ||
+        appOrderHasAuditAction(order, ['orders_staff_export', 'orders_staff_exported']);
+}
+
+function getEffectiveOrderStatus(order = {}) {
+    const rawStatus = order.status || order.orderStatus || order.workflowStatus || '';
+    const terminalOrReturned = rawStatus.startsWith('deleted_') ||
+        ['returned_to_rep', 'returned_to_supervisor', 'returned_to_market_manager', 'returned_to_finance', 'market_manager_rejected', 'finance_rejected', 'rejected'].includes(rawStatus);
+    if (terminalOrReturned || order.workflowStage === 'deleted') return rawStatus;
+    if (appOrderHasHiddenInvoiceEvidence(order)) return 'orders_staff_hidden';
+    if (appOrderHasExportEvidence(order)) return 'orders_staff_exported';
+    return rawStatus;
+}
+
 function getOrderRejectionReason(order = {}) {
     const reasons = [
         order.returnReason,
@@ -398,6 +433,29 @@ function getOrderRejectionReason(order = {}) {
         order.rejectReason
     ].filter(v => v !== undefined && v !== null && String(v).trim() !== '');
     return reasons.length ? String(reasons[0]).trim() : '';
+}
+
+
+function getFinanceWorkflowNote(order = {}) {
+    const notes = [
+        order.financeApprovalNote,
+        order.financeVisibleNote,
+        order.financeRejectionReason
+    ].filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+    return notes.length ? String(notes[0]).trim() : '';
+}
+
+function getOrderFollowupNote(order = {}) {
+    const notes = [
+        order.financeApprovalNote,
+        order.financeVisibleNote,
+        order.financeRejectionReason,
+        order.returnReason,
+        order.marketManagerRejectionReason,
+        order.rejectionReason,
+        order.rejectReason
+    ].filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+    return notes.length ? String(notes[0]).trim() : '';
 }
 
 function isRepVisibleOrderStatus(status) {
@@ -459,6 +517,41 @@ async function updateOrderWithAudit(orderId, updates, auditEntry) {
     });
 }
 
+async function recordPrintHistoryForOrders(orders = [], source = 'order_print') {
+    const printableOrders = orders.filter(order => order && order.id && order.id !== 'DRAFT');
+    if (printableOrders.length === 0) return;
+
+    const actor = currentManagerName || currentRepName || 'System';
+    const role = isAdmin ? 'supervisor' : 'representative';
+    const printedAt = new Date().toISOString();
+
+    await Promise.allSettled(printableOrders.map(async order => {
+        const orderRef = doc(db, 'orders', order.id);
+        const snap = await getDoc(orderRef);
+        if (!snap.exists()) return;
+        const current = snap.data() || {};
+        const trail = Array.isArray(current.auditTrail) ? current.auditTrail : [];
+        const printHistory = Array.isArray(current.printHistory) ? current.printHistory : [];
+        const printEntry = {
+            printedAt,
+            printedBy: actor,
+            printedByRole: role,
+            source,
+            page: APP_PAGE || ''
+        };
+        await updateDoc(orderRef, {
+            printHistory: [...printHistory, printEntry],
+            lastPrintedAt: new Date(),
+            lastPrintedBy: actor,
+            auditTrail: [
+                ...trail,
+                buildAuditEntry('order_printed', actor, role, { status: current.status || '' }, { source }, `تمت طباعة الطلبية من ${source}`)
+            ],
+            updatedAt: new Date()
+        });
+    }));
+}
+
 
 function isOrderUnderCurrentManager(order = {}) {
     const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
@@ -490,14 +583,24 @@ function isDeletedOrderStatus(status = '') {
 }
 
 function canCurrentSupervisorDeleteOrder(order = {}) {
-    const status = order.status || '';
+    const status = order.status || 'pending_supervisor_approval';
     if (isDeletedOrderStatus(status)) return false;
-    return isOrderUnderCurrentManager(order) || isOrderWithoutAssignedSupervisor(order);
+    const ownerOk = isOrderUnderCurrentManager(order) || isOrderWithoutAssignedSupervisor(order);
+    if (!ownerOk) return false;
+
+    // Supervisor deletion is intentionally restricted to the pre-approval stage only.
+    // After supervisor approval, the order must move through return/reject workflow instead of deletion.
+    const preApprovalStatuses = ['pending', 'pending_supervisor_approval', 'returned_to_supervisor'];
+    const alreadyApproved = order.supervisorStatus === 'supervisor_approved' ||
+        !!order.supervisorApprovedAt ||
+        ['supervisor_approved', 'market_manager_pending', 'market_manager_approved', 'finance_pending', 'finance_approved', 'orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(status);
+
+    return preApprovalStatuses.includes(status) && !alreadyApproved;
 }
 
 async function confirmSupervisorDeleteOrder(orderId, order = {}, action = 'supervisor_order_soft_deleted') {
     if (!canCurrentSupervisorDeleteOrder(order)) {
-        showToast('لا يمكنك حذف هذه الطلبية لأنها تابعة لمشرف آخر.', 'warning');
+        showToast('حذف المشرف مسموح فقط قبل موافقة المشرف. بعد الموافقة استخدم الإرجاع حسب مسار العمل.', 'warning');
         return;
     }
     const refLabel = orderId ? orderId.substring(0, 6).toUpperCase() : '';
@@ -603,7 +706,7 @@ function buildFlatOrderExportRows(orders) {
                 "ملاحظة الصنف": item.note || "-",
                 "الاجمالي الكلي": parseAppNumber(order.grandTotal),
                 "ملاحظة الطلبية": order.orderNote || "-",
-                "الحالة": getWorkflowStatusLabel(order.status)
+                "الحالة": getWorkflowStatusLabel(getEffectiveOrderStatus(order))
             });
         });
     });
@@ -670,7 +773,7 @@ function buildPrintableOrder(order) {
                 <div><span>المندوب</span><strong>${escapePrintHtml(order.repName || '-')}</strong></div>
                 <div><span>العميل / الصيدلية</span><strong>${escapePrintHtml(order.pharmacyName || '-')}</strong></div>
                 <div><span>كود الصيدلية</span><strong>${escapePrintHtml(getPharmacyCodeFromOrder(order) || '-')}</strong></div>
-                <div><span>الحالة</span><strong>${getWorkflowStatusLabel(order.status)}</strong></div>
+                <div><span>الحالة</span><strong>${getWorkflowStatusLabel(getEffectiveOrderStatus(order))}</strong></div>
                 <div><span>الإجمالي</span><strong>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.ا</strong></div>
             </div>
             <table class="print-items-table">
@@ -730,6 +833,7 @@ async function printSelectedOrders(checkboxSelector, existingOrders = []) {
             @media (max-width: 700px) { .print-info-grid { grid-template-columns: 1fr; } .print-header { align-items:flex-start; flex-direction:column; } .print-items-table { font-size: 11px; } }
         </style></head><body>${printable}<script>window.onload = () => { window.focus(); window.print(); };<\/script></body></html>`);
         printWindow.document.close();
+        recordPrintHistoryForOrders(orders, 'selected_orders_print').catch(error => console.warn('Print history could not be saved', error));
     } catch (error) {
         console.error('Print error:', error);
         showToast('تعذر تجهيز الطباعة.', 'error');
@@ -949,8 +1053,8 @@ async function loadInitialData() {
             repSelect.disabled = true;
         }
 
-        const CACHE_KEY = 'dad_app_cache_20260622_status_delete1';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_20260622_status_delete1';
+        const CACHE_KEY = 'dad_app_cache_20260623_modal_finance_note_fix1';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_20260623_modal_finance_note_fix1';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
         const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);
@@ -1075,7 +1179,7 @@ function bindPharmacyHistoryButton() {
                     <td>${formatDateTime(o.createdAt)}</td>
                     <td>${o.repName || '-'}</td>
                     <td>${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ا</td>
-                    <td><span class="status-badge ${o.status}">${getWorkflowStatusLabel(o.status)}</span></td>
+                    <td><span class="status-badge ${getEffectiveOrderStatus(o)}">${getWorkflowStatusLabel(getEffectiveOrderStatus(o))}</span></td>
                     <td><button class="action-btn edit-btn btn-view-history" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
                 `;
                 tr.querySelector('.btn-view-history').onclick = () => showOrderDetails(o);
@@ -1139,6 +1243,7 @@ function printSelectedOrdersFromObjects(orders) {
     printWindow.document.open();
     printWindow.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>طباعة مسودة</title><style>@page{size:A4;margin:12mm}body{font-family:Cairo,Arial,sans-serif}.print-order-page{page-break-after:always}.print-header{display:flex;justify-content:space-between;gap:16px;border-bottom:3px solid #099999;padding-bottom:14px}.print-header img{width:112px;object-fit:contain}.print-info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}.print-info-grid div{border:1px solid #e2e8f0;background:#f8fafc;border-radius:12px;padding:10px}.print-info-grid span,.print-note-box span{display:block;color:#64748b;font-size:12px;font-weight:800}.print-items-table{width:100%;border-collapse:collapse;font-size:12px}.print-items-table th{background:#0f3b5c;color:#fff}.print-items-table th,.print-items-table td{padding:8px;border:1px solid #cbd5e1;text-align:center}.item-name{text-align:right;font-weight:800}.print-note-box{border:1px solid #fcd34d;background:#fffbeb;border-radius:12px;padding:12px;margin-top:14px}.print-footer{display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:10px;color:#64748b;font-size:11px;font-weight:700}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>${printable}<script>window.onload=()=>{window.focus();window.print();};<\/script></body></html>`);
     printWindow.document.close();
+    recordPrintHistoryForOrders(orders, 'draft_or_direct_print').catch(error => console.warn('Print history could not be saved', error));
 }
 
 function addNewRow(prefill = null) {
@@ -1149,13 +1254,13 @@ function addNewRow(prefill = null) {
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
-        <td><input type="number" class="qty-input" value="1" min="1"></td>
-        <td style="position:relative;"><input type="number" class="bonus-input" value="0" min="0"><span class="bonus-pct" style="font-size:0.75rem; color:var(--primary); font-weight:bold; display:block; text-align:center; margin-top:4px;"></span></td>
-        <td class="price-cell">0.00</td>
-        <td class="row-total">0.00</td>
-        <td><input type="text" class="item-note-input" placeholder="ملاحظة..." style="width:100%; padding: 8px;"></td> 
-        <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
+        <td data-label="الصنف"><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+        <td data-label="الكمية"><input type="number" class="qty-input" value="1" min="1"></td>
+        <td data-label="البونص" style="position:relative;"><input type="number" class="bonus-input" value="0" min="0"><span class="bonus-pct" style="font-size:0.75rem; color:var(--primary); font-weight:bold; display:block; text-align:center; margin-top:4px;"></span></td>
+        <td data-label="السعر" class="price-cell">0.00</td>
+        <td data-label="المجموع" class="row-total">0.00</td>
+        <td data-label="ملاحظة"><input type="text" class="item-note-input" placeholder="ملاحظة..." style="width:100%; padding: 8px;"></td> 
+        <td data-label="حذف"><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
     `;
     
     const s = tr.querySelector('.product-input'), 
@@ -1494,7 +1599,7 @@ async function loadMyOrders() {
             let orders = [];
             snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
             orders.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
-            currentMyOrdersData = orders.filter(o => isRepVisibleOrderStatus(o.status));
+            currentMyOrdersData = orders.filter(o => isRepVisibleOrderStatus(getEffectiveOrderStatus(o)));
             applyMyOrdersFilters();
         }, () => showToast("خطأ في جلب البيانات.", "error"));
     } catch(e) { showToast("خطأ في جلب البيانات.", "error"); }
@@ -1526,18 +1631,18 @@ function applyMyOrdersFilters() {
 
     filtered.forEach(order => {
         const tr = document.createElement('tr');
-        const statusClass = order.status || 'pending';
+        const statusClass = getEffectiveOrderStatus(order) || 'pending';
         tr.className = `row-${statusClass}`;
         tr.innerHTML = `
-            <td><input type="checkbox" class="my-order-checkbox" value="${order.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
-            <td>${order.id.substring(0,6).toUpperCase()}</td>
-            <td>${formatDateTime(order.createdAt)}</td>
-            <td>${order.pharmacyName || '-'}</td>
-            <td>${getPharmacyCodeFromOrder(order) || '-'}</td>
-            <td>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
-            <td>${escapePrintHtml(getOrderRejectionReason(order) || '-')}</td>
-            <td>
+            <td data-label="تحديد"><input type="checkbox" class="my-order-checkbox" value="${order.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
+            <td data-label="رقم الطلب">${order.id.substring(0,6).toUpperCase()}</td>
+            <td data-label="التاريخ">${formatDateTime(order.createdAt)}</td>
+            <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
+            <td data-label="كود الصيدلية">${getPharmacyCodeFromOrder(order) || '-'}</td>
+            <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
+            <td data-label="السبب / الملاحظة">${escapePrintHtml(getOrderFollowupNote(order) || '-')}</td>
+            <td data-label="إجراء">
                 <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
                 ${canRepresentativeEditReturnedOrder(order) ? `<button class="action-btn edit-returned-order-btn" title="تعديل الطلبية المرجعة"><i class="ph ph-pencil"></i></button>` : ''}
             </td>
@@ -1564,7 +1669,7 @@ function updateAdvancedManagerDashboard(orders) {
         const value = parseAppNumber(o.grandTotal);
         if (value < 0 || o.status === 'returned') returnsTotal += Math.abs(value);
         else ordersTotal += value;
-        if (isRepApprovedVisibleStatus(o.status)) approvedCount++;
+        if (isRepApprovedVisibleStatus(getEffectiveOrderStatus(o))) approvedCount++;
         if (o.pharmacyName) {
             pharmCounts[o.pharmacyName] = (pharmCounts[o.pharmacyName] || 0) + 1;
             uniquePharms.add(o.pharmacyName);
@@ -1692,17 +1797,17 @@ function renderManagerOrders(orders) {
         const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const tr = document.createElement('tr');
-        const statusClass = order.status || 'pending';
+        const statusClass = getEffectiveOrderStatus(order) || 'pending';
         tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
         tr.innerHTML = `
-            <td><input type="checkbox" class="order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
-            <td>${order.id.substring(0, 6).toUpperCase()}</td>
-            <td>${displayDate}</td>
-            <td>${order.repName || '-'}</td>
-            <td>${order.pharmacyName || '-'}</td>
-            <td>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
-            <td>
+            <td data-label="تحديد"><input type="checkbox" class="order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
+            <td data-label="رقم الطلب">${order.id.substring(0, 6).toUpperCase()}</td>
+            <td data-label="التاريخ">${displayDate}</td>
+            <td data-label="المندوب">${order.repName || '-'}</td>
+            <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
+            <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getOrderFollowupNote(order) ? `<div class="workflow-reason" style="margin-top:6px;">${escapePrintHtml(getOrderFollowupNote(order))}</div>` : ''}</td>
+            <td data-label="إجراء">
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button><button class="action-btn return-rep-btn" title="إرجاع للمندوب"><i class="ph ph-arrow-u-down-right"></i></button>` : ''}
                 ${canCurrentSupervisorDeleteOrder(order) ? `<button class="action-btn delete-btn" title="حذف الطلبية"><i class="ph ph-trash"></i></button>` : ''}
@@ -1756,11 +1861,18 @@ async function handleBulkAction(actionType) {
                 }
                 return approveOrderBySupervisor(id, order, 'supervisor_bulk_approved');
             }
+            if (!canCurrentSupervisorDeleteOrder(order)) {
+                skipped.push(id);
+                return Promise.resolve('skipped_not_deletable');
+            }
             return softDeleteOrderBySupervisor(id, order, 'supervisor_bulk_soft_delete');
         });
         
         await Promise.all(promises);
-        showToast(skipped.length ? `تم تنفيذ العملية للطلبيات القابلة للاعتماد فقط. تم تجاوز ${skipped.length} طلبية.` : "تم تنفيذ العملية المجمعة بنجاح", skipped.length ? "warning" : "success");
+        const skippedMessage = actionType === 'approve'
+            ? `تم تنفيذ الاعتماد للطلبيات القابلة للاعتماد فقط. تم تجاوز ${skipped.length} طلبية.`
+            : `تم حذف الطلبيات المسموح حذفها فقط. تم تجاوز ${skipped.length} طلبية لأنها ليست قبل موافقة المشرف.`;
+        showToast(skipped.length ? skippedMessage : "تم تنفيذ العملية المجمعة بنجاح", skipped.length ? "warning" : "success");
         if(document.getElementById('selectAllOrders')) document.getElementById('selectAllOrders').checked = false;
     } catch (error) {
         showToast("حدث خطأ أثناء التنفيذ", "error");
@@ -1812,21 +1924,21 @@ function renderAllOrders(orders) {
     }
     orders.forEach(order => {
         const tr = document.createElement('tr');
-        const statusClass = order.status || 'pending';
+        const statusClass = getEffectiveOrderStatus(order) || 'pending';
         tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
         const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const canApproveFromAll = canCurrentSupervisorApproveOrder(order);
         const unassignedBadge = isOrderWithoutAssignedSupervisor(order) ? '<small class="workflow-reason" style="color:#92400e;">بدون مشرف محدد</small>' : '';
         tr.innerHTML = `
-            <td><input type="checkbox" class="all-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
-            <td>${order.id.substring(0,6).toUpperCase()}</td>
-            <td>${displayDate}</td>
-            <td class="all-rep-col">${order.repName || '-'}</td>
-            <td class="all-pharm-col">${order.pharmacyName || '-'}${unassignedBadge}</td>
-            <td>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
-            <td><button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
+            <td data-label="تحديد"><input type="checkbox" class="all-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
+            <td data-label="رقم الطلب">${order.id.substring(0,6).toUpperCase()}</td>
+            <td data-label="التاريخ">${displayDate}</td>
+            <td data-label="المندوب" class="all-rep-col">${order.repName || '-'}</td>
+            <td data-label="الصيدلية" class="all-pharm-col">${order.pharmacyName || '-'}${unassignedBadge}</td>
+            <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
+            <td data-label="إجراء"><button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 ${canApproveFromAll ? `<button class="action-btn approve-all-order-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
                 ${canCurrentSupervisorDeleteOrder(order) ? `<button class="action-btn delete-all-order-btn" title="حذف الطلبية"><i class="ph ph-trash"></i></button>` : ''}</td>
@@ -1876,6 +1988,26 @@ function showOrderDetails(order) {
         const note = order.orderNote || order.note || '';
         noteContainer.style.display = note ? 'block' : 'none';
         noteText.innerText = note;
+    }
+
+
+    const financeNote = getFinanceWorkflowNote(order);
+    let detailNotice = document.getElementById('modalFinanceNotice');
+    if (!detailNotice) {
+        detailNotice = document.createElement('div');
+        detailNotice.id = 'modalFinanceNotice';
+        detailNotice.className = 'workflow-banner';
+        const container = noteContainer?.parentElement || modal.querySelector('.modal-content');
+        container?.insertBefore(detailNotice, (body.closest('.table-responsive') || body.parentElement));
+    }
+    if (detailNotice) {
+        if (financeNote) {
+            detailNotice.style.display = 'block';
+            detailNotice.innerHTML = `<strong>ملاحظة المالية للمتابعة:</strong> ${escapePrintHtml(financeNote)}`;
+        } else {
+            detailNotice.style.display = 'none';
+            detailNotice.innerHTML = '';
+        }
     }
 
     const modalContent = modal.querySelector('.modal-content') || modal.firstElementChild;
@@ -2290,14 +2422,14 @@ async function loadReports() {
                 const tr = document.createElement('tr');
                 tr.className = `row-${o.status}`;
                 tr.innerHTML = `
-                    <td><input type="checkbox" class="report-order-checkbox" value="${o.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
-                    <td><b>${o.id.substring(0,5).toUpperCase()}</b></td>
-                    <td>${formatDateTime(o.createdAt)}</td>
-                    <td class="rep-col">${o.repName || '-'}</td>
-                    <td class="pharm-col">${o.pharmacyName || '-'}</td>
-                    <td>${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td><span class="status-badge ${o.status}">${getWorkflowStatusLabel(o.status)}</span></td>
-                    <td><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>
+                    <td data-label="تحديد"><input type="checkbox" class="report-order-checkbox" value="${o.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
+                    <td data-label="رقم الطلب"><b>${o.id.substring(0,5).toUpperCase()}</b></td>
+                    <td data-label="التاريخ">${formatDateTime(o.createdAt)}</td>
+                    <td data-label="المندوب" class="rep-col">${o.repName || '-'}</td>
+                    <td data-label="الصيدلية" class="pharm-col">${o.pharmacyName || '-'}</td>
+                    <td data-label="القيمة">${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td data-label="الحالة"><span class="status-badge ${getEffectiveOrderStatus(o)}">${getWorkflowStatusLabel(getEffectiveOrderStatus(o))}</span></td>
+                    <td data-label="إجراء"><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>
                 `;
                 tr.querySelector('.btn-view').onclick = () => showOrderDetails(o);
                 body.appendChild(tr);

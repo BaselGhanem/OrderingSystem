@@ -17,6 +17,7 @@ const STATUS_LABELS = {
     orders_staff_pending: 'جاهز للمعالجة',
     orders_staff_exported: 'تم تصديره',
     orders_staff_hidden: 'تمت الفوترة',
+    orders_staff_edited_returned_to_finance: 'تم تعديله وإرجاعه للمالية',
     returned_to_rep: 'مرجعة للمندوب',
     returned_to_supervisor: 'مرجعة للمشرف',
     returned_to_market_manager: 'مرجعة لمدير السوق',
@@ -46,7 +47,7 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
-const WORKFLOW_CACHE_VERSION = '20260622_status_delete1';
+const WORKFLOW_CACHE_VERSION = '20260623_modal_finance_note_fix1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
@@ -105,7 +106,12 @@ function compactOrder(order = {}) {
         orderStaffStatus: order.orderStaffStatus || '',
         exportedAt: order.exportedAt || null,
         hiddenByOrderStaff: order.hiddenByOrderStaff === true,
-        hiddenAt: order.hiddenAt || null
+        hiddenAt: order.hiddenAt || null,
+        invoicedAt: order.invoicedAt || null,
+        isInvoiced: order.isInvoiced === true,
+        exportHistory: Array.isArray(order.exportHistory) ? order.exportHistory.slice(-20) : [],
+        printHistory: Array.isArray(order.printHistory) ? order.printHistory.slice(-20) : [],
+        auditTrail: Array.isArray(order.auditTrail) ? order.auditTrail.slice(-50) : []
     };
 }
 
@@ -262,8 +268,51 @@ function getOrderNote(order = {}) {
     return order.orderNote || order.note || order.notes || order.repNote || order.representativeNote || order.order_note || '';
 }
 
-function getPrimaryStatus(order = {}) {
+
+function getFinanceVisibleNote(order = {}) {
+    const notes = [
+        order.financeApprovalNote,
+        order.financeVisibleNote,
+        order.financeRejectionReason
+    ].filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+    return notes.length ? String(notes[0]).trim() : '';
+}
+
+function getRawPrimaryStatus(order = {}) {
     return order.status || order.orderStatus || order.workflowStatus || '';
+}
+
+function orderHasAuditAction(order = {}, actions = []) {
+    const allowed = new Set(actions);
+    const rows = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+    return rows.some(entry => allowed.has(entry?.action || entry?.type || ''));
+}
+
+function orderHasHiddenInvoiceEvidence(order = {}) {
+    const exportRows = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+    return order.orderStaffStatus === 'orders_staff_hidden' ||
+        order.hiddenByOrderStaff === true ||
+        order.isInvoiced === true ||
+        !!order.invoicedAt ||
+        exportRows.some(entry => entry?.hideAfterExport === true || entry?.invoiced === true) ||
+        orderHasAuditAction(order, ['orders_staff_hidden', 'orders_staff_hide_after_export', 'orders_staff_invoiced_and_hidden_after_export']);
+}
+
+function orderHasExportEvidence(order = {}) {
+    return order.orderStaffStatus === 'orders_staff_exported' ||
+        !!order.exportedAt ||
+        (Array.isArray(order.exportHistory) && order.exportHistory.length > 0) ||
+        orderHasAuditAction(order, ['orders_staff_export', 'orders_staff_exported']);
+}
+
+function getPrimaryStatus(order = {}) {
+    const rawStatus = getRawPrimaryStatus(order);
+    const terminalOrReturned = rawStatus.startsWith('deleted_') ||
+        ['returned_to_rep', 'returned_to_supervisor', 'returned_to_market_manager', 'returned_to_finance', 'market_manager_rejected', 'finance_rejected', 'rejected'].includes(rawStatus);
+    if (terminalOrReturned || order.workflowStage === 'deleted') return rawStatus;
+    if (rawStatus === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order)) return 'orders_staff_hidden';
+    if (rawStatus === 'orders_staff_exported' || orderHasExportEvidence(order)) return 'orders_staff_exported';
+    return rawStatus;
 }
 
 function getWorkflowFollowUp(order = {}) {
@@ -284,11 +333,107 @@ function getWorkflowFollowUp(order = {}) {
     if (status === 'market_manager_approved' || status === 'finance_pending' || financeState === 'finance_pending') return { ownerKey: 'finance_controller', owner: 'المراقب المالي', detail: 'بانتظار الاعتماد المالي' };
     if (status === 'finance_rejected' || financeState === 'finance_rejected') return { ownerKey: 'finance_controller', owner: 'المراقب المالي', detail: order.financeRejectionReason || 'مرفوض مالياً' };
     if (status === 'returned_to_finance') return { ownerKey: 'finance_controller', owner: 'المراقب المالي', detail: returnReason || `مرجعة للمراقب المالي${returnedBy}` };
+    if (status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order)) return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'تمت الفوترة / مخفية بعد التصدير' };
+    if (status === 'orders_staff_exported' || staffState === 'orders_staff_exported' || orderHasExportEvidence(order)) return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'تم التصدير ولم تُخفَ بعد' };
     if (status === 'finance_approved' || status === 'orders_staff_pending' || staffState === 'orders_staff_pending') return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'جاهزة للمعالجة / التصدير' };
-    if (status === 'orders_staff_exported' || staffState === 'orders_staff_exported') return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'تم التصدير ولم تُخفَ بعد' };
-    if (status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || order.hiddenByOrderStaff === true) return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'تمت الفوترة / مخفية بعد التصدير' };
     if (status === 'deleted_by_orders_staff' || status === 'deleted_by_market_manager' || status === 'deleted_by_supervisor' || status === 'deleted_by_reports') return { ownerKey: 'none', owner: 'لا يوجد', detail: 'الطلبية محذوفة من مسار العمل' };
     return { ownerKey: '', owner: '-', detail: statusLabel(status) };
+}
+
+
+function historyDate(value) {
+    const d = normalizeDate(value) || (typeof value === 'string' ? new Date(value) : null);
+    return d && !Number.isNaN(d.getTime()) ? d.toLocaleString('en-GB') : '-';
+}
+
+function workflowStepState(order = {}, stepKey = '') {
+    const status = getPrimaryStatus(order);
+    const stage = order.workflowStage || '';
+    const deleted = status.startsWith('deleted_') || stage === 'deleted';
+    if (deleted) return 'danger';
+    const completed = {
+        supervisor: ['supervisor_approved', 'market_manager_pending', 'market_manager_approved', 'finance_pending', 'finance_approved', 'orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(status) || order.supervisorStatus === 'supervisor_approved',
+        market_manager: ['market_manager_approved', 'finance_pending', 'finance_approved', 'orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(status) || order.marketManagerStatus === 'market_manager_approved',
+        finance: ['finance_approved', 'orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(status) || order.financeStatus === 'finance_approved',
+        orders_staff: ['orders_staff_exported', 'orders_staff_hidden'].includes(status) || ['orders_staff_exported', 'orders_staff_hidden'].includes(order.orderStaffStatus || '')
+    };
+    const currentOwner = getWorkflowFollowUp(order).ownerKey;
+    if (currentOwner === stepKey) return 'active';
+    return completed[stepKey] ? 'done' : 'pending';
+}
+
+function workflowTimelineHtml(order = {}) {
+    const steps = [
+        { key: 'supervisor', label: 'المشرف', icon: 'ph-user-check' },
+        { key: 'market_manager', label: 'مدير السوق', icon: 'ph-briefcase' },
+        { key: 'finance', label: 'المالية', icon: 'ph-calculator' },
+        { key: 'orders_staff', label: 'قسم الطلبيات', icon: 'ph-package' }
+    ];
+    const follow = getWorkflowFollowUp(order);
+    const cards = steps.map(step => {
+        const stateName = workflowStepState(order, step.key);
+        return `<div class="timeline-step ${stateName}"><i class="ph ${step.icon}"></i><span>${escapeHtml(step.label)}</span></div>`;
+    }).join('');
+    return `<div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-git-branch"></i> مسار الطلبية</div><div class="workflow-timeline">${cards}</div><div class="workflow-current-owner"><b>المطلوب من:</b> ${escapeHtml(follow.owner || '-')} — ${escapeHtml(follow.detail || statusLabel(getPrimaryStatus(order)))}</div></div>`;
+}
+
+function auditViewerHtml(order = {}) {
+    const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+    if (trail.length === 0) return `<div class="history-empty">لا يوجد سجل تدقيق محفوظ لهذه الطلبية.</div>`;
+    return `<div class="history-list">${trail.slice(-12).reverse().map(entry => {
+        const action = entry.action || entry.type || 'إجراء';
+        const user = entry.user || entry.actor || entry.changedBy || 'System';
+        const role = entry.role || entry.changedByRole || '-';
+        const ts = entry.timestamp || entry.at || entry.changedAt || entry.createdAt;
+        const notes = entry.notes || entry.note || entry.reason || '';
+        return `<div class="history-item"><strong>${escapeHtml(statusLabel(action) || action)}</strong><span>${escapeHtml(user)} / ${escapeHtml(role)} — ${escapeHtml(historyDate(ts))}</span>${notes ? `<small>${escapeHtml(notes)}</small>` : ''}</div>`;
+    }).join('')}</div>`;
+}
+
+function exportHistoryHtml(order = {}) {
+    const history = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+    if (history.length === 0 && !order.exportedAt) return `<div class="history-empty">لا يوجد سجل تصدير لهذه الطلبية.</div>`;
+    const rows = history.length ? history : [{ exportedAt: order.exportedAt, exportedBy: order.exportedBy || '-', source: 'legacy_export' }];
+    return `<div class="history-list">${rows.slice(-8).reverse().map(entry => `<div class="history-item"><strong>${escapeHtml(entry.fileName || entry.source || 'تصدير')}</strong><span>${escapeHtml(entry.exportedBy || entry.user || '-')} — ${escapeHtml(historyDate(entry.exportedAt || entry.timestamp))}</span>${entry.hideAfterExport || entry.invoiced ? '<small>تمت الفوترة وإخفاء الطلبية من العرض الافتراضي.</small>' : ''}</div>`).join('')}</div>`;
+}
+
+function printHistoryHtml(order = {}) {
+    const history = Array.isArray(order.printHistory) ? order.printHistory : [];
+    if (history.length === 0 && !order.lastPrintedAt) return `<div class="history-empty">لا يوجد سجل طباعة لهذه الطلبية.</div>`;
+    const rows = history.length ? history : [{ printedAt: order.lastPrintedAt, printedBy: order.lastPrintedBy || '-', source: 'legacy_print' }];
+    return `<div class="history-list">${rows.slice(-8).reverse().map(entry => `<div class="history-item"><strong>${escapeHtml(entry.source || 'طباعة')}</strong><span>${escapeHtml(entry.printedBy || entry.user || '-')} — ${escapeHtml(historyDate(entry.printedAt || entry.timestamp))}</span></div>`).join('')}</div>`;
+}
+
+function renderWorkflowInsights(prefix, order = {}) {
+    const timeline = $(`${prefix}WorkflowTimeline`);
+    const audit = $(`${prefix}AuditViewer`);
+    const exports = $(`${prefix}ExportHistory`);
+    const prints = $(`${prefix}PrintHistory`);
+    if (timeline) timeline.innerHTML = workflowTimelineHtml(order);
+    if (audit) audit.innerHTML = auditViewerHtml(order);
+    if (exports) exports.innerHTML = exportHistoryHtml(order);
+    if (prints) prints.innerHTML = printHistoryHtml(order);
+}
+
+function canOrdersStaffTouchOrder(order = {}) {
+    const status = getPrimaryStatus(order);
+    const staffState = order.orderStaffStatus || '';
+    const hidden = status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order);
+    const deleted = status.startsWith('deleted_') || order.workflowStage === 'deleted';
+    if (hidden || deleted) return false;
+    return ['finance_approved', 'orders_staff_pending', 'orders_staff_exported'].includes(status) || ['orders_staff_pending', 'orders_staff_exported'].includes(staffState);
+}
+
+function buildExportEntry(source, user, ordersCount = 1, hideAfterExport = false, fileName = '') {
+    return {
+        source,
+        exportedBy: user || 'System',
+        exportedAt: new Date().toISOString(),
+        ordersCount,
+        hideAfterExport: !!hideAfterExport,
+        invoiced: !!hideAfterExport,
+        fileName
+    };
 }
 
 function getPharmacyCode(order = {}) {
@@ -768,7 +913,8 @@ function openMarketOrderModal(order) {
         <span><b>الصيدلية:</b> ${escapeHtml(order.pharmacyName || '-')}</span>
         <span><b>كود الصيدلية:</b> ${escapeHtml(getPharmacyCode(order) || '-')}</span>
     `;
-    $('marketOrderNote').textContent = getOrderNote(order) || 'لا توجد ملاحظات.';
+    $('marketOrderNote').textContent = [getOrderNote(order), getFinanceVisibleNote(order) ? `ملاحظة المالية: ${getFinanceVisibleNote(order)}` : ''].filter(Boolean).join(' | ') || 'لا توجد ملاحظات.';
+    renderWorkflowInsights('market', order);
     $('marketOrderItemsBody').innerHTML = fullOrderRows(order) || `<tr><td colspan="10">لا توجد أصناف.</td></tr>`;
     document.querySelectorAll('#marketOrderItemsBody tr').forEach(bindMarketItemRow);
     if ($('marketModalActionSelect')) $('marketModalActionSelect').value = '';
@@ -975,15 +1121,15 @@ function renderMarketOrders() {
         chunk.forEach(order => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
-                <td>${escapeHtml(formatDateTime(order.createdAt))}</td>
-                <td>${escapeHtml(order.repName || '-')}</td>
-                <td class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
-                <td><button class="action-btn view-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
-                <td>${formatMoney(order.grandTotal)} د.ا</td>
-                <td><span class="status-badge ${escapeHtml(order.status || '')}">${escapeHtml(statusLabel(order.status))}</span></td>
-                <td class="workflow-note-cell" title="${escapeHtml(getOrderNote(order) || '-')}">${escapeHtml(getOrderNote(order) || '-')}</td>
-                <td class="workflow-actions-cell">${buildOrderSummaryRowActions('market')}</td>
+                <td data-label="تحديد"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
+                <td data-label="التاريخ">${escapeHtml(formatDateTime(order.createdAt))}</td>
+                <td data-label="المندوب">${escapeHtml(order.repName || '-')}</td>
+                <td data-label="الصيدلية" class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
+                <td data-label="الأصناف"><button class="action-btn view-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
+                <td data-label="الإجمالي">${formatMoney(order.grandTotal)} د.ا</td>
+                <td data-label="الحالة"><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span></td>
+                <td data-label="ملاحظة الطلب" class="workflow-note-cell" title="${escapeHtml(getOrderNote(order) || '-')}">${escapeHtml(getOrderNote(order) || '-')}</td>
+                <td data-label="الإجراءات" class="workflow-actions-cell">${buildOrderSummaryRowActions('market')}</td>
             `;
             tr.querySelector('.view-btn')?.addEventListener('click', () => openMarketOrderModal(order));
             tr.querySelector('.market-row-action-select')?.addEventListener('change', event => {
@@ -1056,7 +1202,7 @@ function orderToFinanceExportRow(order) {
     };
 }
 
-function exportFinanceOrders(orders, scope = 'visible') {
+async function exportFinanceOrders(orders, scope = 'visible') {
     if (orders.length === 0) return showToast('لا توجد طلبيات للتصدير.', 'warning');
     if (typeof XLSX === 'undefined') return showToast('مكتبة Excel غير محملة. أعد فتح الصفحة وحاول مرة أخرى.', 'error');
     const rows = orders.map(orderToFinanceExportRow);
@@ -1073,8 +1219,21 @@ function exportFinanceOrders(orders, scope = 'visible') {
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Finance Orders');
-    XLSX.writeFile(wb, `finance_orders_${scope}_${toDateInputValue(new Date())}.xlsx`);
-    showToast('تم تصدير ملف Excel المختصر بنجاح بدون تغيير حالة الطلبيات.', 'success');
+    const financeFileName = `finance_orders_${scope}_${toDateInputValue(new Date())}.xlsx`;
+    XLSX.writeFile(wb, financeFileName);
+    const exportEntry = buildExportEntry('finance_excel', 'Hamza', orders.length, false, financeFileName);
+    state.suspendRender = true;
+    await Promise.allSettled(orders.map(order => {
+        const previousHistory = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+        return updateOrderWithAudit(order.id, {
+            exportHistory: [...previousHistory, exportEntry],
+            financeExportedAt: new Date(),
+            financeExportedBy: 'Hamza'
+        }, auditEntry('finance_export', 'Hamza', 'finance_controller', { status: order.status || '' }, { exportFileName: financeFileName }, 'تصدير مالي بدون تغيير الحالة'));
+    }));
+    state.suspendRender = false;
+    state.onOrdersChange?.();
+    showToast('تم تصدير ملف Excel المختصر وتسجيل سجل التصدير بدون تغيير حالة الطلبيات.', 'success');
 }
 
 function applyFinanceFilters() {
@@ -1127,13 +1286,18 @@ function renderFinanceOrders() {
                 <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
                 <td>${escapeHtml(order.pharmacyName || '-')}</td>
                 <td>${escapeHtml(order.repName || order.representativeName || '-')}</td>
-                <td class="workflow-note-cell">${escapeHtml(getOrderNote(order) || '-')}</td>
+                <td class="workflow-note-cell">${escapeHtml(getOrderNote(order) || '-')} ${getFinanceVisibleNote(order) ? `<div class="workflow-reason" style="margin-top:6px;"><strong>آخر ملاحظة مالية:</strong> ${escapeHtml(getFinanceVisibleNote(order))}</div>` : ''}</td>
                 <td>${formatMoney(order.grandTotal)} د.ا</td>
                 <td class="workflow-actions-cell">${actionHtml}</td>
             `;
-            tr.querySelector('.approve-btn')?.addEventListener('click', () => confirm('اعتماد الطلبية مالياً وتحويلها إلى فريق المعالجة؟') && financeApprove(order.id));
+            tr.querySelector('.approve-btn')?.addEventListener('click', () => {
+                if (!confirm('اعتماد الطلبية مالياً وتحويلها إلى فريق المعالجة؟')) return;
+                const note = window.prompt('يمكنك كتابة ملاحظة اختيارية للمندوب والمشرف عند الاعتماد (اختياري):', order.financeApprovalNote || order.financeVisibleNote || '');
+                if (note === null) return;
+                financeApprove(order.id, note.trim());
+            });
             tr.querySelector('.reject-btn')?.addEventListener('click', () => {
-                const reason = confirmReason(isRejected ? 'تعديل سبب الرفض المالي:' : 'سبب الرفض المالي:', true);
+                const reason = confirmReason(isRejected ? 'تعديل سبب الرفض المالي (سيظهر للمندوب والمشرف):' : 'سبب الرفض المالي (سيظهر للمندوب والمشرف):', true);
                 if (reason !== null) financeReject(order.id, reason);
             });
             tr.querySelector('.return-market-btn')?.addEventListener('click', () => {
@@ -1151,31 +1315,38 @@ function renderFinanceOrders() {
     renderChunk();
 }
 
-async function financeApprove(orderId) {
+async function financeApprove(orderId, approvalNote = '') {
     const order = state.orders.find(o => o.id === orderId) || {};
+    const normalizedNote = String(approvalNote || '').trim();
     await updateOrderWithAudit(orderId, {
         status: 'orders_staff_pending',
         workflowStage: 'orders_staff',
         financeStatus: 'finance_approved',
         financeApprovedBy: 'Hamza',
         financeApprovedAt: new Date(),
+        financeApprovalNote: normalizedNote,
+        financeVisibleNote: normalizedNote,
+        financeRejectionReason: '',
         orderStaffStatus: 'orders_staff_pending',
         hiddenByOrderStaff: false
-    }, auditEntry('finance_approved', 'Hamza', 'finance_controller', { status: order.status }, { status: 'orders_staff_pending' }));
-    showToast('تم الاعتماد المالي وتحويل الطلبية إلى فريق المعالجة.', 'success');
+    }, auditEntry('finance_approved', 'Hamza', 'finance_controller', { status: order.status, financeApprovalNote: order.financeApprovalNote || '', financeRejectionReason: order.financeRejectionReason || '' }, { status: 'orders_staff_pending', financeApprovalNote: normalizedNote }, normalizedNote || 'تم الاعتماد المالي بدون ملاحظة إضافية'));
+    showToast(normalizedNote ? 'تم الاعتماد المالي وتحويل الطلبية إلى فريق المعالجة مع حفظ الملاحظة.' : 'تم الاعتماد المالي وتحويل الطلبية إلى فريق المعالجة.', 'success');
 }
 
 async function financeReject(orderId, reason = '') {
     const order = state.orders.find(o => o.id === orderId) || {};
+    const normalizedReason = String(reason || '').trim();
     await updateOrderWithAudit(orderId, {
         status: 'finance_rejected',
         workflowStage: 'finance',
         financeStatus: 'finance_rejected',
         financeRejectedBy: 'Hamza',
         financeRejectedAt: new Date(),
-        financeRejectionReason: reason
-    }, auditEntry('finance_rejected', 'Hamza', 'finance_controller', { status: order.status }, { status: 'finance_rejected' }, reason));
-    showToast('تم رفض الطلبية مالياً.', 'success');
+        financeRejectionReason: normalizedReason,
+        financeVisibleNote: normalizedReason,
+        financeApprovalNote: ''
+    }, auditEntry('finance_rejected', 'Hamza', 'finance_controller', { status: order.status, financeRejectionReason: order.financeRejectionReason || '' }, { status: 'finance_rejected', financeRejectionReason: normalizedReason }, normalizedReason));
+    showToast('تم رفض الطلبية مالياً مع حفظ الملاحظة للمندوب والمشرف.', 'success');
 }
 
 function initFinanceController() {
@@ -1237,7 +1408,7 @@ function applyOrdersStaffFilters() {
     state.visibleOrders = state.orders.filter(order => {
         const status = getPrimaryStatus(order);
         const followUp = getWorkflowFollowUp(order);
-        const isHidden = status === 'orders_staff_hidden' || order.hiddenByOrderStaff === true;
+        const isHidden = status === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order);
         const isActive = (status === 'orders_staff_pending' || status === 'finance_approved' || (order.financeStatus === 'finance_approved' && !status)) && !isHidden;
         const isExported = status === 'orders_staff_exported' || order.orderStaffStatus === 'orders_staff_exported' || order.exportedAt;
         let modeOk = isActive;
@@ -1269,22 +1440,23 @@ function renderOrdersStaffRows() {
         chunk.forEach(order => {
             const followUp = getWorkflowFollowUp(order);
             const tr = document.createElement('tr');
+            const staffCanAct = canOrdersStaffTouchOrder(order);
+            const staffActionsHtml = staffCanAct
+                ? `<button class="action-btn staff-return-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع للمالية</button><button class="action-btn danger-btn staff-delete-btn" type="button"><i class="ph ph-trash"></i> حذف</button>`
+                : `<span class="status-badge orders_staff_hidden">مقفلة / تمت الفوترة</span>`;
             tr.innerHTML = `
-                <td><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
-                <td class="staff-date-cell">${escapeHtml(formatDateTime(order.createdAt))}</td>
-                <td class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
-                <td class="staff-rep-cell" title="${escapeHtml(order.repName || order.representativeName || '-')}">${escapeHtml(order.repName || order.representativeName || '-')}</td>
-                <td><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span></td>
-                <td>${escapeHtml(followUp.owner || '-')}</td>
-                <td class="workflow-note-cell" title="${escapeHtml(followUp.detail || '-')}">${escapeHtml(followUp.detail || '-')}</td>
-                <td><button class="action-btn staff-edit-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
-                <td>${formatMoney(order.grandTotal)} د.ا</td>
-                <td class="workflow-note-cell" title="${escapeHtml(getOrderNote(order) || '-')}">${escapeHtml(getOrderNote(order) || '-')}</td>
-                <td class="workflow-note-cell" title="${escapeHtml(order.returnReason || '-')}">${escapeHtml(order.returnReason || '-')}</td>
-                <td class="workflow-actions-cell">
-                    <button class="action-btn staff-return-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع</button>
-                    <button class="action-btn danger-btn staff-delete-btn" type="button"><i class="ph ph-trash"></i> حذف</button>
-                </td>
+                <td data-label="تحديد"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
+                <td data-label="التاريخ" class="staff-date-cell">${escapeHtml(formatDateTime(order.createdAt))}</td>
+                <td data-label="الصيدلية" class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
+                <td data-label="المندوب" class="staff-rep-cell" title="${escapeHtml(order.repName || order.representativeName || '-')}">${escapeHtml(order.repName || order.representativeName || '-')}</td>
+                <td data-label="الحالة"><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span></td>
+                <td data-label="المطلوب من">${escapeHtml(followUp.owner || '-')}</td>
+                <td data-label="تفصيل المتابعة" class="workflow-note-cell" title="${escapeHtml(followUp.detail || '-')}">${escapeHtml(followUp.detail || '-')}</td>
+                <td data-label="الأصناف"><button class="action-btn staff-edit-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
+                <td data-label="الإجمالي">${formatMoney(order.grandTotal)} د.ا</td>
+                <td data-label="ملاحظة الطلب" class="workflow-note-cell" title="${escapeHtml(getOrderNote(order) || '-')}">${escapeHtml(getOrderNote(order) || '-')}</td>
+                <td data-label="ملاحظة الإرجاع" class="workflow-note-cell" title="${escapeHtml(order.returnReason || '-')}">${escapeHtml(order.returnReason || '-')}</td>
+                <td data-label="الإجراءات" class="workflow-actions-cell">${staffActionsHtml}</td>
             `;
             tr.querySelectorAll('.staff-edit-btn').forEach(btn => btn.addEventListener('click', () => openStaffOrderModal(order)));
             tr.querySelector('.staff-return-btn')?.addEventListener('click', () => {
@@ -1386,7 +1558,10 @@ function openStaffOrderModal(order) {
         <span><b>الصيدلية:</b> ${escapeHtml(order.pharmacyName || '-')}</span>
         <span><b>كود الصيدلية:</b> ${escapeHtml(getPharmacyCode(order) || '-')}</span>
     `;
-    $('staffOrderNote').textContent = getOrderNote(order) || 'لا توجد ملاحظات.';
+    $('staffOrderNote').textContent = [getOrderNote(order), getFinanceVisibleNote(order) ? `ملاحظة المالية: ${getFinanceVisibleNote(order)}` : ''].filter(Boolean).join(' | ') || 'لا توجد ملاحظات.';
+    renderWorkflowInsights('staff', order);
+    const canEdit = canOrdersStaffTouchOrder(order);
+    ['addStaffItemBtn', 'saveStaffEditsBtn', 'returnStaffToFinanceBtn', 'deleteStaffOrderBtn'].forEach(id => { const btn = $(id); if (btn) btn.disabled = !canEdit; });
     $('staffOrderItemsBody').innerHTML = fullStaffOrderRows(order) || `<tr><td colspan="10">لا توجد أصناف.</td></tr>`;
     document.querySelectorAll('#staffOrderItemsBody tr').forEach(bindStaffItemRow);
     $('staffOrderModal').style.display = 'flex';
@@ -1434,27 +1609,58 @@ function collectStaffModalItems() {
 async function saveStaffEdits(options = {}) {
     if (!state.selectedOrder) return false;
     const { close = true, silent = false } = options;
+    if (!canOrdersStaffTouchOrder(state.selectedOrder)) {
+        showToast('لا يمكن تعديل طلبية تمت فوترتها أو حذفها. افتح الطلبية من المتابعة فقط للعرض.', 'warning');
+        return false;
+    }
+
+    const confirmMove = confirm('تنبيه مهم: بعد حفظ تعديل قسم الطلبيات، ستعود الطلبية تلقائياً إلى المالية للمراجعة والاعتماد مرة أخرى. هل تريد المتابعة؟');
+    if (!confirmMove) return false;
+
+    const reason = confirmRequiredNote('اكتب سبب تعديل قسم الطلبيات لإرساله إلى المالية:');
+    if (reason === null) return false;
+
     const { kept, deleted, grandTotal } = collectStaffModalItems();
     if (kept.length === 0) { showToast('لا يمكن حفظ طلبية بدون أصناف.', 'warning'); return false; }
     await updateOrderWithAudit(state.selectedOrder.id, {
         items: kept,
         grandTotal,
+        status: 'returned_to_finance',
+        workflowStage: 'finance',
+        financeStatus: 'returned_to_finance',
+        orderStaffStatus: 'orders_staff_edited_returned_to_finance',
+        returnReason: reason,
+        returnTarget: 'finance',
+        returnedBy: 'Ziad/Zakaria',
+        returnedByRole: 'orders_staff',
+        returnedAt: new Date(),
         orderStaffEditedBy: 'Ziad/Zakaria',
         orderStaffEditedAt: new Date(),
-        orderStaffDeletedItems: deleted
-    }, auditEntry('orders_staff_edit', 'Ziad/Zakaria', 'orders_staff', { items: state.selectedOrder.items || [], grandTotal: state.selectedOrder.grandTotal || 0 }, { items: kept, grandTotal }, deleted.length ? `تم حذف ${deleted.length} صنف` : ''));
-    if (!silent) showToast('تم حفظ تعديل فريق المعالجة.', 'success');
+        orderStaffDeletedItems: deleted,
+        hiddenByOrderStaff: false
+    }, auditEntry('orders_staff_edit_returned_to_finance', 'Ziad/Zakaria', 'orders_staff', { items: state.selectedOrder.items || [], grandTotal: state.selectedOrder.grandTotal || 0, status: state.selectedOrder.status || '' }, { items: kept, grandTotal, status: 'returned_to_finance' }, reason));
+    if (!silent) showToast('تم حفظ تعديل قسم الطلبيات وإرجاع الطلبية إلى المالية للمراجعة.', 'success');
     if (close) closeStaffOrderModal();
     return true;
 }
 
+
 async function staffReturnToFinance(orderId, reason) {
+    const order = state.orders.find(o => o.id === orderId) || state.selectedOrder || {};
+    if (!canOrdersStaffTouchOrder(order)) {
+        showToast('لا يمكن إرجاع طلبية تمت فوترتها أو حذفها.', 'warning');
+        return;
+    }
     await returnOrderStep(orderId, 'finance', reason, 'Ziad/Zakaria', 'orders_staff', 'orders_staff_returned_to_finance');
 }
 
 async function staffDeleteOrder(orderId) {
-    if (!confirm('تحذير: سيتم حذف الطلبية بالكامل من مسار العمل كحذف ناعم. هل تريد المتابعة؟')) return;
     const order = state.orders.find(o => o.id === orderId) || state.selectedOrder || {};
+    if (!canOrdersStaffTouchOrder(order)) {
+        showToast('لا يمكن حذف طلبية تمت فوترتها أو حذفها سابقاً.', 'warning');
+        return;
+    }
+    if (!confirm('تحذير: سيتم حذف الطلبية بالكامل من مسار العمل كحذف ناعم. هل تريد المتابعة؟')) return;
     await updateOrderWithAudit(orderId, {
         status: 'deleted_by_orders_staff',
         workflowStage: 'deleted',
@@ -1490,10 +1696,7 @@ function getOrdersByIds(ids) {
 }
 
 function isOrdersStaffExportEligible(order = {}) {
-    const status = getPrimaryStatus(order);
-    const staffState = order.orderStaffStatus || '';
-    return status === 'orders_staff_pending' || status === 'orders_staff_exported' || status === 'orders_staff_hidden' ||
-        staffState === 'orders_staff_pending' || staffState === 'orders_staff_exported' || staffState === 'orders_staff_hidden';
+    return canOrdersStaffTouchOrder(order);
 }
 
 async function exportOrders(orders) {
@@ -1501,10 +1704,11 @@ async function exportOrders(orders) {
     if (typeof XLSX === 'undefined') return showToast('مكتبة Excel غير محملة. أعد فتح الصفحة وحاول مرة أخرى.', 'error');
     const rows = orders.flatMap(orderToExportRows);
     if (rows.length === 0) return showToast('لا توجد أصناف قابلة للتصدير.', 'warning');
+    const exportFileName = `orders_staff_${toDateInputValue(new Date())}.xlsx`;
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Orders');
-    XLSX.writeFile(wb, `orders_staff_${toDateInputValue(new Date())}.xlsx`);
+    XLSX.writeFile(wb, exportFileName);
 
     const allEligibleForStatusUpdate = orders.every(isOrdersStaffExportEligible);
     if (!allEligibleForStatusUpdate) {
@@ -1516,16 +1720,24 @@ async function exportOrders(orders) {
 
 موافق = نعم، أخفِ الطلبيات المصدرة.
 إلغاء = لا، أبقِ الطلبيات ظاهرة.`);
-    const action = hide ? 'orders_staff_hide_after_export' : 'orders_staff_export';
+    const action = hide ? 'orders_staff_invoiced_and_hidden_after_export' : 'orders_staff_export';
     state.suspendRender = true;
-    const results = await Promise.allSettled(orders.map(order => updateOrderWithAudit(order.id, {
-        status: hide ? 'orders_staff_hidden' : 'orders_staff_pending',
-        orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported',
-        exportedBy: 'Ziad/Zakaria',
-        exportedAt: new Date(),
-        hiddenByOrderStaff: !!hide,
-        hiddenAt: hide ? new Date() : null
-    }, auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: order.status, orderStaffStatus: order.orderStaffStatus || '' }, { status: hide ? 'orders_staff_hidden' : 'orders_staff_pending', orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported' }))));
+    const results = await Promise.allSettled(orders.map(order => {
+        const previousHistory = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+        const exportEntry = buildExportEntry('orders_staff_excel', 'Ziad/Zakaria', orders.length, hide, exportFileName);
+        return updateOrderWithAudit(order.id, {
+            status: hide ? 'orders_staff_hidden' : 'orders_staff_exported',
+            orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported',
+            exportedBy: 'Ziad/Zakaria',
+            exportedAt: new Date(),
+            exportHistory: [...previousHistory, exportEntry],
+            hiddenByOrderStaff: !!hide,
+            hiddenAt: hide ? new Date() : null,
+            isInvoiced: !!hide,
+            invoicedAt: hide ? new Date() : null,
+            invoicedBy: hide ? 'Ziad/Zakaria' : ''
+        }, auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: order.status, orderStaffStatus: order.orderStaffStatus || '' }, { status: hide ? 'orders_staff_hidden' : 'orders_staff_exported', orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported', exportFileName }));
+    }));
     state.suspendRender = false;
     state.onOrdersChange?.();
     showToast(`تم التصدير وتحديث الحالة: ${results.filter(r => r.status === 'fulfilled').length}/${orders.length}`, 'success');

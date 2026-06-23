@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <link rel="icon" href="favicon.ico?v=20260622_status_delete1">
+    <link rel="icon" href="favicon.ico?v=20260623_modal_finance_note_fix1">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>إعدادات الموقع | DAR ALDAWAA</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20260622_status_delete1">
+    <link rel="stylesheet" href="style.css?v=20260623_modal_finance_note_fix1">
     <style>
         :root {
             --settings-accent: #099999;
@@ -847,21 +847,19 @@
         const PRODUCTS_PAGE_SIZE = 50;
 
         const invalidateOperationalCaches = (scope = 'all') => {
-            const fixedKeys = ['dad_app_cache_v2', 'dad_app_cache_time_v2', 'dad_app_cache_v3', 'dad_app_cache_time_v3'];
-            fixedKeys.forEach(key => {
-                try { localStorage.removeItem(key); } catch (_) {}
-                try { sessionStorage.removeItem(key); } catch (_) {}
-            });
-
-            if (scope === 'all' || scope === 'products') {
-                [localStorage, sessionStorage].forEach(storage => {
-                    try {
-                        Object.keys(storage).forEach(key => {
-                            if (key.startsWith('dad_products_')) storage.removeItem(key);
-                        });
-                    } catch (_) {}
-                });
-            }
+            const prefixes = ['dad_app_cache', 'dad_app_cache_time', 'dad_orders_', 'dad_products_'];
+            const removeMatching = (storage) => {
+                try {
+                    Object.keys(storage).forEach(key => {
+                        const shouldRemove = prefixes.some(prefix => key.startsWith(prefix));
+                        if (shouldRemove) storage.removeItem(key);
+                    });
+                    storage.setItem('dad_cache_invalidated_at', new Date().toISOString());
+                    storage.setItem('dad_cache_invalidated_scope', scope);
+                } catch (_) {}
+            };
+            removeMatching(localStorage);
+            removeMatching(sessionStorage);
         };
 
         const getRepNameById = (repId) => {
@@ -940,6 +938,68 @@
             return Number.isFinite(parsed) ? parsed : 0;
         };
 
+
+        function renderMiniTable(headers = [], rows = [], maxRows = 12) {
+            if (!rows.length) return '<div class="info-panel">لا توجد تفاصيل إضافية.</div>';
+            const visibleRows = rows.slice(0, maxRows);
+            return `<div class="table-responsive validation-preview-table"><table class="order-table"><thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${visibleRows.map(row => `<tr>${headers.map(h => `<td data-label="${escapeHtml(h)}">${escapeHtml(row[h] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table>${rows.length > maxRows ? `<div class="info-panel" style="margin-top:8px;">تم عرض أول ${maxRows} صف من أصل ${rows.length}.</div>` : ''}</div>`;
+        }
+
+        function confirmImportWizard({ title, summary = [], warnings = [], errors = [], previewHeaders = [], previewRows = [], confirmText = 'متابعة التنفيذ' }) {
+            return new Promise(resolve => {
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay import-wizard-overlay';
+                overlay.innerHTML = `
+                    <div class="modal-content import-wizard-modal glass-panel">
+                        <div class="workflow-modal-header">
+                            <div><h2><i class="ph ph-clipboard-text"></i> ${escapeHtml(title)}</h2><p>مراجعة آمنة قبل الكتابة على Firebase</p></div>
+                            <button type="button" class="close-modal wizard-cancel"><i class="ph ph-x-circle"></i></button>
+                        </div>
+                        <div class="import-wizard-grid">
+                            <div class="info-panel"><strong>ملخص العملية</strong><ul>${summary.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>
+                            ${warnings.length ? `<div class="warning-panel"><strong>تنبيهات</strong><ul>${warnings.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+                            ${errors.length ? `<div class="danger-panel"><strong>أخطاء تمنع التنفيذ</strong><ul>${errors.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+                        </div>
+                        ${previewHeaders.length ? renderMiniTable(previewHeaders, previewRows, 10) : ''}
+                        <div class="workflow-modal-footer">
+                            <strong>${errors.length ? 'لا يمكن التنفيذ قبل تصحيح الأخطاء.' : 'لا يتم تنفيذ أي تغيير قبل الضغط على المتابعة.'}</strong>
+                            <div>
+                                <button type="button" class="btn-local btn-gray wizard-cancel">إلغاء</button>
+                                <button type="button" class="btn-local btn-green wizard-confirm" ${errors.length ? 'disabled' : ''}>${escapeHtml(confirmText)}</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+                overlay.querySelectorAll('.wizard-cancel').forEach(btn => btn.addEventListener('click', () => { overlay.remove(); resolve(false); }));
+                overlay.querySelector('.wizard-confirm')?.addEventListener('click', () => { overlay.remove(); resolve(true); });
+            });
+        }
+
+        function duplicateValues(values = []) {
+            const seen = new Set();
+            const dupes = new Set();
+            values.filter(Boolean).forEach(value => {
+                const key = String(value).trim();
+                if (seen.has(key)) dupes.add(key);
+                seen.add(key);
+            });
+            return Array.from(dupes);
+        }
+
+        function downloadRowsAsExcel(rows = [], fileName = 'Report.xlsx', sheetName = 'Report') {
+            if (!rows.length || typeof XLSX === 'undefined') return;
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            XLSX.writeFile(wb, fileName);
+        }
+
+        let lastProductCodeSyncRows = [];
+        window.downloadProductCodeSyncReport = function() {
+            downloadRowsAsExcel(lastProductCodeSyncRows, `Product_Code_Sync_Report_${new Date().toISOString().slice(0,10)}.xlsx`, 'Code Sync');
+        };
+
         const rowValue = (row, aliases, fallback = '') => {
             for (const alias of aliases) {
                 if (row[alias] !== undefined && row[alias] !== null && String(row[alias]).trim() !== '') return row[alias];
@@ -993,13 +1053,14 @@
 
         async function syncProductCodeChangesWithOrders(codeChanges, statusId = 'productsStatus') {
             const entries = Array.from(codeChanges.entries()).filter(([oldCode, newCode]) => oldCode && newCode && oldCode !== newCode);
-            if (entries.length === 0) return { changedOrders: 0, changedItems: 0 };
+            if (entries.length === 0) return { changedOrders: 0, changedItems: 0, reportRows: [] };
 
             setStatus(statusId, `جاري تحديث كودات الأصناف داخل الطلبيات الحالية...`, '#f59e0b');
 
             const changesMap = new Map(entries);
             const ordersSnap = await getDocs(collection(db, 'orders'));
             const operations = [];
+            const reportRows = [];
             let changedItems = 0;
 
             ordersSnap.docs.forEach(orderDoc => {
@@ -1008,7 +1069,7 @@
                 if (items.length === 0) return;
 
                 let orderChanged = false;
-                const updatedItems = items.map(item => {
+                const updatedItems = items.map((item, itemIndex) => {
                     if (!item || typeof item !== 'object') return item;
                     const currentCode = normalizeProductCode(item.productCode || item.product_code || item.code);
                     const nextCode = changesMap.get(currentCode);
@@ -1016,6 +1077,19 @@
 
                     orderChanged = true;
                     changedItems += 1;
+                    reportRows.push({
+                        'Order ID': orderDoc.id,
+                        'Order Date': serializeForExcel(order.createdAt || order.updatedAt),
+                        'Representative': order.repName || order.representativeName || '',
+                        'Pharmacy': order.pharmacyName || '',
+                        'Product Name': item.name || '',
+                        'Item Index': itemIndex + 1,
+                        'Old Code': currentCode,
+                        'New Code': nextCode,
+                        'Price Preserved': item.price ?? '',
+                        'Qty Preserved': item.qty ?? item.quantity ?? '',
+                        'Subtotal Preserved': item.total ?? item.subtotal ?? ''
+                    });
                     return {
                         ...item,
                         productCode: nextCode,
@@ -1032,29 +1106,36 @@
                     payload: {
                         items: updatedItems,
                         productCodeSyncAt: new Date(),
+                        productCodeSyncCount: reportRows.length,
                         auditTrail: [
                             ...trail,
                             {
                                 action: 'product_code_sync',
-                                actor: 'setting.html',
-                                role: 'settings',
-                                at: new Date().toISOString(),
+                                user: 'Settings Page',
+                                role: 'settings_admin',
+                                timestamp: new Date().toISOString(),
                                 syncCount: entries.length,
-                                note: 'تم تحديث كودات الأصناف داخل الطلبية حسب ملف الأصناف في الإعدادات بدون تعديل الأسعار أو الكميات أو الإجماليات.'
+                                notes: 'تم تحديث كودات الأصناف داخل الطلبية حسب ملف الأصناف في الإعدادات بدون تعديل الأسعار أو الكميات أو الإجماليات.'
                             }
-                        ]
+                        ],
+                        updatedAt: new Date()
                     }
                 });
             });
 
+            lastProductCodeSyncRows = reportRows;
+
             if (operations.length === 0) {
                 setStatus(statusId, `تم تحديث الأصناف. لا توجد طلبيات تحتوي الكودات القديمة.`, '#10b981');
-                return { changedOrders: 0, changedItems: 0 };
+                return { changedOrders: 0, changedItems: 0, reportRows: [] };
             }
 
             await runInChunks(operations, operation => updateDoc(doc(db, 'orders', operation.id), operation.payload), 100, statusId, 'تم تحديث كودات الطلبيات');
-            return { changedOrders: operations.length, changedItems };
+            const reportHtml = `<div class="success-panel"><strong>تقرير مزامنة الأكواد:</strong> تم تحديث ${changedItems} صنف داخل ${operations.length} طلبية مع الحفاظ على السعر والكمية والمجموع. <button type="button" class="btn-local btn-small btn-blue" onclick="downloadProductCodeSyncReport()">تحميل تقرير المزامنة</button></div>`;
+            setStatus(statusId, reportHtml, '#10b981', true);
+            return { changedOrders: operations.length, changedItems, reportRows };
         }
+
 
         const getFilteredProducts = () => {
             const queryValue = String(document.getElementById('productsSearchInput')?.value || '').trim().toLowerCase();
@@ -1271,7 +1352,8 @@
                 row.classList.remove('row-edited');
                 button.innerText = 'تم';
                 const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية.` : '';
-                setStatus('productsStatus', `تم حفظ تعديل المنتج بنجاح.${syncMessage}`, '#10b981');
+                const reportButton = syncResult.reportRows?.length ? ` <button type="button" class="btn-local btn-small btn-blue" onclick="downloadProductCodeSyncReport()">تحميل تقرير المزامنة</button>` : '';
+                setStatus('productsStatus', `تم حفظ تعديل المنتج بنجاح.${syncMessage}${reportButton}`, '#10b981', true);
             } catch (error) {
                 console.error('Error updating product:', error);
                 alert('حدث خطأ أثناء حفظ التعديل.');
@@ -1329,6 +1411,18 @@
                     return;
                 }
 
+                const duplicateCodes = duplicateValues(validRows.map(row => row.productCode));
+                const duplicateNames = duplicateValues(validRows.map(row => row.name));
+                const wizardOk = await confirmImportWizard({
+                    title: 'معاينة استبدال المنتجات الكامل',
+                    summary: [`عدد الصفوف المقروءة: ${excelData.length}`, `عدد المنتجات الصالحة: ${validRows.length}`, 'هذا الخيار يستبدل قائمة المنتجات الحالية بالكامل بعد المعاينة.'],
+                    warnings: ['سيتم حذف المنتجات غير الموجودة في الملف من master data فقط؛ الطلبيات القديمة لن تتغير أسعارها أو كمياتها.', ...duplicateCodes.slice(0, 5).map(code => `كود مكرر داخل الملف: ${code}`), ...duplicateNames.slice(0, 5).map(name => `اسم مكرر داخل الملف: ${name}`)],
+                    previewHeaders: ['name', 'productCode', 'price', 'documentId'],
+                    previewRows: validRows,
+                    confirmText: 'تأكيد الاستبدال الكامل'
+                });
+                if (!wizardOk) return;
+
                 setStatus('productsStatus', 'جاري قراءة الأصناف الحالية قبل الاستبدال...', '#f59e0b');
                 const snap = await getDocs(collection(db, 'products'));
                 const existingById = new Map();
@@ -1355,7 +1449,8 @@
                 invalidateOperationalCaches('products');
                 fileInput.value = '';
                 const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية موجودة بالكود الجديد فقط.` : '';
-                setStatus('productsStatus', `تم الاستبدال الكامل بنجاح. تمت إضافة ${validRows.length} منتج.${syncMessage}`, '#10b981');
+                const reportButton = syncResult.reportRows?.length ? ` <button type="button" class="btn-local btn-small btn-blue" onclick="downloadProductCodeSyncReport()">تحميل تقرير المزامنة</button>` : '';
+                setStatus('productsStatus', `تم الاستبدال الكامل بنجاح. تمت إضافة ${validRows.length} منتج.${syncMessage}${reportButton}`, '#10b981', true);
                 await loadProducts();
             } catch (error) {
                 console.error('Error during products import:', error);
@@ -1487,12 +1582,14 @@
                     return { type: 'create', payload };
                 });
 
-                const codeChangeText = codeChanges.size > 0 ? `
-
-سيتم أيضاً تحديث كودات الأصناف القديمة داخل الطلبيات الموجودة: ${codeChanges.size} تغيير كود. الأسعار والأسماء والكميات والإجماليات داخل الطلبيات لن تتغير.` : '';
-                const confirmed = confirm(`سيتم تحديث ${updates} صنف، وإضافة ${creates} صنف جديد عند الحاجة. لن يتم حذف أي صنف غير موجود في الملف.${codeChangeText}
-
-هل تريد المتابعة؟`);
+                const confirmed = await confirmImportWizard({
+                    title: 'معاينة تحديث المنتجات من الملف',
+                    summary: [`سيتم تحديث ${updates} صنف.`, `سيتم إضافة ${creates} صنف جديد عند الحاجة.`, 'لن يتم حذف أي صنف غير موجود في الملف.', codeChanges.size > 0 ? `سيتم تحديث ${codeChanges.size} تغيير كود داخل الطلبيات بدون تعديل الأسعار أو الكميات أو الإجماليات.` : 'لا توجد تغييرات أكواد تحتاج مزامنة.'],
+                    warnings: duplicateCodes.length > 0 ? duplicateCodes.slice(0, 8).map(code => `كود مكرر داخل الملف: ${code}`) : [],
+                    previewHeaders: ['documentId', 'name', 'productCode', 'price'],
+                    previewRows: rows,
+                    confirmText: 'تنفيذ تحديث المنتجات'
+                });
                 if (!confirmed) return;
 
                 await runInChunks(operations, operation => {
@@ -1506,7 +1603,8 @@
                 invalidateOperationalCaches('products');
                 fileInput.value = '';
                 const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية موجودة بالكود الجديد فقط.` : '';
-                setStatus('productsStatus', `تم تحديث الأصناف بنجاح. تحديث: ${updates}، إضافة: ${creates}.${syncMessage}`, '#10b981');
+                const reportButton = syncResult.reportRows?.length ? ` <button type="button" class="btn-local btn-small btn-blue" onclick="downloadProductCodeSyncReport()">تحميل تقرير المزامنة</button>` : '';
+                setStatus('productsStatus', `تم تحديث الأصناف بنجاح. تحديث: ${updates}، إضافة: ${creates}.${syncMessage}${reportButton}`, '#10b981', true);
                 await loadProducts();
             } catch (error) {
                 console.error('Error during products patch import:', error);
@@ -1546,7 +1644,8 @@
 
                 invalidateOperationalCaches('products');
                 const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية موجودة بالكود الجديد فقط.` : '';
-                setStatus('productsStatus', `تم حفظ ${targetRows.length} صنف من الجدول الظاهر.${syncMessage}`, '#10b981');
+                const reportButton = syncResult.reportRows?.length ? ` <button type="button" class="btn-local btn-small btn-blue" onclick="downloadProductCodeSyncReport()">تحميل تقرير المزامنة</button>` : '';
+                setStatus('productsStatus', `تم حفظ ${targetRows.length} صنف من الجدول الظاهر.${syncMessage}${reportButton}`, '#10b981', true);
             } catch (error) {
                 console.error('Error while saving visible products:', error);
                 setStatus('productsStatus', 'حدث خطأ أثناء حفظ الأصناف الظاهرة. تأكد من عدم وجود اسم أو كود فارغ.', '#dc2626');
@@ -1785,6 +1884,17 @@
                     return;
                 }
 
+                const duplicatePharmacyCodes = duplicateValues(validRows.map(row => row.pharmacyCode));
+                const pharmacyWizardOk = await confirmImportWizard({
+                    title: 'معاينة رفع الصيدليات',
+                    summary: [`عدد الصفوف المقروءة: ${excelData.length}`, `عدد الصيدليات الصالحة: ${validRows.length}`, 'سيتم تحديث master data للصيدليات بعد التأكيد.'],
+                    warnings: ['هذا الإجراء يستبدل قائمة الصيدليات الحالية حسب منطق النسخة الحالية.', ...duplicatePharmacyCodes.slice(0, 8).map(code => `كود صيدلية مكرر داخل الملف: ${code}`)],
+                    previewHeaders: ['name', 'rep_id', 'pharmacyCode', 'supervisor', 'area'],
+                    previewRows: validRows,
+                    confirmText: 'تنفيذ رفع الصيدليات'
+                });
+                if (!pharmacyWizardOk) return;
+
                 setStatus('pharmaciesStatus', 'الملف سليم.. جاري حذف الصيدليات القديمة...', '#004a99');
                 const snap = await getDocs(collection(db, 'pharmacies'));
                 await Promise.all(snap.docs.map(item => deleteDoc(doc(db, 'pharmacies', item.id))));
@@ -1904,6 +2014,15 @@
                     if (!order.grandTotal && calculated) order.grandTotal = calculated;
                     return order;
                 });
+                const oldOrdersOk = await confirmImportWizard({
+                    title: 'معاينة رفع الطلبيات التاريخية',
+                    summary: [`عدد الصفوف المقروءة: ${excelData.length}`, `عدد الطلبيات بعد التجميع: ${ordersArray.length}`, 'سيتم إضافة الطلبيات بدون حذف أي طلبية حالية.'],
+                    warnings: ordersArray.some(order => !order.items.length) ? ['بعض الطلبيات لا تحتوي أصناف بعد التجميع.'] : [],
+                    previewHeaders: ['repName', 'pharmacyName', 'pharmacyCode', 'grandTotal', 'status'],
+                    previewRows: ordersArray,
+                    confirmText: 'رفع الطلبيات التاريخية'
+                });
+                if (!oldOrdersOk) return;
                 setStatus('oldOrdersStatus', `تم تجميع الأصناف إلى ${ordersArray.length} طلبية. جاري الرفع بدون حذف القديم...`, '#f59e0b');
                 await Promise.all(ordersArray.map(orderData => addDoc(collection(db, 'orders'), orderData)));
                 document.getElementById('oldOrdersFile').value = '';
@@ -1976,6 +2095,15 @@
                     if (!order.grandTotal && calculated) order.grandTotal = calculated > 0 ? -calculated : calculated;
                     return order;
                 });
+                const oldReturnsOk = await confirmImportWizard({
+                    title: 'معاينة رفع المرتجعات التاريخية',
+                    summary: [`عدد الصفوف المقروءة: ${excelData.length}`, `عدد المرتجعات بعد التجميع: ${returnsArray.length}`, 'ستدخل المرتجعات ضمن sales totals بقيم سالبة.'],
+                    warnings: returnsArray.some(order => order.grandTotal > 0) ? ['يوجد مرتجعات بقيم موجبة؛ سيتم التعامل معها حسب منطق التحويل إلى السالب.'] : [],
+                    previewHeaders: ['repName', 'pharmacyName', 'pharmacyCode', 'grandTotal', 'status'],
+                    previewRows: returnsArray,
+                    confirmText: 'رفع المرتجعات التاريخية'
+                });
+                if (!oldReturnsOk) return;
                 setStatus('oldReturnsStatus', `تم تجميع ${returnsArray.length} مرتجع. جاري الرفع على قاعدة البيانات...`, '#f59e0b');
                 await Promise.all(returnsArray.map(returnData => addDoc(collection(db, 'orders'), returnData)));
                 document.getElementById('oldReturnsFile').value = '';

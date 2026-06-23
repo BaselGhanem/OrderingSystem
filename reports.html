@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=20260622_status_delete1">
+    <link rel="stylesheet" href="style.css?v=20260623_modal_finance_note_fix1">
 
     <style>
         .dashboard-cards {
@@ -141,7 +141,10 @@
             <div class="dashboard-cards">
                 <div class="stat-card"><div class="value" id="cardOrdersCount">0</div><div class="label"><i class="ph ph-shopping-cart"></i> عدد الطلبيات</div></div>
                 <div class="stat-card"><div class="value" id="cardCustomersCount">0</div><div class="label"><i class="ph ph-users"></i>عدد الصيدليات</div></div>
-                <div class="stat-card"><div class="value" id="cardTotalValue">0.00</div><div class="label"><i class="ph ph-currency-circle-dollar"></i> إجمالي القيمة (د.أ)</div></div>
+                <div class="stat-card"><div class="value" id="cardTotalValue">0.00</div><div class="label"><i class="ph ph-currency-circle-dollar"></i> صافي المبيعات (د.أ)</div></div>
+                <div class="stat-card"><div class="value" id="cardGrossSales">0.00</div><div class="label"><i class="ph ph-trend-up"></i> المبيعات قبل المرتجعات</div></div>
+                <div class="stat-card"><div class="value" id="cardReturnsValue">0.00</div><div class="label"><i class="ph ph-arrow-counter-clockwise"></i> قيمة المرتجعات</div></div>
+                <div class="stat-card"><div class="value" id="cardExcludedCount">0</div><div class="label"><i class="ph ph-funnel-x"></i> مستثناة افتراضياً</div></div>
             </div>
 
             <div class="glass-panel filters-container">
@@ -158,6 +161,14 @@
                     <label><i class="ph ph-pill"></i> الصنف</label>
                     <input type="text" id="filterItem" list="itemDatalist" class="filter-select" placeholder="اختر أو اكتب هنا...">
                     <datalist id="itemDatalist"></datalist>
+                </div>
+                <div class="filter-group report-visibility-filter">
+                    <label><i class="ph ph-eye"></i> إظهار حالات مستثناة</label>
+                    <div class="inline-check-grid">
+                        <label><input type="checkbox" id="includeDeletedOrders"> المحذوفة</label>
+                        <label><input type="checkbox" id="includeHiddenOrders"> المفوترة/المخفية</label>
+                        <label><input type="checkbox" id="includeRejectedOrders"> المرفوضة</label>
+                    </div>
                 </div>
                 <div class="filter-group" style="display: flex; gap: 10px;">
                     <button id="resetFiltersBtn" class="btn-secondary" style="width: 100%; height: 48px;"><i class="ph ph-arrow-counter-clockwise"></i> تصفير</button>
@@ -201,6 +212,10 @@
                         <div class="report-card-menu bonus-card" data-target="rep9">
                             <i class="ph ph-gift"></i>
                             <span>تحليل بونص الأصناف</span>
+                        </div>
+                        <div class="report-card-menu special-card" data-target="rep-reconciliation">
+                            <i class="ph ph-scales"></i>
+                            <span>مطابقة المبيعات والمرتجعات</span>
                         </div>
                         <div class="report-card-menu danger-card" data-target="rep-dup">
                             <i class="ph ph-warning"></i>
@@ -297,6 +312,17 @@
                     <div class="table-responsive"><table class="order-table" id="table-rep9"></table></div>
                 </div>
 
+                <div id="rep-reconciliation" class="report-section">
+                    <div class="report-header">
+                        <h2 style="color:#099999;"><i class="ph ph-scales"></i> مطابقة المبيعات والمرتجعات</h2>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="export-excel btn-primary" data-table="table-rep-reconciliation" data-name="مطابقة_المبيعات_والمرتجعات"><i class="ph ph-file-xls"></i> إكسل</button>
+                            <button class="btn-secondary back-to-grid-btn"><i class="ph ph-arrow-right"></i> رجوع للتقارير</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive"><table class="order-table" id="table-rep-reconciliation"></table></div>
+                </div>
+
                 <div id="rep-dup" class="report-section">
                     <div class="report-header">
                         <h2 style="color: #ef4444;"><i class="ph ph-warning-circle"></i> الطلبيات المكررة محتملة</h2>
@@ -319,6 +345,12 @@
                 <button type="button" onclick="closeEditModal()" style="background:none; border:none; font-size:2rem; cursor:pointer; color:#ef4444;">&times;</button>
             </div>
             <div id="duplicateOrderMeta" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; color:#0f172a; font-weight:800;"></div>
+            <div class="workflow-insights-grid reports-insights-grid">
+                <div id="reportsWorkflowTimeline"></div>
+                <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-clock-counter-clockwise"></i> سجل التدقيق</div><div id="reportsAuditViewer"></div></div>
+                <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-file-arrow-down"></i> سجل التصدير</div><div id="reportsExportHistory"></div></div>
+                <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-printer"></i> سجل الطباعة</div><div id="reportsPrintHistory"></div></div>
+            </div>
             <div id="duplicateEditContainer" class="table-responsive"></div>
             <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top:25px;">
                 <button id="addModalItemBtn" class="btn-secondary"><i class="ph ph-plus-circle"></i> إضافة صنف</button>
@@ -353,6 +385,196 @@
             document.getElementById('filterDateTo').value = lastDay;
         }
 
+
+        const REPORT_STATUS_LABELS = {
+            pending: 'قيد موافقة المشرف',
+            pending_supervisor_approval: 'قيد موافقة المشرف',
+            supervisor_approved: 'معتمد من المشرف',
+            market_manager_pending: 'بانتظار مدير السوق',
+            market_manager_approved: 'معتمد من مدير السوق',
+            market_manager_rejected: 'مرفوض من مدير السوق',
+            finance_pending: 'بانتظار المالية',
+            finance_approved: 'معتمد مالياً',
+            finance_rejected: 'مرفوض مالياً',
+            orders_staff_pending: 'جاهز لقسم الطلبيات',
+            orders_staff_exported: 'تم تصديره',
+            orders_staff_hidden: 'تمت الفوترة',
+            returned_to_rep: 'مرجعة للمندوب',
+            returned_to_supervisor: 'مرجعة للمشرف',
+            returned_to_market_manager: 'مرجعة لمدير السوق',
+            returned_to_finance: 'مرجعة للمالية',
+            returned: 'مرتجع',
+            approved: 'موافق عليه',
+            rejected: 'مرفوض',
+            deleted_by_supervisor: 'محذوف من المشرف',
+            deleted_by_market_manager: 'محذوف من مدير السوق',
+            deleted_by_orders_staff: 'محذوف من قسم الطلبيات',
+            deleted_by_reports: 'محذوف من التقارير'
+        };
+
+        function reportStatusLabel(status) {
+            return REPORT_STATUS_LABELS[status] || status || '-';
+        }
+
+        function normalizeReportDate(value) {
+            if (!value) return null;
+            if (value.toDate && typeof value.toDate === 'function') return value.toDate();
+            if (typeof value === 'object' && typeof value.seconds === 'number') return new Date(value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1000000));
+            const d = value instanceof Date ? value : new Date(value);
+            return Number.isNaN(d.getTime()) ? null : d;
+        }
+
+        function reportDateText(value) {
+            const d = normalizeReportDate(value);
+            return d ? d.toLocaleDateString('en-GB') : '-';
+        }
+
+        function reportAuditHasAction(order = {}, actions = []) {
+            const allowed = new Set(actions);
+            const rows = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+            return rows.some(entry => allowed.has(entry?.action || entry?.type || ''));
+        }
+
+        function reportHasHiddenInvoiceEvidence(order = {}) {
+            const exportRows = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+            return order.status === 'orders_staff_hidden' ||
+                order.orderStaffStatus === 'orders_staff_hidden' ||
+                order.hiddenByOrderStaff === true ||
+                order.isInvoiced === true ||
+                !!order.invoicedAt ||
+                exportRows.some(entry => entry?.hideAfterExport === true || entry?.invoiced === true) ||
+                reportAuditHasAction(order, ['orders_staff_hidden', 'orders_staff_hide_after_export', 'orders_staff_invoiced_and_hidden_after_export']);
+        }
+
+        function reportHasExportEvidence(order = {}) {
+            return order.status === 'orders_staff_exported' ||
+                order.orderStaffStatus === 'orders_staff_exported' ||
+                !!order.exportedAt ||
+                (Array.isArray(order.exportHistory) && order.exportHistory.length > 0) ||
+                reportAuditHasAction(order, ['orders_staff_export', 'orders_staff_exported']);
+        }
+
+        function getReportEffectiveStatus(order = {}) {
+            const rawStatus = order.status || order.orderStatus || order.workflowStatus || '';
+            const terminalOrReturned = rawStatus.startsWith('deleted_') ||
+                ['returned_to_rep', 'returned_to_supervisor', 'returned_to_market_manager', 'returned_to_finance', 'market_manager_rejected', 'finance_rejected', 'rejected'].includes(rawStatus);
+            if (terminalOrReturned || order.workflowStage === 'deleted') return rawStatus;
+            if (reportHasHiddenInvoiceEvidence(order)) return 'orders_staff_hidden';
+            if (reportHasExportEvidence(order)) return 'orders_staff_exported';
+            return rawStatus;
+        }
+
+        function normalizeReportOrder(order = {}) {
+            const rawStatus = order.status || order.orderStatus || order.workflowStatus || '';
+            const status = getReportEffectiveStatus(order);
+            const items = Array.isArray(order.items) ? order.items.map(item => ({
+                ...item,
+                productCode: item.productCode || item.product_code || item.code || '',
+                product_code: item.product_code || item.productCode || item.code || '',
+                code: item.code || item.productCode || item.product_code || '',
+                qty: parseReportNumber(item.qty ?? item.quantity),
+                bonus: parseReportNumber(item.bonus),
+                price: parseReportNumber(item.price),
+                total: parseReportNumber(item.total ?? item.subtotal)
+            })) : [];
+            const normalizedTotal = parseReportNumber(order.grandTotal ?? order.total);
+            return {
+                ...order,
+                rawStatus,
+                status,
+                workflowStage: order.workflowStage || '',
+                managerName: order.managerName || repManagerMap[order.repName] || 'غير محدد',
+                repName: order.repName || order.representativeName || 'غير محدد',
+                pharmacyName: order.pharmacyName || order.customerName || 'غير معروف',
+                pharmacyCode: order.pharmacyCode || order.pharmacy_code || order.customerCode || '',
+                createdAtNormalized: normalizeReportDate(order.createdAt || order.orderDate || order.date || order.updatedAt),
+                grandTotal: normalizedTotal,
+                items
+            };
+        }
+
+        function isDeletedReportOrder(order = {}) {
+            const status = order.status || '';
+            return status.startsWith('deleted_') || order.workflowStage === 'deleted' || order.deletedAt || order.isDeleted === true;
+        }
+
+        function isHiddenReportOrder(order = {}) {
+            return getReportEffectiveStatus(order) === 'orders_staff_hidden' || reportHasHiddenInvoiceEvidence(order);
+        }
+
+        function isRejectedReportOrder(order = {}) {
+            const status = order.status || '';
+            return status === 'rejected' || status === 'market_manager_rejected' || status === 'finance_rejected' || order.marketManagerStatus === 'market_manager_rejected' || order.financeStatus === 'finance_rejected';
+        }
+
+        function isDefaultExcludedOrder(order = {}) {
+            return isDeletedReportOrder(order) || isHiddenReportOrder(order) || isRejectedReportOrder(order);
+        }
+
+        function historyDate(value) {
+            const d = normalizeReportDate(value) || (typeof value === 'string' ? new Date(value) : null);
+            return d && !Number.isNaN(d.getTime()) ? d.toLocaleString('en-GB') : '-';
+        }
+
+        function workflowTimelineHtml(order = {}) {
+            const status = order.status || '';
+            const follow = getReportFollowUp(order);
+            const done = key => {
+                if (status.startsWith('deleted_')) return 'danger';
+                if (follow.ownerKey === key) return 'active';
+                const doneMap = {
+                    supervisor: ['supervisor_approved', 'market_manager_pending', 'finance_pending', 'finance_approved', 'orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(status) || order.supervisorStatus === 'supervisor_approved',
+                    market_manager: ['finance_pending', 'finance_approved', 'orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(status) || order.marketManagerStatus === 'market_manager_approved',
+                    finance: ['orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(status) || order.financeStatus === 'finance_approved',
+                    orders_staff: ['orders_staff_exported', 'orders_staff_hidden'].includes(status) || ['orders_staff_exported', 'orders_staff_hidden'].includes(order.orderStaffStatus || '')
+                };
+                return doneMap[key] ? 'done' : 'pending';
+            };
+            return `<div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-git-branch"></i> مسار الطلبية</div><div class="workflow-timeline"><div class="timeline-step ${done('supervisor')}"><i class="ph ph-user-check"></i><span>المشرف</span></div><div class="timeline-step ${done('market_manager')}"><i class="ph ph-briefcase"></i><span>مدير السوق</span></div><div class="timeline-step ${done('finance')}"><i class="ph ph-calculator"></i><span>المالية</span></div><div class="timeline-step ${done('orders_staff')}"><i class="ph ph-package"></i><span>قسم الطلبيات</span></div></div><div class="workflow-current-owner"><b>المطلوب من:</b> ${safeHtml(follow.owner)} — ${safeHtml(follow.detail)}</div></div>`;
+        }
+
+        function getReportFollowUp(order = {}) {
+            const status = order.status || '';
+            if (status === 'returned_to_rep') return { ownerKey: 'representative', owner: 'المندوب', detail: order.returnReason || 'مرجعة للمندوب' };
+            if (status === 'pending' || status === 'pending_supervisor_approval') return { ownerKey: 'supervisor', owner: 'المشرف', detail: 'بانتظار موافقة المشرف' };
+            if (status === 'returned_to_supervisor') return { ownerKey: 'supervisor', owner: 'المشرف', detail: order.returnReason || 'مرجعة للمشرف' };
+            if (status === 'market_manager_pending' || status === 'supervisor_approved') return { ownerKey: 'market_manager', owner: 'مدير السوق', detail: 'بانتظار مدير السوق' };
+            if (status === 'returned_to_market_manager') return { ownerKey: 'market_manager', owner: 'مدير السوق', detail: order.returnReason || 'مرجعة لمدير السوق' };
+            if (status === 'finance_pending') return { ownerKey: 'finance', owner: 'المالية', detail: 'بانتظار الاعتماد المالي' };
+            if (status === 'returned_to_finance') return { ownerKey: 'finance', owner: 'المالية', detail: order.returnReason || 'مرجعة للمالية' };
+            if (status === 'orders_staff_hidden' || reportHasHiddenInvoiceEvidence(order)) return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'تمت الفوترة / مخفية من العرض الافتراضي' };
+            if (status === 'orders_staff_exported' || reportHasExportEvidence(order)) return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: 'تم التصدير ولم تُخفَ بعد' };
+            if (status === 'orders_staff_pending') return { ownerKey: 'orders_staff', owner: 'قسم الطلبيات', detail: reportStatusLabel(status) };
+            return { ownerKey: '', owner: '-', detail: reportStatusLabel(status) };
+        }
+
+        function historyListHtml(rows, emptyText, mapper) {
+            if (!rows || rows.length === 0) return `<div class="history-empty">${safeHtml(emptyText)}</div>`;
+            return `<div class="history-list">${rows.slice(-12).reverse().map(mapper).join('')}</div>`;
+        }
+
+        function renderReportsInsights(order = {}) {
+            document.getElementById('reportsWorkflowTimeline').innerHTML = workflowTimelineHtml(order);
+            const auditRows = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+            document.getElementById('reportsAuditViewer').innerHTML = historyListHtml(auditRows, 'لا يوجد سجل تدقيق محفوظ.', entry => `<div class="history-item"><strong>${safeHtml(entry.action || entry.type || 'إجراء')}</strong><span>${safeHtml(entry.user || entry.actor || 'System')} / ${safeHtml(entry.role || '-')} — ${safeHtml(historyDate(entry.timestamp || entry.at || entry.changedAt))}</span>${entry.notes || entry.note ? `<small>${safeHtml(entry.notes || entry.note)}</small>` : ''}</div>`);
+            const exportRows = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+            document.getElementById('reportsExportHistory').innerHTML = historyListHtml(exportRows, 'لا يوجد سجل تصدير محفوظ.', entry => `<div class="history-item"><strong>${safeHtml(entry.fileName || entry.source || 'تصدير')}</strong><span>${safeHtml(entry.exportedBy || entry.user || '-')} — ${safeHtml(historyDate(entry.exportedAt || entry.timestamp))}</span>${entry.hideAfterExport || entry.invoiced ? '<small>تمت الفوترة وإخفاء الطلبية.</small>' : ''}</div>`);
+            const printRows = Array.isArray(order.printHistory) ? order.printHistory : [];
+            document.getElementById('reportsPrintHistory').innerHTML = historyListHtml(printRows, 'لا يوجد سجل طباعة محفوظ.', entry => `<div class="history-item"><strong>${safeHtml(entry.source || 'طباعة')}</strong><span>${safeHtml(entry.printedBy || entry.user || '-')} — ${safeHtml(historyDate(entry.printedAt || entry.timestamp))}</span></div>`);
+        }
+
+        function buildReportsAuditEntry(action, oldValue = null, newValue = null, notes = '') {
+            return {
+                action,
+                user: 'Reports Page',
+                role: 'reports_admin',
+                timestamp: new Date().toISOString(),
+                oldValue,
+                newValue,
+                notes
+            };
+        }
+
         window.addEventListener('DOMContentLoaded', async () => {
             setDefaultMonthFilter(); // تطبيق التواريخ الافتراضية عند التحميل
             
@@ -365,17 +587,13 @@
                 prodSnap.forEach(document => productsCatalog.push({ id: document.id, ...document.data() }));
                 productsCatalog.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
                 snap.forEach(document => {
-                    let data = document.data();
-                    data.id = document.id; 
-                    if(!data.managerName) {
-                        data.managerName = repManagerMap[data.repName] || "غير محدد";
-                    }
+                    let data = normalizeReportOrder({ id: document.id, ...document.data() });
                     allOrders.push(data);
                 });
                 
                 allOrders.sort((a, b) => {
-                    let dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
-                    let dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+                    let dateA = a.createdAtNormalized || normalizeReportDate(a.createdAt) || 0;
+                    let dateB = b.createdAtNormalized || normalizeReportDate(b.createdAt) || 0;
                     return dateB - dateA;
                 });
 
@@ -392,45 +610,56 @@
         function applyFilters() {
             const fMan = document.getElementById('filterManager').value;
             const fRep = document.getElementById('filterRep').value;
-            const fPharm = document.getElementById('filterPharmacy').value.trim();
-            const fItem = document.getElementById('filterItem').value.trim();
+            const fPharm = document.getElementById('filterPharmacy').value.trim().toLowerCase();
+            const fItem = document.getElementById('filterItem').value.trim().toLowerCase();
             const fDateFrom = document.getElementById('filterDateFrom').value;
             const fDateTo = document.getElementById('filterDateTo').value;
+            const includeDeleted = document.getElementById('includeDeletedOrders')?.checked === true;
+            const includeHidden = document.getElementById('includeHiddenOrders')?.checked === true;
+            const includeRejected = document.getElementById('includeRejectedOrders')?.checked === true;
 
             let filteredOrders = [];
             let managers = new Set(), reps = new Set(), pharmacies = new Set(), items = new Set();
+            let excludedCount = 0;
 
-            allOrders.forEach(order => {
-                let matchMan = fMan === "" || order.managerName === fMan;
-                let matchRep = fRep === "" || order.repName === fRep;
-                let matchPharm = fPharm === "" || (order.pharmacyName && order.pharmacyName.includes(fPharm));
-                
+            allOrders.forEach(rawOrder => {
+                const order = normalizeReportOrder(rawOrder);
+                const deleted = isDeletedReportOrder(order);
+                const hidden = isHiddenReportOrder(order);
+                const rejected = isRejectedReportOrder(order);
+                const excludedByDefault = (deleted && !includeDeleted) || (hidden && !includeHidden) || (rejected && !includeRejected);
+                if (excludedByDefault) excludedCount += 1;
+
+                let matchMan = fMan === '' || order.managerName === fMan;
+                let matchRep = fRep === '' || order.repName === fRep;
+                const pharmacyHaystack = `${order.pharmacyName || ''} ${order.pharmacyCode || ''}`.toLowerCase();
+                let matchPharm = fPharm === '' || pharmacyHaystack.includes(fPharm);
                 let matchDate = true;
-                if (order.createdAt && order.createdAt.toDate) {
-                    let orderDate = order.createdAt.toDate();
-                    orderDate.setHours(0,0,0,0);
-                    if (fDateFrom) { let from = new Date(fDateFrom); from.setHours(0,0,0,0); if (orderDate < from) matchDate = false; }
-                    if (fDateTo) { let to = new Date(fDateTo); to.setHours(0,0,0,0); if (orderDate > to) matchDate = false; }
+                const orderDate = order.createdAtNormalized || normalizeReportDate(order.createdAt || order.updatedAt);
+                if (orderDate) {
+                    const normalizedOrderDate = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
+                    if (fDateFrom) { const from = new Date(fDateFrom); from.setHours(0,0,0,0); if (normalizedOrderDate < from) matchDate = false; }
+                    if (fDateTo) { const to = new Date(fDateTo); to.setHours(0,0,0,0); if (normalizedOrderDate > to) matchDate = false; }
                 }
 
                 let matchItem = true;
-                if (fItem !== "") {
-                    matchItem = (order.items || []).some(i => i.name && i.name.includes(fItem));
+                if (fItem !== '') {
+                    matchItem = (order.items || []).some(i => `${i.name || ''} ${i.productCode || i.product_code || i.code || ''}`.toLowerCase().includes(fItem));
                 }
 
-                if (matchRep && matchPharm && matchItem && matchDate) managers.add(order.managerName || "غير محدد");
-                if (matchMan && matchPharm && matchItem && matchDate) reps.add(order.repName || "غير محدد");
-                if (matchMan && matchRep && matchItem && matchDate) pharmacies.add(order.pharmacyName || "غير معروف");
-                if (matchMan && matchRep && matchPharm && matchDate) {
-                    (order.items || []).forEach(i => items.add(i.name));
+                if (!excludedByDefault) {
+                    if (matchRep && matchPharm && matchItem && matchDate) managers.add(order.managerName || 'غير محدد');
+                    if (matchMan && matchPharm && matchItem && matchDate) reps.add(order.repName || 'غير محدد');
+                    if (matchMan && matchRep && matchItem && matchDate) pharmacies.add(order.pharmacyName || 'غير معروف');
+                    if (matchMan && matchRep && matchPharm && matchDate) (order.items || []).forEach(i => items.add(i.name));
                 }
 
-                if (matchMan && matchRep && matchPharm && matchDate && matchItem) {
-                    if (fItem !== "") {
-                        let matchedItems = (order.items || []).filter(i => i.name && i.name.includes(fItem));
+                if (!excludedByDefault && matchMan && matchRep && matchPharm && matchDate && matchItem) {
+                    if (fItem !== '') {
+                        let matchedItems = (order.items || []).filter(i => `${i.name || ''} ${i.productCode || i.product_code || i.code || ''}`.toLowerCase().includes(fItem));
                         let orderClone = JSON.parse(JSON.stringify(order));
                         orderClone.items = matchedItems;
-                        orderClone.grandTotal = matchedItems.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+                        orderClone.grandTotal = matchedItems.reduce((sum, item) => sum + parseReportNumber(item.total || 0), 0);
                         filteredOrders.push(orderClone);
                     } else {
                         filteredOrders.push(order);
@@ -438,6 +667,7 @@
                 }
             });
 
+            document.getElementById('cardExcludedCount').innerText = excludedCount;
             updateSelect('filterManager', managers, fMan, 'الكل');
             updateSelect('filterRep', reps, fRep, 'الكل');
             updateDatalist('pharmacyDatalist', pharmacies);
@@ -445,6 +675,7 @@
 
             processReports(filteredOrders);
         }
+
 
         function updateSelect(id, set, selectedVal, defaultText) {
             const sel = document.getElementById(id);
@@ -463,8 +694,8 @@
             });
         }
 
-        ['filterManager', 'filterRep', 'filterDateFrom', 'filterDateTo'].forEach(id => {
-            document.getElementById(id).addEventListener('change', applyFilters);
+        ['filterManager', 'filterRep', 'filterDateFrom', 'filterDateTo', 'includeDeletedOrders', 'includeHiddenOrders', 'includeRejectedOrders'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', applyFilters);
         });
         ['filterPharmacy', 'filterItem'].forEach(id => {
             document.getElementById(id).addEventListener('input', applyFilters);
@@ -475,6 +706,7 @@
             document.getElementById('filterRep').value = "";
             document.getElementById('filterPharmacy').value = "";
             document.getElementById('filterItem').value = "";
+            ['includeDeletedOrders', 'includeHiddenOrders', 'includeRejectedOrders'].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
             setDefaultMonthFilter(); // تصفير التواريخ يعيدها للشهر الحالي بدلاً من مسحها
             applyFilters();
         });
@@ -483,6 +715,9 @@
             let uniqueCustomers = new Set();
             let totalOrdersCount = dataToProcess.length;
             let grandTotalSum = 0;
+            let grossSalesSum = 0;
+            let returnsSum = 0;
+            let reconciliationMap = {};
             
             let itemStatsMap = {}; // 🟢 تعديل التقرير الأول
             let itemRepQtyMap = {}; 
@@ -504,16 +739,21 @@
                 allRepsSet.add(repName);
                 repOrdersCountMap[repName] = (repOrdersCountMap[repName] || 0) + 1;
                 
-                let orderTotal = parseFloat(order.grandTotal) || 0;
+                let orderTotal = parseReportNumber(order.grandTotal);
+                const isReturnValue = orderTotal < 0 || order.status === 'returned';
+                if (orderTotal >= 0) grossSalesSum += orderTotal;
+                else returnsSum += Math.abs(orderTotal);
+                if (!reconciliationMap[repName]) reconciliationMap[repName] = { gross: 0, returns: 0, net: 0, orders: 0 };
+                reconciliationMap[repName].orders += 1;
+                if (isReturnValue) reconciliationMap[repName].returns += Math.abs(orderTotal);
+                else reconciliationMap[repName].gross += orderTotal;
+                reconciliationMap[repName].net += orderTotal;
                 repOrdersValueMap[repName] = (repOrdersValueMap[repName] || 0) + orderTotal;
                 areaOrdersValueMap[pharmName] = (areaOrdersValueMap[pharmName] || 0) + orderTotal; // للصيدليات
                 grandTotalSum += orderTotal;
 
-                let orderDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-GB') : '-';
-                
-                // 🟢 توحيد ترجمة الحالات
-                let statusMap = { approved: 'موافق عليه', returned: 'مرتجع', deleted_by_reports: 'محذوف من التقارير', deleted_by_supervisor: 'محذوف من المشرف', deleted_by_market_manager: 'محذوف من مدير السوق', orders_staff_hidden: 'تمت الفوترة', finance_approved: 'معتمد مالياً', finance_pending: 'بانتظار المالية', market_manager_pending: 'بانتظار مدير السوق', pending_supervisor_approval: 'قيد موافقة المشرف' };
-                let statusAr = statusMap[order.status] || order.status || 'قيد الموافقة';
+                let orderDate = reportDateText(order.createdAtNormalized || order.createdAt);
+                let statusAr = reportStatusLabel(order.status);
                 let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${order.id}')"><i class="ph ph-eye"></i> الاصناف</button>`;
                 
                 allOrdersTableData.push([
@@ -530,9 +770,9 @@
                 if (order.items && Array.isArray(order.items)) {
                     order.items.forEach(item => {
                         let itemName = item.name || 'غير معروف';
-                        let val = parseFloat(item.total) || 0;
-                        let qty = parseInt(item.qty, 10) || 0;
-                        let bonus = parseInt(item.bonus, 10) || 0; // 🟢 للبونص
+                        let val = parseReportNumber(item.total);
+                        let qty = parseReportNumber(item.qty);
+                        let bonus = parseReportNumber(item.bonus); // 🟢 للبونص
 
                         // 🟢 تجميع بيانات تقرير الصنف وتقرير البونص
                         if(!itemStatsMap[itemName]) itemStatsMap[itemName] = { val: 0, qty: 0, bonus: 0, pharms: new Set() };
@@ -558,6 +798,8 @@
             document.getElementById('cardOrdersCount').innerText = totalOrdersCount;
             document.getElementById('cardCustomersCount').innerText = uniqueCustomers.size;
             document.getElementById('cardTotalValue').innerText = grandTotalSum.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('cardGrossSales').innerText = grossSalesSum.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('cardReturnsValue').innerText = returnsSum.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
             buildHtmlTable('table-rep-all', ['المرجع', 'التاريخ', 'المشرف', 'المندوب', 'الصيدلية', 'الإجمالي (د.أ)', 'الحالة', 'الإجراء'], allOrdersTableData, true);
 
@@ -599,6 +841,11 @@
                 });
             buildHtmlTable('table-rep9', ['الصنف', 'إجمالي الكمية (Units)', 'إجمالي حبات البونص المصروفة', 'متوسط نسبة البونص للصنف'], r9Data, false);
 
+            let reconciliationData = Object.entries(reconciliationMap)
+                .sort((a, b) => b[1].net - a[1].net)
+                .map(([rep, stats]) => [rep, stats.orders, stats.gross, -stats.returns, stats.net]);
+            buildHtmlTable('table-rep-reconciliation', ['المندوب', 'عدد الحركات', 'المبيعات قبل المرتجعات', 'المرتجعات', 'الصافي'], reconciliationData, true);
+
             let duplicatesData = [];
             Object.keys(duplicatesMap).forEach(key => {
                 if (duplicatesMap[key].length > 1) { 
@@ -614,9 +861,8 @@
 
         function buildHtmlTable(tableId, headers, rows, addTotals = true) {
             const table = document.getElementById(tableId);
-            let thead = '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
+            let thead = '<thead><tr>' + headers.map(h => `<th>${safeHtml(h)}</th>`).join('') + '</tr></thead>';
             let tbody = '<tbody>';
-            
             let columnTotals = new Array(headers.length).fill(0);
             let hasNumbers = false;
 
@@ -631,7 +877,9 @@
                             hasNumbers = true;
                         }
                         let displayVal = (typeof cell === 'number' && cell % 1 !== 0) ? cell.toLocaleString('en-US', {minimumFractionDigits: 2}) : cell;
-                        tbody += `<td ${index > 0 && typeof cell === 'number' ? 'style="font-weight:600; color:var(--primary);"' : ''}>${displayVal}</td>`;
+                        const trustedActionHtml = typeof displayVal === 'string' && /<button|<a\s/i.test(displayVal);
+                        const rendered = trustedActionHtml ? displayVal : safeHtml(displayVal);
+                        tbody += `<td data-label="${safeHtml(headers[index] || '')}" ${index > 0 && typeof cell === 'number' ? 'style="font-weight:600; color:var(--primary);"' : ''}>${rendered}</td>`;
                     });
                     tbody += '</tr>';
                 });
@@ -645,13 +893,14 @@
                 for(let i=1; i<headers.length; i++) {
                     let tVal = columnTotals[i];
                     let tDisp = (tVal % 1 !== 0) ? tVal.toLocaleString('en-US', {minimumFractionDigits: 2}) : tVal;
-                    tfoot += `<td style="color:var(--primary);">${tVal === 0 ? '-' : tDisp}</td>`;
+                    tfoot += `<td style="color:var(--primary);">${tVal === 0 ? '-' : safeHtml(tDisp)}</td>`;
                 }
                 tfoot += '</tr></tfoot>';
             }
 
             table.innerHTML = thead + tbody + tfoot;
         }
+
 
         let currentEditingOrder = null;
 
@@ -706,6 +955,7 @@
                     <span>الإجمالي: ${parseReportNumber(currentEditingOrder.grandTotal).toFixed(2)} د.ا</span>
                 `;
             }
+            renderReportsInsights(currentEditingOrder);
             renderModalTable();
             document.getElementById('editDuplicateModal').style.display = 'flex';
         }
@@ -745,8 +995,19 @@
             recalcModalBonus(idx);
         }
 
+
+        function getDynamicProductFieldWidth() {
+            const names = [
+                ...productsCatalog.map(product => product?.name || ''),
+                ...((currentEditingOrder?.items || []).map(item => item?.name || ''))
+            ].filter(Boolean);
+            const longest = names.reduce((max, name) => Math.max(max, String(name).length), 0);
+            return Math.min(Math.max(longest + 6, 26), 56);
+        }
+
         function renderModalTable() {
-            let html = `<table class="order-table"><thead><tr><th>كود المنتج</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th><th>ملاحظة</th><th>الإجراء</th></tr></thead><tbody>`;
+            const productFieldWidth = getDynamicProductFieldWidth();
+            let html = `<table class="order-table reports-edit-table"><thead><tr><th>كود المنتج</th><th class="reports-product-col">الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th><th>ملاحظة</th><th>الإجراء</th></tr></thead><tbody>`;
             currentEditingOrder.items.forEach((item, index) => {
                 let qtyVal = parseReportNumber(item.qty);
                 let bonusVal = parseReportNumber(item.bonus);
@@ -756,7 +1017,7 @@
                 let pctStr = (qtyVal > 0 && bonusVal > 0) ? Math.round((bonusVal / qtyVal) * 100) + '% بونص' : '';
                 html += `<tr>
                     <td class="item-code" data-idx="${index}">${safeHtml(getReportProductCode(item) || '-')}</td>
-                    <td><select class="form-control-edit item-product" data-idx="${index}" onchange="updateModalProduct(${index})">${reportProductOptions(item.name || '')}</select></td>
+                    <td class="reports-product-col"><select class="form-control-edit item-product reports-product-select" style="min-width:${productFieldWidth}ch; width:100%;" data-idx="${index}" onchange="updateModalProduct(${index})">${reportProductOptions(item.name || '')}</select></td>
                     <td><input type="number" class="form-control-edit item-qty" data-idx="${index}" value="${qtyVal}" min="0" oninput="recalcModalBonus(${index})"></td>
                     <td style="position:relative; text-align:center;">
                         <input type="number" class="form-control-edit item-bonus" data-idx="${index}" value="${bonusVal}" min="0" oninput="recalcModalBonus(${index})">
@@ -764,7 +1025,7 @@
                     </td>
                     <td class="item-price" data-idx="${index}" data-price="${priceVal}">${priceVal.toFixed(2)}</td>
                     <td class="item-total" data-idx="${index}">${(qtyVal * priceVal).toFixed(2)}</td>
-                    <td><input type="text" class="form-control-edit item-note" data-idx="${index}" value="${safeHtml(item.note || '')}" placeholder="ملاحظة الصنف"></td>
+                    <td><input type="text" class="form-control-edit item-note" data-idx="${index}" value="${safeHtml(item.note || '')}" placeholder="ملاحظة الصنف" style="min-width:18ch; width:100%;"></td>
                     <td><button class="btn-action btn-delete" onclick="removeRowFromModal(${index})"><i class="ph ph-trash"></i> حذف</button></td>
                 </tr>`;
             });
@@ -816,12 +1077,21 @@
             const newGrandTotal = updatedItems.reduce((sum, item) => sum + parseReportNumber(item.total), 0);
             try {
                 const orderRef = doc(db, "orders", currentEditingOrder.id);
+                const auditTrail = Array.isArray(currentEditingOrder.auditTrail) ? currentEditingOrder.auditTrail : [];
                 await updateDoc(orderRef, {
                     items: updatedItems,
                     grandTotal: Number(newGrandTotal.toFixed(3)),
                     updatedAt: new Date(),
+                    changedAt: new Date(),
+                    changedBy: 'Reports Page',
+                    changedByRole: 'reports_admin',
+                    actionType: 'reports_order_edit',
                     reportsEditedAt: new Date(),
-                    reportsEditedBy: 'Reports Page'
+                    reportsEditedBy: 'Reports Page',
+                    auditTrail: [
+                        ...auditTrail,
+                        buildReportsAuditEntry('reports_order_edit', { items: currentEditingOrder.items || [], grandTotal: currentEditingOrder.grandTotal || 0 }, { items: updatedItems, grandTotal: Number(newGrandTotal.toFixed(3)) }, 'تعديل تفاصيل الطلبية من شاشة التقارير')
+                    ]
                 });
                 alert("تم حفظ التعديلات بنجاح");
                 location.reload(); 
@@ -835,12 +1105,21 @@
             if (!confirm("هل أنت متأكد من حذف هذه الطلبية من مسار العمل؟ سيتم حفظها في Firebase كطلبية محذوفة.")) return;
             try {
                 const orderRef = doc(db, "orders", currentEditingOrder.id);
+                const auditTrail = Array.isArray(currentEditingOrder.auditTrail) ? currentEditingOrder.auditTrail : [];
                 await updateDoc(orderRef, {
                     status: 'deleted_by_reports',
                     workflowStage: 'deleted',
                     deletedByReports: 'Reports Page',
                     deletedAt: new Date(),
-                    updatedAt: new Date()
+                    updatedAt: new Date(),
+                    changedAt: new Date(),
+                    changedBy: 'Reports Page',
+                    changedByRole: 'reports_admin',
+                    actionType: 'reports_order_deleted',
+                    auditTrail: [
+                        ...auditTrail,
+                        buildReportsAuditEntry('reports_order_deleted', { status: currentEditingOrder.status || '' }, { status: 'deleted_by_reports' }, 'حذف ناعم من شاشة التقارير')
+                    ]
                 });
                 alert("تم حذف الطلبية من مسار العمل بنجاح");
                 location.reload();
@@ -898,6 +1177,11 @@
                 };
 
                 html2pdf().set(opt).from(container).save().then(() => {
+                    try {
+                        const history = JSON.parse(localStorage.getItem('dad_reports_export_history') || '[]');
+                        history.push({ exportedAt: new Date().toISOString(), exportedBy: 'Reports Page', source: 'reports_pdf', fileName: opt.filename });
+                        localStorage.setItem('dad_reports_export_history', JSON.stringify(history.slice(-50)));
+                    } catch (_) {}
                     sections.forEach(s => { s.classList.remove('active'); s.style.display = ''; });
                     document.getElementById('reportsGridContainer').style.display = 'block';
                     btn.innerHTML = originalText;
