@@ -8,11 +8,16 @@ import {
     query, 
     where, 
     addDoc, 
-    deleteDoc, 
+    deleteDoc,
+    setDoc, 
     doc, 
     updateDoc,       
     getDoc,         
-    onSnapshot                         
+    onSnapshot,
+    orderBy,
+    limit,
+    startAfter,
+    documentId                         
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"; // 🟢 تم تعديل الرقم هنا
 
 // إعدادات الاتصال بقاعدة البيانات (كما هي بدون تغيير)
@@ -43,9 +48,14 @@ export {
     query, 
     where, 
     addDoc, 
-    deleteDoc, 
+    deleteDoc,
+    setDoc, 
     doc, 
     updateDoc,   
     getDoc,
-    onSnapshot  
+    onSnapshot,
+    orderBy,
+    limit,
+    startAfter,
+    documentId  
 };

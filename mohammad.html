@@ -327,57 +327,12 @@
         import { db, collection, getDocs, doc, updateDoc, deleteDoc } from './js/firebase.js';
 
         let allOrders = [];
-        let pharmacyCodeIndex = { byRepAndName: new Map(), byName: new Map() };
         
         const repManagerMap = {
             "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
             "محمد الفاعوري": "عبدالله الناطور", "اجود التلهوني": "عبدالله الناطور", "يزيد الرقب": "محمد طوالبه",
             "تامر عقل": "محمد طوالبه", "محمد ابو يامين": "عبدالله الناطور", "مراد الظاهر": "عبدالله الناطور"
         };
-
-        function getItemProductCode(item) {
-            return item?.code || item?.productCode || item?.itemCode || '-';
-        }
-
-        function normalizeLookupValue(value) {
-            return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
-        }
-
-        function getPharmacyCodeFromRecord(pharmacy) {
-            return pharmacy?.pharmacy_code || pharmacy?.pharmacyCode || pharmacy?.code || pharmacy?.Code || '-';
-        }
-
-        async function loadCurrentPharmacyCodes() {
-            const snap = await getDocs(collection(db, 'pharmacies'));
-            const byRepAndName = new Map();
-            const byName = new Map();
-
-            snap.forEach(d => {
-                const pharmacy = { id: d.id, ...d.data() };
-                const nameKey = normalizeLookupValue(pharmacy.name || pharmacy.Name);
-                const repKey = normalizeLookupValue(pharmacy.rep_id || pharmacy.repId);
-                const code = getPharmacyCodeFromRecord(pharmacy);
-                if (!nameKey || !code || code === '-') return;
-                if (repKey) byRepAndName.set(`${repKey}|${nameKey}`, code);
-                if (!byName.has(nameKey)) byName.set(nameKey, code);
-            });
-
-            pharmacyCodeIndex = { byRepAndName, byName };
-        }
-
-        function getOrderPharmacyCode(order) {
-            const nameKey = normalizeLookupValue(order?.pharmacyName);
-            const repKey = normalizeLookupValue(order?.repId);
-            if (repKey && nameKey) {
-                const exactCode = pharmacyCodeIndex.byRepAndName.get(`${repKey}|${nameKey}`);
-                if (exactCode) return exactCode;
-            }
-            if (nameKey) {
-                const nameCode = pharmacyCodeIndex.byName.get(nameKey);
-                if (nameCode) return nameCode;
-            }
-            return order?.pharmacyCode || order?.pharmacy_code || '-';
-        }
 
         // 🟢 ميزة: ضبط الشهر الحالي كافتراضي
         function setDefaultMonthFilter() {
@@ -396,7 +351,6 @@
             setDefaultMonthFilter(); // تطبيق التواريخ الافتراضية عند التحميل
             
             try {
-                await loadCurrentPharmacyCodes();
                 const snap = await getDocs(collection(db, "orders"));
                 snap.forEach(document => {
                     let data = document.data();
@@ -525,17 +479,12 @@
             let repOrdersValueMap = {};
             let areaOrdersCountMap = {}; 
             let areaOrdersValueMap = {}; // 🟢 تقرير مبيعات الصيدليات الجديد
-            let pharmacyCodeMap = {};
             let duplicatesMap = {};
             
-            let allOrdersTableData = [];
-            let allOrdersExcelData = [];
-            const allOrdersExcelHeaders = ['المرجع', 'التاريخ', 'المشرف', 'المندوب', 'كود الصيدلية', 'الصيدلية', 'كود الصنف', 'الصنف', 'الكمية', 'البونص', 'السعر', 'مجموع الصنف', 'إجمالي الطلبية', 'الحالة'];
+            let allOrdersTableData = []; 
 
             dataToProcess.forEach(order => {
                 let pharmName = order.pharmacyName || 'غير معروف';
-                let pharmacyCode = getOrderPharmacyCode(order);
-                pharmacyCodeMap[pharmName] = pharmacyCode;
                 uniqueCustomers.add(pharmName);
                 areaOrdersCountMap[pharmName] = (areaOrdersCountMap[pharmName] || 0) + 1;
 
@@ -555,51 +504,34 @@
                 let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${order.id}')"><i class="ph ph-eye"></i> الاصناف</button>`;
                 
                 allOrdersTableData.push([
+                    order.id.substring(0,6).toUpperCase(),
                     orderDate,
-                    pharmName,
-                    repName,
                     order.managerName || '-',
+                    repName,
+                    pharmName,
                     orderTotal,
+                    statusAr,
                     btnHtml
                 ]);
 
                 if (order.items && Array.isArray(order.items)) {
                     order.items.forEach(item => {
                         let itemName = item.name || 'غير معروف';
-                        let itemCode = getItemProductCode(item);
-                        let itemKey = `${itemCode}__${itemName}`;
                         let val = parseFloat(item.total) || 0;
                         let qty = parseInt(item.qty, 10) || 0;
                         let bonus = parseInt(item.bonus, 10) || 0; // 🟢 للبونص
 
-                        allOrdersExcelData.push([
-                            order.id.substring(0,6).toUpperCase(),
-                            orderDate,
-                            order.managerName || '-',
-                            repName,
-                            pharmacyCode,
-                            pharmName,
-                            itemCode,
-                            itemName,
-                            qty,
-                            bonus,
-                            parseFloat(item.price) || 0,
-                            val,
-                            orderTotal,
-                            statusAr
-                        ]);
-
                         // 🟢 تجميع بيانات تقرير الصنف وتقرير البونص
-                        if(!itemStatsMap[itemKey]) itemStatsMap[itemKey] = { code: itemCode, name: itemName, val: 0, qty: 0, bonus: 0, pharms: new Set() };
-                        itemStatsMap[itemKey].val += val;
-                        itemStatsMap[itemKey].qty += qty;
-                        itemStatsMap[itemKey].bonus += bonus;
-                        itemStatsMap[itemKey].pharms.add(pharmName);
+                        if(!itemStatsMap[itemName]) itemStatsMap[itemName] = { val: 0, qty: 0, bonus: 0, pharms: new Set() };
+                        itemStatsMap[itemName].val += val;
+                        itemStatsMap[itemName].qty += qty;
+                        itemStatsMap[itemName].bonus += bonus;
+                        itemStatsMap[itemName].pharms.add(pharmName);
 
-                        if (!itemRepQtyMap[itemKey]) itemRepQtyMap[itemKey] = { code: itemCode, name: itemName, reps: {} };
-                        itemRepQtyMap[itemKey].reps[repName] = (itemRepQtyMap[itemKey].reps[repName] || 0) + qty;
+                        if (!itemRepQtyMap[itemName]) itemRepQtyMap[itemName] = {};
+                        itemRepQtyMap[itemName][repName] = (itemRepQtyMap[itemName][repName] || 0) + qty;
 
-                        let key = `${pharmacyCode}_${pharmName}_${itemCode}_${itemName}_${qty}`;
+                        let key = `${pharmName}_${itemName}_${qty}`;
                         if (!duplicatesMap[key]) duplicatesMap[key] = [];
                         duplicatesMap[key].push({
                             orderId: order.id,
@@ -607,23 +539,6 @@
                             date: orderDate
                         });
                     });
-                } else {
-                    allOrdersExcelData.push([
-                        order.id.substring(0,6).toUpperCase(),
-                        orderDate,
-                        order.managerName || '-',
-                        repName,
-                        pharmacyCode,
-                        pharmName,
-                        '-',
-                        '-',
-                        0,
-                        0,
-                        0,
-                        0,
-                        orderTotal,
-                        statusAr
-                    ]);
                 }
             });
 
@@ -631,21 +546,19 @@
             document.getElementById('cardCustomersCount').innerText = uniqueCustomers.size;
             document.getElementById('cardTotalValue').innerText = grandTotalSum.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-            buildHtmlTable('table-rep-all', ['التاريخ', 'الصيدلية', 'المندوب', 'المشرف', 'إجمالي الطلبية', 'الأصناف'], allOrdersTableData, true);
-            window.allCompanyOrdersExcelExport = { headers: allOrdersExcelHeaders, rows: allOrdersExcelData };
+            buildHtmlTable('table-rep-all', ['المرجع', 'التاريخ', 'المشرف', 'المندوب', 'الصيدلية', 'الإجمالي (د.أ)', 'الحالة', 'الإجراء'], allOrdersTableData, true);
 
             // 🟢 التقرير الأول المعدل (يحتوي على إجمالي الوحدات وعدد الصيدليات)
             let r1Data = Object.entries(itemStatsMap)
                 .sort((a, b) => b[1].val - a[1].val)
-                .map(([key, stats]) => [stats.code, stats.name, stats.qty, stats.pharms.size, stats.val]);
-            buildHtmlTable('table-rep1', ['كود الصنف', 'الصنف', 'إجمالي Units', 'عدد الصيدليات', 'إجمالي قيمة المبيعات (د.ا)'], r1Data, true);
+                .map(([name, stats]) => [name, stats.qty, stats.pharms.size, stats.val]);
+            buildHtmlTable('table-rep1', ['الصنف', 'إجمالي Units', 'عدد الصيدليات ال', 'إجمالي قيمة المبيعات (د.ا)'], r1Data, true);
 
             let repsArray = Array.from(allRepsSet).sort();
-            let r2Headers = ['كود الصنف', 'الصنف', ...repsArray];
-            let r2Data = Object.keys(itemRepQtyMap).sort().map(itemKey => {
-                let itemStats = itemRepQtyMap[itemKey];
-                let row = [itemStats.code, itemStats.name];
-                repsArray.forEach(rep => row.push(itemStats.reps[rep] || 0));
+            let r2Headers = ['الصنف', ...repsArray];
+            let r2Data = Object.keys(itemRepQtyMap).sort().map(itemName => {
+                let row = [itemName];
+                repsArray.forEach(rep => row.push(itemRepQtyMap[itemName][rep] || 0));
                 return row;
             });
             buildHtmlTable('table-rep2', r2Headers, r2Data, true);
@@ -657,21 +570,21 @@
             buildHtmlTable('table-rep6', ['اسم المندوب', 'اجمالي قيمة الطلبيات (د.ا)'], r6Data, true);
 
             // 🟢 التقرير الجديد: قيمة المبيعات لكل صيدلية
-            let r8Data = Object.entries(areaOrdersValueMap).sort((a, b) => b[1] - a[1]).map(([pharm, val]) => [pharmacyCodeMap[pharm] || '-', pharm, val]);
-            buildHtmlTable('table-rep8', ['كود الصيدلية', 'اسم الصيدلية', 'اجمالي القيمة (د.ا)'], r8Data, true);
+            let r8Data = Object.entries(areaOrdersValueMap).sort((a, b) => b[1] - a[1]).map(([pharm, val]) => [pharm, val]);
+            buildHtmlTable('table-rep8', ['اسم الصيدلية', 'اجمالي القيمة (د.ا)'], r8Data, true);
 
-            let r7Data = Object.entries(areaOrdersCountMap).sort((a, b) => b[1] - a[1]).map(([area, count]) => [pharmacyCodeMap[area] || '-', area, count]);
-            buildHtmlTable('table-rep7', ['كود الصيدلية', 'اسم الصيدلية', 'عدد الطلبيات'], r7Data, true);
+            let r7Data = Object.entries(areaOrdersCountMap).sort((a, b) => b[1] - a[1]).map(([area, count]) => [area, count]);
+            buildHtmlTable('table-rep7', ['اسم الصيدلية', 'عدد الطلبيات'], r7Data, true);
 
             // 🟢 التقرير الجديد: تحليل البونص للأصناف
             let r9Data = Object.entries(itemStatsMap)
                 .filter(([name, stats]) => stats.bonus > 0)
                 .sort((a, b) => b[1].bonus - a[1].bonus)
-                .map(([key, stats]) => {
+                .map(([name, stats]) => {
                     let avgBonusPct = stats.qty > 0 ? Math.round((stats.bonus / stats.qty) * 100) + '%' : '0%';
-                    return [stats.code, stats.name, stats.qty, stats.bonus, avgBonusPct];
+                    return [name, stats.qty, stats.bonus, avgBonusPct];
                 });
-            buildHtmlTable('table-rep9', ['كود الصنف', 'الصنف', 'إجمالي الكمية (Units)', 'إجمالي حبات البونص المصروفة', 'متوسط نسبة البونص للصنف'], r9Data, false);
+            buildHtmlTable('table-rep9', ['الصنف', 'إجمالي الكمية (Units)', 'إجمالي حبات البونص المصروفة', 'متوسط نسبة البونص للصنف'], r9Data, false);
 
             let duplicatesData = [];
             Object.keys(duplicatesMap).forEach(key => {
@@ -679,11 +592,11 @@
                     let parts = key.split('_');
                     duplicatesMap[key].forEach(dup => {
                         let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${dup.orderId}')"><i class="ph ph-pencil"></i> إجراء</button>`;
-                        duplicatesData.push([parts[0], parts[1], parts[2], parts[3], parts[4], dup.repName, dup.orderId.substring(0,6).toUpperCase(), dup.date, btnHtml]);
+                        duplicatesData.push([parts[0], parts[1], parts[2], dup.repName, dup.orderId.substring(0,6).toUpperCase(), dup.date, btnHtml]);
                     });
                 }
             });
-            buildHtmlTable('table-rep-dup', ['كود الصيدلية', 'الصيدلية', 'كود الصنف', 'الصنف', 'الكمية', 'المندوب', 'رقم المرجع', 'التاريخ', 'الاجراءات'], duplicatesData, false);
+            buildHtmlTable('table-rep-dup', ['الصيدلية', 'الصنف', 'الكمية', 'المندوب', 'رقم المرجع', 'التاريخ', 'الاجراءات'], duplicatesData, false);
         }
 
         function buildHtmlTable(tableId, headers, rows, addTotals = true) {
@@ -760,13 +673,11 @@
         window.recalcModalBonus = recalcModalBonus;
 
         function renderModalTable() {
-            let html = `<table class="order-table"><thead><tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>مجموع الصنف</th><th>الاجراء</th></tr></thead><tbody>`;
+            let html = `<table class="order-table"><thead><tr><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>الاجراء</th></tr></thead><tbody>`;
             currentEditingOrder.items.forEach((item, index) => {
                 // 🟢 استخراج نسبة البونص الافتراضية
                 let qtyVal = parseFloat(item.qty) || 0;
                 let bonusVal = parseFloat(item.bonus) || 0;
-                let priceVal = parseFloat(item.price || 0) || 0;
-                let lineTotal = parseFloat(item.total || (qtyVal * priceVal)) || 0;
                 let pctStr = (qtyVal > 0 && bonusVal > 0) ? Math.round((bonusVal / qtyVal) * 100) + '% بونص' : '';
 
                 html += `<tr>
@@ -776,8 +687,7 @@
                         <input type="number" class="form-control-edit item-bonus" data-idx="${index}" value="${item.bonus || 0}" min="0" oninput="recalcModalBonus(${index})">
                         <span class="modal-bonus-pct" data-idx="${index}" style="display:block; font-size:0.75rem; color:var(--primary); font-weight:bold; margin-top:4px;">${pctStr}</span>
                     </td>
-                    <td>${priceVal.toFixed(2)}</td>
-                    <td style="font-weight:700; color:var(--primary);">${lineTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>${parseFloat(item.price || 0).toFixed(2)}</td>
                     <td><button class="btn-action btn-delete" onclick="removeRowFromModal(${index})"><i class="ph ph-trash"></i> حذف</button></td>
                 </tr>`;
             });
@@ -858,16 +768,6 @@
             btn.addEventListener('click', function() {
                 const tableId = this.getAttribute('data-table');
                 const fileName = this.getAttribute('data-name');
-
-                if (tableId === 'table-rep-all' && window.allCompanyOrdersExcelExport) {
-                    const exportData = window.allCompanyOrdersExcelExport;
-                    const worksheet = XLSX.utils.aoa_to_sheet([exportData.headers, ...exportData.rows]);
-                    const workbook = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(workbook, worksheet, "التقرير");
-                    XLSX.writeFile(workbook, `${fileName}.xlsx`);
-                    return;
-                }
-
                 const table = document.getElementById(tableId);
                 const wb = XLSX.utils.table_to_book(table, { sheet: "التقرير" });
                 XLSX.writeFile(wb, `${fileName}.xlsx`);

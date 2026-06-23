@@ -2,7 +2,6 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>رفع المرتجعات السابقة للنظام</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -16,24 +15,6 @@
         .info-box { background: #e0f2fe; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: right; font-size: 0.95rem; line-height: 1.6; border: 1px solid #bae6fd;}
         .warning-box { background: #fef3c7; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: right; font-size: 0.95rem; color: #92400e; border: 1px solid #fcd34d;}
         .note-box { background: #fef2f2; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: right; font-size: 0.95rem; color: #991b1b; border: 1px solid #fca5a5;}
-
-
-        /* Responsive safety layer */
-        html { width: 100%; max-width: 100%; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
-        body { box-sizing: border-box; width: 100%; max-width: 100%; overflow-x: hidden; padding: clamp(12px, 4vw, 50px) !important; }
-        *, *::before, *::after { box-sizing: border-box; }
-        .container { width: min(100%, 900px) !important; max-width: 100% !important; padding: clamp(16px, 4vw, 30px) !important; }
-        h1, h2, h3, p, .info-box, .warning-box, .note-box, #status { overflow-wrap: anywhere; line-height: 1.65; }
-        .btn, button, input, select, textarea { max-width: 100%; font-family: 'Cairo', sans-serif; font-size: 16px; }
-        .btn, button { min-height: 44px; white-space: normal; line-height: 1.35; }
-        input[type="file"] { width: 100% !important; max-width: 100% !important; }
-        code { display: inline-block; margin: 2px; }
-        @media (max-width: 768px) {
-            body { padding: 10px !important; text-align: center; }
-            .container { border-radius: 14px !important; box-shadow: 0 4px 14px rgba(0,0,0,.08) !important; }
-            .btn, button { width: 100%; margin: 8px 0 !important; }
-        }
-
     </style>
 </head>
 <body>
@@ -51,7 +32,7 @@
         <div class="info-box">
             <strong>الأعمدة المطلوبة في ملف الإكسل (نفس صيغة التصدير):</strong><br>
             <span style="direction: ltr; display: inline-block; color: #0369a1; font-weight: bold; margin-top: 5px;">
-            التاريخ, المندوب, كود الصيدلية, الصيدلية, كود الصنف, الصنف, الكمية, البونص, السعر, المجموع الفرعي, ملاحظة الصنف, الاجمالي الكلي, ملاحظة الطلبية, الحالة
+            التاريخ, المندوب, كود الصيدلية, الصيدلية, الصنف, الكمية, البونص, السعر, المجموع الفرعي, ملاحظة الصنف, الاجمالي الكلي, ملاحظة الطلبية, الحالة
             </span>
             <br><br>
             <i>* أدخل الأرقام بالموجب في الإكسل — النظام سيحوّلها للسالب تلقائياً عند الرفع.</i>
@@ -153,13 +134,9 @@
                             // كل total للصنف بالسالب أيضاً
                             const rawTotal = parseFloat(row['المجموع الفرعي']) || 0;
                             const itemTotal = rawTotal > 0 ? -rawTotal : rawTotal;
-                            const itemCode = String(row['كود الصنف'] || row['code'] || row['productCode'] || "-").trim();
 
                             groupedReturns.get(returnKey).items.push({
                                 name: String(row['الصنف']).trim(),
-                                code: itemCode,
-                                productCode: itemCode,
-                                itemCode: itemCode,
                                 qty: parseInt(row['الكمية']) || 1,
                                 bonus: parseInt(row['البونص']) || 0,
                                 price: parseFloat(row['السعر']) || 0,  // السعر يبقى موجب (سعر الوحدة)

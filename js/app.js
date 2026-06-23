@@ -1,4 +1,4 @@
-import { db, collection, getDocs, query, where, addDoc, deleteDoc, doc, updateDoc, getDoc, onSnapshot } from './firebase.js';
+import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, onSnapshot } from './firebase.js';
 
 // ==========================================
 // 🚀 1. نظام الإشعارات (Toasts)
@@ -61,12 +61,7 @@ function autoSaveDraft() {
     document.querySelectorAll('#orderBody tr').forEach(r => {
         const s = r.querySelector('.product-input');
         if (s && s.value.trim() !== "") {
-            items.push({
-                name: s.value,
-                qty: r.querySelector('.qty-input').value,
-                bonus: r.querySelector('.bonus-input').value || 0,
-                note: r.querySelector('.item-note-input').value || ''
-            });
+            items.push(createProductItemFromRow(r));
         }
     });
     const note = document.getElementById('orderNoteInput')?.value || "";
@@ -98,59 +93,40 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
-    // 🔐 التحديث الأمني: إزالة الباسوورد الصريح من الـ LocalStorage واستخدام Token
+    if (APP_PAGE === 'login') normalizeLoginUrlAfterSwitch();
     const legacyPass = localStorage.getItem('adminPassword');
-    if(legacyPass) localStorage.removeItem('adminPassword'); // تنظيف القديم
+    if (legacyPass) localStorage.removeItem('adminPassword');
 
-    syncAdminRememberControls(getAdminRememberPreference());
-    document.getElementById(`rememberMe`)?.addEventListener(`change`, e => setAdminRememberPreference(e.target.checked));
-    document.getElementById(`rememberAdmin`)?.addEventListener(`change`, e => setAdminRememberPreference(e.target.checked));
-    document.getElementById(`rememberRepPass`)?.addEventListener(`change`, e => {
-        const selectedOption = repSelect?.options?.[repSelect.selectedIndex];
-        const repName = selectedOption?.textContent || ``;
-        if (!e.target.checked) {
-            clearRememberedRepCredentials(repSelect?.value || ``, repName);
-            return;
-        }
-        const password = document.getElementById(`repPasswordInput`)?.value?.trim() || ``;
-        if (repSelect?.value && repName && password) saveRememberedRepCredentials(repSelect.value, repName, password);
-    });
-    document.getElementById(`repLoginForm`)?.addEventListener(`submit`, e => {
-        e.preventDefault();
-        if (!document.getElementById(`startOrderBtn`)?.disabled) document.getElementById(`startOrderBtn`)?.click();
-    });
-    
-    // ربط زر الطباعة
-// ربط زر الطباعة
-    const printBtn = document.getElementById('printDraftBtn');
-    if(printBtn) {
-        printBtn.addEventListener('click', () => { window.print(); });
-    }
+    const adminSession = getAdminSession();
+    if (adminSession) {
+        const rememberBox = getEl('rememberAdmin') || getEl('rememberMe');
+        if (rememberBox) rememberBox.checked = !!adminSession.remember;
+    }
 
-    // 🟢 زر الانتقال لطلب صيدلية أخرى دون فقدان الجلسة
-    const changePharmacyBtn = document.getElementById('changePharmacyBtn');
-    if(changePharmacyBtn) {
-        changePharmacyBtn.addEventListener('click', () => {
-            document.getElementById('orderScreen').style.display = 'none';
-            document.getElementById('loginScreen').style.display = 'block';
-            document.getElementById('userInfo').style.display = 'none';
-            const authBox = document.querySelector('#loginScreen .auth-box');
-            if (authBox) authBox.style.display = 'block';
-            
-            // تصفير حقل الصيدلية ليختار من جديد وترك المندوب كما هو
-            const pharmInput = document.getElementById('pharmacyInput');
-            if(pharmInput) {
-                pharmInput.value = '';
-                pharmInput.focus();
-            }
-            document.getElementById('startOrderBtn').disabled = true;
-        });
-    }
-    
-    // 🟢 ربط الفلاتر الخاصة بجميع طلبيات الشركة (التي كانت لا تعمل)
-    document.getElementById('filterAllRep')?.addEventListener('input', filterAllOrders);
-    document.getElementById('filterAllPharmacy')?.addEventListener('input', filterAllOrders);
-    document.getElementById('filterAllStatus')?.addEventListener('change', filterAllOrders);
+    const printBtn = getEl('printDraftBtn');
+    if (printBtn) printBtn.addEventListener('click', () => printCurrentDraft());
+
+    const changePharmacyBtn = getEl('changePharmacyBtn');
+    if (changePharmacyBtn) {
+        changePharmacyBtn.addEventListener('click', () => {
+            sessionStorage.removeItem('activeOrderContext');
+            window.location.href = 'login.html';
+        });
+    }
+
+    getEl('filterAllRep')?.addEventListener('input', filterAllOrders);
+    getEl('filterAllPharmacy')?.addEventListener('input', filterAllOrders);
+    getEl('filterAllStatus')?.addEventListener('change', filterAllOrders);
+    getEl('myOrdersDateFrom')?.addEventListener('change', applyMyOrdersFilters);
+    getEl('myOrdersDateTo')?.addEventListener('change', applyMyOrdersFilters);
+    getEl('myOrdersPharmacyFilter')?.addEventListener('input', applyMyOrdersFilters);
+    getEl('selectAllMyOrders')?.addEventListener('change', function() {
+        document.querySelectorAll('.my-order-checkbox').forEach(cb => cb.checked = this.checked);
+    });
+    getEl('printMyOrdersBtn')?.addEventListener('click', () => printSelectedOrders('.my-order-checkbox', currentMyOrdersData));
+    getEl('printManagerOrdersBtn')?.addEventListener('click', () => printSelectedOrders('.order-checkbox', managerOrdersData));
+    getEl('printAllOrdersBtn')?.addEventListener('click', () => printSelectedOrders('.all-order-checkbox', allOrdersData));
+    getEl('printReportsOrdersBtn')?.addEventListener('click', () => printSelectedOrders('.report-order-checkbox', reportsOrdersData));
 });
 // 🟢 إضافة: دالة لضبط التاريخ الافتراضي على الشهر الحالي
 function setDefaultMonthFilter() {
@@ -173,77 +149,69 @@ function setDefaultMonthFilter() {
     if (toInput && !toInput.value) toInput.value = lastDay;
 }
 function initializeManagerView(managerName) {
+    currentManagerName = managerName;
+    isAdmin = true;
     const repsUnder = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === managerName);
-    const filterSelect = document.getElementById('managerRepFilter');
-    
-    filterSelect.innerHTML = '<option value="">جميع مندوبي</option>';
-    
-    for(let rep of repsUnder) {
-        const repOption = Array.from(repSelect.options).find(opt => opt.textContent === rep);
-        const opt = document.createElement('option');
-        opt.value = repOption ? repOption.value : rep;
-        opt.textContent = rep;
-        filterSelect.appendChild(opt);
+    const filterSelect = getEl('managerRepFilter');
+    if (filterSelect) {
+        filterSelect.innerHTML = '<option value="">جميع مندوبي</option>';
+        for (let rep of repsUnder) {
+            const repOption = repSelect ? Array.from(repSelect.options).find(opt => opt.textContent === rep) : null;
+            const opt = document.createElement('option');
+            opt.value = repOption ? repOption.value : rep;
+            opt.textContent = rep;
+            filterSelect.appendChild(opt);
+        }
     }
 
-    const managerAddBtn = document.getElementById('managerAddNewOrderBtn');
+    const managerAddBtn = getEl('managerAddNewOrderBtn');
     if (managerAddBtn) {
         managerAddBtn.onclick = () => {
-            document.getElementById('managerScreen').style.display = 'none';
-            document.getElementById('loginScreen').style.display = 'block';
-            document.getElementById('userInfo').style.display = 'none';
-            
-            const authBox = document.querySelector('#loginScreen .auth-box');
-            if (authBox) authBox.style.display = 'block';
-
-            const repSelectElem = document.getElementById('repSelect');
-            const pharmacyInputElem = document.getElementById('pharmacyInput');
-            
-            if (repSelectElem) {
-                repSelectElem.value = "";
-                repSelectElem.focus(); 
-            }
-            if (pharmacyInputElem) {
-                pharmacyInputElem.value = "";
-                pharmacyInputElem.disabled = true; 
-            }
-            showToast("يرجى الآن اختيار المندوب من القائمة، ثم اختيار الصيدلية لبدء الطلبية.", "info");
+            sessionStorage.setItem('adminOrderMode', '1');
+            sessionStorage.removeItem('activeOrderContext');
+            window.location.href = 'login.html';
         };
     }
-    
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('managerScreen').style.display = 'block';
-    document.getElementById('userInfo').style.display = 'flex';
-    document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user-gear"></i> <b>المدير: ${managerName}</b>`;
-    
-    document.getElementById('navOrderBtn').style.display = 'none';
-    document.getElementById('navMyOrdersBtn').style.display = 'none';
-    document.getElementById('navReportsBtn').style.display = 'none';
+
+    const loginScreen = getEl('loginScreen');
+    const managerScreen = getEl('managerScreen');
+    const userInfo = getEl('userInfo');
+    if (loginScreen) loginScreen.style.display = 'none';
+    if (managerScreen) managerScreen.style.display = 'block';
+    if (userInfo) userInfo.style.display = 'flex';
+    const currentRepNameEl = getEl('currentRepName');
+    if (currentRepNameEl) currentRepNameEl.innerHTML = `<i class="ph ph-user-gear"></i> <b>المدير: ${managerName}</b>`;
+
+    ['navOrderBtn', 'navMyOrdersBtn', 'navReportsBtn'].forEach(id => {
+        const el = getEl(id);
+        if (el) el.style.display = 'none';
+    });
+
     setDefaultMonthFilter();
-    const myTeamBtn = document.getElementById('managerMyTeamBtn');
-    const allOrdersBtn = document.getElementById('managerAllOrdersBtn');
-    const teamSection = document.getElementById('teamOrdersSection');
-    const allSection = document.getElementById('allOrdersSection');
+    const myTeamBtn = getEl('managerMyTeamBtn');
+    const allOrdersBtn = getEl('managerAllOrdersBtn');
+    const teamSection = getEl('teamOrdersSection');
+    const allSection = getEl('allOrdersSection');
 
-    myTeamBtn.onclick = () => { 
-        myTeamBtn.classList.add('active'); 
-        allOrdersBtn.classList.remove('active'); 
-        teamSection.style.display = 'block'; 
-        allSection.style.display = 'none'; 
-        loadManagerOrders(); 
-    };
-
-    allOrdersBtn.onclick = () => { 
-        myTeamBtn.classList.remove('active'); 
-        allOrdersBtn.classList.add('active'); 
-        teamSection.style.display = 'none'; 
-        allSection.style.display = 'block'; 
-        loadAllCompanyOrders(); 
-    };
-
-    teamSection.style.display = 'block';
-    allSection.style.display = 'none';
-    myTeamBtn.classList.add('active');
+    if (myTeamBtn && allOrdersBtn && teamSection && allSection) {
+        myTeamBtn.onclick = () => {
+            myTeamBtn.classList.add('active');
+            allOrdersBtn.classList.remove('active');
+            teamSection.style.display = 'block';
+            allSection.style.display = 'none';
+            loadManagerOrders();
+        };
+        allOrdersBtn.onclick = () => {
+            myTeamBtn.classList.remove('active');
+            allOrdersBtn.classList.add('active');
+            teamSection.style.display = 'none';
+            allSection.style.display = 'block';
+            loadAllCompanyOrders();
+        };
+        teamSection.style.display = 'block';
+        allSection.style.display = 'none';
+        myTeamBtn.classList.add('active');
+    }
     loadManagerOrders();
 }
 
@@ -287,426 +255,645 @@ let isAdmin = false;
 let currentManagerName = null;
 let editingOrderId = null;
 let allOrdersData = [];
+let detailsModalOrder = null;
 let currentPharmacyCode = null;
 let currentPharmaciesData = [];
-let myOrdersData = [];
+let currentMyOrdersData = [];
 let reportsOrdersData = [];
-let pharmacyHistoryData = [];
-let pharmacyCodeIndex = { byRepAndName: new Map(), byName: new Map(), loadedAt: 0 };
-
-const DAD_LOGO_URL = `https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png`;
-
-
-const LOGIN_STORAGE_KEYS = {
-    repRemember: `dad_remembered_rep_login_v3`,
-    adminRememberPreference: `dad_remember_admin_preference`
-};
-
-function encodeLoginValue(value) {
-    try {
-        return btoa(encodeURIComponent(String(value || ``)));
-    } catch (error) {
-        console.warn(`تعذر ترميز قيمة الدخول`, error);
-        return ``;
-    }
-}
-
-function decodeLoginValue(value) {
-    if (!value) return ``;
-    try {
-        return decodeURIComponent(atob(value));
-    } catch (error) {
-        try { return atob(value); } catch (_) { return ``; }
-    }
-}
-
-function getRepOptionByIdOrName(repId, repName) {
-    if (!repSelect) return null;
-    const options = Array.from(repSelect.options || []);
-    return options.find(option => option.value === repId) || options.find(option => option.textContent === repName) || null;
-}
-
-function getRememberedRepRecord() {
-    try {
-        return JSON.parse(localStorage.getItem(LOGIN_STORAGE_KEYS.repRemember) || `null`);
-    } catch (error) {
-        return null;
-    }
-}
-
-function getRememberedRepPassword(repId, repName) {
-    const remembered = getRememberedRepRecord();
-    if (remembered && (remembered.repId === repId || remembered.repName === repName)) {
-        return decodeLoginValue(remembered.passwordEncoded || remembered.pass || ``);
-    }
-
-    if (repName) {
-        const byName = localStorage.getItem(`savedRepPassName_${encodeLoginValue(repName)}`);
-        if (byName) {
-            const decoded = decodeLoginValue(byName);
-            if (decoded) return decoded;
-        }
-    }
-
-    const legacy = localStorage.getItem(`savedRepPass_${repId}`);
-    if (legacy) {
-        const decodedLegacy = decodeLoginValue(legacy);
-        return decodedLegacy || legacy;
-    }
-
-    return ``;
-}
-
-function saveRememberedRepCredentials(repId, repName, password) {
-    if (!repId || !repName || !password) return;
-    const record = {
-        repId,
-        repName,
-        passwordEncoded: encodeLoginValue(password),
-        updatedAt: new Date().toISOString()
-    };
-    localStorage.setItem(LOGIN_STORAGE_KEYS.repRemember, JSON.stringify(record));
-    localStorage.setItem(`savedRepPassName_${encodeLoginValue(repName)}`, record.passwordEncoded);
-    localStorage.setItem(`lastRepId`, repId);
-    localStorage.setItem(`lastRepName`, repName);
-}
-
-function clearRememberedRepCredentials(repId, repName) {
-    const remembered = getRememberedRepRecord();
-    if (!remembered || remembered.repId === repId || remembered.repName === repName) {
-        localStorage.removeItem(LOGIN_STORAGE_KEYS.repRemember);
-        localStorage.removeItem(`lastRepId`);
-        localStorage.removeItem(`lastRepName`);
-    }
-    if (repId) localStorage.removeItem(`savedRepPass_${repId}`);
-    if (repName) localStorage.removeItem(`savedRepPassName_${encodeLoginValue(repName)}`);
-}
-
-function restoreRememberedRepSelection() {
-    const remembered = getRememberedRepRecord();
-    const repId = remembered?.repId || localStorage.getItem(`lastRepId`) || ``;
-    const repName = remembered?.repName || localStorage.getItem(`lastRepName`) || ``;
-    const option = getRepOptionByIdOrName(repId, repName);
-    if (!option) return;
-    repSelect.value = option.value;
-    repSelect.dispatchEvent(new Event(`change`, { bubbles: true }));
-}
-
-function getAdminRememberPreference() {
-    return localStorage.getItem(LOGIN_STORAGE_KEYS.adminRememberPreference) === `true` || !!localStorage.getItem(`authToken`);
-}
-
-function syncAdminRememberControls(checked = getAdminRememberPreference()) {
-    const rememberHome = document.getElementById(`rememberMe`);
-    const rememberModal = document.getElementById(`rememberAdmin`);
-    if (rememberHome) rememberHome.checked = checked;
-    if (rememberModal) rememberModal.checked = checked;
-}
-
-function setAdminRememberPreference(checked) {
-    localStorage.setItem(LOGIN_STORAGE_KEYS.adminRememberPreference, checked ? `true` : `false`);
-    syncAdminRememberControls(checked);
-}
-
-function getSavedAdminSession() {
-    const managerName = localStorage.getItem(`managerName`) || sessionStorage.getItem(`managerName`);
-    const adminType = localStorage.getItem(`adminType`) || sessionStorage.getItem(`adminType`);
-    const authToken = localStorage.getItem(`authToken`) || sessionStorage.getItem(`authToken`);
-    if (!managerName || !adminType || !authToken) return null;
-    return { managerName, adminType, authToken };
-}
-
-function clearSavedAdminSession() {
-    [`managerName`, `adminType`, `authToken`].forEach(key => {
-        localStorage.removeItem(key);
-        sessionStorage.removeItem(key);
-    });
-}
-
-function resumeSavedAdminSession(session = getSavedAdminSession()) {
-    if (!session) return false;
-    if (session.adminType === `reports`) {
-        window.location.href = `mohammad.html`;
-        return true;
-    }
-    isAdmin = true;
-    currentManagerName = session.managerName;
-    const modal = document.getElementById(`adminLoginModal`);
-    if (modal) modal.style.display = `none`;
-    initializeManagerView(session.managerName);
-    return true;
-}
-
-function restoreSavedLoginState() {
-    syncAdminRememberControls(getAdminRememberPreference());
-    restoreRememberedRepSelection();
-
-    const savedSession = getSavedAdminSession();
-    if (savedSession && savedSession.adminType === `manager`) {
-        resumeSavedAdminSession(savedSession);
-    }
-}
-
-function getDateInputValue(date = new Date()) {
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, `0`);
-    const dd = String(date.getDate()).padStart(2, `0`);
-    return `${yyyy}-${mm}-${dd}`;
-}
-
-function setCurrentMonthDefaults(fromEl, toEl) {
-    if (!fromEl || !toEl) return;
-    const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-    if (!fromEl.value) fromEl.value = getDateInputValue(firstDay);
-    if (!toEl.value) toEl.value = getDateInputValue(today);
-}
-
-function getOrderDate(order) {
-    if (order?.createdAt?.toDate) return order.createdAt.toDate();
-    if (order?.createdAt instanceof Date) return order.createdAt;
-    if (order?.createdAt) {
-        const parsed = new Date(order.createdAt);
-        if (!Number.isNaN(parsed.getTime())) return parsed;
-    }
-    return null;
-}
-
-function isOrderInDateRange(order, fromVal, toVal) {
-    const orderDate = getOrderDate(order);
-    if (!orderDate) return false;
-    const cleanOrderDate = new Date(orderDate);
-    cleanOrderDate.setHours(0, 0, 0, 0);
-    if (fromVal) {
-        const from = new Date(fromVal);
-        from.setHours(0, 0, 0, 0);
-        if (cleanOrderDate < from) return false;
-    }
-    if (toVal) {
-        const to = new Date(toVal);
-        to.setHours(0, 0, 0, 0);
-        if (cleanOrderDate > to) return false;
-    }
-    return true;
-}
-
-function formatOrderDateTime(order) {
-    const date = getOrderDate(order);
-    return date ? date.toLocaleString(`en-GB`) : `غير متوفر`;
-}
-
-function getProductCodeByName(productName) {
-    const selectedProd = productsList.find(prod => prod.name === productName);
-    return selectedProd?.code || selectedProd?.productCode || selectedProd?.itemCode || `-`;
-}
-
-function getItemProductCode(item) {
-    return item?.code || item?.productCode || item?.itemCode || getProductCodeByName(item?.name || ``) || `-`;
-}
-
-function normalizeLookupValue(value) {
-    return String(value || ``).trim().replace(/\s+/g, ` `).toLowerCase();
-}
-
-function getPharmacyCodeFromRecord(pharmacy) {
-    return pharmacy?.pharmacy_code || pharmacy?.pharmacyCode || pharmacy?.code || pharmacy?.Code || `-`;
-}
-
-async function refreshPharmacyCodeIndex(force = false) {
-    const now = Date.now();
-    if (!force && pharmacyCodeIndex.loadedAt && (now - pharmacyCodeIndex.loadedAt) < 60000) return;
-
-    const snap = await getDocs(collection(db, `pharmacies`));
-    const byRepAndName = new Map();
-    const byName = new Map();
-
-    snap.forEach(d => {
-        const pharmacy = { id: d.id, ...d.data() };
-        const nameKey = normalizeLookupValue(pharmacy.name || pharmacy.Name);
-        const repKey = normalizeLookupValue(pharmacy.rep_id || pharmacy.repId);
-        const code = getPharmacyCodeFromRecord(pharmacy);
-        if (!nameKey || !code || code === `-`) return;
-        if (repKey) byRepAndName.set(`${repKey}|${nameKey}`, code);
-        if (!byName.has(nameKey)) byName.set(nameKey, code);
-    });
-
-    pharmacyCodeIndex = { byRepAndName, byName, loadedAt: now };
-}
-
-function resolveOrderPharmacyCode(order) {
-    const nameKey = normalizeLookupValue(order?.pharmacyName);
-    const repKey = normalizeLookupValue(order?.repId);
-
-    if (repKey && nameKey) {
-        const exactCode = pharmacyCodeIndex.byRepAndName.get(`${repKey}|${nameKey}`);
-        if (exactCode) return exactCode;
-    }
-
-    if (nameKey) {
-        const nameCode = pharmacyCodeIndex.byName.get(nameKey);
-        if (nameCode) return nameCode;
-    }
-
-    return order?.pharmacyCode || order?.pharmacy_code || `-`;
-}
-
-function getStatusArabic(status) {
-    return status === `approved` ? `موافق عليه` : (status === `pending` ? `قيد الموافقة` : `مرتجع`);
-}
-
-function getOrderById(orderId, sources = []) {
-    for (const source of sources) {
-        const found = (source || []).find(order => order.id === orderId);
-        if (found) return found;
-    }
-    return null;
-}
-
-function resolveSelectedOrders(selector, sources = []) {
-    return Array.from(document.querySelectorAll(`${selector}:checked`))
-        .map(cb => getOrderById(cb.value, sources))
-        .filter(Boolean);
-}
-
-function buildPrintOrderPage(order) {
-    const rows = (order.items || []).map((item, index) => `
-        <tr>
-            <td>${index + 1}</td>
-            <td>${getItemProductCode(item)}</td>
-            <td>${item.name || `-`}</td>
-            <td>${parseInt(item.qty, 10) || 0}</td>
-            <td>${parseInt(item.bonus, 10) || 0}</td>
-            <td>${(parseFloat(item.price) || 0).toFixed(2)}</td>
-            <td>${(parseFloat(item.total) || 0).toFixed(2)}</td>
-            <td>${item.note || `-`}</td>
-        </tr>
-    `).join(``);
-
-    return `
-        <section class="print-order-page">
-            <header class="print-header">
-                <img src="${DAD_LOGO_URL}" alt="DAD Logo">
-                <div>
-                    <h1>طلبية عميل</h1>
-                    <p>نظام طلبات دار الدواء</p>
-                </div>
-            </header>
-            <div class="print-meta-grid">
-                <div><span>رقم المرجع</span><strong>${order.id ? order.id.substring(0, 8).toUpperCase() : `-`}</strong></div>
-                <div><span>التاريخ</span><strong>${formatOrderDateTime(order)}</strong></div>
-                <div><span>المندوب</span><strong>${order.repName || `-`}</strong></div>
-                <div><span>الصيدلية</span><strong>${order.pharmacyName || `-`}</strong></div>
-                <div><span>كود الصيدلية</span><strong>${resolveOrderPharmacyCode(order)}</strong></div>
-                <div><span>الحالة</span><strong>${getStatusArabic(order.status)}</strong></div>
-            </div>
-            <table class="print-items-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>كود الصنف</th>
-                        <th>الصنف</th>
-                        <th>الكمية</th>
-                        <th>البونص</th>
-                        <th>السعر</th>
-                        <th>المجموع</th>
-                        <th>الملاحظة</th>
-                    </tr>
-                </thead>
-                <tbody>${rows || `<tr><td colspan="8">لا توجد أصناف</td></tr>`}</tbody>
-            </table>
-            <div class="print-footer-grid">
-                <div class="print-note"><span>ملاحظة الطلبية</span><p>${order.orderNote || `-`}</p></div>
-                <div class="print-total"><span>الإجمالي</span><strong>${(parseFloat(order.grandTotal) || 0).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.ا</strong></div>
-            </div>
-        </section>
-    `;
-}
-
-function printOrders(orders) {
-    if (!orders || orders.length === 0) {
-        showToast(`الرجاء تحديد طلبية واحدة على الأقل للطباعة`, `warning`);
-        return;
-    }
-
-    const printWindow = window.open(``, `_blank`);
-    if (!printWindow) {
-        showToast(`المتصفح منع فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة لهذا الموقع.`, `error`);
-        return;
-    }
-
-    printWindow.document.open();
-    printWindow.document.write(`
-        <!doctype html>
-        <html lang="ar" dir="rtl">
-        <head>
-            <meta charset="utf-8">
-            <title>طباعة الطلبيات</title>
-            <style>
-                @page { size: A4; margin: 12mm; }
-                * { box-sizing: border-box; }
-                body { margin: 0; font-family: Arial, Tahoma, sans-serif; color: #172033; background: #fff; }
-                .print-order-page { min-height: 270mm; page-break-after: always; padding: 0; }
-                .print-order-page:last-child { page-break-after: auto; }
-                .print-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #099999; padding-bottom: 14px; margin-bottom: 18px; }
-                .print-header img { width: 150px; max-height: 72px; object-fit: contain; }
-                .print-header h1 { margin: 0; color: #0f3b5c; font-size: 26px; }
-                .print-header p { margin: 4px 0 0; color: #667085; font-size: 13px; }
-                .print-meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
-                .print-meta-grid div, .print-note, .print-total { border: 1px solid #d8e3ea; border-radius: 12px; padding: 10px 12px; background: #f8fbfc; }
-                .print-meta-grid span, .print-note span, .print-total span { display: block; color: #667085; font-size: 11px; margin-bottom: 4px; }
-                .print-meta-grid strong, .print-total strong { color: #172033; font-size: 14px; }
-                .print-items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                .print-items-table th { background: #0f3b5c; color: #fff; padding: 9px; border: 1px solid #0f3b5c; font-size: 12px; }
-                .print-items-table td { border: 1px solid #d8e3ea; padding: 8px; font-size: 12px; text-align: center; }
-                .print-items-table td:nth-child(3), .print-items-table td:nth-child(8) { text-align: right; }
-                .print-items-table tbody tr:nth-child(even) td { background: #fbfdfe; }
-                .print-footer-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-top: 18px; align-items: stretch; }
-                .print-note p { margin: 0; min-height: 45px; font-size: 13px; }
-                .print-total { display: flex; flex-direction: column; justify-content: center; text-align: center; border-color: #099999; background: #f1fbfb; }
-                .print-total strong { font-size: 24px; color: #099999; }
-            </style>
-        </head>
-        <body>${orders.map(buildPrintOrderPage).join(``)}</body>
-        </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => printWindow.print(), 350);
-}
-
-function exportOrderRows(orders) {
-    const flatData = [];
-    orders.forEach(order => {
-        const dateStr = formatOrderDateTime(order);
-        if (order.items && Array.isArray(order.items)) {
-            order.items.forEach(item => {
-                flatData.push({
-                    "التاريخ": dateStr,
-                    "المندوب": order.repName || "غير معروف",
-                    "كود الصيدلية": resolveOrderPharmacyCode(order),
-                    "الصيدلية": order.pharmacyName || "غير معروف",
-                    "كود الصنف": getItemProductCode(item),
-                    "الصنف": item.name || "-",
-                    "الكمية": parseInt(item.qty, 10) || 0,
-                    "البونص": parseInt(item.bonus, 10) || 0,
-                    "نسبة البونص": (parseInt(item.qty, 10) > 0 && parseInt(item.bonus, 10) > 0) ? Math.round((item.bonus / item.qty) * 100) + "%" : "0%",
-                    "السعر": parseFloat(item.price) || 0,
-                    "المجموع الفرعي": parseFloat(item.total) || 0,
-                    "ملاحظة الصنف": item.note || "-",
-                    "الاجمالي الكلي": parseFloat(order.grandTotal) || 0,
-                    "ملاحظة الطلبية": order.orderNote || "-",
-                    "الحالة": getStatusArabic(order.status)
-                });
-            });
-        }
-    });
-    return flatData;
-}
 
 let unsubMyOrders = null;
 let unsubManagerOrders = null;
 let unsubAllOrders = null;
 let unsubReports = null;
+
+
+const APP_PAGE = document.body?.dataset?.page || 'legacy';
+const COMPANY_LOGO_URL = 'https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png';
+const ADMIN_SESSION_KEY = 'dad_admin_session_v2';
+const ADMIN_SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
+const LEGACY_ADMIN_KEYS = ['managerName', 'adminType', 'authToken', 'adminPassword'];
+const AUTH_SWITCH_PARAMS = ['switch', 'logout', 'reset', 'forceLogin'];
+
+function isAuthSwitchRequest() {
+    const params = new URLSearchParams(window.location.search);
+    return AUTH_SWITCH_PARAMS.some(key => params.has(key));
+}
+
+function clearRoutingSessions() {
+    clearAdminSession();
+    clearRepSession();
+    sessionStorage.removeItem('activeOrderContext');
+    sessionStorage.removeItem('adminOrderMode');
+}
+
+function normalizeLoginUrlAfterSwitch() {
+    if (!isAuthSwitchRequest()) return;
+    clearRoutingSessions();
+    const cleanPath = window.location.pathname.split('/').pop() || 'login.html';
+    window.history.replaceState(null, document.title, cleanPath);
+}
+
+function getEl(id) { return document.getElementById(id); }
+
+function parseAppNumber(value) {
+    if (value === null || value === undefined || value === '') return 0;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    const normalized = String(value)
+        .replace(/,/g, '')
+        .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+        .replace(/[^0-9.\-]/g, '')
+        .trim();
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeDateValue(value) {
+    if (!value) return null;
+    if (value.toDate && typeof value.toDate === 'function') return value.toDate();
+    const d = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toDateInputValue(date = new Date()) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function getFirstDayOfCurrentMonth() {
+    const now = new Date();
+    return toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
+}
+
+function isOrderInDateRange(order, fromVal, toVal) {
+    const date = normalizeDateValue(order.createdAt || order.updatedAt);
+    if (!date) return false;
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    if (fromVal) {
+        const f = new Date(fromVal);
+        f.setHours(0,0,0,0);
+        if (d < f) return false;
+    }
+    if (toVal) {
+        const t = new Date(toVal);
+        t.setHours(0,0,0,0);
+        if (d > t) return false;
+    }
+    return true;
+}
+
+function formatDateTime(value) {
+    const d = normalizeDateValue(value);
+    return d ? d.toLocaleString('en-GB') : 'غير متوفر';
+}
+
+function getPharmacyCodeFromOrder(order = {}) {
+    return order.pharmacyCode || order.pharmacy_code || order.customerCode || '';
+}
+
+function getProductCodeFromItem(item = {}) {
+    if (item.productCode || item.product_code || item.code) return item.productCode || item.product_code || item.code;
+    const product = productsList.find(p => p.name === item.name);
+    return product?.productCode || product?.product_code || product?.code || '';
+}
+
+
+const WORKFLOW_STATUS_LABELS = {
+    pending: 'قيد موافقة المشرف',
+    pending_supervisor_approval: 'قيد موافقة المشرف',
+    supervisor_approved: 'معتمد من المشرف',
+    market_manager_pending: 'بانتظار مدير السوق',
+    market_manager_approved: 'معتمد من مدير السوق',
+    market_manager_rejected: 'مرفوض من مدير السوق',
+    finance_pending: 'بانتظار المالية',
+    finance_approved: 'معتمد مالياً',
+    finance_rejected: 'مرفوض مالياً',
+    orders_staff_pending: 'جاهز للمعالجة',
+    orders_staff_exported: 'تم تصديره',
+    orders_staff_hidden: 'تمت الفوترة',
+    returned_to_rep: 'مرجعة للمندوب',
+    returned_to_supervisor: 'مرجعة للمشرف',
+    returned_to_market_manager: 'مرجعة لمدير السوق',
+    returned_to_finance: 'مرجعة للمالية',
+    deleted_by_orders_staff: 'محذوفة من فريق المعالجة',
+    approved: 'موافق عليه',
+    returned: 'مرتجع',
+    rejected: 'مرفوض',
+    deleted_by_market_manager: 'محذوف من مدير السوق',
+    deleted_by_supervisor: 'محذوف من المشرف',
+    deleted_by_reports: 'محذوف من التقارير'
+};
+
+function getWorkflowStatusLabel(status) {
+    return WORKFLOW_STATUS_LABELS[status] || status || '-';
+}
+
+function appOrderHasAuditAction(order = {}, actions = []) {
+    const allowed = new Set(actions);
+    const rows = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+    return rows.some(entry => allowed.has(entry?.action || entry?.type || ''));
+}
+
+function appOrderHasHiddenInvoiceEvidence(order = {}) {
+    const exportRows = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+    return order.status === 'orders_staff_hidden' ||
+        order.orderStaffStatus === 'orders_staff_hidden' ||
+        order.hiddenByOrderStaff === true ||
+        order.isInvoiced === true ||
+        !!order.invoicedAt ||
+        exportRows.some(entry => entry?.hideAfterExport === true || entry?.invoiced === true) ||
+        appOrderHasAuditAction(order, ['orders_staff_hidden', 'orders_staff_hide_after_export', 'orders_staff_invoiced_and_hidden_after_export']);
+}
+
+function appOrderHasExportEvidence(order = {}) {
+    return order.status === 'orders_staff_exported' ||
+        order.orderStaffStatus === 'orders_staff_exported' ||
+        !!order.exportedAt ||
+        (Array.isArray(order.exportHistory) && order.exportHistory.length > 0) ||
+        appOrderHasAuditAction(order, ['orders_staff_export', 'orders_staff_exported']);
+}
+
+function getEffectiveOrderStatus(order = {}) {
+    const rawStatus = order.status || order.orderStatus || order.workflowStatus || '';
+    const terminalOrReturned = rawStatus.startsWith('deleted_') ||
+        ['returned_to_rep', 'returned_to_supervisor', 'returned_to_market_manager', 'returned_to_finance', 'market_manager_rejected', 'finance_rejected', 'rejected'].includes(rawStatus);
+    if (terminalOrReturned || order.workflowStage === 'deleted') return rawStatus;
+    if (appOrderHasHiddenInvoiceEvidence(order)) return 'orders_staff_hidden';
+    if (appOrderHasExportEvidence(order)) return 'orders_staff_exported';
+    return rawStatus;
+}
+
+function getOrderRejectionReason(order = {}) {
+    const reasons = [
+        order.returnReason,
+        order.marketManagerRejectionReason,
+        order.financeRejectionReason,
+        order.rejectionReason,
+        order.rejectReason
+    ].filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+    return reasons.length ? String(reasons[0]).trim() : '';
+}
+
+
+function getFinanceWorkflowNote(order = {}) {
+    const notes = [
+        order.financeApprovalNote,
+        order.financeVisibleNote,
+        order.financeRejectionReason
+    ].filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+    return notes.length ? String(notes[0]).trim() : '';
+}
+
+function getOrderFollowupNote(order = {}) {
+    const notes = [
+        order.financeApprovalNote,
+        order.financeVisibleNote,
+        order.financeRejectionReason,
+        order.returnReason,
+        order.marketManagerRejectionReason,
+        order.rejectionReason,
+        order.rejectReason
+    ].filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+    return notes.length ? String(notes[0]).trim() : '';
+}
+
+function isRepVisibleOrderStatus(status) {
+    const hiddenStatuses = ['deleted_by_market_manager', 'deleted_by_supervisor', 'deleted_by_orders_staff', 'deleted_by_reports'];
+    return !hiddenStatuses.includes(status || '');
+}
+
+function isSupervisorPendingStatus(status) {
+    return ['pending', 'pending_supervisor_approval', 'returned_to_supervisor'].includes(status || 'pending');
+}
+
+function isRepApprovedVisibleStatus(status) {
+    return [
+        'approved',
+        'supervisor_approved',
+        'market_manager_pending',
+        'market_manager_approved',
+        'market_manager_rejected',
+        'finance_pending',
+        'finance_approved',
+        'finance_rejected',
+        'orders_staff_pending',
+        'orders_staff_exported',
+        'orders_staff_hidden',
+        'returned_to_rep',
+        'returned_to_supervisor',
+        'returned_to_market_manager',
+        'returned_to_finance',
+        'rejected'
+    ].includes(status || '');
+}
+
+function buildAuditEntry(action, user, role, oldValue = null, newValue = null, notes = '') {
+    return {
+        action,
+        user: user || 'System',
+        role: role || 'system',
+        timestamp: new Date().toISOString(),
+        oldValue,
+        newValue,
+        notes: notes || ''
+    };
+}
+
+async function updateOrderWithAudit(orderId, updates, auditEntry) {
+    const orderRef = doc(db, 'orders', orderId);
+    const snap = await getDoc(orderRef);
+    const current = snap.exists() ? snap.data() : {};
+    const trail = Array.isArray(current.auditTrail) ? current.auditTrail : [];
+    await updateDoc(orderRef, {
+        ...updates,
+        previousStatus: current.status || '',
+        changedBy: auditEntry.user,
+        changedByRole: auditEntry.role,
+        changedAt: new Date(),
+        actionType: auditEntry.action,
+        auditTrail: [...trail, { ...auditEntry, previousStatus: current.status || '', orderId }],
+        updatedAt: new Date()
+    });
+}
+
+async function recordPrintHistoryForOrders(orders = [], source = 'order_print') {
+    const printableOrders = orders.filter(order => order && order.id && order.id !== 'DRAFT');
+    if (printableOrders.length === 0) return;
+
+    const actor = currentManagerName || currentRepName || 'System';
+    const role = isAdmin ? 'supervisor' : 'representative';
+    const printedAt = new Date().toISOString();
+
+    await Promise.allSettled(printableOrders.map(async order => {
+        const orderRef = doc(db, 'orders', order.id);
+        const snap = await getDoc(orderRef);
+        if (!snap.exists()) return;
+        const current = snap.data() || {};
+        const trail = Array.isArray(current.auditTrail) ? current.auditTrail : [];
+        const printHistory = Array.isArray(current.printHistory) ? current.printHistory : [];
+        const printEntry = {
+            printedAt,
+            printedBy: actor,
+            printedByRole: role,
+            source,
+            page: APP_PAGE || ''
+        };
+        await updateDoc(orderRef, {
+            printHistory: [...printHistory, printEntry],
+            lastPrintedAt: new Date(),
+            lastPrintedBy: actor,
+            auditTrail: [
+                ...trail,
+                buildAuditEntry('order_printed', actor, role, { status: current.status || '' }, { source }, `تمت طباعة الطلبية من ${source}`)
+            ],
+            updatedAt: new Date()
+        });
+    }));
+}
+
+
+function isOrderUnderCurrentManager(order = {}) {
+    const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
+    const normalizedUnder = managerReps.map(rep => rep.trim().toLowerCase());
+    return normalizedUnder.includes((order.repName || '').trim().toLowerCase());
+}
+
+function isOrderWithoutAssignedSupervisor(order = {}) {
+    const repName = (order.repName || '').trim();
+    const explicitSupervisor = String(order.managerName || order.supervisorName || order.manager || order.supervisor || '').trim();
+    const mappedSupervisor = repManagerMap[repName] || '';
+    const emptyValues = ['', '-', 'غير محدد', 'غير معرف', 'غير معروف', 'بدون مشرف', 'لا يوجد'];
+    const hasExplicitSupervisor = !emptyValues.includes(explicitSupervisor);
+    const hasMappedSupervisor = !emptyValues.includes(String(mappedSupervisor).trim());
+    return !hasExplicitSupervisor && !hasMappedSupervisor;
+}
+
+function canCurrentSupervisorApproveOrder(order = {}) {
+    return isSupervisorPendingStatus(order.status) && (isOrderUnderCurrentManager(order) || isOrderWithoutAssignedSupervisor(order));
+}
+
+function isDeletedOrderStatus(status = '') {
+    return [
+        'deleted_by_supervisor',
+        'deleted_by_market_manager',
+        'deleted_by_orders_staff',
+        'deleted_by_reports'
+    ].includes(status || '');
+}
+
+function canCurrentSupervisorDeleteOrder(order = {}) {
+    const status = order.status || 'pending_supervisor_approval';
+    if (isDeletedOrderStatus(status)) return false;
+    const ownerOk = isOrderUnderCurrentManager(order) || isOrderWithoutAssignedSupervisor(order);
+    if (!ownerOk) return false;
+
+    // Supervisor deletion is intentionally restricted to the pre-approval stage only.
+    // After supervisor approval, the order must move through return/reject workflow instead of deletion.
+    const preApprovalStatuses = ['pending', 'pending_supervisor_approval', 'returned_to_supervisor'];
+    const alreadyApproved = order.supervisorStatus === 'supervisor_approved' ||
+        !!order.supervisorApprovedAt ||
+        ['supervisor_approved', 'market_manager_pending', 'market_manager_approved', 'finance_pending', 'finance_approved', 'orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(status);
+
+    return preApprovalStatuses.includes(status) && !alreadyApproved;
+}
+
+async function confirmSupervisorDeleteOrder(orderId, order = {}, action = 'supervisor_order_soft_deleted') {
+    if (!canCurrentSupervisorDeleteOrder(order)) {
+        showToast('حذف المشرف مسموح فقط قبل موافقة المشرف. بعد الموافقة استخدم الإرجاع حسب مسار العمل.', 'warning');
+        return;
+    }
+    const refLabel = orderId ? orderId.substring(0, 6).toUpperCase() : '';
+    const ok = confirm(`تحذير: سيتم حذف الطلبية ${refLabel} كحذف ناعم مع حفظ سجلها في Firebase. هل تريد المتابعة؟`);
+    if (!ok) return;
+    await softDeleteOrderBySupervisor(orderId, order, action);
+    showToast('تم حذف الطلبية من مسار العمل.', 'success');
+}
+
+async function approveOrderBySupervisor(orderId, order = {}, action = 'supervisor_approved') {
+    await updateOrderWithAudit(orderId, {
+        status: "market_manager_pending",
+        workflowStage: "market_manager",
+        supervisorStatus: "supervisor_approved",
+        supervisorApprovedBy: currentManagerName || 'Supervisor',
+        supervisorApprovedAt: new Date(),
+        marketManagerStatus: "market_manager_pending"
+    }, buildAuditEntry(action, currentManagerName || 'Supervisor', 'supervisor', { status: order.status || 'pending' }, { status: 'market_manager_pending' }));
+}
+
+function softDeleteOrderBySupervisor(orderId, order = {}, action = 'supervisor_order_soft_deleted') {
+    return updateOrderWithAudit(orderId, {
+        status: 'deleted_by_supervisor',
+        workflowStage: 'deleted',
+        deletedBySupervisor: currentManagerName || 'Supervisor',
+        deletedAt: new Date(),
+        supervisorStatus: 'deleted_by_supervisor'
+    }, buildAuditEntry(action, currentManagerName || 'Supervisor', 'supervisor', { status: order.status || '' }, { status: 'deleted_by_supervisor' }, 'Soft delete only - Firebase document preserved'));
+}
+
+function promptRequiredReturnNote(message) {
+    const note = prompt(message, '');
+    if (note === null) return null;
+    if (!note.trim()) {
+        showToast('الملاحظة إجبارية عند إرجاع الطلبية.', 'warning');
+        return null;
+    }
+    return note.trim();
+}
+
+async function supervisorReturnToRep(orderId, order = {}) {
+    const reason = promptRequiredReturnNote('اكتب ملاحظة الإرجاع للمندوب:');
+    if (reason === null) return;
+    const current = order && Object.keys(order).length ? order : {}; 
+    await updateOrderWithAudit(orderId, {
+        status: 'returned_to_rep',
+        workflowStage: 'representative',
+        supervisorStatus: 'returned_to_rep',
+        returnReason: reason,
+        returnTarget: 'representative',
+        returnedBy: currentManagerName || 'Supervisor',
+        returnedByRole: 'supervisor',
+        returnedAt: new Date()
+    }, buildAuditEntry('supervisor_returned_to_rep', currentManagerName || 'Supervisor', 'supervisor', { status: current.status || '' }, { status: 'returned_to_rep', returnReason: reason }, reason));
+    showToast('تم إرجاع الطلبية للمندوب مع تسجيل الملاحظة.', 'success');
+}
+
+function canRepresentativeEditReturnedOrder(order = {}) {
+    return (order.status || '') === 'returned_to_rep' && String(order.repId || '') === String(currentRepId || '');
+}
+
+function setDefaultMyOrdersFilters() {
+    const fromInput = getEl('myOrdersDateFrom');
+    const toInput = getEl('myOrdersDateTo');
+    if (fromInput && !fromInput.value) fromInput.value = getFirstDayOfCurrentMonth();
+    if (toInput && !toInput.value) toInput.value = toDateInputValue(new Date());
+}
+
+function createProductItemFromRow(row) {
+    const input = row.querySelector('.product-input');
+    const selectedProduct = productsList.find(prod => prod.name === input?.value.trim());
+    return {
+        name: input?.value || '',
+        productCode: input?.dataset?.productCode || selectedProduct?.productCode || selectedProduct?.product_code || selectedProduct?.code || '',
+        qty: row.querySelector('.qty-input')?.value || 0,
+        bonus: row.querySelector('.bonus-input')?.value || 0,
+        price: row.querySelector('.price-cell')?.innerText || 0,
+        total: row.querySelector('.row-total')?.innerText || 0,
+        note: row.querySelector('.item-note-input')?.value.trim() || ''
+    };
+}
+
+function buildFlatOrderExportRows(orders) {
+    const flatData = [];
+    orders.forEach(order => {
+        const dateStr = formatDateTime(order.createdAt);
+        const items = Array.isArray(order.items) ? order.items : [];
+        items.forEach(item => {
+            const qty = parseAppNumber(item.qty);
+            const bonus = parseAppNumber(item.bonus);
+            flatData.push({
+                "التاريخ": dateStr,
+                "المندوب": order.repName || "غير معروف",
+                "كود الصيدلية": getPharmacyCodeFromOrder(order),
+                "الصيدلية": order.pharmacyName || "غير معروف",
+                "كود المنتج": getProductCodeFromItem(item),
+                "الصنف": item.name || "-",
+                "الكمية": qty,
+                "البونص": bonus,
+                "نسبة البونص": (qty > 0 && bonus > 0) ? `${Math.round((bonus / qty) * 100)}%` : "0%",
+                "السعر": parseAppNumber(item.price),
+                "المجموع الفرعي": parseAppNumber(item.total),
+                "ملاحظة الصنف": item.note || "-",
+                "الاجمالي الكلي": parseAppNumber(order.grandTotal),
+                "ملاحظة الطلبية": order.orderNote || "-",
+                "الحالة": getWorkflowStatusLabel(getEffectiveOrderStatus(order))
+            });
+        });
+    });
+    return flatData;
+}
+
+function getSelectedOrderIds(selector) {
+    return Array.from(document.querySelectorAll(`${selector}:checked`)).map(cb => cb.value).filter(Boolean);
+}
+
+async function getOrdersForPrint(ids, existingOrders = []) {
+    const byId = new Map(existingOrders.map(order => [order.id, order]));
+    const orders = [];
+    for (const id of ids) {
+        if (byId.has(id)) {
+            orders.push(byId.get(id));
+        } else {
+            const orderDoc = await getDoc(doc(db, 'orders', id));
+            if (orderDoc.exists()) orders.push({ id: orderDoc.id, ...orderDoc.data() });
+        }
+    }
+    return orders;
+}
+
+function escapePrintHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function buildPrintableOrder(order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const rows = items.map((item, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${escapePrintHtml(getProductCodeFromItem(item))}</td>
+            <td class="item-name">${escapePrintHtml(item.name || '-')}</td>
+            <td>${parseAppNumber(item.qty).toLocaleString('en-US')}</td>
+            <td>${parseAppNumber(item.bonus).toLocaleString('en-US')}</td>
+            <td>${parseAppNumber(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td>${parseAppNumber(item.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td>${escapePrintHtml(item.note || '-')}</td>
+        </tr>
+    `).join('');
+
+    return `
+        <section class="print-order-page">
+            <header class="print-header">
+                <img src="${COMPANY_LOGO_URL}" alt="Dar Al Dawaa Logo">
+                <div>
+                    <h1>طلبية عميل</h1>
+                    <p>نسخة جاهزة للإرسال إلى العميل</p>
+                </div>
+                <div class="print-order-ref">
+                    <span>رقم الطلب</span>
+                    <strong>${escapePrintHtml((order.id || '').substring(0, 8).toUpperCase())}</strong>
+                </div>
+            </header>
+            <div class="print-info-grid">
+                <div><span>التاريخ</span><strong>${escapePrintHtml(formatDateTime(order.createdAt))}</strong></div>
+                <div><span>المندوب</span><strong>${escapePrintHtml(order.repName || '-')}</strong></div>
+                <div><span>العميل / الصيدلية</span><strong>${escapePrintHtml(order.pharmacyName || '-')}</strong></div>
+                <div><span>كود الصيدلية</span><strong>${escapePrintHtml(getPharmacyCodeFromOrder(order) || '-')}</strong></div>
+                <div><span>الحالة</span><strong>${getWorkflowStatusLabel(getEffectiveOrderStatus(order))}</strong></div>
+                <div><span>الإجمالي</span><strong>${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.ا</strong></div>
+            </div>
+            <table class="print-items-table">
+                <thead>
+                    <tr>
+                        <th>#</th><th>كود المنتج</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>المجموع</th><th>ملاحظة</th>
+                    </tr>
+                </thead>
+                <tbody>${rows || '<tr><td colspan="8">لا توجد أصناف محفوظة على هذه الطلبية.</td></tr>'}</tbody>
+            </table>
+            <div class="print-note-box">
+                <span>ملاحظات الطلبية</span>
+                <p>${escapePrintHtml(order.orderNote || 'لا توجد ملاحظات.')}</p>
+            </div>
+            <footer class="print-footer">
+                <span>Dar Al Dawaa / DAD Group</span>
+                <span>تمت الطباعة من نظام الطلبيات</span>
+            </footer>
+        </section>
+    `;
+}
+
+async function printSelectedOrders(checkboxSelector, existingOrders = []) {
+    const ids = getSelectedOrderIds(checkboxSelector);
+    if (ids.length === 0) return showToast('اختر طلبية واحدة على الأقل للطباعة.', 'warning');
+    try {
+        const orders = await getOrdersForPrint(ids, existingOrders);
+        if (orders.length === 0) return showToast('لم يتم العثور على الطلبيات المحددة.', 'error');
+        const printable = orders.map(buildPrintableOrder).join('');
+        const printWindow = window.open('', '_blank', 'width=1100,height=800');
+        if (!printWindow) return showToast('المتصفح منع نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.', 'warning');
+        printWindow.document.open();
+        printWindow.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>طباعة الطلبيات</title><style>
+            @page { size: A4; margin: 12mm; }
+            * { box-sizing: border-box; }
+            body { margin: 0; font-family: Cairo, Arial, sans-serif; color: #0f172a; background: #fff; }
+            .print-order-page { min-height: 273mm; page-break-after: always; display: flex; flex-direction: column; gap: 14px; }
+            .print-order-page:last-child { page-break-after: auto; }
+            .print-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 3px solid #099999; padding-bottom: 14px; }
+            .print-header img { width: 112px; max-height: 58px; object-fit: contain; }
+            .print-header h1 { margin: 0; color: #0f3b5c; font-size: 24px; }
+            .print-header p { margin: 4px 0 0; color: #64748b; font-weight: 700; }
+            .print-order-ref { text-align: center; border: 1px solid #cbd5e1; border-radius: 14px; padding: 10px 14px; min-width: 120px; }
+            .print-order-ref span, .print-info-grid span, .print-note-box span { display:block; color: #64748b; font-size: 12px; font-weight: 800; }
+            .print-order-ref strong { display:block; margin-top:4px; color:#099999; font-size:18px; }
+            .print-info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+            .print-info-grid div { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 12px; padding: 10px 12px; }
+            .print-info-grid strong { display:block; margin-top: 4px; font-size: 13px; color:#0f172a; }
+            .print-items-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            .print-items-table th { background: #0f3b5c; color: white; padding: 8px; border: 1px solid #0f3b5c; }
+            .print-items-table td { padding: 8px; border: 1px solid #cbd5e1; vertical-align: top; text-align: center; }
+            .print-items-table .item-name { text-align: right; font-weight: 800; }
+            .print-note-box { border: 1px solid #fcd34d; background: #fffbeb; border-radius: 12px; padding: 12px; margin-top: auto; }
+            .print-note-box p { margin: 6px 0 0; line-height: 1.7; }
+            .print-footer { display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 10px; color:#64748b; font-size: 11px; font-weight: 700; }
+            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+            @media (max-width: 700px) { .print-info-grid { grid-template-columns: 1fr; } .print-header { align-items:flex-start; flex-direction:column; } .print-items-table { font-size: 11px; } }
+        </style></head><body>${printable}<script>window.onload = () => { window.focus(); window.print(); };<\/script></body></html>`);
+        printWindow.document.close();
+        recordPrintHistoryForOrders(orders, 'selected_orders_print').catch(error => console.warn('Print history could not be saved', error));
+    } catch (error) {
+        console.error('Print error:', error);
+        showToast('تعذر تجهيز الطباعة.', 'error');
+    }
+}
+
+function saveAdminSession(name, type, remember) {
+    const session = { name, type, token: btoa(encodeURIComponent(`${name}:${Date.now()}`)), savedAt: Date.now(), remember: !!remember };
+    const target = remember ? localStorage : sessionStorage;
+    target.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+    const other = remember ? sessionStorage : localStorage;
+    other.removeItem(ADMIN_SESSION_KEY);
+    LEGACY_ADMIN_KEYS.forEach(key => { localStorage.removeItem(key); sessionStorage.removeItem(key); });
+    return session;
+}
+
+function getAdminSession() {
+    let raw = localStorage.getItem(ADMIN_SESSION_KEY);
+    let source = 'local';
+    if (!raw) { raw = sessionStorage.getItem(ADMIN_SESSION_KEY); source = 'session'; }
+    if (!raw) {
+        const legacyName = localStorage.getItem('managerName') || sessionStorage.getItem('managerName');
+        const legacyType = localStorage.getItem('adminType') || sessionStorage.getItem('adminType');
+        const legacyToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+        if (legacyName && legacyType && legacyToken) return saveAdminSession(legacyName, legacyType, !!localStorage.getItem('authToken'));
+        return null;
+    }
+    try {
+        const parsed = JSON.parse(raw);
+        if (!parsed.name || !parsed.type || !parsed.token) throw new Error('Invalid admin session');
+        if (source === 'local' && Date.now() - (parsed.savedAt || 0) > ADMIN_SESSION_TTL) { localStorage.removeItem(ADMIN_SESSION_KEY); return null; }
+        return parsed;
+    } catch (error) {
+        localStorage.removeItem(ADMIN_SESSION_KEY);
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        return null;
+    }
+}
+
+function clearAdminSession() {
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    LEGACY_ADMIN_KEYS.forEach(key => { localStorage.removeItem(key); sessionStorage.removeItem(key); });
+}
+
+function getCurrentFilteredAllOrders() {
+    const repFilter = (getEl('filterAllRep')?.value || '').toLowerCase().trim();
+    const pharmFilter = (getEl('filterAllPharmacy')?.value || '').toLowerCase().trim();
+    const statusFilter = (getEl('filterAllStatus')?.value || '').trim();
+    const fromVal = getEl('managerFilterFrom')?.value;
+    const toVal = getEl('managerFilterTo')?.value;
+    return allOrdersData.filter(order => {
+        const repName = (order.repName || '').toLowerCase();
+        const pharmName = (order.pharmacyName || '').toLowerCase();
+        const orderStatus = (order.status || '').trim();
+        return repName.includes(repFilter) && pharmName.includes(pharmFilter) && (statusFilter === '' || orderStatus === statusFilter) && isOrderInDateRange(order, fromVal, toVal);
+    });
+}
+
+function goToLogin() { window.location.href = 'login.html'; }
 
 function saveRepSession(repId, repName) {
     sessionStorage.setItem('repId', repId);
@@ -733,7 +920,7 @@ const startOrderBtn = document.getElementById('startOrderBtn');
 const orderBody = document.getElementById('orderBody');
 const addRowBtn = document.getElementById('addRowBtn');
 
-addRowBtn.onclick = () => {
+if (addRowBtn) addRowBtn.onclick = () => {
     const productInputs = document.querySelectorAll('#orderBody .product-input');
     if (productInputs.length > 0) {
         const lastInput = productInputs[productInputs.length - 1];
@@ -860,56 +1047,206 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
 
 async function loadInitialData() {
     try {
-        repSelect.innerHTML = '<option value="">⏳ جاري تحميل البيانات...</option>';
-        repSelect.disabled = true;
+        if (APP_PAGE === 'login') normalizeLoginUrlAfterSwitch();
+        if (repSelect) {
+            repSelect.innerHTML = '<option value="">⏳ جاري تحميل البيانات...</option>';
+            repSelect.disabled = true;
+        }
 
-        const CACHE_KEY = 'dad_app_cache_v2';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_v2';
+        const CACHE_KEY = 'dad_app_cache_20260623_modal_finance_note_fix1';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_20260623_modal_finance_note_fix1';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
-
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
         const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);
         const now = new Date().getTime();
-
         let repsData = [];
         let prodsData = [];
 
-        if (cachedDataStr && cacheTimeStr && (now - parseInt(cacheTimeStr) < CACHE_EXPIRY)) {
+        if (cachedDataStr && cacheTimeStr && (now - parseInt(cacheTimeStr, 10) < CACHE_EXPIRY)) {
             const parsed = JSON.parse(cachedDataStr);
-            repsData = parsed.reps;
-            prodsData = parsed.products;
+            repsData = parsed.reps || [];
+            prodsData = parsed.products || [];
         } else {
             const repsSnap = await getDocs(collection(db, "reps"));
             const prodSnap = await getDocs(collection(db, "products"));
-
             repsSnap.forEach(d => repsData.push({ id: d.id, ...d.data() }));
             prodSnap.forEach(d => prodsData.push({ id: d.id, ...d.data() }));
-
             localStorage.setItem(CACHE_KEY, JSON.stringify({ reps: repsData, products: prodsData }));
             localStorage.setItem(CACHE_TIME_KEY, now.toString());
         }
 
-        repSelect.innerHTML = '<option value="">-- اختر المندوب --</option>';
-        repsData.forEach(d => { 
-            const opt = document.createElement('option'); 
-            opt.value = d.id; 
-            opt.textContent = d.name; 
-            repSelect.appendChild(opt); 
-        });
-        
-        productsList = prodsData;
-        productsList.sort((a,b) => a.name.localeCompare(b.name));
-        
-    } catch(e) { 
+        if (repSelect) {
+            repSelect.innerHTML = '<option value="">-- اختر المندوب --</option>';
+            repsData.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.textContent = d.name;
+                repSelect.appendChild(opt);
+            });
+            const lastRepId = localStorage.getItem('dad_last_rep_id');
+            if (APP_PAGE === 'login' && lastRepId && Array.from(repSelect.options).some(opt => opt.value === lastRepId)) {
+                repSelect.value = lastRepId;
+                repSelect.dispatchEvent(new Event('change'));
+            }
+        }
+
+        productsList = prodsData.map(prod => ({
+            ...prod,
+            productCode: prod.productCode || prod.product_code || prod.code || ''
+        }));
+        productsList.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+        await bootstrapPage();
+    } catch(e) {
         console.error("خطأ في تحميل البيانات الأولية:", e);
-        repSelect.innerHTML = '<option value="">❌ فشل التحميل</option>';
+        if (repSelect) repSelect.innerHTML = '<option value="">❌ فشل التحميل</option>';
         showToast("حدث خطأ في تحميل البيانات. يرجى تحديث الصفحة.", "error");
     } finally {
-        repSelect.disabled = false;
+        if (repSelect) repSelect.disabled = false;
     }
 }
 
-function addNewRow() {
+async function bootstrapPage() {
+    if (APP_PAGE === 'order') {
+        const ctxRaw = sessionStorage.getItem('activeOrderContext');
+        if (!ctxRaw) return goToLogin();
+        try {
+            const ctx = JSON.parse(ctxRaw);
+            currentRepId = ctx.repId;
+            currentRepName = ctx.repName;
+            currentPharmacyName = ctx.pharmacyName;
+            currentPharmacyCode = ctx.pharmacyCode || '';
+            isAdmin = !!ctx.isAdminOrder;
+            currentManagerName = ctx.managerName || null;
+            saveRepSession(currentRepId, currentRepName);
+            getEl('loginScreen')?.style && (getEl('loginScreen').style.display = 'none');
+            getEl('orderScreen')?.style && (getEl('orderScreen').style.display = 'block');
+            getEl('userInfo')?.style && (getEl('userInfo').style.display = 'flex');
+            if (getEl('currentRepName')) getEl('currentRepName').innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${currentRepName}</b>`;
+            if (getEl('orderPharmacyName')) {
+                getEl('orderPharmacyName').innerHTML = `${currentPharmacyName}
+                    <button id="showPharmHistoryBtn" class="btn-icon" style="font-size: 0.8rem; padding: 4px 8px; margin-right: 10px;" title="تاريخ آخر طلبية">
+                        <i class="ph ph-clock-counter-clockwise"></i> السجل
+                    </button>`;
+                bindPharmacyHistoryButton();
+            }
+            if (!restoreSavedDraft() && orderBody && orderBody.children.length === 0) addNewRow();
+            loadMyOrders();
+        } catch (error) {
+            sessionStorage.removeItem('activeOrderContext');
+            goToLogin();
+        }
+    }
+
+    if (APP_PAGE === 'supervisor') {
+        const adminSession = getAdminSession();
+        if (!adminSession || adminSession.type !== 'manager') return goToLogin();
+        isAdmin = true;
+        currentManagerName = adminSession.name;
+        initializeManagerView(adminSession.name);
+    }
+
+    if (APP_PAGE === 'login') {
+        const adminSession = getAdminSession();
+        const isAdminOrderMode = sessionStorage.getItem('adminOrderMode') === '1';
+        if (adminSession && adminSession.remember && !isAdminOrderMode) {
+            if (adminSession.type === 'manager') window.location.href = 'supervisor.html';
+            if (adminSession.type === 'reports') window.location.href = 'reports.html';
+        }
+    }
+}
+
+function bindPharmacyHistoryButton() {
+    const historyBtn = getEl('showPharmHistoryBtn');
+    if (!historyBtn) return;
+    historyBtn.onclick = async () => {
+        showToast("جاري جلب السجل التاريخي للصيدلية...", "info");
+        try {
+            const qFilter = query(collection(db, "orders"), where("pharmacyName", "==", currentPharmacyName));
+            const snap = await getDocs(qFilter);
+            let history = [];
+            snap.forEach(d => history.push({ id: d.id, ...d.data() }));
+            if (history.length === 0) return showToast("لا توجد طلبيات سابقة لهذه الصيدلية.", "warning");
+            history.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
+            const historyBody = getEl('pharmacyHistoryBody');
+            if (!historyBody) return;
+            historyBody.innerHTML = '';
+            if (getEl('historyModalSubtitle')) getEl('historyModalSubtitle').innerText = `صيدلية ${currentPharmacyName}`;
+            history.forEach(o => {
+                const tr = document.createElement('tr');
+                tr.className = `row-${o.status}`;
+                tr.innerHTML = `
+                    <td>${(o.id || '').substring(0,6).toUpperCase()}</td>
+                    <td>${formatDateTime(o.createdAt)}</td>
+                    <td>${o.repName || '-'}</td>
+                    <td>${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ا</td>
+                    <td><span class="status-badge ${getEffectiveOrderStatus(o)}">${getWorkflowStatusLabel(getEffectiveOrderStatus(o))}</span></td>
+                    <td><button class="action-btn edit-btn btn-view-history" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
+                `;
+                tr.querySelector('.btn-view-history').onclick = () => showOrderDetails(o);
+                historyBody.appendChild(tr);
+            });
+            getEl('pharmacyHistoryModal').style.display = 'flex';
+        } catch(e) {
+            showToast("تعذر جلب السجل، تأكد من الاتصال.", "error");
+        }
+    };
+}
+
+function restoreSavedDraft() {
+    if (!currentRepId || !currentPharmacyName || !getEl('orderBody')) return false;
+    try {
+        const draftRaw = localStorage.getItem(`draft_${currentRepId}_${currentPharmacyName}`);
+        if (!draftRaw) return false;
+        const draft = JSON.parse(draftRaw);
+        const body = getEl('orderBody');
+        body.innerHTML = '';
+        if (Array.isArray(draft.items) && draft.items.length > 0) {
+            draft.items.forEach(item => addNewRow(item));
+        }
+        if (getEl('orderNoteInput')) getEl('orderNoteInput').value = draft.note || '';
+        updateGrandTotal();
+        showToast("تم استرجاع مسودة الطلبية السابقة.", "info");
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+function printCurrentDraft() {
+    const items = [];
+    document.querySelectorAll('#orderBody tr').forEach(row => {
+        const item = createProductItemFromRow(row);
+        if (item.name.trim()) items.push(item);
+    });
+    if (items.length === 0) return showToast('لا توجد أصناف في المسودة للطباعة.', 'warning');
+    const order = {
+        id: 'DRAFT',
+        repName: currentRepName || '-',
+        pharmacyName: currentPharmacyName || '-',
+        pharmacyCode: currentPharmacyCode || '',
+        createdAt: new Date(),
+        status: 'pending',
+        items,
+        grandTotal: grandTotalEl?.innerText || 0,
+        orderNote: getEl('orderNoteInput')?.value || ''
+    };
+    const previous = currentMyOrdersData;
+    currentMyOrdersData = [order];
+    printSelectedOrdersFromObjects([order]);
+    currentMyOrdersData = previous;
+}
+
+function printSelectedOrdersFromObjects(orders) {
+    const printable = orders.map(buildPrintableOrder).join('');
+    const printWindow = window.open('', '_blank', 'width=1100,height=800');
+    if (!printWindow) return showToast('المتصفح منع نافذة الطباعة.', 'warning');
+    printWindow.document.open();
+    printWindow.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>طباعة مسودة</title><style>@page{size:A4;margin:12mm}body{font-family:Cairo,Arial,sans-serif}.print-order-page{page-break-after:always}.print-header{display:flex;justify-content:space-between;gap:16px;border-bottom:3px solid #099999;padding-bottom:14px}.print-header img{width:112px;object-fit:contain}.print-info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}.print-info-grid div{border:1px solid #e2e8f0;background:#f8fafc;border-radius:12px;padding:10px}.print-info-grid span,.print-note-box span{display:block;color:#64748b;font-size:12px;font-weight:800}.print-items-table{width:100%;border-collapse:collapse;font-size:12px}.print-items-table th{background:#0f3b5c;color:#fff}.print-items-table th,.print-items-table td{padding:8px;border:1px solid #cbd5e1;text-align:center}.item-name{text-align:right;font-weight:800}.print-note-box{border:1px solid #fcd34d;background:#fffbeb;border-radius:12px;padding:12px;margin-top:14px}.print-footer{display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:10px;color:#64748b;font-size:11px;font-weight:700}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>${printable}<script>window.onload=()=>{window.focus();window.print();};<\/script></body></html>`);
+    printWindow.document.close();
+    recordPrintHistoryForOrders(orders, 'draft_or_direct_print').catch(error => console.warn('Print history could not be saved', error));
+}
+
+function addNewRow(prefill = null) {
     if (productsList.length === 0) { 
         setTimeout(() => addNewRow(), 500); 
         return; 
@@ -917,13 +1254,13 @@ function addNewRow() {
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
-        <td><input type="number" class="qty-input" value="1" min="1"></td>
-        <td style="position:relative;"><input type="number" class="bonus-input" value="0" min="0"><span class="bonus-pct" style="font-size:0.75rem; color:var(--primary); font-weight:bold; display:block; text-align:center; margin-top:4px;"></span></td>
-        <td class="price-cell">0.00</td>
-        <td class="row-total">0.00</td>
-        <td><input type="text" class="item-note-input" placeholder="ملاحظة..." style="width:100%; padding: 8px;"></td> 
-        <td><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
+        <td data-label="الصنف"><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+        <td data-label="الكمية"><input type="number" class="qty-input" value="1" min="1"></td>
+        <td data-label="البونص" style="position:relative;"><input type="number" class="bonus-input" value="0" min="0"><span class="bonus-pct" style="font-size:0.75rem; color:var(--primary); font-weight:bold; display:block; text-align:center; margin-top:4px;"></span></td>
+        <td data-label="السعر" class="price-cell">0.00</td>
+        <td data-label="المجموع" class="row-total">0.00</td>
+        <td data-label="ملاحظة"><input type="text" class="item-note-input" placeholder="ملاحظة..." style="width:100%; padding: 8px;"></td> 
+        <td data-label="حذف"><button type="button" class="btn-danger del-row"><i class="ph ph-trash"></i></button></td>
     `;
     
     const s = tr.querySelector('.product-input'), 
@@ -938,8 +1275,8 @@ function addNewRow() {
     
     setupAutocomplete(s, sug, productNames, (selectedName) => {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
-        tr.dataset.productCode = selectedProd?.code || selectedProd?.productCode || selectedProd?.itemCode || "-";
-        const pr = selectedProd ? parseFloat(selectedProd.price) : 0;
+        const pr = selectedProd ? parseAppNumber(selectedProd.price) : 0;
+        s.dataset.productCode = selectedProd?.productCode || selectedProd?.product_code || selectedProd?.code || '';
         p.innerText = pr.toFixed(2);
         t.innerText = (pr * q.value).toFixed(2);
         updateGrandTotal();
@@ -986,6 +1323,19 @@ function addNewRow() {
     };
 
     orderBody.appendChild(tr);
+    if (prefill) {
+        const product = productsList.find(prod => prod.name === prefill.name);
+        s.value = prefill.name || '';
+        s.dataset.productCode = prefill.productCode || prefill.product_code || prefill.code || product?.productCode || product?.product_code || product?.code || '';
+        q.value = prefill.qty ?? 1;
+        b.value = prefill.bonus ?? 0;
+        const price = prefill.price !== undefined ? parseAppNumber(prefill.price) : parseAppNumber(product?.price);
+        p.innerText = price.toFixed(2);
+        t.innerText = prefill.total !== undefined ? parseAppNumber(prefill.total).toFixed(2) : (price * parseAppNumber(q.value)).toFixed(2);
+        tr.querySelector('.item-note-input').value = prefill.note || '';
+        calcBonus();
+        updateGrandTotal();
+    }
 }
 
 function updateGrandTotal() {
@@ -999,7 +1349,7 @@ function updateGrandTotal() {
     autoSaveDraft();
 }
 
-repSelect.onchange = async (e) => {
+if (repSelect) repSelect.onchange = async (e) => {
     if (!e.target.value) {
         document.getElementById('repPasswordGroup').style.display = 'none';
         return;
@@ -1008,13 +1358,11 @@ repSelect.onchange = async (e) => {
     // 🟢 إظهار حقل الرقم السري عند اختيار المندوب
     document.getElementById('repPasswordGroup').style.display = 'block';
     
-    // 🟢 استرجاع كلمة المرور إذا كانت محفوظة حسب رقم المندوب أو اسمه
-    const selectedRepNameForRemember = e.target.options[e.target.selectedIndex]?.textContent || ``;
-    const savedPass = getRememberedRepPassword(e.target.value, selectedRepNameForRemember);
+    // 🟢 استرجاع كلمة المرور إذا كانت محفوظة
+    const savedPass = localStorage.getItem('savedRepPass_' + e.target.value);
     if (savedPass) {
         document.getElementById('repPasswordInput').value = savedPass;
         if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = true;
-        scheduleRepAutoLogin();
     } else {
         document.getElementById('repPasswordInput').value = '';
         if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = false;
@@ -1031,14 +1379,14 @@ repSelect.onchange = async (e) => {
             currentPharmaciesData.push(d.data()); 
             pharmacyNames.push(d.data().name);
         });
-        setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => { startOrderBtn.disabled = false; scheduleRepAutoLogin(); });
+        setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => startOrderBtn.disabled = false);
         pharmacyInput.disabled = false;
         pharmacyInput.placeholder = 'ابحث او اختر الصيدلية...';
     } catch (error) {
         pharmacyInput.placeholder = 'خطأ في التحميل، الرجاء المحاولة مرة أخرى';
     }
 };
-pharmacyInput.oninput = () => { startOrderBtn.disabled = !pharmacyInput.value.trim(); };
+if (pharmacyInput) pharmacyInput.oninput = () => { if (startOrderBtn) startOrderBtn.disabled = !pharmacyInput.value.trim(); };
 
 function validatePharmacyInput() {
     const pharmacyName = pharmacyInput.value.trim();
@@ -1057,53 +1405,8 @@ function validatePharmacyInput() {
     return isValid;
 }
 
-let repAutoLoginTimer = null;
-let repAutoLoginRunning = false;
-
-function isLoginScreenVisible() {
-    const loginScreen = document.getElementById('loginScreen');
-    if (!loginScreen) return false;
-    return loginScreen.style.display !== 'none';
-}
-
-function isRepPasswordValidSilently(repName, password) {
-    if (!repName || !password) return false;
-    const expectedHash = repPasswordsMap[repName];
-    if (!expectedHash) return false;
-    return btoa(password) === expectedHash;
-}
-
-function scheduleRepAutoLogin() {
-    clearTimeout(repAutoLoginTimer);
-    repAutoLoginTimer = setTimeout(() => {
-        tryRepAutoLogin();
-    }, 220);
-}
-
-function tryRepAutoLogin() {
-    if (repAutoLoginRunning || !isLoginScreenVisible()) return;
-
-    const repPasswordInput = document.getElementById('repPasswordInput');
-    const selectedRepName = repSelect?.options?.[repSelect.selectedIndex]?.textContent || '';
-    const enteredPass = repPasswordInput?.value?.trim() || '';
-    const selectedPharmacyName = pharmacyInput?.value?.trim() || '';
-    const selectedPharmacy = currentPharmaciesData.find(p => p.name === selectedPharmacyName);
-
-    if (!repSelect?.value || !selectedRepName || !enteredPass || !selectedPharmacy) return;
-    if (!isRepPasswordValidSilently(selectedRepName, enteredPass)) return;
-    if (productsList.length === 0) return;
-
-    repAutoLoginRunning = true;
-    startOrderBtn.disabled = false;
-    startOrderBtn.click();
-    setTimeout(() => { repAutoLoginRunning = false; }, 800);
-}
-
-pharmacyInput.addEventListener('blur', () => {
-    validatePharmacyInput();
-    scheduleRepAutoLogin();
-});
-pharmacyInput.addEventListener('input', function() {
+pharmacyInput?.addEventListener('blur', validatePharmacyInput);
+pharmacyInput?.addEventListener('input', function() {
     const isValid = currentPharmaciesData.some(p => p.name === this.value.trim());
     if (isValid) {
         this.classList.remove('input-error');
@@ -1111,13 +1414,9 @@ pharmacyInput.addEventListener('input', function() {
     } else {
         startOrderBtn.disabled = true;
     }
-    scheduleRepAutoLogin();
 });
 
-document.getElementById('repPasswordInput')?.addEventListener('input', scheduleRepAutoLogin);
-document.getElementById('repPasswordInput')?.addEventListener('change', scheduleRepAutoLogin);
-
-startOrderBtn.onclick = async (e) => { e.preventDefault(); // 🟢 أضف هذا السطر لمنع إرسال الفورم...
+if (startOrderBtn) startOrderBtn.onclick = async (e) => { e.preventDefault(); // 🟢 أضف هذا السطر لمنع إرسال الفورم...
                                       if (productsList.length === 0) { 
         showToast("الرجاء الانتظار... يتم تحميل المنتجات.", "info"); 
         return; 
@@ -1127,17 +1426,12 @@ startOrderBtn.onclick = async (e) => { e.preventDefault(); // 🟢 أضف هذا
     const enteredPass = repPassInput.value.trim();
     const expectedHash = repPasswordsMap[selectedRepNameText];
 
-    if (!expectedHash) {
-        repPassInput.classList.add('input-error');
-        return showToast("لا توجد كلمة مرور معرفة لهذا المندوب. راجع الإدارة.", "error");
-    }
-
     if (!enteredPass) {
         repPassInput.classList.add('input-error');
         return showToast("الرجاء إدخال الرقم السري الخاص بك.", "warning");
     }
 
-if (btoa(enteredPass) !== expectedHash) {
+if (expectedHash && btoa(enteredPass) !== expectedHash) {
         repPassInput.classList.add('input-error');
         return showToast("الرقم السري للمندوب غير صحيح!", "error");
     }
@@ -1145,9 +1439,9 @@ if (btoa(enteredPass) !== expectedHash) {
     repPassInput.classList.remove('input-error');
     // 🟢 حفظ كلمة المرور إذا كان خيار التذكر مفعلاً
     if (document.getElementById('rememberRepPass') && document.getElementById('rememberRepPass').checked) {
-        saveRememberedRepCredentials(repSelect.value, selectedRepNameText, enteredPass);
+        localStorage.setItem('savedRepPass_' + repSelect.value, enteredPass);
     } else {
-        clearRememberedRepCredentials(repSelect.value, selectedRepNameText);
+        localStorage.removeItem('savedRepPass_' + repSelect.value);
         repPassInput.value = ''; // تنظيف الحقل كإجراء أمني إذا لم يطلب التذكر
     }
     const pharmacyName = pharmacyInput.value.trim();
@@ -1162,125 +1456,33 @@ if (btoa(enteredPass) !== expectedHash) {
     currentRepId = repSelect.value;
     currentRepName = repSelect.options[repSelect.selectedIndex].text;
     saveRepSession(currentRepId, currentRepName);
+    localStorage.setItem('dad_last_rep_id', currentRepId);
     currentPharmacyName = pharmacyName;
-    currentPharmacyCode = selectedPharm.pharmacy_code || "-";
-    
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('orderScreen').style.display = 'block';
-    document.getElementById('userInfo').style.display = 'flex';
-    document.getElementById('currentRepName').innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${currentRepName}</b>`;
-    
-    // 💡 ميزة: زر عرض سجل الصيدلية
-    const pharmHeader = document.getElementById('orderPharmacyName');
-    pharmHeader.innerHTML = `${currentPharmacyName} 
-        <button id="showPharmHistoryBtn" class="btn-icon" style="font-size: 0.8rem; padding: 4px 8px; margin-right: 10px;" title="تاريخ آخر طلبية">
-            <i class="ph ph-clock-counter-clockwise"></i> السجل
-        </button>`;
-        
-document.getElementById('showPharmHistoryBtn').onclick = async () => {
-        showToast("جاري جلب السجل التاريخي للصيدلية...", "info");
-        try {
-            const qFilter = query(collection(db, "orders"), where("pharmacyName", "==", currentPharmacyName));
-            const snap = await getDocs(qFilter);
-            let history = [];
-            snap.forEach(d => history.push({ id: d.id, ...d.data() }));
-            
-            if(history.length === 0) {
-                 showToast("لا توجد طلبيات سابقة لهذه الصيدلية.", "warning");
-                 return;
-            }
-            
-            // ترتيب الطلبيات من الأحدث للأقدم
-            history.sort((a,b) => (getOrderDate(b) || 0) - (getOrderDate(a) || 0));
-            pharmacyHistoryData = history;
-            
-            // تعبئة النافذة المنبثقة الجديدة
-            const historyBody = document.getElementById('pharmacyHistoryBody');
-            historyBody.innerHTML = '';
-            document.getElementById('historyModalSubtitle').innerText = `صيدلية ${currentPharmacyName}`;
-            const selectAllHistory = document.getElementById('selectAllPharmacyHistoryOrders');
-            if (selectAllHistory) selectAllHistory.checked = false;
-            
-            history.forEach(o => {
-                const tr = document.createElement('tr');
-                tr.className = `row-${o.status}`; // تلوين الصف حسب الحالة
-                const displayDate = formatOrderDateTime(o);
-                
-                tr.innerHTML = `
-                    <td><input type="checkbox" class="pharmacy-history-order-checkbox" value="${o.id}" style="width:18px; height:18px; cursor:pointer; margin:0;"></td>
-                    <td>${o.id.substring(0,6).toUpperCase()}</td>
-                    <td>${displayDate}</td>
-                    <td>${o.repName || '-'}</td>
-                    <td>${(parseFloat(o.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ا</td>
-                    <td><span class="status-badge ${o.status}">${o.status === 'approved' ? 'موافق عليه' : (o.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
-                    <td><button class="action-btn edit-btn btn-view-history" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
-                `;
-                
-                // عند الضغط على زر العين، سيفتح تفاصيل الفاتورة (النافذة الحالية)
-                tr.querySelector('.btn-view-history').onclick = () => {
-                    showOrderDetails(o); 
-                };
-                
-                historyBody.appendChild(tr);
-            });
-            
-            // إظهار النافذة
-            document.getElementById('pharmacyHistoryModal').style.display = 'flex';
-            
-        } catch(e) {
-            showToast("تعذر جلب السجل، تأكد من الاتصال.", "error");
-        }
-    };    
-    // 💡 ميزة: استرجاع الحفظ التلقائي (Draft)
-    const draftKey = `draft_${currentRepId}_${currentPharmacyName}`;
-    const draftStr = localStorage.getItem(draftKey);
-    orderBody.innerHTML = '';
-    
-    if(draftStr) {
-        try {
-            const draft = JSON.parse(draftStr);
-            if(draft.items && draft.items.length > 0) {
-                showToast("تم استرجاع مسودة غير مكتملة لهذه الصيدلية.", "info");
-                draft.items.forEach(item => {
-                    addNewRow(); 
-                    const lastRow = orderBody.lastElementChild;
-                    lastRow.querySelector('.product-input').value = item.name;
-                    lastRow.querySelector('.qty-input').value = item.qty;
-                    lastRow.querySelector('.bonus-input').value = item.bonus;
-                    lastRow.querySelector('.item-note-input').value = item.note;
-                    
-                    const prod = productsList.find(pr => pr.name === item.name); 
-                    lastRow.dataset.productCode = item.code || item.productCode || item.itemCode || prod?.code || prod?.productCode || prod?.itemCode || "-";
-                    const pr = prod ? parseFloat(prod.price) : 0; 
-                    lastRow.querySelector('.price-cell').innerText = pr.toFixed(2); 
-                    lastRow.querySelector('.row-total').innerText = (pr * item.qty).toFixed(2);
-                    lastRow.querySelector('.qty-input').dispatchEvent(new Event('input')); // Recalc bonus
-                });
-                if(draft.note) document.getElementById('orderNoteInput').value = draft.note;
-                updateGrandTotal();
-            } else {
-               addNewRow();
-            }
-        } catch(e) { addNewRow(); }
-    } else {
-        addNewRow();
-    }
-    
-    document.getElementById('navMyOrdersBtn').style.display = 'inline-block';
-    document.getElementById('navReportsBtn').style.display = 'inline-block';
-    
-    document.getElementById('orderNoteInput').addEventListener('input', autoSaveDraft);
+    currentPharmacyCode = selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || selectedPharm.customerCode || "";
+
+    const adminOrderSession = getAdminSession();
+    const isAdminOrder = sessionStorage.getItem('adminOrderMode') === '1' && adminOrderSession?.type === 'manager';
+    sessionStorage.setItem('activeOrderContext', JSON.stringify({
+        repId: currentRepId,
+        repName: currentRepName,
+        pharmacyName: currentPharmacyName,
+        pharmacyCode: currentPharmacyCode,
+        isAdminOrder,
+        managerName: isAdminOrder ? adminOrderSession.name : null
+    }));
+
+    window.location.href = 'order.html';
 };
 
-const originalRepOnChange = repSelect.onchange;
-repSelect.onchange = async (e) => {
+const originalRepOnChange = repSelect?.onchange;
+if (repSelect) repSelect.onchange = async (e) => {
     if (originalRepOnChange) await originalRepOnChange(e);
     startOrderBtn.disabled = true;
     pharmacyInput.classList.remove('input-error');
     setTimeout(() => { validatePharmacyInput(); }, 100);
 };
 
-submitOrderBtn.onclick = async () => {
+if (submitOrderBtn) submitOrderBtn.onclick = async () => {
     if (!navigator.onLine) {
         showToast("أنت في وضع عدم الاتصال (Offline). لا يمكن إرسال الطلبية الآن.", "error");
         return;
@@ -1299,19 +1501,7 @@ submitOrderBtn.onclick = async () => {
                 s.classList.add('input-error');
             } else {
                 s.classList.remove('input-error'); 
-                const selectedProd = productsList.find(prod => prod.name === s.value.trim());
-                const productCode = selectedProd?.code || selectedProd?.productCode || selectedProd?.itemCode || r.dataset.productCode || "-";
-                items.push({
-                    name: s.value,
-                    code: productCode,
-                    productCode: productCode,
-                    itemCode: productCode,
-                    qty: r.querySelector('.qty-input').value,
-                    bonus: r.querySelector('.bonus-input').value || 0,
-                    price: r.querySelector('.price-cell').innerText,
-                    total: r.querySelector('.row-total').innerText,
-                    note: r.querySelector('.item-note-input').value.trim()
-                });
+                items.push(createProductItemFromRow(r));
             }
         }
     });
@@ -1332,6 +1522,8 @@ submitOrderBtn.onclick = async () => {
         const indicator = document.getElementById('saving-indicator');
         if(indicator) indicator.classList.add('active');
 
+        const initialStatus = isAdmin ? "market_manager_pending" : "pending_supervisor_approval";
+        const now = new Date();
         await addDoc(collection(db, "orders"), {
             repId: currentRepId,
             repName: currentRepName,
@@ -1340,36 +1532,49 @@ submitOrderBtn.onclick = async () => {
             pharmacyCode: currentPharmacyCode, 
             items: items,
             orderNote: orderNoteValue,
-            grandTotal: parseFloat(grandTotalEl.innerText),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            status: isAdmin ? "approved" : "pending",
+            grandTotal: parseAppNumber(grandTotalEl.innerText),
+            createdAt: now,
+            updatedAt: now,
+            status: initialStatus,
+            previousStatus: '',
+            workflowStage: isAdmin ? 'market_manager' : 'supervisor',
+            supervisorStatus: isAdmin ? 'supervisor_approved' : 'pending_supervisor_approval',
+            supervisorApprovedBy: isAdmin ? (currentManagerName || getManagerName(currentRepName)) : '',
+            supervisorApprovedAt: isAdmin ? now : null,
+            marketManagerStatus: isAdmin ? 'market_manager_pending' : '',
+            financeStatus: '',
+            orderStaffStatus: '',
+            auditTrail: [buildAuditEntry('order_created', currentRepName, isAdmin ? 'supervisor' : 'representative', null, { status: initialStatus }, orderNoteValue)]
         });
         
         clearDraft(); // تنظيف المسودة بعد الإرسال الناجح
 
         const successMessage = isAdmin 
-            ? "تم تسجيل الطلبية واعتمادها بنجاح." 
+            ? "تم تسجيل الطلبية وتحويلها إلى مدير السوق." 
             : "تم ارسال الطلبية بنجاح، في انتظار موافقة المدير.";
         showToast(successMessage, "success");
 
-        if (isAdmin) {
-            document.getElementById('orderScreen').style.display = 'none';
-            document.getElementById('managerScreen').style.display = 'block';
-            loadManagerOrders(); 
-        } else {
-            document.getElementById('orderScreen').style.display = 'none';
-            document.getElementById('myOrdersScreen').style.display = 'block';
-            loadMyOrders();
-        }
-        
+        sessionStorage.removeItem('adminOrderMode');
         orderBody.innerHTML = '';
-        grandTotalEl.innerText = '0.00';
+        if (grandTotalEl) grandTotalEl.innerText = '0.00';
         if(orderNoteEl) orderNoteEl.value = '';
         addNewRow();
-        
-        document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
-        document.getElementById('navMyOrdersBtn').classList.add('active');
+
+        if (isAdmin) {
+            sessionStorage.removeItem('activeOrderContext');
+            window.location.href = 'supervisor.html';
+            return;
+        }
+
+        const orderScreenEl = getEl('orderScreen');
+        const myOrdersScreenEl = getEl('myOrdersScreen');
+        if (orderScreenEl && myOrdersScreenEl) {
+            orderScreenEl.style.display = 'none';
+            myOrdersScreenEl.style.display = 'block';
+            loadMyOrders();
+            document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+            getEl('navMyOrdersBtn')?.classList.add('active');
+        }
     } catch(e) { 
         showToast("خطأ في الارسال، يرجى المحاولة لاحقاً.", "error"); 
     } finally {
@@ -1382,83 +1587,68 @@ submitOrderBtn.onclick = async () => {
 
 async function loadMyOrders() {
     if (!currentRepId && !loadRepSession()) { showToast("الرجاء تسجيل الدخول أولاً", "error"); return; }
-    const tbody = document.getElementById('myOrdersBody');
-    const fromEl = document.getElementById('myOrdersFilterFrom');
-    const toEl = document.getElementById('myOrdersFilterTo');
+    const tbody = getEl('myOrdersBody');
     if (!tbody) return;
-
-    setCurrentMonthDefaults(fromEl, toEl);
-    tbody.innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
-    
+    setDefaultMyOrdersFilters();
+    tbody.innerHTML = '<tr><td colspan="9"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     if (unsubMyOrders) unsubMyOrders();
 
     try {
-        unsubMyOrders = onSnapshot(collection(db, "orders"), (snap) => {
-            myOrdersData = [];
-            snap.forEach(d => {
-                const data = { id: d.id, ...d.data() };
-                const sameRepId = data.repId === currentRepId;
-                const sameRepName = currentRepName && (data.repName || '').trim() === currentRepName.trim();
-                if (sameRepId || sameRepName) myOrdersData.push(data);
-            });
-            myOrdersData.sort((a,b) => {
-                const dateA = getOrderDate(a) || 0;
-                const dateB = getOrderDate(b) || 0;
-                return dateB - dateA;
-            });
+        const q = query(collection(db, "orders"), where("repId", "==", currentRepId));
+        unsubMyOrders = onSnapshot(q, (snap) => {
+            let orders = [];
+            snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
+            orders.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
+            currentMyOrdersData = orders.filter(o => isRepVisibleOrderStatus(getEffectiveOrderStatus(o)));
             applyMyOrdersFilters();
-        }, () => {
-            showToast("خطأ في جلب البيانات.", "error");
-        });
+        }, () => showToast("خطأ في جلب البيانات.", "error"));
     } catch(e) { showToast("خطأ في جلب البيانات.", "error"); }
 }
 
 function applyMyOrdersFilters() {
-    const tbody = document.getElementById('myOrdersBody');
+    const tbody = getEl('myOrdersBody');
     if (!tbody) return;
-
-    const fromVal = document.getElementById('myOrdersFilterFrom')?.value || '';
-    const toVal = document.getElementById('myOrdersFilterTo')?.value || '';
-    const pharmacyFilter = (document.getElementById('myOrdersFilterPharmacy')?.value || '').trim().toLowerCase();
-
-    const orders = myOrdersData.filter(order => {
-        const isApproved = order.status === 'approved';
-        const matchDate = isOrderInDateRange(order, fromVal, toVal);
-        const matchPharmacy = pharmacyFilter === '' || (order.pharmacyName || '').toLowerCase().includes(pharmacyFilter);
-        return isApproved && matchDate && matchPharmacy;
+    const fromVal = getEl('myOrdersDateFrom')?.value || '';
+    const toVal = getEl('myOrdersDateTo')?.value || '';
+    const pharmacyFilter = (getEl('myOrdersPharmacyFilter')?.value || '').toLowerCase().trim();
+    const filtered = currentMyOrdersData.filter(order => {
+        const pharmacyName = (order.pharmacyName || '').toLowerCase();
+        const pharmacyCode = String(getPharmacyCodeFromOrder(order) || '').toLowerCase();
+        return isOrderInDateRange(order, fromVal, toVal) && (!pharmacyFilter || pharmacyName.includes(pharmacyFilter) || pharmacyCode.includes(pharmacyFilter));
     });
 
+    const totalVal = filtered.reduce((sum, order) => sum + parseAppNumber(order.grandTotal), 0);
+    if (getEl('myOrdersPendingCount')) getEl('myOrdersPendingCount').innerText = filtered.length;
+    if (getEl('myOrdersTotalValue')) getEl('myOrdersTotalValue').innerText = totalVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const badge = getEl('pendingBadge');
+    if (badge) { badge.style.display = filtered.length > 0 ? 'inline-block' : 'none'; badge.innerText = filtered.length; }
+
     tbody.innerHTML = '';
-    const approvedCount = orders.length;
-    const totalVal = orders.reduce((sum, order) => sum + (parseFloat(order.grandTotal) || 0), 0);
-
-    document.getElementById('myOrdersPendingCount').innerText = approvedCount;
-    document.getElementById('myOrdersTotalValue').innerText = totalVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    const badge = document.getElementById('pendingBadge');
-    if (badge) badge.style.display = 'none';
-
-    const selectAll = document.getElementById('selectAllMyOrders');
-    if (selectAll) selectAll.checked = false;
-
-    if(orders.length === 0) { 
-        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات معتمدة ضمن الفلاتر الحالية</h3></div></td></tr>`; 
-        return; 
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات ضمن الفلاتر الحالية</h3></div></td></tr>`;
+        return;
     }
-    
-    orders.forEach(order => {
+
+    filtered.forEach(order => {
         const tr = document.createElement('tr');
-        tr.className = `row-${order.status}`;
+        const statusClass = getEffectiveOrderStatus(order) || 'pending';
+        tr.className = `row-${statusClass}`;
         tr.innerHTML = `
-            <td><input type="checkbox" class="my-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
-            <td>${order.id.substring(0,6).toUpperCase()}</td>
-            <td>${formatOrderDateTime(order)}</td>
-            <td>${order.pharmacyName || '-'}</td>
-            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status}">موافق عليه</span></td>
-            <td><button class="action-btn edit-btn" data-id="${order.id}" title="عرض/تعديل"><i class="ph ph-pencil"></i></button></td>
+            <td data-label="تحديد"><input type="checkbox" class="my-order-checkbox" value="${order.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
+            <td data-label="رقم الطلب">${order.id.substring(0,6).toUpperCase()}</td>
+            <td data-label="التاريخ">${formatDateTime(order.createdAt)}</td>
+            <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
+            <td data-label="كود الصيدلية">${getPharmacyCodeFromOrder(order) || '-'}</td>
+            <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
+            <td data-label="السبب / الملاحظة">${escapePrintHtml(getOrderFollowupNote(order) || '-')}</td>
+            <td data-label="إجراء">
+                <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
+                ${canRepresentativeEditReturnedOrder(order) ? `<button class="action-btn edit-returned-order-btn" title="تعديل الطلبية المرجعة"><i class="ph ph-pencil"></i></button>` : ''}
+            </td>
         `;
-        tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'rep');
+        tr.querySelector('.btn-view').onclick = () => showOrderDetails(order);
+        tr.querySelector('.edit-returned-order-btn')?.addEventListener('click', () => openEditOrder(order.id, 'representative'));
         tbody.appendChild(tr);
     });
 }
@@ -1469,39 +1659,42 @@ function updateAdvancedManagerDashboard(orders) {
     const countLabel = document.querySelector('#dashDailyCount')?.previousElementSibling;
     if(countLabel) countLabel.innerText = "عدد الطلبيات المعروضة";
 
-    let totalVal = 0;
+    let ordersTotal = 0;
+    let returnsTotal = 0;
     let approvedCount = 0;
     const pharmCounts = {};
-    const uniquePharms = new Set(); // 🟢 متغير جديد لحفظ الصيدليات بدون تكرار
+    const uniquePharms = new Set();
 
-    // الاعتماد على الـ orders المفلترة بالكامل 
     orders.forEach(o => {
-        totalVal += parseFloat(o.grandTotal) || 0;
-        if (o.status === 'approved') approvedCount++;
-
+        const value = parseAppNumber(o.grandTotal);
+        if (value < 0 || o.status === 'returned') returnsTotal += Math.abs(value);
+        else ordersTotal += value;
+        if (isRepApprovedVisibleStatus(getEffectiveOrderStatus(o))) approvedCount++;
         if (o.pharmacyName) {
             pharmCounts[o.pharmacyName] = (pharmCounts[o.pharmacyName] || 0) + 1;
-            uniquePharms.add(o.pharmacyName); // 🟢 إضافة اسم الصيدلية (Set سيمنع التكرار تلقائياً)
+            uniquePharms.add(o.pharmacyName);
         }
     });
 
-    const periodCount = orders.length; 
+    const netTotal = ordersTotal - returnsTotal;
+    const periodCount = orders.length;
     const appRate = periodCount > 0 ? Math.round((approvedCount / periodCount) * 100) : 0;
-    
     let topPharm = "-";
     let maxC = 0;
     for (const [p, c] of Object.entries(pharmCounts)) {
         if (c > maxC) { maxC = c; topPharm = p; }
     }
 
-    const e1 = document.getElementById('dashDailyCount'); if(e1) e1.innerText = periodCount;
-    const e2 = document.getElementById('dashTotalValue'); if(e2) e2.innerText = totalVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " د.ا";
-    const e3 = document.getElementById('dashApprovalRate'); if(e3) e3.innerText = appRate + "%";
-    const e4 = document.getElementById('dashTopPharmacy'); if(e4) e4.innerText = topPharm;
-    
-    // 🟢 طباعة عدد الصيدليات في الكارد الجديد
-    const e5 = document.getElementById('dashUniquePharmacies'); if(e5) e5.innerText = uniquePharms.size;
+    const money = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " د.ا";
+    const e1 = getEl('dashDailyCount'); if(e1) e1.innerText = periodCount;
+    const e2 = getEl('dashTotalValue'); if(e2) e2.innerText = money(ordersTotal);
+    const eReturns = getEl('dashReturnsValue'); if(eReturns) eReturns.innerText = money(returnsTotal);
+    const eNet = getEl('dashNetValue'); if(eNet) eNet.innerText = money(netTotal);
+    const e3 = getEl('dashApprovalRate'); if(e3) e3.innerText = appRate + "%";
+    const e4 = getEl('dashTopPharmacy'); if(e4) e4.innerText = topPharm;
+    const e5 = getEl('dashUniquePharmacies'); if(e5) e5.innerText = uniquePharms.size;
 }
+
 let managerOrdersData = [];
 
 async function loadManagerOrders() {
@@ -1522,8 +1715,8 @@ async function loadManagerOrders() {
             });
 
             allOrders.sort((a, b) => {
-                const dateA = getOrderDate(a) || 0;
-                const dateB = getOrderDate(b) || 0;
+                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
+                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
                 return dateB - dateA;
             });
 
@@ -1575,7 +1768,13 @@ function applyManagerFilters() {
         const matchPharm = pharmFilter === '' || (o.pharmacyName && o.pharmacyName.toLowerCase().includes(pharmFilter));
         const matchStatus = statusFilter === '' || o.status === statusFilter;
         
-        const matchDate = isOrderInDateRange(o, fromVal, toVal);
+        let matchDate = true;
+        if (o.createdAt && o.createdAt.toDate) {
+            let oDate = o.createdAt.toDate();
+            oDate.setHours(0,0,0,0);
+            if (fromVal) { let dFrom = new Date(fromVal); dFrom.setHours(0,0,0,0); if (oDate < dFrom) matchDate = false; }
+            if (toVal) { let dTo = new Date(toVal); dTo.setHours(0,0,0,0); if (oDate > dTo) matchDate = false; }
+        }
         return matchRep && matchPharm && matchStatus && matchDate;
     });
 
@@ -1594,31 +1793,35 @@ function renderManagerOrders(orders) {
     }
 
     orders.forEach(order => {
-        const isApproved = order.status === 'approved';
-        const displayDate = formatOrderDateTime(order);
+        const isApproved = !isSupervisorPendingStatus(order.status);
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const tr = document.createElement('tr');
-        tr.className = `row-${order.status}`; // 💡 تلوين شرطي
+        const statusClass = getEffectiveOrderStatus(order) || 'pending';
+        tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
         tr.innerHTML = `
-            <td><input type="checkbox" class="order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
-            <td>${order.id.substring(0, 6).toUpperCase()}</td>
-            <td>${displayDate}</td>
-            <td>${order.repName || '-'}</td>
-            <td>${order.pharmacyName || '-'}</td>
-            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status}">${order.status === 'pending' ? 'قيد الموافقة' : (order.status === 'returned' ? 'مرتجع' : 'موافق عليه')}</span></td>
-            <td>
+            <td data-label="تحديد"><input type="checkbox" class="order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
+            <td data-label="رقم الطلب">${order.id.substring(0, 6).toUpperCase()}</td>
+            <td data-label="التاريخ">${displayDate}</td>
+            <td data-label="المندوب">${order.repName || '-'}</td>
+            <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
+            <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getOrderFollowupNote(order) ? `<div class="workflow-reason" style="margin-top:6px;">${escapePrintHtml(getOrderFollowupNote(order))}</div>` : ''}</td>
+            <td data-label="إجراء">
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
-                ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
+                ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button><button class="action-btn return-rep-btn" title="إرجاع للمندوب"><i class="ph ph-arrow-u-down-right"></i></button>` : ''}
+                ${canCurrentSupervisorDeleteOrder(order) ? `<button class="action-btn delete-btn" title="حذف الطلبية"><i class="ph ph-trash"></i></button>` : ''}
             </td>
         `;
         
         tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'manager');
+        tr.querySelector('.delete-btn')?.addEventListener('click', () => confirmSupervisorDeleteOrder(order.id, order, 'supervisor_row_soft_delete'));
         if (!isApproved) {
+            tr.querySelector('.return-rep-btn')?.addEventListener('click', () => supervisorReturnToRep(order.id, order));
             tr.querySelector('.approve-btn').onclick = async () => { 
                 if(confirm("هل توافق على تمرير الطلبية؟")) { 
-                    await updateDoc(doc(db, "orders", order.id), { status: "approved", updatedAt: new Date() }); 
-                    showToast("تمت الموافقة بنجاح", "success");
+                    await approveOrderBySupervisor(order.id, order, 'supervisor_approved'); 
+                    showToast("تم اعتماد الطلبية وتحويلها إلى مدير السوق", "success");
                 } 
             };
         }
@@ -1648,16 +1851,28 @@ async function handleBulkAction(actionType) {
     if (!confirm(`هل أنت متأكد من ${actionText} ${orderIds.length} طلبية دفعة واحدة؟`)) return;
 
     try {
+        const skipped = [];
         const promises = orderIds.map(id => {
+            const order = managerOrdersData.find(o => o.id === id) || {};
             if (actionType === 'approve') {
-                return updateDoc(doc(db, "orders", id), { status: "approved", updatedAt: new Date() });
-            } else {
-                return deleteDoc(doc(db, "orders", id));
+                if (!isSupervisorPendingStatus(order.status)) {
+                    skipped.push(id);
+                    return Promise.resolve('skipped_not_pending');
+                }
+                return approveOrderBySupervisor(id, order, 'supervisor_bulk_approved');
             }
+            if (!canCurrentSupervisorDeleteOrder(order)) {
+                skipped.push(id);
+                return Promise.resolve('skipped_not_deletable');
+            }
+            return softDeleteOrderBySupervisor(id, order, 'supervisor_bulk_soft_delete');
         });
         
         await Promise.all(promises);
-        showToast("تم تنفيذ العملية المجمعة بنجاح", "success");
+        const skippedMessage = actionType === 'approve'
+            ? `تم تنفيذ الاعتماد للطلبيات القابلة للاعتماد فقط. تم تجاوز ${skipped.length} طلبية.`
+            : `تم حذف الطلبيات المسموح حذفها فقط. تم تجاوز ${skipped.length} طلبية لأنها ليست قبل موافقة المشرف.`;
+        showToast(skipped.length ? skippedMessage : "تم تنفيذ العملية المجمعة بنجاح", skipped.length ? "warning" : "success");
         if(document.getElementById('selectAllOrders')) document.getElementById('selectAllOrders').checked = false;
     } catch (error) {
         showToast("حدث خطأ أثناء التنفيذ", "error");
@@ -1670,7 +1885,7 @@ document.getElementById('bulkDeleteBtn')?.addEventListener('click', () => handle
 async function loadAllCompanyOrders() {
     const tbody = document.getElementById('allOrdersBody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     
     if (unsubAllOrders) unsubAllOrders();
 
@@ -1685,8 +1900,8 @@ async function loadAllCompanyOrders() {
             });
 
             allOrdersData.sort((a, b) => {
-                const dateA = getOrderDate(a) || 0;
-                const dateB = getOrderDate(b) || 0;
+                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
+                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
                 return dateB - dateA;
             });
 
@@ -1709,22 +1924,33 @@ function renderAllOrders(orders) {
     }
     orders.forEach(order => {
         const tr = document.createElement('tr');
-        tr.className = `row-${order.status}`; // 💡 تلوين شرطي
-        const displayDate = formatOrderDateTime(order);
+        const statusClass = getEffectiveOrderStatus(order) || 'pending';
+        tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
+        const canApproveFromAll = canCurrentSupervisorApproveOrder(order);
+        const unassignedBadge = isOrderWithoutAssignedSupervisor(order) ? '<small class="workflow-reason" style="color:#92400e;">بدون مشرف محدد</small>' : '';
         tr.innerHTML = `
-            <td><input type="checkbox" class="all-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
-            <td>${order.id.substring(0,6).toUpperCase()}</td>
-            <td>${displayDate}</td>
-            <td class="all-rep-col">${order.repName || '-'}</td>
-            <td class="all-pharm-col">${order.pharmacyName || '-'}</td>
-            <td>${(parseFloat(order.grandTotal) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td><span class="status-badge ${order.status}">${order.status === 'approved' ? 'موافق عليه' : (order.status === 'pending' ? 'قيد الموافقة' : 'مرتجع')}</span></td>
-            <td><button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
-                <button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
+            <td data-label="تحديد"><input type="checkbox" class="all-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
+            <td data-label="رقم الطلب">${order.id.substring(0,6).toUpperCase()}</td>
+            <td data-label="التاريخ">${displayDate}</td>
+            <td data-label="المندوب" class="all-rep-col">${order.repName || '-'}</td>
+            <td data-label="الصيدلية" class="all-pharm-col">${order.pharmacyName || '-'}${unassignedBadge}</td>
+            <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
+            <td data-label="إجراء"><button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
+                <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
+                ${canApproveFromAll ? `<button class="action-btn approve-all-order-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
+                ${canCurrentSupervisorDeleteOrder(order) ? `<button class="action-btn delete-all-order-btn" title="حذف الطلبية"><i class="ph ph-trash"></i></button>` : ''}</td>
         `;
         tr.querySelector('.edit-btn').onclick = () => openEditOrder(order.id, 'all');
         tr.querySelector('.btn-view').onclick = () => showOrderDetails(order);
+        tr.querySelector('.delete-all-order-btn')?.addEventListener('click', () => confirmSupervisorDeleteOrder(order.id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_soft_delete_unassigned_from_all_orders' : 'supervisor_soft_delete_from_all_orders'));
+        tr.querySelector('.approve-all-order-btn')?.addEventListener('click', async () => {
+            if (!confirm('اعتماد الطلبية وتحويلها إلى مدير السوق؟')) return;
+            await approveOrderBySupervisor(order.id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_approved_unassigned_order' : 'supervisor_approved_all_orders');
+            showToast('تم اعتماد الطلبية وتحويلها إلى مدير السوق', 'success');
+        });
         tbody.appendChild(tr);
     });
     updateAllOrdersStats(orders);
@@ -1732,142 +1958,169 @@ function renderAllOrders(orders) {
 
 function updateAllOrdersStats(orders) {
     const count = orders.length;
-    const ordersTotal = orders
-        .filter(order => order.status !== 'returned' && (parseFloat(order.grandTotal) || 0) >= 0)
-        .reduce((sum, order) => sum + (parseFloat(order.grandTotal) || 0), 0);
-    const returnsTotal = orders
-        .filter(order => order.status === 'returned' || (parseFloat(order.grandTotal) || 0) < 0)
-        .reduce((sum, order) => sum + Math.abs(parseFloat(order.grandTotal) || 0), 0);
-    const netTotal = orders.reduce((sum, order) => sum + (parseFloat(order.grandTotal) || 0), 0);
-
-    const countElem = document.getElementById('totalOrdersCount');
-    const sumElem = document.getElementById('totalOrdersSum');
-    const returnsElem = document.getElementById('totalReturnsSum');
-    const netElem = document.getElementById('totalNetSum');
-
-    if (countElem) countElem.innerText = count;
-    if (sumElem) sumElem.innerText = ordersTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (returnsElem) returnsElem.innerText = returnsTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (netElem) {
-        netElem.innerText = netTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        netElem.style.color = netTotal < 0 ? '#dc2626' : '#7c3aed';
-    }
+    let ordersTotal = 0;
+    let returnsTotal = 0;
+    orders.forEach(order => {
+        const value = parseAppNumber(order.grandTotal);
+        if (value < 0 || order.status === 'returned') returnsTotal += Math.abs(value);
+        else ordersTotal += value;
+    });
+    const netTotal = ordersTotal - returnsTotal;
+    const fmt = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (getEl('totalOrdersCount')) getEl('totalOrdersCount').innerText = count;
+    if (getEl('totalOrdersSum')) getEl('totalOrdersSum').innerText = fmt(ordersTotal);
+    if (getEl('totalReturnsSum')) getEl('totalReturnsSum').innerText = fmt(returnsTotal);
+    if (getEl('totalNetSum')) getEl('totalNetSum').innerText = fmt(netTotal);
 }
 
 function showOrderDetails(order) {
-    modalItemsBody.innerHTML = '';
-    document.getElementById('modalPharmacySubtitle').innerText = `الصيدلية: ${order.pharmacyName} - المندوب: ${order.repName}`;
-    
-    const modalContent = detailsModal.querySelector('.modal-content') || detailsModal.firstElementChild;
+    const modal = getEl('detailsModal');
+    const body = getEl('modalItemsBody');
+    if (!modal || !body) return;
+    detailsModalOrder = order;
+    body.innerHTML = '';
+    const subtitle = getEl('modalPharmacySubtitle');
+    if (subtitle) subtitle.innerText = `الصيدلية: ${order.pharmacyName || '-'} - المندوب: ${order.repName || '-'}${getPharmacyCodeFromOrder(order) ? ' - كود الصيدلية: ' + getPharmacyCodeFromOrder(order) : ''}`;
+
+    const noteContainer = getEl('modalOrderNoteContainer');
+    const noteText = getEl('modalOrderNoteText');
+    if (noteContainer && noteText) {
+        const note = order.orderNote || order.note || '';
+        noteContainer.style.display = note ? 'block' : 'none';
+        noteText.innerText = note;
+    }
+
+
+    const financeNote = getFinanceWorkflowNote(order);
+    let detailNotice = document.getElementById('modalFinanceNotice');
+    if (!detailNotice) {
+        detailNotice = document.createElement('div');
+        detailNotice.id = 'modalFinanceNotice';
+        detailNotice.className = 'workflow-banner';
+        const container = noteContainer?.parentElement || modal.querySelector('.modal-content');
+        container?.insertBefore(detailNotice, (body.closest('.table-responsive') || body.parentElement));
+    }
+    if (detailNotice) {
+        if (financeNote) {
+            detailNotice.style.display = 'block';
+            detailNotice.innerHTML = `<strong>ملاحظة المالية للمتابعة:</strong> ${escapePrintHtml(financeNote)}`;
+        } else {
+            detailNotice.style.display = 'none';
+            detailNotice.innerHTML = '';
+        }
+    }
+
+    const modalContent = modal.querySelector('.modal-content') || modal.firstElementChild;
     if(modalContent) {
         modalContent.style.display = 'flex';
         modalContent.style.flexDirection = 'column';
         modalContent.style.maxHeight = '90vh';
-        
-        const tableWrap = modalItemsBody.closest('.table-responsive') || modalItemsBody.parentElement;
+        const tableWrap = body.closest('.table-responsive') || body.parentElement;
         if(tableWrap) {
             tableWrap.style.flex = '1';
             tableWrap.style.overflowY = 'auto';
         }
     }
 
-    order.items.forEach(i => {
+    const items = Array.isArray(order.items) ? order.items : [];
+    items.forEach(i => {
         const row = document.createElement('tr');
-        
-        // 🟢 حساب نسبة البونص وعرضها ديناميكياً
-        const qtyVal = parseFloat(i.qty) || 0;
-        const bonusVal = parseFloat(i.bonus) || 0;
-        let bonusPctStr = "";
-        if (qtyVal > 0 && bonusVal > 0) {
-            bonusPctStr = `<div style="font-size:0.75rem; color:var(--primary); font-weight:bold; margin-top:2px;">${Math.round((bonusVal / qtyVal) * 100)}% بونص</div>`;
-        }
-
+        const qtyVal = parseAppNumber(i.qty);
+        const bonusVal = parseAppNumber(i.bonus);
+        const bonusPctStr = (qtyVal > 0 && bonusVal > 0)
+            ? `<div style="font-size:0.75rem; color:var(--primary); font-weight:bold; margin-top:2px;">${Math.round((bonusVal / qtyVal) * 100)}% بونص</div>`
+            : '';
         row.innerHTML = `
-            <td style="text-align: center; font-weight:700; color:var(--primary);">${getItemProductCode(i)}</td>
-            <td style="font-weight:600;">${i.name}</td>
-            <td style="text-align: center;">${i.qty}</td>
-            <td style="text-align: center;">${i.bonus||0} ${bonusPctStr}</td>
-            <td style="text-align: center;">${parseFloat(i.price).toFixed(2)}</td>
-            <td style="text-align: center;">${parseFloat(i.total).toFixed(2)}</td>
+            <td style="font-weight:600;">${i.name || '-'}</td>
+            <td>${getProductCodeFromItem(i) || '-'}</td>
+            <td style="text-align:center;">${qtyVal}</td>
+            <td style="text-align:center;">${bonusVal} ${bonusPctStr}</td>
+            <td style="text-align:center;">${parseAppNumber(i.price).toFixed(2)}</td>
+            <td style="text-align:center;">${parseAppNumber(i.total).toFixed(2)}</td>
             <td>${i.note || '-'}</td>
         `;
-        modalItemsBody.appendChild(row);
+        body.appendChild(row);
     });
-    detailsModal.style.display = 'flex';
+    let footer = getEl('detailsModalActions');
+    if (!footer) {
+        footer = document.createElement('div');
+        footer.id = 'detailsModalActions';
+        footer.className = 'workflow-modal-footer';
+        footer.style.marginTop = '16px';
+        footer.style.display = 'flex';
+        footer.style.justifyContent = 'space-between';
+        footer.style.gap = '10px';
+        footer.style.flexWrap = 'wrap';
+        modal.querySelector('.modal-content')?.appendChild(footer);
+    }
+    if (APP_PAGE === 'supervisor') {
+        const canApprove = canCurrentSupervisorApproveOrder(order);
+        const canDelete = canCurrentSupervisorDeleteOrder(order);
+        footer.innerHTML = `
+            <button class="btn-secondary" id="detailsEditOrderBtn" type="button"><i class="ph ph-pencil"></i> تعديل الكميات / الأصناف / البونص</button>
+            ${canApprove ? `<button class="btn-success" id="detailsApproveOrderBtn" type="button"><i class="ph ph-check-circle"></i> اعتماد الطلبية</button>` : ''}
+            ${canDelete ? `<button class="btn-danger" id="detailsDeleteOrderBtn" type="button"><i class="ph ph-trash"></i> حذف الطلبية</button>` : ''}
+        `;
+        getEl('detailsEditOrderBtn')?.addEventListener('click', () => { modal.style.display = 'none'; openEditOrder(order.id, 'all'); });
+        getEl('detailsApproveOrderBtn')?.addEventListener('click', async () => {
+            if (!detailsModalOrder || !confirm('اعتماد الطلبية وتحويلها إلى مدير السوق؟')) return;
+            await approveOrderBySupervisor(detailsModalOrder.id, detailsModalOrder, isOrderWithoutAssignedSupervisor(detailsModalOrder) ? 'supervisor_approved_unassigned_order_from_popup' : 'supervisor_approved_from_popup');
+            showToast('تم اعتماد الطلبية وتحويلها إلى مدير السوق', 'success');
+            modal.style.display = 'none';
+        });
+        getEl('detailsDeleteOrderBtn')?.addEventListener('click', async () => {
+            if (!detailsModalOrder) return;
+            await confirmSupervisorDeleteOrder(detailsModalOrder.id, detailsModalOrder, isOrderWithoutAssignedSupervisor(detailsModalOrder) ? 'supervisor_soft_delete_unassigned_from_popup' : 'supervisor_soft_delete_from_popup');
+            modal.style.display = 'none';
+        });
+    } else {
+        footer.innerHTML = '';
+        footer.style.display = 'none';
+    }
+    modal.style.display = 'flex';
 }
-function filterAllOrders() {
-    const repFilter = (document.getElementById('filterAllRep').value || '').toLowerCase().trim();
-    const pharmFilter = (document.getElementById('filterAllPharmacy').value || '').toLowerCase().trim();
-    const statusFilter = (document.getElementById('filterAllStatus').value || '').trim();
 
-    const fromVal = document.getElementById('managerFilterFrom')?.value;
-    const toVal = document.getElementById('managerFilterTo')?.value;
+function filterAllOrders() {
+    const repFilter = (getEl('filterAllRep')?.value || '').toLowerCase().trim();
+    const pharmFilter = (getEl('filterAllPharmacy')?.value || '').toLowerCase().trim();
+    const statusFilter = (getEl('filterAllStatus')?.value || '').trim();
+    const fromVal = getEl('managerFilterFrom')?.value;
+    const toVal = getEl('managerFilterTo')?.value;
 
     const filtered = allOrdersData.filter(order => {
         const repName = (order.repName || '').toLowerCase();
         const pharmName = (order.pharmacyName || '').toLowerCase();
         const orderStatus = (order.status || '').trim();
-
-        let matchDate = true;
-        if (order.createdAt && order.createdAt.toDate) {
-            let oDate = order.createdAt.toDate();
-            oDate.setHours(0,0,0,0);
-            
-            if (fromVal) { let dFrom = new Date(fromVal); dFrom.setHours(0,0,0,0); if (oDate < dFrom) matchDate = false; }
-            if (toVal) { let dTo = new Date(toVal); dTo.setHours(0,0,0,0); if (oDate > dTo) matchDate = false; }
-        }
-
         return repName.includes(repFilter) &&
                pharmName.includes(pharmFilter) &&
                (statusFilter === '' || orderStatus === statusFilter) &&
-               matchDate;
+               isOrderInDateRange(order, fromVal, toVal);
     });
 
     renderAllOrders(filtered);
-    updateAdvancedManagerDashboard(filtered); // تحديث لوحة الإحصائيات
+    updateAdvancedManagerDashboard(filtered);
 }
 
-document.getElementById('exportAllOrdersBtn').onclick = async () => {
-    const btn = document.getElementById('exportAllOrdersBtn');
+const exportAllOrdersBtn = getEl('exportAllOrdersBtn');
+if (exportAllOrdersBtn) exportAllOrdersBtn.onclick = () => {
+    const btn = exportAllOrdersBtn;
     btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري التجهيز...";
-    
     try {
-        const repFilter = (document.getElementById('filterAllRep').value || '').toLowerCase().trim();
-        const pharmFilter = (document.getElementById('filterAllPharmacy').value || '').toLowerCase().trim();
-        const statusFilter = (document.getElementById('filterAllStatus').value || '').trim();
-        const fromVal = document.getElementById('managerFilterFrom')?.value;
-        const toVal = document.getElementById('managerFilterTo')?.value;
-
-        await refreshPharmacyCodeIndex(true);
-
-        const ordersToExport = allOrdersData.filter(order => {
-            const repName = (order.repName || '').toLowerCase();
-            const pharmName = (order.pharmacyName || '').toLowerCase();
-            const orderStatus = (order.status || '').trim();
-            return repName.includes(repFilter) &&
-                   pharmName.includes(pharmFilter) &&
-                   (statusFilter === '' || orderStatus === statusFilter) &&
-                   isOrderInDateRange(order, fromVal, toVal);
-        });
-
-        const flatData = exportOrderRows(ordersToExport);
-        if(flatData.length === 0) { 
-            showToast("لا توجد بيانات مطابقة للفلاتر للتصدير", "warning"); 
-            btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير الطلبيات المفلترة";
-            return; 
+        const ordersToExport = getCurrentFilteredAllOrders();
+        const flatData = buildFlatOrderExportRows(ordersToExport);
+        if(flatData.length === 0) {
+            showToast("لا توجد بيانات مطابقة للفلاتر للتصدير", "warning");
+            return;
         }
-        
         const ws = XLSX.utils.json_to_sheet(flatData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "الطلبيات");
         XLSX.writeFile(wb, "تقرير_الطلبيات_المفلترة.xlsx");
-        
         showToast("تم تصدير الملف بنجاح", "success");
-        
-    } catch(e) { 
-        showToast("حدث خطأ أثناء التصدير", "error"); 
-    } finally { 
-        btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير الطلبيات المفلترة"; 
+    } catch(e) {
+        showToast("حدث خطأ أثناء التصدير", "error");
+    } finally {
+        btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير الطلبيات المفلترة";
     }
 };
 
@@ -1891,8 +2144,8 @@ async function openEditOrder(orderId, userType) {
     const orderDoc = await getDoc(doc(db, "orders", orderId));
     if (!orderDoc.exists()) return showToast("الطلب غير موجود بالقاعدة.", "error");
     const order = orderDoc.data();
-    const originalOrderStatus = order.status || "pending";
     editingOrderId = orderId;
+    const isRepresentativeReturnedEdit = userType === 'representative' && canRepresentativeEditReturnedOrder({ id: orderId, ...order });
 
     let repOptionsHTML = '<option value="">-- اختر المندوب --</option>';
     const mainRepSelect = document.getElementById('repSelect');
@@ -1928,7 +2181,7 @@ async function openEditOrder(orderId, userType) {
                 <div style="display: flex; gap: 15px; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0;">
                     <div style="flex: 1; min-width: 200px;">
                         <label style="font-weight: 600; font-size: 14px; margin-bottom: 8px; display: block; color: #333;">المندوب:</label>
-                        <select id="editRepSelect" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;">
+                        <select id="editRepSelect" ${isRepresentativeReturnedEdit ? 'disabled' : ''} style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;">
                             ${repOptionsHTML}
                         </select>
                     </div>
@@ -2023,11 +2276,9 @@ async function openEditOrder(orderId, userType) {
         if (grandTotalEl) grandTotalEl.innerText = total.toFixed(2);
     }
 
-function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='', productCode='') {
+function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='') {
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid #eee";
-        const existingProduct = productsList.find(prod => prod.name === productName);
-        tr.dataset.productCode = productCode || existingProduct?.code || existingProduct?.productCode || existingProduct?.itemCode || "-";
         tr.innerHTML = `
             <td style="padding: 8px;"><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:200px; padding:8px; border:1px solid #ccc; border-radius:4px; outline:none;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
             <td style="padding: 8px; text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 65px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"></td>
@@ -2058,8 +2309,8 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
 
         setupAutocomplete(s, sug, productNames, (selectedName) => { 
             const prod = productsList.find(pr => pr.name === selectedName); 
-            tr.dataset.productCode = prod?.code || prod?.productCode || prod?.itemCode || "-";
             const pr = prod ? parseFloat(prod.price) : 0; 
+            s.dataset.productCode = prod?.productCode || prod?.product_code || prod?.code || ''; 
             p.innerText = pr.toFixed(2); 
             t.innerText = (pr * q.value).toFixed(2); 
             updateEditTotal(); 
@@ -2087,7 +2338,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         updateEditTotal();
     }    
     if (order.items && order.items.length > 0) {
-        order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total, item.note || '', item.code || item.productCode || item.itemCode || ''); });
+        order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total, item.note || ''); });
     } else { addEditRow(); }   
     const editAddBtn = document.getElementById('editAddRowBtn');
     if (editAddBtn) editAddBtn.onclick = () => addEditRow();
@@ -2116,19 +2367,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                     if (!isValid) { invalidItem = true; inp.style.border = "2px solid red"; } 
                     else {
                         inp.style.border = "1px solid #ccc";
-                        const selectedProd = productsList.find(prod => prod.name === inp.value.trim());
-                        const productCode = selectedProd?.code || selectedProd?.productCode || selectedProd?.itemCode || r.dataset.productCode || "-";
-                        items.push({ 
-                            name: inp.value, 
-                            code: productCode,
-                            productCode: productCode,
-                            itemCode: productCode,
-                            qty: r.querySelector('.qty-input').value, 
-                            bonus: r.querySelector('.bonus-input').value || 0, 
-                            price: r.querySelector('.price-cell').innerText, 
-                            total: r.querySelector('.row-total').innerText,
-                            note: r.querySelector('.item-note-input').value.trim()
-                        });                    
+                        items.push(createProductItemFromRow(r));                    
                     }
                 }
             });
@@ -2140,11 +2379,14 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 const grandTotalEl = document.getElementById('editGrandTotal');
                 const newGrandTotal = grandTotalEl ? parseFloat(grandTotalEl.innerText) : 0;
                 
-                await updateDoc(doc(db, "orders", editingOrderId), { 
+                const workflowReset = (isSupervisorPendingStatus(order.status) || isRepresentativeReturnedEdit)
+                    ? { status: "pending_supervisor_approval", workflowStage: "supervisor", supervisorStatus: "pending_supervisor_approval", returnResolvedAt: new Date(), returnResolvedBy: newRepName }
+                    : {};
+                await updateOrderWithAudit(editingOrderId, { 
                     repId: newRepId, repName: newRepName, managerName: getManagerName(newRepName), 
-                    pharmacyName: newPharmName, pharmacyCode: selectedPharm.pharmacy_code || "-",
-                    items: items, grandTotal: newGrandTotal, status: originalOrderStatus, updatedAt: new Date() 
-                });
+                    pharmacyName: newPharmName, pharmacyCode: selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || "",
+                    items: items, grandTotal: newGrandTotal, ...workflowReset
+                }, buildAuditEntry(isRepresentativeReturnedEdit ? 'representative_resubmitted_returned_order' : 'supervisor_order_edited', isRepresentativeReturnedEdit ? newRepName : (currentManagerName || 'Supervisor'), isRepresentativeReturnedEdit ? 'representative' : 'supervisor', { orderId: editingOrderId, status: order.status || '' }, { grandTotal: newGrandTotal, status: workflowReset.status || order.status || '' }));
                 showToast("تم تحديث الطلبية بنجاح", "success");
                 closeEditModal();
             } catch (e) { showToast("حدث خطأ أثناء التحديث", "error"); }
@@ -2159,46 +2401,47 @@ function closeEditModal() {
 window.closeEditModal = closeEditModal;
 
 async function loadReports() {
-    const body = document.getElementById('reportsBody');
+    const body = getEl('reportsBody');
+    if (!body) return;
     body.innerHTML = '<tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
-    
     if(unsubReports) unsubReports();
 
     try {
         unsubReports = onSnapshot(collection(db, "orders"), (snap) => {
-            reportsOrdersData = [];
-            snap.forEach(d => reportsOrdersData.push({ id: d.id, ...d.data() }));
-            reportsOrdersData.sort((a,b) => (getOrderDate(b) || 0) - (getOrderDate(a) || 0));
-            if (!isAdmin && currentRepName) reportsOrdersData = reportsOrdersData.filter(o => o.repName === currentRepName);
+            let os = [];
+            snap.forEach(d => os.push({ id: d.id, ...d.data() }));
+            os.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
+            if (!isAdmin && currentRepName) os = os.filter(o => o.repName === currentRepName);
+            reportsOrdersData = os;
             body.innerHTML = '';
-            const selectAllReports = document.getElementById('selectAllReportsOrders');
-            if (selectAllReports) selectAllReports.checked = false;
-            reportsOrdersData.forEach(o => {
+            if (os.length === 0) {
+                body.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات</h3></div></td></tr>`;
+                return;
+            }
+            os.forEach(o => {
                 const tr = document.createElement('tr');
-                tr.className = `row-${o.status}`; // 💡 تلوين شرطي
-                tr.innerHTML = `<td><input type="checkbox" class="reports-order-checkbox" value="${o.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td><td><b>${o.id.substring(0,5).toUpperCase()}</b></td><td>${formatOrderDateTime(o)}</td><td class="rep-col">${o.repName}</td><td class="pharm-col">${o.pharmacyName}</td><td>${parseFloat(o.grandTotal).toFixed(2)}</td><td><span class="status-badge ${o.status}">${getStatusArabic(o.status)}</span></td><td><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>`;
-                tr.querySelector('.btn-view').onclick = () => { showOrderDetails(o); };
+                tr.className = `row-${o.status}`;
+                tr.innerHTML = `
+                    <td data-label="تحديد"><input type="checkbox" class="report-order-checkbox" value="${o.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
+                    <td data-label="رقم الطلب"><b>${o.id.substring(0,5).toUpperCase()}</b></td>
+                    <td data-label="التاريخ">${formatDateTime(o.createdAt)}</td>
+                    <td data-label="المندوب" class="rep-col">${o.repName || '-'}</td>
+                    <td data-label="الصيدلية" class="pharm-col">${o.pharmacyName || '-'}</td>
+                    <td data-label="القيمة">${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td data-label="الحالة"><span class="status-badge ${getEffectiveOrderStatus(o)}">${getWorkflowStatusLabel(getEffectiveOrderStatus(o))}</span></td>
+                    <td data-label="إجراء"><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>
+                `;
+                tr.querySelector('.btn-view').onclick = () => showOrderDetails(o);
                 body.appendChild(tr);
             });
-            filterReportsTable(); 
+            filterReportsTable();
         });
     } catch(e) { showToast("خطأ في الاتصال بالبيانات", "error"); }
 }
 
-function getFilteredReportsOrders() {
-    const repFilter = (document.getElementById('filterRep')?.value || '').toLowerCase().trim();
-    const pharmFilter = (document.getElementById('filterPharmacy')?.value || '').toLowerCase().trim();
-
-    return reportsOrdersData.filter(order => {
-        const rep = (order.repName || '').toLowerCase();
-        const pharm = (order.pharmacyName || '').toLowerCase();
-        return rep.includes(repFilter) && pharm.includes(pharmFilter);
-    });
-}
-
 function filterReportsTable() {
-    const repFilter = document.getElementById('filterRep').value.toLowerCase();
-    const pharmFilter = document.getElementById('filterPharmacy').value.toLowerCase();
+    const repFilter = (getEl('filterRep')?.value || '').toLowerCase();
+    const pharmFilter = (getEl('filterPharmacy')?.value || '').toLowerCase();
     document.querySelectorAll('#reportsBody tr').forEach(row => {
         if(row.children.length > 1) {
             const rep = row.querySelector('.rep-col')?.innerText.toLowerCase() || '';
@@ -2207,38 +2450,63 @@ function filterReportsTable() {
         }
     });
 }
-document.getElementById('filterRep').oninput = filterReportsTable;
-document.getElementById('filterPharmacy').oninput = filterReportsTable;
+getEl('filterRep')?.addEventListener('input', filterReportsTable);
+getEl('filterPharmacy')?.addEventListener('input', filterReportsTable);
+getEl('selectAllReportsOrders')?.addEventListener('change', function() {
+    document.querySelectorAll('.report-order-checkbox').forEach(cb => cb.checked = this.checked);
+});
 
-document.getElementById('exportExcelBtn').onclick = async () => {
-    const btn = document.getElementById('exportExcelBtn');
+const exportExcelBtn = getEl('exportExcelBtn');
+if (exportExcelBtn) exportExcelBtn.onclick = async () => {
+    const btn = exportExcelBtn;
     btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري...";
     try {
-        await refreshPharmacyCodeIndex(true);
-        const ordersToExport = getFilteredReportsOrders();
-        const flatData = exportOrderRows(ordersToExport);
-        if (flatData.length === 0) { showToast("لا توجد بيانات مطابقة للفلاتر للتصدير", "warning"); return; }
+        const snap = await getDocs(collection(db, "orders"));
+        let allOrders = [];
+        snap.forEach(d => allOrders.push({ id: d.id, ...d.data() }));
+        if (!isAdmin && currentRepName) allOrders = allOrders.filter(o => o.repName === currentRepName);
+        const flatData = buildFlatOrderExportRows(allOrders);
+        if (flatData.length === 0) { showToast("لا توجد بيانات للتصدير", "warning"); return; }
         const ws = XLSX.utils.json_to_sheet(flatData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "الطلبيات");
-        XLSX.writeFile(wb, "تقرير_طلبيات_مفلتر.xlsx");
-        showToast("اكتمل تصدير البيانات المفلترة فقط", "success");
-    } catch (e) { showToast("حدث خطأ في استخراج البيانات", "error"); } 
+        XLSX.writeFile(wb, "تقرير_طلبيات.xlsx");
+        showToast("اكتمل التصدير!", "success");
+    } catch (e) { showToast("حدث خطأ في استخراج البيانات", "error"); }
     finally { btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير للاكسل"; }
 };
 
-document.getElementById('navOrderBtn').onclick = () => {
+const navOrderBtn = getEl('navOrderBtn');
+if (navOrderBtn) navOrderBtn.onclick = () => {
     document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
-    document.getElementById('orderScreen').style.display = 'block';
+    getEl('orderScreen').style.display = 'block';
     document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
-    document.getElementById('navOrderBtn').classList.add('active'); 
+    navOrderBtn.classList.add('active');
 };
-document.getElementById('navMyOrdersBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('myOrdersScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navMyOrdersBtn').classList.add('active'); loadMyOrders(); };
-document.getElementById('navReportsBtn').onclick = () => { document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); document.getElementById('reportsScreen').style.display = 'block'; document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active')); document.getElementById('navReportsBtn').classList.add('active'); loadReports(); };
-document.getElementById('logoutBtn').onclick = () => {
-    if (isAdmin || currentManagerName) clearSavedAdminSession();
+const navMyOrdersBtn = getEl('navMyOrdersBtn');
+if (navMyOrdersBtn) navMyOrdersBtn.onclick = () => {
+    document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+    getEl('myOrdersScreen').style.display = 'block';
+    document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+    navMyOrdersBtn.classList.add('active');
+    loadMyOrders();
+};
+const navReportsBtn = getEl('navReportsBtn');
+if (navReportsBtn) navReportsBtn.onclick = () => {
+    document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+    getEl('reportsScreen').style.display = 'block';
+    document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+    navReportsBtn.classList.add('active');
+    loadReports();
+};
+const logoutBtn = getEl('logoutBtn');
+if (logoutBtn) logoutBtn.onclick = () => {
+    if (!confirm("هل أنت متأكد من تسجيل الخروج؟")) return;
     clearRepSession();
-    if(confirm("هل أنت متأكد من تسجيل الخروج؟")) location.reload();
+    clearAdminSession();
+    sessionStorage.removeItem('activeOrderContext');
+    sessionStorage.removeItem('adminOrderMode');
+    window.location.href = 'login.html';
 };
 
 let selectedAdminType = null;
@@ -2254,77 +2522,52 @@ document.querySelectorAll('.btn-admin-opt').forEach(btn => {
     };
 });
 
-document.getElementById('adminModeBtn').onclick = () => {
-    const savedSession = getSavedAdminSession();
-    if (savedSession && getAdminRememberPreference()) {
-        resumeSavedAdminSession(savedSession);
-        return;
-    }
-
+const adminModeBtn = getEl('adminModeBtn');
+if (adminModeBtn) adminModeBtn.onclick = () => {
     const isNoticeShown = localStorage.getItem('systemUpdate_v1');
-    if (!isNoticeShown) {
-        document.getElementById('updateNoticeModal').style.display = 'flex';
-        document.getElementById('closeUpdateNoticeBtn').onclick = () => {
-            document.getElementById('updateNoticeModal').style.display = 'none';
-            localStorage.setItem('systemUpdate_v1', 'true'); 
+    if (!isNoticeShown && getEl('updateNoticeModal')) {
+        getEl('updateNoticeModal').style.display = 'flex';
+        const closeBtn = getEl('closeUpdateNoticeBtn');
+        if (closeBtn) closeBtn.onclick = () => {
+            getEl('updateNoticeModal').style.display = 'none';
+            localStorage.setItem('systemUpdate_v1', 'true');
             openAdminLoginBox();
         };
     } else { openAdminLoginBox(); }
 };
 
 function openAdminLoginBox() {
-    syncAdminRememberControls(getAdminRememberPreference());
-    document.getElementById('adminLoginModal').style.display = 'flex';
-    document.getElementById('adminPasswordInput').value = ''; 
-    setTimeout(() => document.getElementById('adminPasswordInput')?.focus(), 80);
+    const modal = getEl('adminLoginModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    const passInput = getEl('adminPasswordInput');
+    if (passInput) { passInput.value = ''; passInput.focus(); }
 }
 
-document.getElementById('adminPasswordInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('confirmAdminLoginBtn').click(); }
+getEl('adminPasswordInput')?.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); getEl('confirmAdminLoginBtn')?.click(); }
 });
 
-document.getElementById('confirmAdminLoginBtn').onclick = (e) => {
-    e.preventDefault(); // 🟢 أضف هذا السطر لمنع الريفريش عند دخول المدير
-    if (!selectedAdminType) { return showToast("الرجاء تحديد هويتك من البطاقات أعلاه", "warning"); }
-    
-    const pass = document.getElementById('adminPasswordInput').value;   
-    
-    // 🔐 التحديث الأمني: استخدام التشفير للتأكد بدل النص الصريح. (btoa(202604) == "MjAyNjA0")
+const confirmAdminLoginBtn = getEl('confirmAdminLoginBtn');
+if (confirmAdminLoginBtn) confirmAdminLoginBtn.onclick = (e) => {
+    e.preventDefault();
+    if (!selectedAdminType) return showToast("الرجاء تحديد هويتك من البطاقات أعلاه", "warning");
+    const pass = getEl('adminPasswordInput')?.value || '';
     const SECRET_HASH = "MjAyNjA0";
-    
     if (btoa(pass) === SECRET_HASH) {
-        const rememberMe = document.getElementById('rememberAdmin').checked || getAdminRememberPreference();
-        setAdminRememberPreference(rememberMe);
-        
-        // ✅ التعديل هنا: إضافة encodeURIComponent ليدعم الأسماء العربية بدون أخطاء
-        const authToken = btoa(encodeURIComponent(selectedAdminName + ":" + new Date().getTime())); 
-        
-        if (rememberMe) {
-            localStorage.setItem('managerName', selectedAdminName);
-            localStorage.setItem('adminType', selectedAdminType);
-            localStorage.setItem('authToken', authToken); 
-        } else {
-            sessionStorage.setItem('managerName', selectedAdminName);
-            sessionStorage.setItem('adminType', selectedAdminType);
-            sessionStorage.setItem('authToken', authToken);
-            localStorage.removeItem('managerName');
-            localStorage.removeItem('adminType');
-            localStorage.removeItem('authToken');
-        }
-
+        const rememberMe = !!(getEl('rememberAdmin')?.checked || getEl('rememberMe')?.checked);
+        saveAdminSession(selectedAdminName, selectedAdminType, rememberMe);
         if (selectedAdminType === 'reports') {
-            window.location.href = 'mohammad.html';
+            sessionStorage.removeItem('adminOrderMode');
+            window.location.href = 'reports.html';
         } else {
-            isAdmin = true;
-            currentManagerName = selectedAdminName;
-            document.getElementById('adminLoginModal').style.display = 'none';
-            initializeManagerView(selectedAdminName);
+            window.location.href = 'supervisor.html';
         }
     } else {
         showToast("رمز المرور غير صحيح!", "error");
     }
 };
-document.getElementById('selectAllAllOrders')?.addEventListener('change', function() {
+getEl('selectAllAllOrders')?.addEventListener('change', function() {
     const checkboxes = document.querySelectorAll('.all-order-checkbox');
     checkboxes.forEach(cb => cb.checked = this.checked);
 });
@@ -2332,76 +2575,39 @@ document.getElementById('selectAllAllOrders')?.addEventListener('change', functi
 async function handleAllOrdersBulkAction(actionType) {
     const selectedCheckboxes = document.querySelectorAll('.all-order-checkbox:checked');
     const orderIds = Array.from(selectedCheckboxes).map(cb => cb.value);
-    
     if (orderIds.length === 0) { return showToast("الرجاء تحديد طلبية واحدة على الأقل", "warning"); }
-
     const actionText = actionType === 'approve' ? 'الموافقة على' : 'حذف';
     if (!confirm(`تحذير: هل أنت متأكد من ${actionText} ${orderIds.length} طلبية دفعة واحدة؟`)) return;
-
     try {
+        const skipped = [];
         const promises = orderIds.map(id => {
+            const order = allOrdersData.find(o => o.id === id) || {};
             if (actionType === 'approve') {
-                return updateDoc(doc(db, "orders", id), { status: "approved", updatedAt: new Date() });
-            } else { return deleteDoc(doc(db, "orders", id)); }
+                if (!canCurrentSupervisorApproveOrder(order)) {
+                    skipped.push(id);
+                    return Promise.resolve('skipped_not_allowed');
+                }
+                return approveOrderBySupervisor(id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_bulk_approved_unassigned_orders' : 'supervisor_bulk_approved_all_orders');
+            }
+            if (!canCurrentSupervisorDeleteOrder(order)) {
+                skipped.push(id);
+                return Promise.resolve('skipped_not_allowed_to_delete');
+            }
+            return softDeleteOrderBySupervisor(id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_bulk_soft_delete_unassigned_orders' : 'supervisor_bulk_soft_delete_all_orders');
         });
-        
         await Promise.all(promises);
-        showToast("تم تنفيذ الأمر بنجاح", "success");
-        if(document.getElementById('selectAllAllOrders')) document.getElementById('selectAllAllOrders').checked = false;
+        showToast(skipped.length ? `تم تنفيذ الأمر على الطلبيات المسموحة فقط. تم تجاوز ${skipped.length} طلبية.` : "تم تنفيذ الأمر بنجاح", skipped.length ? "warning" : "success");
+        if(getEl('selectAllAllOrders')) getEl('selectAllAllOrders').checked = false;
     } catch (error) { showToast("حدث خطأ أثناء التنفيذ الشامل", "error"); }
 }
 
-document.getElementById('bulkApproveAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('approve'));
-document.getElementById('bulkDeleteAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('delete'));
-    
+getEl('bulkApproveAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('approve'));
+getEl('bulkDeleteAllBtn')?.addEventListener('click', () => handleAllOrdersBulkAction('delete'));
 
-document.getElementById('selectAllMyOrders')?.addEventListener('change', function() {
-    document.querySelectorAll('.my-order-checkbox').forEach(cb => cb.checked = this.checked);
-});
-
-document.getElementById('selectAllReportsOrders')?.addEventListener('change', function() {
-    document.querySelectorAll('.reports-order-checkbox').forEach(cb => cb.checked = this.checked);
-});
-
-document.getElementById('selectAllPharmacyHistoryOrders')?.addEventListener('change', function() {
-    document.querySelectorAll('.pharmacy-history-order-checkbox').forEach(cb => cb.checked = this.checked);
-});
-
-
-['myOrdersFilterFrom', 'myOrdersFilterTo', 'myOrdersFilterPharmacy'].forEach(id => {
-    document.getElementById(id)?.addEventListener(id === 'myOrdersFilterPharmacy' ? 'input' : 'change', applyMyOrdersFilters);
-});
-
-document.getElementById('printMyOrdersBtn')?.addEventListener('click', async () => {
-    await refreshPharmacyCodeIndex(true);
-    printOrders(resolveSelectedOrders('.my-order-checkbox', [myOrdersData]));
-});
-
-document.getElementById('printReportsBtn')?.addEventListener('click', async () => {
-    await refreshPharmacyCodeIndex(true);
-    printOrders(resolveSelectedOrders('.reports-order-checkbox', [reportsOrdersData]));
-});
-
-document.getElementById('printPharmacyHistoryBtn')?.addEventListener('click', async () => {
-    await refreshPharmacyCodeIndex(true);
-    printOrders(resolveSelectedOrders('.pharmacy-history-order-checkbox', [pharmacyHistoryData]));
-});
-
-
-document.getElementById('printManagerOrdersBtn')?.addEventListener('click', async () => {
-    await refreshPharmacyCodeIndex(true);
-    printOrders(resolveSelectedOrders('.order-checkbox', [managerOrdersData, allOrdersData]));
-});
-
-document.getElementById('printAllOrdersBtn')?.addEventListener('click', async () => {
-    await refreshPharmacyCodeIndex(true);
-    printOrders(resolveSelectedOrders('.all-order-checkbox', [allOrdersData]));
-});
-
-window.closeModal = () => detailsModal.style.display = 'none';
+window.closeModal = () => { const modal = getEl('detailsModal'); if (modal) modal.style.display = 'none'; detailsModalOrder = null; };
 
 // تشغيل التحميل المبدئي
-loadInitialData().then(restoreSavedLoginState);
+loadInitialData();
 
 // فلاتر التاريخ (للمدير)
 const managerFilterFrom = document.getElementById('managerFilterFrom');

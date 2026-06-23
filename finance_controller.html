@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<link href="favicon.ico?v=20260623_modal_finance_note_fix1" rel="icon"/>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
+<title>Hamza Finance Controller | نظام الطلبيات</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="style.css?v=20260623_modal_finance_note_fix1" rel="stylesheet"/>
+<meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
+<meta content="no-cache" http-equiv="Pragma"/>
+<meta content="0" http-equiv="Expires"/>
+</head>
+<body data-page="finance-controller">
+<div class="offline-banner" id="offline-banner"><i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال.</div>
+<div class="bg-shapes"><div class="shape shape-1"></div><div class="shape shape-2"></div></div>
+<div class="app-container workflow-page-shell">
+<header class="glass-panel workflow-header">
+    <div class="logo-area"><img alt="Dar Al Dawaa Logo" class="logo" src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png"/><div><h1>Finance Controller</h1><p>اعتماد Hamza المالي للطلبيات المعتمدة من مدير السوق</p></div></div>
+</header>
+<main class="glass-panel workflow-main">
+    <section class="workflow-stats-grid"><div class="workflow-stat-card"><span>عدد الطلبيات</span><strong id="ordersCount">0</strong></div><div class="workflow-stat-card"><span>القيمة المعروضة</span><strong id="ordersValue">0.00 د.ا</strong></div></section>
+    <section class="workflow-filters">
+        <div><label>من تاريخ</label><input id="filterDateFrom" type="date"></div>
+        <div><label>إلى تاريخ</label><input id="filterDateTo" type="date"></div>
+        <div><label>الصيدلية</label><input id="filterPharmacy" type="search" placeholder="بحث بالصيدلية أو الكود"></div>
+        <div><label>الحالة</label><select id="filterStatus"><option value="">الكل</option><option value="finance_pending">بانتظار المالية</option><option value="finance_rejected">مرفوض مالياً</option><option value="returned_to_finance">مرجعة للمالية</option></select></div>
+    </section>
+    <section class="workflow-toolbar">
+        <button class="btn-success" id="financeExportSelectedBtn" type="button"><i class="ph ph-file-xls"></i> تصدير المحدد</button>
+        <button class="btn-secondary" id="financeExportVisibleBtn" type="button"><i class="ph ph-download-simple"></i> تصدير كل الظاهر</button>
+    </section>
+    <div class="table-responsive workflow-table-wrap">
+        <table class="order-table workflow-table finance-workflow-table">
+            <thead><tr><th><input id="selectAllWorkflow" type="checkbox"></th><th>التاريخ</th><th>كود الصيدلية</th><th>اسم الصيدلية</th><th>المندوب</th><th>ملاحظة الطلبية</th><th>قيمة الطلبية</th><th>Action</th></tr></thead>
+            <tbody id="financeOrdersBody"><tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr></tbody>
+        </table>
+    </div>
+</main>
+</div>
+<div id="toast-container"></div>
+<script src="js/workflow.js?v=20260623_modal_finance_note_fix1" type="module"></script>
+</body>
+</html>
