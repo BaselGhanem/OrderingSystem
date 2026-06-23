@@ -1191,7 +1191,7 @@ select {
     }
 }
 
-/* v5 mobile app treatment for medical rep dashboard */
+/* v5 responsive dashboard treatment */
 .mobile-app-tabs {
     display: none;
 }
@@ -1600,5 +1600,198 @@ select {
     .medrep-dashboard-app .dashboard-filter-grid,
     .medrep-dashboard-app .performance-cards {
         gap: 8px;
+    }
+}
+
+/* v6 official responsive treatment */
+.medrep-dashboard-app .page-title p,
+.medrep-dashboard-app .form-note,
+.team-hero small {
+    letter-spacing: 0;
+}
+
+.medrep-dashboard-app .mobile-lines-panel .card-head h2 {
+    color: var(--mr-navy);
+}
+
+.medrep-dashboard-app .line-card,
+.medrep-dashboard-app .stat-card,
+.medrep-dashboard-app .hero-metric,
+.medrep-dashboard-app .insight-card {
+    text-align: start;
+}
+
+.medrep-dashboard-app .line-card-top,
+.medrep-dashboard-app .line-card-meta,
+.medrep-dashboard-app .line-card-numbers {
+    direction: rtl;
+}
+
+@media (max-width: 760px) and (orientation: portrait) {
+    .medrep-dashboard-app .dashboard-shell {
+        max-width: 520px;
+        margin-inline: auto;
+    }
+
+    .medrep-dashboard-app .analytics-hero,
+    .medrep-dashboard-app .performance-cards,
+    .medrep-dashboard-app .dashboard-filter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .medrep-dashboard-app .hero-metric.identity-main,
+    .medrep-dashboard-app .dashboard-filter-grid .wide {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 920px) and (orientation: landscape) {
+    body.medrep-dashboard-app {
+        background: linear-gradient(180deg, #ffffff 0%, #f4f8f8 100%);
+    }
+
+    .medrep-dashboard-app .dashboard-shell {
+        width: 100%;
+        max-width: none;
+        padding: 10px 12px 86px;
+    }
+
+    .medrep-dashboard-app .premium-topbar {
+        position: sticky;
+        top: 0;
+        display: grid;
+        grid-template-columns: minmax(240px, 1fr) minmax(360px, auto);
+        align-items: center;
+        gap: 10px;
+        margin: 0 -12px 10px;
+        padding: 10px 12px;
+        border-radius: 0 0 22px 22px;
+    }
+
+    .medrep-dashboard-app .page-title {
+        margin: 0;
+        align-items: center;
+    }
+
+    .medrep-dashboard-app .page-title h1 {
+        font-size: 1rem;
+        margin: 0;
+    }
+
+    .medrep-dashboard-app .page-title p {
+        display: none;
+    }
+
+    .medrep-dashboard-app .top-actions {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 7px;
+        width: 100%;
+    }
+
+    .medrep-dashboard-app .top-actions .btn {
+        min-height: 40px;
+        padding: 8px 10px;
+        font-size: 0.76rem;
+        border-radius: 14px;
+    }
+
+    .mobile-app-tabs {
+        width: min(520px, calc(100% - 24px));
+        max-width: 520px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        bottom: 10px;
+    }
+
+    .medrep-dashboard-app .analytics-hero {
+        grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .medrep-dashboard-app .hero-metric,
+    .medrep-dashboard-app .hero-metric.identity-main {
+        grid-column: auto;
+        min-height: 108px;
+        padding: 12px;
+        border-radius: 22px;
+    }
+
+    .medrep-dashboard-app .hero-metric strong {
+        font-size: clamp(1.2rem, 4vw, 1.8rem);
+    }
+
+    .medrep-dashboard-app .filter-panel {
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 22px;
+    }
+
+    .medrep-dashboard-app .dashboard-filter-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .medrep-dashboard-app .dashboard-filter-grid .wide {
+        grid-column: span 2;
+    }
+
+    .medrep-dashboard-app .performance-cards {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .medrep-dashboard-app .stat-card {
+        min-height: 100px;
+        padding: 12px;
+        border-radius: 20px;
+    }
+
+    .medrep-dashboard-app .stat-card strong {
+        font-size: clamp(1rem, 3.5vw, 1.35rem);
+    }
+
+    .medrep-dashboard-app .insight-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .medrep-dashboard-app .rich-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .medrep-dashboard-app .mobile-lines-panel {
+        order: initial;
+    }
+
+    .medrep-dashboard-app .table-card {
+        padding: 12px;
+        border-radius: 22px;
+    }
+
+    .medrep-dashboard-app .desktop-detail-card {
+        display: block;
+    }
+
+    .medrep-dashboard-app .mobile-card-list {
+        max-height: 430px;
+        overflow: auto;
+    }
+}
+
+@media (min-width: 921px) {
+    .medrep-dashboard-app .mobile-lines-panel {
+        display: none;
+    }
+}
+
+
+@media (max-width: 760px) {
+    .team-leader-dashboard .dashboard-shell {
+        padding-bottom: 18px;
     }
 }
