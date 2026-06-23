@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=20260623_firestore_listen_fix6">
+    <link rel="stylesheet" href="style.css?v=20260623_reports_modal_items_layout_fix7">
 
     <style>
         .dashboard-cards {
@@ -138,6 +138,75 @@
         .modal-content {
             background: white; width: 100%; max-width: 900px; max-height: 90vh;
             overflow-y: auto; border-radius: 20px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        #editDuplicateModal { align-items: center; justify-content: center; padding: clamp(8px, 1.2vw, 20px); }
+        #editDuplicateModal .reports-order-modal {
+            max-width: min(1480px, calc(100vw - 32px));
+            max-height: calc(100vh - 32px);
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: clamp(14px, 1.6vw, 24px);
+        }
+        .reports-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            flex: 0 0 auto;
+        }
+        .reports-order-modal #duplicateOrderMeta {
+            flex: 0 0 auto;
+            margin-bottom: 12px !important;
+        }
+        .reports-order-modal #duplicateEditContainer {
+            flex: 1 1 auto;
+            min-height: min(56vh, 560px);
+            overflow: auto;
+            border: 1px solid rgba(15, 23, 42, 0.10);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.58);
+        }
+        .reports-order-modal #duplicateEditContainer .order-table {
+            width: max-content;
+            min-width: 100%;
+        }
+        .reports-edit-table th,
+        .reports-edit-table td {
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        .reports-edit-table .reports-product-col { min-width: min(560px, 64vw); }
+        .reports-modal-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(15, 23, 42, 0.10);
+            flex: 0 0 auto;
+            background: white;
+        }
+        .reports-modal-actions .btn-primary,
+        .reports-modal-actions .btn-secondary,
+        .reports-modal-actions .btn-action { min-height: 46px; }
+        @media (max-width: 768px) {
+            #editDuplicateModal { padding: 6px; align-items: stretch; }
+            #editDuplicateModal .reports-order-modal {
+                max-width: calc(100vw - 12px);
+                max-height: calc(100dvh - 12px);
+                border-radius: 16px;
+                padding: 12px;
+            }
+            .reports-modal-header h2 { font-size: 1.05rem; }
+            .reports-order-modal #duplicateEditContainer { min-height: 52dvh; }
+            .reports-modal-actions { gap: 8px; }
+            .reports-modal-actions button { flex: 1 1 100%; }
         }
         .form-control-edit { width: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; text-align: center; font-family: inherit;}
     </style>
@@ -370,20 +439,14 @@
     </div>
 
     <div id="editDuplicateModal" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:2px solid #eee; padding-bottom:10px;">
+        <div class="modal-content reports-order-modal">
+            <div class="reports-modal-header">
                 <h2 style="color: var(--primary);"><i class="ph ph-pencil-simple"></i> عرض وتعديل أصناف الطلبية</h2>
                 <button type="button" onclick="closeEditModal()" style="background:none; border:none; font-size:2rem; cursor:pointer; color:#ef4444;">&times;</button>
             </div>
             <div id="duplicateOrderMeta" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; color:#0f172a; font-weight:800;"></div>
-            <div class="workflow-insights-grid reports-insights-grid">
-                <div id="reportsWorkflowTimeline"></div>
-                <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-clock-counter-clockwise"></i> سجل التدقيق</div><div id="reportsAuditViewer"></div></div>
-                <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-file-arrow-down"></i> سجل التصدير</div><div id="reportsExportHistory"></div></div>
-                <div class="workflow-insight-card"><div class="insight-title"><i class="ph ph-printer"></i> سجل الطباعة</div><div id="reportsPrintHistory"></div></div>
-            </div>
             <div id="duplicateEditContainer" class="table-responsive"></div>
-            <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top:25px;">
+            <div class="reports-modal-actions">
                 <button id="addModalItemBtn" class="btn-secondary"><i class="ph ph-plus-circle"></i> إضافة صنف</button>
                 <button id="saveOrderBtn" class="btn-primary"><i class="ph ph-floppy-disk"></i> حفظ التعديلات</button>
                 <button id="deleteEntireOrderBtn" class="btn-action btn-delete"><i class="ph ph-trash"></i> حذف الطلبية من مسار العمل</button>
@@ -597,13 +660,18 @@
         }
 
         function renderReportsInsights(order = {}) {
-            document.getElementById('reportsWorkflowTimeline').innerHTML = workflowTimelineHtml(order);
+            const workflowEl = document.getElementById('reportsWorkflowTimeline');
+            const auditEl = document.getElementById('reportsAuditViewer');
+            const exportEl = document.getElementById('reportsExportHistory');
+            const printEl = document.getElementById('reportsPrintHistory');
+            if (!workflowEl && !auditEl && !exportEl && !printEl) return;
+            if (workflowEl) workflowEl.innerHTML = workflowTimelineHtml(order);
             const auditRows = Array.isArray(order.auditTrail) ? order.auditTrail : [];
-            document.getElementById('reportsAuditViewer').innerHTML = historyListHtml(auditRows, 'لا يوجد سجل تدقيق محفوظ.', entry => `<div class="history-item"><strong>${safeHtml(entry.action || entry.type || 'إجراء')}</strong><span>${safeHtml(entry.user || entry.actor || 'System')} / ${safeHtml(entry.role || '-')} — ${safeHtml(historyDate(entry.timestamp || entry.at || entry.changedAt))}</span>${entry.notes || entry.note ? `<small>${safeHtml(entry.notes || entry.note)}</small>` : ''}</div>`);
+            if (auditEl) auditEl.innerHTML = historyListHtml(auditRows, 'لا يوجد سجل تدقيق محفوظ.', entry => `<div class="history-item"><strong>${safeHtml(entry.action || entry.type || 'إجراء')}</strong><span>${safeHtml(entry.user || entry.actor || 'System')} / ${safeHtml(entry.role || '-')} — ${safeHtml(historyDate(entry.timestamp || entry.at || entry.changedAt))}</span>${entry.notes || entry.note ? `<small>${safeHtml(entry.notes || entry.note)}</small>` : ''}</div>`);
             const exportRows = Array.isArray(order.exportHistory) ? order.exportHistory : [];
-            document.getElementById('reportsExportHistory').innerHTML = historyListHtml(exportRows, 'لا يوجد سجل تصدير محفوظ.', entry => `<div class="history-item"><strong>${safeHtml(entry.fileName || entry.source || 'تصدير')}</strong><span>${safeHtml(entry.exportedBy || entry.user || '-')} — ${safeHtml(historyDate(entry.exportedAt || entry.timestamp))}</span>${entry.hideAfterExport || entry.invoiced ? '<small>تمت الفوترة وإخفاء الطلبية.</small>' : ''}</div>`);
+            if (exportEl) exportEl.innerHTML = historyListHtml(exportRows, 'لا يوجد سجل تصدير محفوظ.', entry => `<div class="history-item"><strong>${safeHtml(entry.fileName || entry.source || 'تصدير')}</strong><span>${safeHtml(entry.exportedBy || entry.user || '-')} — ${safeHtml(historyDate(entry.exportedAt || entry.timestamp))}</span>${entry.hideAfterExport || entry.invoiced ? '<small>تمت الفوترة وإخفاء الطلبية.</small>' : ''}</div>`);
             const printRows = Array.isArray(order.printHistory) ? order.printHistory : [];
-            document.getElementById('reportsPrintHistory').innerHTML = historyListHtml(printRows, 'لا يوجد سجل طباعة محفوظ.', entry => `<div class="history-item"><strong>${safeHtml(entry.source || 'طباعة')}</strong><span>${safeHtml(entry.printedBy || entry.user || '-')} — ${safeHtml(historyDate(entry.printedAt || entry.timestamp))}</span></div>`);
+            if (printEl) printEl.innerHTML = historyListHtml(printRows, 'لا يوجد سجل طباعة محفوظ.', entry => `<div class="history-item"><strong>${safeHtml(entry.source || 'طباعة')}</strong><span>${safeHtml(entry.printedBy || entry.user || '-')} — ${safeHtml(historyDate(entry.printedAt || entry.timestamp))}</span></div>`);
         }
 
         function buildReportsAuditEntry(action, oldValue = null, newValue = null, notes = '') {
