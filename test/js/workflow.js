@@ -47,7 +47,7 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
-const WORKFLOW_CACHE_VERSION = '20260622_professional_roadmap1';
+const WORKFLOW_CACHE_VERSION = '20260623_orders_staff_ready_visibility_fix1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
@@ -186,7 +186,11 @@ function currentPageOrderSource() {
     const ordersRef = collection(db, 'orders');
     if (WORKFLOW_PAGE === 'market-manager') return query(ordersRef, where('status', 'in', ['market_manager_pending', 'supervisor_approved', 'returned_to_market_manager']));
     if (WORKFLOW_PAGE === 'finance-controller') return query(ordersRef, where('status', 'in', ['finance_pending', 'finance_rejected', 'returned_to_finance']));
-    if (WORKFLOW_PAGE === 'orders-staff') return query(ordersRef, where('status', 'in', ['orders_staff_pending', 'orders_staff_hidden', 'orders_staff_exported', 'finance_approved']));
+    if (WORKFLOW_PAGE === 'orders-staff') return [
+        query(ordersRef, where('status', 'in', ['orders_staff_pending', 'orders_staff_hidden', 'orders_staff_exported', 'finance_approved'])),
+        query(ordersRef, where('orderStaffStatus', 'in', ['orders_staff_pending', 'orders_staff_hidden', 'orders_staff_exported'])),
+        query(ordersRef, where('financeStatus', '==', 'finance_approved'))
+    ];
     return ordersRef;
 }
 
@@ -268,8 +272,47 @@ function getOrderNote(order = {}) {
     return order.orderNote || order.note || order.notes || order.repNote || order.representativeNote || order.order_note || '';
 }
 
+function orderHasAuditAction(order = {}, actions = []) {
+    const allowed = new Set(actions);
+    const rows = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+    return rows.some(entry => allowed.has(entry?.action || entry?.type || ''));
+}
+
+function orderHasHiddenInvoiceEvidence(order = {}) {
+    const exportRows = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+    return order.orderStaffStatus === 'orders_staff_hidden' ||
+        order.hiddenByOrderStaff === true ||
+        order.isInvoiced === true ||
+        !!order.invoicedAt ||
+        exportRows.some(entry => entry?.hideAfterExport === true || entry?.invoiced === true) ||
+        orderHasAuditAction(order, ['orders_staff_hidden', 'orders_staff_hide_after_export', 'orders_staff_invoiced_and_hidden_after_export']);
+}
+
+function orderHasStaffExportEvidence(order = {}) {
+    const exportRows = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+    return order.orderStaffStatus === 'orders_staff_exported' ||
+        order.orderStaffExported === true ||
+        !!order.exportedAt ||
+        exportRows.some(entry => {
+            const source = String(entry?.source || '').toLowerCase();
+            const userRole = String(entry?.role || entry?.exportedByRole || '').toLowerCase();
+            const fileName = String(entry?.fileName || '').toLowerCase();
+            return source.includes('orders_staff') ||
+                userRole.includes('orders_staff') ||
+                fileName.startsWith('orders_staff_') ||
+                entry?.orderStaffExport === true;
+        }) ||
+        orderHasAuditAction(order, ['orders_staff_export', 'orders_staff_exported']);
+}
+
 function getPrimaryStatus(order = {}) {
-    return order.status || order.orderStatus || order.workflowStatus || '';
+    const rawStatus = order.status || order.orderStatus || order.workflowStatus || '';
+    const terminalOrReturned = rawStatus.startsWith('deleted_') ||
+        ['returned_to_rep', 'returned_to_supervisor', 'returned_to_market_manager', 'returned_to_finance', 'market_manager_rejected', 'finance_rejected', 'rejected'].includes(rawStatus);
+    if (terminalOrReturned || order.workflowStage === 'deleted') return rawStatus;
+    if (rawStatus === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order)) return 'orders_staff_hidden';
+    if (rawStatus === 'orders_staff_exported' || orderHasStaffExportEvidence(order)) return 'orders_staff_exported';
+    return rawStatus;
 }
 
 function getWorkflowFollowUp(order = {}) {
@@ -478,18 +521,40 @@ function calculateGrandTotal(items = []) {
     return Number(items.reduce((sum, item) => sum + parseNumber(item.total), 0).toFixed(3));
 }
 
+function getOrdersStaffFilterDate(order = {}) {
+    const status = getPrimaryStatus(order);
+    const staffState = order.orderStaffStatus || '';
+    const financeApproved = status === 'orders_staff_pending' || status === 'finance_approved' || staffState === 'orders_staff_pending' || order.financeStatus === 'finance_approved';
+    const exported = status === 'orders_staff_exported' || staffState === 'orders_staff_exported' || orderHasStaffExportEvidence(order);
+    const hidden = status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order);
+
+    if (financeApproved) {
+        return normalizeDate(order.financeApprovedAt || order.orderStaffReadyAt || order.updatedAt || order.changedAt || order.createdAt);
+    }
+    if (hidden) {
+        return normalizeDate(order.invoicedAt || order.hiddenAt || order.exportedAt || order.updatedAt || order.changedAt || order.createdAt);
+    }
+    if (exported) {
+        return normalizeDate(order.exportedAt || order.updatedAt || order.changedAt || order.createdAt);
+    }
+    return normalizeDate(order.createdAt || order.updatedAt || order.changedAt);
+}
+
+function getFilterDate(order = {}) {
+    if (WORKFLOW_PAGE === 'orders-staff') return getOrdersStaffFilterDate(order);
+    return normalizeDate(order.createdAt || order.updatedAt || order.changedAt);
+}
+
 function inDateRange(order, from, to) {
-    const date = normalizeDate(order.createdAt || order.updatedAt);
+    const date = getFilterDate(order);
     if (!date) return true;
     const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     if (from) {
-        const f = new Date(from);
-        f.setHours(0, 0, 0, 0);
+        const f = new Date(`${from}T00:00:00`);
         if (d < f) return false;
     }
     if (to) {
-        const t = new Date(to);
-        t.setHours(0, 0, 0, 0);
+        const t = new Date(`${to}T00:00:00`);
         if (d > t) return false;
     }
     return true;
@@ -578,15 +643,25 @@ async function refreshOrdersFromFirebase(source = currentPageOrderSource(), cach
     const startedAt = Date.now();
     const loadToken = ++state.loadToken;
     try {
-        const snap = await getDocs(source);
+        const sources = Array.isArray(source) ? source : [source];
+        const freshById = new Map();
+        const results = await Promise.allSettled(sources.map(src => getDocs(src)));
+        results.forEach(result => {
+            if (result.status !== 'fulfilled') {
+                console.warn('Workflow partial orders query failed', result.reason);
+                return;
+            }
+            result.value.forEach(d => freshById.set(d.id, { id: d.id, ...d.data() }));
+        });
         if (loadToken !== state.loadToken && !markAllLoaded) return state.orders;
-        const fresh = [];
-        snap.forEach(d => fresh.push({ id: d.id, ...d.data() }));
-        state.orders = sortOrders(fresh);
+        if (!freshById.size && results.some(result => result.status === 'rejected')) {
+            throw results.find(result => result.status === 'rejected')?.reason || new Error('Orders query failed');
+        }
+        state.orders = sortOrders(Array.from(freshById.values()));
         state.lastRefreshAt = Date.now();
         if (markAllLoaded) state.allOrdersLoaded = true;
         writeCache(cacheKey, state.orders);
-        showDataModeNotice(`آخر تحديث: ${new Date().toLocaleTimeString('en-GB')}`);
+        showDataModeNotice(`آخر تحديث: ${new Date().toLocaleTimeString('en-GB')} — ${state.orders.length} طلبية`);
         state.onOrdersChange?.();
         return state.orders;
     } catch (error) {
@@ -1353,9 +1428,10 @@ function applyOrdersStaffFilters() {
     state.visibleOrders = state.orders.filter(order => {
         const status = getPrimaryStatus(order);
         const followUp = getWorkflowFollowUp(order);
-        const isHidden = status === 'orders_staff_hidden' || order.hiddenByOrderStaff === true;
-        const isActive = (status === 'orders_staff_pending' || status === 'finance_approved' || (order.financeStatus === 'finance_approved' && !status)) && !isHidden;
-        const isExported = status === 'orders_staff_exported' || order.orderStaffStatus === 'orders_staff_exported' || order.exportedAt;
+        const staffState = order.orderStaffStatus || '';
+        const isHidden = status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order);
+        const isActive = (status === 'orders_staff_pending' || status === 'finance_approved' || staffState === 'orders_staff_pending' || order.financeStatus === 'finance_approved') && !isHidden && status !== 'orders_staff_exported';
+        const isExported = status === 'orders_staff_exported' || staffState === 'orders_staff_exported' || orderHasStaffExportEvidence(order);
         let modeOk = isActive;
         if (statusMode === 'followup') modeOk = true;
         if (statusMode === 'hidden') modeOk = isHidden;
