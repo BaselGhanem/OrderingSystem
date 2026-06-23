@@ -1,4 +1,4 @@
-import { db, collection, getDocs } from './firebase.js';
+import { db, collection, getDocs, query, where } from './firebase.js';
 
 const C = window.medrepCommon;
 const state = {
@@ -28,6 +28,26 @@ async function getAll(collectionName) {
     const rows = [];
     snap.forEach(item => rows.push({ id: item.id, ...item.data() }));
     return rows;
+}
+
+async function getInvoicedOrders() {
+    const ordersById = new Map();
+    const invoicedQueries = [
+        query(collection(db, `orders`), where(`status`, `==`, `orders_staff_hidden`)),
+        query(collection(db, `orders`), where(`orderStaffStatus`, `==`, `orders_staff_hidden`)),
+        query(collection(db, `orders`), where(`hiddenByOrderStaff`, `==`, true))
+    ];
+
+    for (const q of invoicedQueries) {
+        try {
+            const snap = await getDocs(q);
+            snap.forEach(item => ordersById.set(item.id, { id: item.id, ...item.data() }));
+        } catch (error) {
+            console.warn(`تعذر تنفيذ استعلام الطلبيات المفوترة:`, error);
+        }
+    }
+
+    return [...ordersById.values()];
 }
 
 function isInvoicedOrder(order = {}) {
@@ -302,7 +322,7 @@ async function loadDashboard() {
     try {
         C.setLoading(button, true, `تحديث البيانات`);
         const [orders, pharmacies, areaRules, otherShares, targets] = await Promise.all([
-            getAll(`orders`),
+            getInvoicedOrders(),
             getAll(`pharmacies`),
             getAll(`medicalRepAreaRules`),
             getAll(`medicalRepOtherShares`),
@@ -316,7 +336,7 @@ async function loadDashboard() {
         C.$(`lastRefresh`).textContent = `آخر تحديث: ${state.ordersLoadedAt.toLocaleString(`ar-JO`)}`;
         populateFilters();
         applyFilters();
-        if (!state.rows.length) C.showToast(`لا توجد مبيعات محتسبة. تحقق من رفع ربط المناطق ونسب اخرين.`, `warning`);
+        if (!state.rows.length) C.showToast(`لا توجد مبيعات محتسبة. تحقق من وجود طلبيات مفوترة status/orderStaffStatus = orders_staff_hidden ومن رفع ربط المناطق ونسب اخرين.`, `warning`);
     } catch (error) {
         console.error(error);
         C.showToast(`تعذر تحميل بيانات المبيعات. تحقق من الصلاحيات والاتصال.`, `error`);

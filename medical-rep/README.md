@@ -50,3 +50,23 @@ Admin upload files:
    - Item Name
    - Target Value
    - Target Qty
+
+## Firebase field mapping confirmed on 2026-06-23
+
+The dashboard reads invoiced orders from `orders` using these indicators:
+- `status == orders_staff_hidden`
+- `orderStaffStatus == orders_staff_hidden`
+- `hiddenByOrderStaff == true`
+
+Order item fields used:
+- `items[].name`
+- `items[].qty`
+- `items[].price`
+- `items[].total`
+
+Pharmacy area mapping:
+- Order field: `orders.pharmacyCode`
+- Pharmacy field: `pharmacies.pharmacy_code`
+- Area field: `pharmacies.area`
+
+This means `orders` does not need an area field. The portal maps the order to the pharmacy, then reads the pharmacy area.
