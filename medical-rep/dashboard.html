@@ -13,7 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900;1000&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="css/medrep.css?v=20260623_medrep_v5">
+    <link rel="stylesheet" href="css/medrep.css?v=20260623_medrep_v6">
 </head>
 <body class="medrep-dashboard-app">
     <main class="app-shell dashboard-shell">
@@ -22,7 +22,7 @@
                 <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="DAD Logo">
                 <div>
                     <h1>لوحة مبيعات الدعاية الطبية</h1>
-                    <p>قراءة فقط لمبيعات الدعاية الطبية، بدون عرض البونص أو أي إجراء تشغيلي.</p>
+                    <p>بيانات مبيعات الدعاية الطبية المعتمدة للقراءة فقط.</p>
                 </div>
             </div>
             <div class="top-actions">
@@ -112,7 +112,7 @@
                 <div class="card-head">
                     <div>
                         <h2>تحليل الأصناف</h2>
-                        <p class="form-note">الكميات والقيم لكل صنف. تظهر بيانات اخرين فقط عند رفع نسبها.</p>
+                        <p class="form-note">الكميات والقيم لكل صنف ضمن الفلاتر الحالية.</p>
                     </div>
                 </div>
                 <div class="table-scroll">
@@ -127,7 +127,7 @@
                 <div class="card-head">
                     <div>
                         <h2>تحليل منطقة اخرين</h2>
-                        <p class="form-note">يعرض كامل مبيعات اخرين للأصناف التابعة لك مع النسبة والحصة المحتسبة.</p>
+                        <p class="form-note">مبيعات منطقة اخرين للأصناف التابعة للمندوب حسب النسب المرفوعة.</p>
                     </div>
                 </div>
                 <div class="table-scroll">
@@ -144,7 +144,7 @@
                 <div class="card-head">
                     <div>
                         <h2>الطلبيات</h2>
-                        <p class="form-note">تفاصيل المبيعات المحتسبة. لا يتم عرض البونص.</p>
+                        <p class="form-note">تفاصيل المبيعات المحتسبة حسب الفلاتر الحالية.</p>
                     </div>
                 </div>
                 <div class="table-scroll">
@@ -158,8 +158,8 @@
             <div class="table-card mobile-lines-panel">
                 <div class="card-head">
                     <div>
-                        <h2>آخر السطور على الموبايل</h2>
-                        <p class="form-note">بطاقات قراءة سريعة بتجربة أقرب للتطبيقات على الموبايل.</p>
+                        <h2>آخر سطور المبيعات</h2>
+                        <p class="form-note">عرض مختصر للسطور المحتسبة ضمن الفلاتر.</p>
                     </div>
                 </div>
                 <div id="mobileCards" class="mobile-card-list"></div>
@@ -170,7 +170,7 @@
             <div class="card-head">
                 <div>
                     <h2>تفاصيل المبيعات المحتسبة</h2>
-                    <p class="form-note">الجدول لا يحتوي على البونص نهائيًا.</p>
+                    <p class="form-note">تفاصيل السطور المعتمدة للعرض.</p>
                 </div>
             </div>
             <div class="table-scroll">
@@ -195,7 +195,7 @@
     </div>
 
     <div id="toastContainer" class="toast-container"></div>
-    <script src="js/medrep-common.js?v=20260623_medrep_v5"></script>
-    <script type="module" src="js/dashboard.js?v=20260623_medrep_v5"></script>
+    <script src="js/medrep-common.js?v=20260623_medrep_v6"></script>
+    <script type="module" src="js/dashboard.js?v=20260623_medrep_v6"></script>
 </body>
 </html>
