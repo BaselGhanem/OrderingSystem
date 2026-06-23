@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=20260623_reports_visibility_fix1">
+    <link rel="stylesheet" href="style.css?v=20260623_premium_lookup_fix5">
 
     <style>
         .dashboard-cards {
@@ -39,7 +39,7 @@
             font-family: 'Cairo', sans-serif; color: #1e293b;
         }
         .filter-select:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(0, 74, 153, 0.1); }
-        .premium-autocomplete { position: relative; }
+        .premium-autocomplete { position: relative; min-width: 0; }
         .premium-autocomplete input {
             padding-inline-start: 42px; padding-inline-end: 14px;
             background: linear-gradient(180deg, #ffffff, #f8fafc);
@@ -55,26 +55,23 @@
             color: #099999; font-size: 1.15rem; pointer-events: none; z-index: 2;
         }
         .autocomplete-panel {
-            position: absolute; z-index: 80; top: calc(100% + 8px); left: 0; right: 0;
+            position: absolute; z-index: 80; top: calc(100% + 8px); right: 0; left: auto;
+            width: max-content; min-width: 100%; max-width: min(900px, calc(100vw - 32px));
             background: rgba(255, 255, 255, 0.98); border: 1px solid rgba(15, 23, 42, 0.10);
             border-radius: 16px; box-shadow: 0 22px 45px rgba(15, 23, 42, 0.14);
-            overflow: hidden; max-height: 290px; overflow-y: auto; backdrop-filter: blur(14px);
+            overflow-y: auto; overflow-x: auto; max-height: 290px; backdrop-filter: blur(14px);
         }
         .autocomplete-panel[hidden] { display: none; }
         .autocomplete-option {
-            display: grid; grid-template-columns: 1fr auto; gap: 10px; width: 100%;
-            padding: 12px 14px; border: 0; background: transparent; text-align: right;
+            display: block; width: max-content; min-width: 100%;
+            padding: 12px 16px; border: 0; background: transparent; text-align: right;
             font-family: 'Cairo', sans-serif; cursor: pointer; color: #0f172a; align-items: center;
             border-bottom: 1px solid rgba(226, 232, 240, 0.75);
         }
         .autocomplete-option:last-child { border-bottom: 0; }
         .autocomplete-option:hover, .autocomplete-option.active { background: linear-gradient(135deg, rgba(9,153,153,0.10), rgba(0,74,153,0.08)); }
-        .autocomplete-option .name { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .autocomplete-option .code {
-            direction: ltr; color: #64748b; font-size: 0.78rem; font-weight: 800;
-            background: #f1f5f9; border-radius: 999px; padding: 4px 8px; white-space: nowrap;
-        }
-        .autocomplete-empty { padding: 14px; color: #64748b; font-weight: 700; text-align: center; }
+        .autocomplete-option .name { display:block; font-weight: 800; white-space: nowrap; overflow: visible; text-overflow: clip; }
+        .autocomplete-empty { padding: 14px; color: #64748b; font-weight: 700; text-align: center; white-space: nowrap; }
 
         .report-cards-grid {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -198,8 +195,11 @@
                 </div>
                 <div class="filter-group">
                     <label><i class="ph ph-pill"></i> الصنف</label>
-                    <input type="text" id="filterItem" list="itemDatalist" class="filter-select" placeholder="اختر أو اكتب هنا...">
-                    <datalist id="itemDatalist"></datalist>
+                    <div class="premium-autocomplete">
+                        <i class="ph ph-magnifying-glass search-icon"></i>
+                        <input type="text" id="filterItem" class="filter-select" placeholder="ابحث باسم أو كود الصنف..." autocomplete="off">
+                        <div id="itemAutocompletePanel" class="autocomplete-panel" hidden></div>
+                    </div>
                 </div>
                 <div class="filter-group" style="display: flex; gap: 10px;">
                     <button id="resetFiltersBtn" class="btn-secondary" style="width: 100%; height: 48px;"><i class="ph ph-arrow-counter-clockwise"></i> تصفير</button>
@@ -399,6 +399,10 @@
         let activePharmacyAutocompleteOptions = [];
         let activePharmacyOptionIndex = -1;
         let pharmacyFilterTimer = null;
+        let itemAutocompleteOptions = [];
+        let activeItemAutocompleteOptions = [];
+        let activeItemOptionIndex = -1;
+        let itemFilterTimer = null;
         let productsCatalog = [];
         
         const repManagerMap = {
@@ -637,6 +641,7 @@
                 });
 
                 buildPharmacyAutocompleteIndex();
+                buildItemAutocompleteIndex();
                 applyFilters(); 
                 
                 document.getElementById('loadingScreen').style.display = 'none';
@@ -699,14 +704,24 @@
             updateSelect('filterManager', managers, fMan, 'الكل');
             updateSelect('filterRep', reps, fRep, 'الكل');
             updatePharmacyAutocompleteOptions(pharmacies);
-            updateDatalist('itemDatalist', items);
+            updateItemAutocompleteOptions(items);
 
             processReports(filteredOrders);
         }
 
 
         function normalizeAutocompleteText(value = '') {
-            return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+            return String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+        }
+
+        function buildLookupOption(name = '', code = '') {
+            const cleanName = String(name || '').trim();
+            const cleanCode = String(code || '').trim();
+            return {
+                name: cleanName,
+                code: cleanCode,
+                search: normalizeAutocompleteText(`${cleanName} ${cleanCode}`)
+            };
         }
 
         function buildPharmacyAutocompleteIndex() {
@@ -714,18 +729,30 @@
             allOrders.forEach(order => {
                 const name = String(order.pharmacyName || 'غير معروف').trim();
                 const code = String(order.pharmacyCode || '').trim();
-                if (!name) return;
-                const key = `${name}||${code}`;
-                if (!map.has(key)) {
-                    map.set(key, {
-                        name,
-                        code,
-                        search: normalizeAutocompleteText(`${name} ${code}`)
-                    });
-                }
+                if (name && !map.has(name)) map.set(name, buildLookupOption(name, code));
             });
             pharmacyAutocompleteOptions = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
             activePharmacyAutocompleteOptions = pharmacyAutocompleteOptions;
+        }
+
+        function buildItemAutocompleteIndex() {
+            const map = new Map();
+            productsCatalog.forEach(product => {
+                const name = String(product.name || '').trim();
+                const code = String(product.productCode || product.product_code || product.code || '').trim();
+                if (name && !map.has(name)) map.set(name, buildLookupOption(name, code));
+            });
+            allOrders.forEach(order => {
+                (order.items || []).forEach(item => {
+                    const name = String(item.name || '').trim();
+                    const code = String(item.productCode || item.product_code || item.code || '').trim();
+                    if (!name) return;
+                    if (!map.has(name)) map.set(name, buildLookupOption(name, code));
+                    else if (code && !map.get(name).code) map.set(name, buildLookupOption(name, code));
+                });
+            });
+            itemAutocompleteOptions = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+            activeItemAutocompleteOptions = itemAutocompleteOptions;
         }
 
         function updatePharmacyAutocompleteOptions(set) {
@@ -733,23 +760,42 @@
             activePharmacyAutocompleteOptions = allowed.size
                 ? pharmacyAutocompleteOptions.filter(option => allowed.has(option.name))
                 : pharmacyAutocompleteOptions;
-            renderPharmacyAutocomplete();
+            renderLookupAutocomplete('filterPharmacy', 'pharmacyAutocompletePanel', activePharmacyAutocompleteOptions, value => {
+                document.getElementById('filterPharmacy').value = value;
+                applyFilters();
+            }, activePharmacyOptionIndex);
         }
 
-        function renderPharmacyAutocomplete() {
-            const input = document.getElementById('filterPharmacy');
-            const panel = document.getElementById('pharmacyAutocompletePanel');
+        function updateItemAutocompleteOptions(set) {
+            const allowed = new Set(Array.from(set).map(value => String(value || '').trim()));
+            activeItemAutocompleteOptions = allowed.size
+                ? itemAutocompleteOptions.filter(option => allowed.has(option.name))
+                : itemAutocompleteOptions;
+            renderLookupAutocomplete('filterItem', 'itemAutocompletePanel', activeItemAutocompleteOptions, value => {
+                document.getElementById('filterItem').value = value;
+                applyFilters();
+            }, activeItemOptionIndex);
+        }
+
+        function renderLookupAutocomplete(inputId, panelId, sourceOptions, onSelect) {
+            const input = document.getElementById(inputId);
+            const panel = document.getElementById(panelId);
             if (!input || !panel || document.activeElement !== input) return;
+            if (input.dataset.lookupSuppress === '1') {
+                delete input.dataset.lookupSuppress;
+                return;
+            }
 
             const query = normalizeAutocompleteText(input.value);
-            const options = activePharmacyAutocompleteOptions
+            const options = sourceOptions
                 .filter(option => !query || option.search.includes(query))
                 .slice(0, 30);
 
-            activePharmacyOptionIndex = -1;
+            if (inputId === 'filterPharmacy') activePharmacyOptionIndex = -1;
+            if (inputId === 'filterItem') activeItemOptionIndex = -1;
 
             if (!options.length) {
-                panel.innerHTML = `<div class="autocomplete-empty">لا توجد صيدلية مطابقة</div>`;
+                panel.innerHTML = `<div class="autocomplete-empty">لا توجد نتيجة مطابقة</div>`;
                 panel.hidden = false;
                 return;
             }
@@ -757,7 +803,6 @@
             panel.innerHTML = options.map((option, index) => `
                 <button type="button" class="autocomplete-option" data-index="${index}" data-value="${safeHtml(option.name)}">
                     <span class="name">${safeHtml(option.name)}</span>
-                    ${option.code ? `<span class="code">${safeHtml(option.code)}</span>` : '<span></span>'}
                 </button>
             `).join('');
             panel.hidden = false;
@@ -766,9 +811,24 @@
                 button.addEventListener('mousedown', event => event.preventDefault());
                 button.addEventListener('click', () => {
                     input.value = options[index].name;
+                    input.dataset.lookupSuppress = '1';
                     panel.hidden = true;
-                    applyFilters();
+                    onSelect(options[index].name);
                 });
+            });
+        }
+
+        function renderPharmacyAutocomplete() {
+            renderLookupAutocomplete('filterPharmacy', 'pharmacyAutocompletePanel', activePharmacyAutocompleteOptions, value => {
+                document.getElementById('filterPharmacy').value = value;
+                applyFilters();
+            });
+        }
+
+        function renderItemAutocomplete() {
+            renderLookupAutocomplete('filterItem', 'itemAutocompletePanel', activeItemAutocompleteOptions, value => {
+                document.getElementById('filterItem').value = value;
+                applyFilters();
             });
         }
 
@@ -777,13 +837,20 @@
             pharmacyFilterTimer = setTimeout(() => applyFilters(), 260);
         }
 
-        function markActivePharmacyOption(panel, index) {
+        function scheduleItemFilter() {
+            clearTimeout(itemFilterTimer);
+            itemFilterTimer = setTimeout(() => applyFilters(), 260);
+        }
+
+        function markActiveAutocompleteOption(panel, index, type) {
             const buttons = Array.from(panel.querySelectorAll('.autocomplete-option'));
             buttons.forEach(button => button.classList.remove('active'));
             if (!buttons.length) return;
-            activePharmacyOptionIndex = Math.max(0, Math.min(index, buttons.length - 1));
-            buttons[activePharmacyOptionIndex].classList.add('active');
-            buttons[activePharmacyOptionIndex].scrollIntoView({ block: 'nearest' });
+            const bounded = Math.max(0, Math.min(index, buttons.length - 1));
+            if (type === 'pharmacy') activePharmacyOptionIndex = bounded;
+            if (type === 'item') activeItemOptionIndex = bounded;
+            buttons[bounded].classList.add('active');
+            buttons[bounded].scrollIntoView({ block: 'nearest' });
         }
 
         function updateSelect(id, set, selectedVal, defaultText) {
@@ -791,22 +858,13 @@
             sel.innerHTML = `<option value="">${defaultText}</option>`;
             Array.from(set).sort().forEach(val => {
                 let isSelected = val === selectedVal ? 'selected' : '';
-                sel.innerHTML += `<option value="${val}" ${isSelected}>${val}</option>`;
-            });
-        }
-
-        function updateDatalist(id, set) {
-            const dl = document.getElementById(id);
-            dl.innerHTML = '';
-            Array.from(set).sort().forEach(val => {
-                dl.innerHTML += `<option value="${val}">`;
+                sel.innerHTML += `<option value="${safeHtml(val)}" ${isSelected}>${safeHtml(val)}</option>`;
             });
         }
 
         ['filterManager', 'filterRep', 'filterDateFrom', 'filterDateTo'].forEach(id => {
             document.getElementById(id)?.addEventListener('change', applyFilters);
         });
-        document.getElementById('filterItem').addEventListener('input', applyFilters);
 
         const pharmacyInput = document.getElementById('filterPharmacy');
         const pharmacyPanel = document.getElementById('pharmacyAutocompletePanel');
@@ -821,10 +879,10 @@
             if (!buttons.length) return;
             if (event.key === 'ArrowDown') {
                 event.preventDefault();
-                markActivePharmacyOption(pharmacyPanel, activePharmacyOptionIndex + 1);
+                markActiveAutocompleteOption(pharmacyPanel, activePharmacyOptionIndex + 1, 'pharmacy');
             } else if (event.key === 'ArrowUp') {
                 event.preventDefault();
-                markActivePharmacyOption(pharmacyPanel, activePharmacyOptionIndex <= 0 ? buttons.length - 1 : activePharmacyOptionIndex - 1);
+                markActiveAutocompleteOption(pharmacyPanel, activePharmacyOptionIndex <= 0 ? buttons.length - 1 : activePharmacyOptionIndex - 1, 'pharmacy');
             } else if (event.key === 'Enter' && activePharmacyOptionIndex >= 0) {
                 event.preventDefault();
                 buttons[activePharmacyOptionIndex].click();
@@ -834,6 +892,34 @@
         });
         pharmacyInput.addEventListener('blur', () => {
             setTimeout(() => { pharmacyPanel.hidden = true; }, 120);
+        });
+
+        const itemInput = document.getElementById('filterItem');
+        const itemPanel = document.getElementById('itemAutocompletePanel');
+        itemInput.addEventListener('input', () => {
+            renderItemAutocomplete();
+            scheduleItemFilter();
+        });
+        itemInput.addEventListener('focus', renderItemAutocomplete);
+        itemInput.addEventListener('keydown', event => {
+            if (itemPanel.hidden) return;
+            const buttons = Array.from(itemPanel.querySelectorAll('.autocomplete-option'));
+            if (!buttons.length) return;
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                markActiveAutocompleteOption(itemPanel, activeItemOptionIndex + 1, 'item');
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                markActiveAutocompleteOption(itemPanel, activeItemOptionIndex <= 0 ? buttons.length - 1 : activeItemOptionIndex - 1, 'item');
+            } else if (event.key === 'Enter' && activeItemOptionIndex >= 0) {
+                event.preventDefault();
+                buttons[activeItemOptionIndex].click();
+            } else if (event.key === 'Escape') {
+                itemPanel.hidden = true;
+            }
+        });
+        itemInput.addEventListener('blur', () => {
+            setTimeout(() => { itemPanel.hidden = true; }, 120);
         });
 
         document.getElementById('resetFiltersBtn').addEventListener('click', () => {
@@ -1135,13 +1221,64 @@
         }
 
 
+        function renderReportProductLookup(input, onSelect) {
+            if (!input) return;
+            const wrapper = input.closest('.reports-product-lookup');
+            const panel = wrapper?.querySelector('.reports-product-panel');
+            if (!wrapper || !panel || document.activeElement !== input) return;
+            const query = normalizeAutocompleteText(input.value);
+            const options = productsCatalog
+                .map(product => buildLookupOption(product.name || '', product.productCode || product.product_code || product.code || ''))
+                .filter(option => option.name && (!query || option.search.includes(query)))
+                .slice(0, 40);
+            if (!options.length) {
+                panel.innerHTML = `<div class="autocomplete-empty">لا يوجد صنف مطابق</div>`;
+                panel.hidden = false;
+                return;
+            }
+            panel.innerHTML = options.map((option, index) => `
+                <button type="button" class="autocomplete-option" data-index="${index}"><span class="name">${safeHtml(option.name)}</span></button>
+            `).join('');
+            panel.hidden = false;
+            const rect = input.getBoundingClientRect();
+            panel.style.setProperty('position', 'fixed', 'important');
+            panel.style.setProperty('top', `${rect.bottom + 8}px`, 'important');
+            panel.style.setProperty('right', `${Math.max(16, window.innerWidth - rect.right)}px`, 'important');
+            panel.style.setProperty('left', 'auto', 'important');
+            panel.style.setProperty('min-width', `${rect.width}px`, 'important');
+            panel.querySelectorAll('.autocomplete-option').forEach((button, index) => {
+                button.addEventListener('mousedown', event => event.preventDefault());
+                button.addEventListener('click', () => {
+                    input.value = options[index].name;
+                    panel.hidden = true;
+                    onSelect?.();
+                });
+            });
+        }
+
+        function bindReportProductLookup(input, idx) {
+            if (!input || input.dataset.lookupBound === '1') return;
+            input.dataset.lookupBound = '1';
+            const panel = input.closest('.reports-product-lookup')?.querySelector('.reports-product-panel');
+            input.addEventListener('focus', () => renderReportProductLookup(input, () => updateModalProduct(idx)));
+            input.addEventListener('input', () => {
+                renderReportProductLookup(input, () => updateModalProduct(idx));
+                updateModalProduct(idx);
+            });
+            input.addEventListener('keydown', event => {
+                if (event.key !== 'Escape' || !panel) return;
+                panel.hidden = true;
+            });
+            input.addEventListener('blur', () => setTimeout(() => { if (panel) panel.hidden = true; }, 120));
+        }
+
         function getDynamicProductFieldWidth() {
             const names = [
                 ...productsCatalog.map(product => product?.name || ''),
                 ...((currentEditingOrder?.items || []).map(item => item?.name || ''))
             ].filter(Boolean);
             const longest = names.reduce((max, name) => Math.max(max, String(name).length), 0);
-            return Math.min(Math.max(longest + 6, 26), 56);
+            return Math.max(longest + 6, 26);
         }
 
         function renderModalTable() {
@@ -1156,7 +1293,7 @@
                 let pctStr = (qtyVal > 0 && bonusVal > 0) ? Math.round((bonusVal / qtyVal) * 100) + '% بونص' : '';
                 html += `<tr>
                     <td class="item-code" data-idx="${index}">${safeHtml(getReportProductCode(item) || '-')}</td>
-                    <td class="reports-product-col"><select class="form-control-edit item-product reports-product-select" style="min-width:${productFieldWidth}ch; width:100%;" data-idx="${index}" onchange="updateModalProduct(${index})">${reportProductOptions(item.name || '')}</select></td>
+                    <td class="reports-product-col"><div class="premium-autocomplete reports-product-lookup" style="min-width:${productFieldWidth}ch; width:max-content;"><i class="ph ph-magnifying-glass search-icon"></i><input type="text" class="form-control-edit item-product reports-product-select" style="min-width:${productFieldWidth}ch; width:100%;" data-idx="${index}" value="${safeHtml(item.name || '')}" placeholder="ابحث باسم أو كود الصنف..." autocomplete="off"><div class="autocomplete-panel reports-product-panel" hidden></div></div></td>
                     <td><input type="number" class="form-control-edit item-qty" data-idx="${index}" value="${qtyVal}" min="0" oninput="recalcModalBonus(${index})"></td>
                     <td style="position:relative; text-align:center;">
                         <input type="number" class="form-control-edit item-bonus" data-idx="${index}" value="${bonusVal}" min="0" oninput="recalcModalBonus(${index})">
@@ -1170,6 +1307,7 @@
             });
             html += `</tbody></table>`;
             document.getElementById('duplicateEditContainer').innerHTML = html;
+            document.querySelectorAll('.item-product').forEach(input => bindReportProductLookup(input, input.getAttribute('data-idx')));
         }
 
         window.removeRowFromModal = function(index) {

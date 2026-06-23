@@ -458,6 +458,140 @@ function getProductPrice(product = {}, fallback = 0) {
     return parseNumber(product.price ?? product.unitPrice ?? product.value ?? fallback);
 }
 
+function normalizeLookupText(value = '') {
+    return String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+function makeLookupOption(name = '', code = '') {
+    const label = String(name || '').trim();
+    const cleanCode = String(code || '').trim();
+    return {
+        label,
+        code: cleanCode,
+        search: normalizeLookupText(`${label} ${cleanCode}`)
+    };
+}
+
+function workflowProductLookupOptions() {
+    const map = new Map();
+    productCatalog().forEach(product => {
+        const name = String(product.name || '').trim();
+        const code = String(product.productCode || product.product_code || product.code || '').trim();
+        if (name && !map.has(name)) map.set(name, makeLookupOption(name, code));
+    });
+    state.orders.forEach(order => (order.items || []).forEach(item => {
+        const name = String(item.name || '').trim();
+        const code = String(item.productCode || item.product_code || item.code || '').trim();
+        if (!name) return;
+        if (!map.has(name)) map.set(name, makeLookupOption(name, code));
+        else if (code && !map.get(name).code) map.set(name, makeLookupOption(name, code));
+    }));
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, 'ar'));
+}
+
+function workflowPharmacyLookupOptions() {
+    const map = new Map();
+    state.orders.forEach(order => {
+        const name = String(order.pharmacyName || '').trim();
+        const code = String(getPharmacyCode(order) || '').trim();
+        if (name && !map.has(name)) map.set(name, makeLookupOption(name, code));
+    });
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, 'ar'));
+}
+
+function workflowProductFieldWidth(selectedName = '') {
+    const names = [selectedName, ...productCatalog().map(product => product?.name || '')].filter(Boolean);
+    const longest = names.reduce((max, name) => Math.max(max, String(name).length), 0);
+    return Math.max(longest + 6, 26);
+}
+
+function renderWorkflowLookup(input, panel, options, onSelect, emptyText = 'لا توجد نتيجة مطابقة') {
+    if (!input || !panel || document.activeElement !== input) return;
+    const query = normalizeLookupText(input.value);
+    const filtered = options.filter(option => option.label && (!query || option.search.includes(query))).slice(0, 40);
+    input._lookupActiveIndex = -1;
+    if (!filtered.length) {
+        panel.innerHTML = `<div class="workflow-lookup-empty">${escapeHtml(emptyText)}</div>`;
+        panel.hidden = false;
+        panel.style.display = 'block';
+        return;
+    }
+    panel.innerHTML = filtered.map((option, index) => `
+        <button type="button" class="workflow-lookup-option" data-index="${index}">${escapeHtml(option.label)}</button>
+    `).join('');
+    panel.hidden = false;
+    panel.style.display = 'block';
+    if (panel.classList.contains('workflow-product-panel')) {
+        const rect = input.getBoundingClientRect();
+        panel.style.setProperty('position', 'fixed', 'important');
+        panel.style.setProperty('top', `${rect.bottom + 8}px`, 'important');
+        panel.style.setProperty('right', `${Math.max(16, window.innerWidth - rect.right)}px`, 'important');
+        panel.style.setProperty('left', 'auto', 'important');
+        panel.style.setProperty('min-width', `${rect.width}px`, 'important');
+    }
+    panel.querySelectorAll('.workflow-lookup-option').forEach((button, index) => {
+        button.addEventListener('mousedown', event => event.preventDefault());
+        button.addEventListener('click', () => {
+            input.value = filtered[index].label;
+            panel.hidden = true;
+            panel.style.display = 'none';
+            onSelect?.(filtered[index]);
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
+}
+
+function bindWorkflowLookup(input, optionsProvider, onSelect, emptyText) {
+    if (!input || input.dataset.workflowLookupBound === '1') return;
+    input.dataset.workflowLookupBound = '1';
+    const wrapper = input.closest('.workflow-premium-lookup, .workflow-product-lookup') || input.parentElement;
+    if (!wrapper) return;
+    wrapper.classList.add('workflow-premium-lookup');
+    let panel = wrapper.querySelector('.workflow-lookup-panel');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.className = 'workflow-lookup-panel';
+        panel.hidden = true;
+        wrapper.appendChild(panel);
+    }
+    const render = () => renderWorkflowLookup(input, panel, optionsProvider(), onSelect, emptyText);
+    input.addEventListener('focus', render);
+    input.addEventListener('input', render);
+    input.addEventListener('keydown', event => {
+        if (panel.hidden) return;
+        const buttons = Array.from(panel.querySelectorAll('.workflow-lookup-option'));
+        if (!buttons.length) return;
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            input._lookupActiveIndex = Math.min((input._lookupActiveIndex ?? -1) + 1, buttons.length - 1);
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            input._lookupActiveIndex = (input._lookupActiveIndex ?? 0) <= 0 ? buttons.length - 1 : (input._lookupActiveIndex - 1);
+        } else if (event.key === 'Enter' && input._lookupActiveIndex >= 0) {
+            event.preventDefault();
+            buttons[input._lookupActiveIndex].click();
+            return;
+        } else if (event.key === 'Escape') {
+            panel.hidden = true;
+            panel.style.display = 'none';
+            return;
+        } else {
+            return;
+        }
+        buttons.forEach(button => button.classList.remove('active'));
+        buttons[input._lookupActiveIndex]?.classList.add('active');
+        buttons[input._lookupActiveIndex]?.scrollIntoView({ block: 'nearest' });
+    });
+    input.addEventListener('blur', () => setTimeout(() => {
+        panel.hidden = true;
+        panel.style.display = 'none';
+    }, 120));
+}
+
+function bindWorkflowProductLookup(input, onSelect) {
+    bindWorkflowLookup(input, workflowProductLookupOptions, onSelect, 'لا يوجد صنف مطابق');
+}
+
 function productOptionsHtml(selectedName = '') {
     const products = productCatalog();
     const selected = String(selectedName || '').trim();
@@ -737,6 +871,8 @@ function bindCommonFilters(applyFn) {
         $(id)?.addEventListener('input', debouncedApply);
         $(id)?.addEventListener('change', debouncedApply);
     });
+    bindWorkflowLookup($('filterPharmacy'), workflowPharmacyLookupOptions, () => debouncedApply(), 'لا توجد صيدلية مطابقة');
+    bindWorkflowLookup($('filterProduct'), workflowProductLookupOptions, () => debouncedApply(), 'لا يوجد صنف مطابق');
 }
 
 function confirmReason(message, requireReason = false) {
@@ -811,9 +947,10 @@ function buildWorkflowItemRow(item = {}, index = 0, prefix = 'mm') {
             <td>${index + 1}</td>
             <td class="${prefix}-code-cell" data-original-code="${escapeHtml(getItemProductCode(calc) || '')}">${escapeHtml(getItemProductCode(calc) || '-')}</td>
             <td class="item-name-cell">
-                <select class="${prefix}-product workflow-product-select">
-                    ${productOptionsHtml(calc.name || '')}
-                </select>
+                <div class="workflow-product-lookup" style="min-width:${workflowProductFieldWidth(calc.name || '')}ch; width:max-content;">
+                    <input type="text" class="${prefix}-product workflow-product-select" value="${escapeHtml(calc.name || '')}" placeholder="ابحث باسم أو كود الصنف..." autocomplete="off" style="min-width:${workflowProductFieldWidth(calc.name || '')}ch;">
+                    <div class="workflow-lookup-panel workflow-product-panel" hidden></div>
+                </div>
             </td>
             <td><input class="${prefix}-qty" type="number" min="0" step="1" value="${calc.qty}"></td>
             <td><input class="${prefix}-bonus" type="number" min="0" step="1" value="${calc.bonus}"></td>
@@ -880,7 +1017,9 @@ function updateMarketModalTotal() {
 }
 
 function bindMarketItemRow(row) {
+    bindWorkflowProductLookup(row.querySelector('.mm-product'), () => recalcMarketRow(row, 'product'));
     row.querySelector('.mm-product')?.addEventListener('change', () => recalcMarketRow(row, 'product'));
+    row.querySelector('.mm-product')?.addEventListener('input', () => recalcMarketRow(row, 'product'));
     row.querySelector('.mm-qty')?.addEventListener('input', () => recalcMarketRow(row, 'qty'));
     row.querySelector('.mm-bonus')?.addEventListener('input', () => recalcMarketRow(row, 'bonus'));
     row.querySelector('.mm-bonus-pct')?.addEventListener('input', () => recalcMarketRow(row, 'pct'));
@@ -1526,7 +1665,9 @@ function recalcStaffRow(row, source = '') {
 }
 
 function bindStaffItemRow(row) {
+    bindWorkflowProductLookup(row.querySelector('.staff-product'), () => recalcStaffRow(row, 'product'));
     row.querySelector('.staff-product')?.addEventListener('change', () => recalcStaffRow(row, 'product'));
+    row.querySelector('.staff-product')?.addEventListener('input', () => recalcStaffRow(row, 'product'));
     row.querySelector('.staff-qty')?.addEventListener('input', () => recalcStaffRow(row, 'qty'));
     row.querySelector('.staff-bonus')?.addEventListener('input', () => recalcStaffRow(row, 'bonus'));
     row.querySelector('.staff-bonus-pct')?.addEventListener('input', () => recalcStaffRow(row, 'pct'));

@@ -945,71 +945,60 @@ function getManagerName(repName) {
 function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) {
     inputEl._autocompleteData = dataArray;
     inputEl._autocompleteCallback = onSelectCallback;
-    
     if (inputEl._hasAutocomplete) return;
     inputEl._hasAutocomplete = true;
 
     let currentFocus = -1;
+    const normalize = value => String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+
+    function renderItemLabel(item, query) {
+        const text = String(item || '');
+        if (!query) return text;
+        const haystack = normalize(text);
+        const idx = haystack.indexOf(query);
+        if (idx < 0) return text;
+        const before = text.substring(0, idx);
+        const match = text.substring(idx, idx + query.length);
+        const after = text.substring(idx + query.length);
+        return `${before}<strong>${match}</strong>${after}`;
+    }
 
     function showList() {
         const data = inputEl._autocompleteData || [];
         const cb = inputEl._autocompleteCallback;
-        const val = inputEl.value.trim().toLowerCase();
-        
+        const query = normalize(inputEl.value);
         suggestionsEl.innerHTML = '';
         currentFocus = -1;
 
-        const filtered = val ? data.filter(item => item.toLowerCase().includes(val)) : data;
+        const filtered = (query ? data.filter(item => normalize(item).includes(query)) : data).slice(0, 40);
+        if (!filtered.length) {
+            suggestionsEl.style.display = 'none';
+            return;
+        }
 
-        if (filtered.length > 0) {
-            filtered.forEach((item) => {
-                const div = document.createElement('div');
-                div.className = 'autocomplete-item';
-                div.style.padding = '8px 12px';
-                div.style.cursor = 'pointer';
-                div.style.borderBottom = '1px solid #eee';
-                div.style.backgroundColor = '#ffffff';
-                div.style.color = '#000000';
-                div.style.textAlign = 'right';
-                div.style.fontSize = '14px';
-                
-                div.onmouseover = () => div.style.backgroundColor = '#f0f8ff';
-                div.onmouseout = () => { if (!div.classList.contains('autocomplete-active')) div.style.backgroundColor = '#ffffff'; };
-
-                if (val) {
-                    const matchIndex = item.toLowerCase().indexOf(val);
-                    if (matchIndex >= 0) {
-                        const before = item.substring(0, matchIndex);
-                        const match = item.substring(matchIndex, matchIndex + val.length);
-                        const after = item.substring(matchIndex + val.length);
-                        div.innerHTML = before + '<strong style="color:#004a99;">' + match + '</strong>' + after;
-                    } else { div.innerText = item; }
-                } else { div.innerText = item; }
-
-                div.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    inputEl.value = item;
-                    suggestionsEl.style.display = 'none';
-                    if (cb) cb(item);
-                    inputEl.dispatchEvent(new Event('input')); 
-                });
-                suggestionsEl.appendChild(div);
+        filtered.forEach((item) => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.innerHTML = renderItemLabel(item, query);
+            div.addEventListener('click', function(e) {
+                e.preventDefault();
+                inputEl.value = item;
+                suggestionsEl.style.display = 'none';
+                if (cb) cb(item);
+                inputEl.dispatchEvent(new Event('input'));
             });
+            suggestionsEl.appendChild(div);
+        });
 
-            const rect = inputEl.getBoundingClientRect();
-            suggestionsEl.style.position = 'absolute';
-            suggestionsEl.style.top = (inputEl.offsetTop + inputEl.offsetHeight) + 'px';
-            suggestionsEl.style.left = inputEl.offsetLeft + 'px';
-            suggestionsEl.style.width = rect.width + 'px';
-            suggestionsEl.style.zIndex = '9999999';
-            suggestionsEl.style.backgroundColor = '#ffffff';
-            suggestionsEl.style.border = '1px solid #ccc';
-            suggestionsEl.style.borderRadius = '4px';
-            suggestionsEl.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-            suggestionsEl.style.maxHeight = '200px';
-            suggestionsEl.style.overflowY = 'auto';
-            suggestionsEl.style.display = 'block';
-        } else { suggestionsEl.style.display = 'none'; }
+        suggestionsEl.style.position = 'absolute';
+        suggestionsEl.style.top = `${inputEl.offsetTop + inputEl.offsetHeight + 8}px`;
+        suggestionsEl.style.right = '0px';
+        suggestionsEl.style.left = 'auto';
+        suggestionsEl.style.width = 'max-content';
+        suggestionsEl.style.minWidth = `${inputEl.offsetWidth}px`;
+        suggestionsEl.style.maxWidth = 'min(900px, calc(100vw - 32px))';
+        suggestionsEl.style.zIndex = '9999999';
+        suggestionsEl.style.display = 'block';
     }
 
     inputEl.addEventListener('input', showList);
@@ -1019,27 +1008,35 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
     inputEl.addEventListener('keydown', function(e) {
         if (suggestionsEl.style.display === 'none') return;
         const items = suggestionsEl.getElementsByClassName('autocomplete-item');
-        if (e.key === 'ArrowDown') { currentFocus++; if (currentFocus >= items.length) currentFocus = 0; setActive(items); e.preventDefault(); }
-        else if (e.key === 'ArrowUp') { currentFocus--; if (currentFocus < 0) currentFocus = items.length - 1; setActive(items); e.preventDefault(); }
-        else if (e.key === 'Enter') { e.preventDefault(); if (currentFocus > -1 && items[currentFocus]) items[currentFocus].click(); else if (items.length === 1) items[0].click(); }
+        if (e.key === 'ArrowDown') {
+            currentFocus++;
+            if (currentFocus >= items.length) currentFocus = 0;
+            setActive(items);
+            e.preventDefault();
+        } else if (e.key === 'ArrowUp') {
+            currentFocus--;
+            if (currentFocus < 0) currentFocus = items.length - 1;
+            setActive(items);
+            e.preventDefault();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (currentFocus > -1 && items[currentFocus]) items[currentFocus].click();
+            else if (items.length === 1) items[0].click();
+        } else if (e.key === 'Escape') {
+            suggestionsEl.style.display = 'none';
+        }
     });
 
-    function setActive(items) { 
-        for (let i=0; i<items.length; i++) {
-            items[i].classList.remove('autocomplete-active'); 
-            items[i].style.backgroundColor = '#ffffff';
+    function setActive(items) {
+        for (let i = 0; i < items.length; i++) items[i].classList.remove('autocomplete-active');
+        if (items[currentFocus]) {
+            items[currentFocus].classList.add('autocomplete-active');
+            items[currentFocus].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
-        if (items[currentFocus]) { 
-            items[currentFocus].classList.add('autocomplete-active'); 
-            items[currentFocus].style.backgroundColor = '#e6f2ff';
-            items[currentFocus].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); 
-        } 
     }
 
-    document.addEventListener('click', function(e) { 
-        if (!inputEl.contains(e.target) && !suggestionsEl.contains(e.target)) {
-            suggestionsEl.style.display = 'none'; 
-        }
+    document.addEventListener('click', function(e) {
+        if (!inputEl.contains(e.target) && !suggestionsEl.contains(e.target)) suggestionsEl.style.display = 'none';
     });
 
     suggestionsEl.addEventListener('mousedown', function(e) { e.preventDefault(); });
