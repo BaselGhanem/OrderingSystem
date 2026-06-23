@@ -248,7 +248,6 @@ const repPasswordsMap = {
     "محمد عبدربه": "NDAyOQ=="
 };
 let productsList = [];
-let pharmaciesList = [];
 let currentRepId = null;
 let currentRepName = null;
 let currentPharmacyName = null;
@@ -306,41 +305,6 @@ function parseAppNumber(value) {
         .trim();
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function getPharmacyName(pharmacy = {}) {
-    return String(pharmacy.name || pharmacy.pharmacyName || pharmacy.customerName || '').trim();
-}
-
-function getPharmacyRepId(pharmacy = {}) {
-    return String(pharmacy.rep_id || pharmacy.repId || pharmacy.representativeId || pharmacy.representative_id || '').trim();
-}
-
-function getPharmaciesForRep(repId) {
-    const selectedRepId = String(repId || '').trim();
-    if (!selectedRepId) return [];
-    return pharmaciesList
-        .filter(pharmacy => getPharmacyRepId(pharmacy) === selectedRepId)
-        .sort((a, b) => getPharmacyName(a).localeCompare(getPharmacyName(b), 'ar'));
-}
-
-function getUniquePharmacyNames(pharmacies = []) {
-    return Array.from(new Set(pharmacies.map(getPharmacyName).filter(Boolean)))
-        .sort((a, b) => a.localeCompare(b, 'ar'));
-}
-
-async function ensurePharmaciesLoaded() {
-    if (pharmaciesList.length > 0) return true;
-    try {
-        const pharmSnap = await getDocs(collection(db, "pharmacies"));
-        pharmaciesList = [];
-        pharmSnap.forEach(d => pharmaciesList.push({ id: d.id, ...d.data() }));
-        pharmaciesList.sort((a, b) => getPharmacyName(a).localeCompare(getPharmacyName(b), 'ar'));
-        return true;
-    } catch (error) {
-        console.error('فشل تحميل الصيدليات:', error);
-        return false;
-    }
 }
 
 function normalizeDateValue(value) {
@@ -981,60 +945,71 @@ function getManagerName(repName) {
 function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) {
     inputEl._autocompleteData = dataArray;
     inputEl._autocompleteCallback = onSelectCallback;
+    
     if (inputEl._hasAutocomplete) return;
     inputEl._hasAutocomplete = true;
 
     let currentFocus = -1;
-    const normalize = value => String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
-
-    function renderItemLabel(item, query) {
-        const text = String(item || '');
-        if (!query) return text;
-        const haystack = normalize(text);
-        const idx = haystack.indexOf(query);
-        if (idx < 0) return text;
-        const before = text.substring(0, idx);
-        const match = text.substring(idx, idx + query.length);
-        const after = text.substring(idx + query.length);
-        return `${before}<strong>${match}</strong>${after}`;
-    }
 
     function showList() {
         const data = inputEl._autocompleteData || [];
         const cb = inputEl._autocompleteCallback;
-        const query = normalize(inputEl.value);
+        const val = inputEl.value.trim().toLowerCase();
+        
         suggestionsEl.innerHTML = '';
         currentFocus = -1;
 
-        const filtered = (query ? data.filter(item => normalize(item).includes(query)) : data).slice(0, 40);
-        if (!filtered.length) {
-            suggestionsEl.style.display = 'none';
-            return;
-        }
+        const filtered = val ? data.filter(item => item.toLowerCase().includes(val)) : data;
 
-        filtered.forEach((item) => {
-            const div = document.createElement('div');
-            div.className = 'autocomplete-item';
-            div.innerHTML = renderItemLabel(item, query);
-            div.addEventListener('click', function(e) {
-                e.preventDefault();
-                inputEl.value = item;
-                suggestionsEl.style.display = 'none';
-                if (cb) cb(item);
-                inputEl.dispatchEvent(new Event('input'));
+        if (filtered.length > 0) {
+            filtered.forEach((item) => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-item';
+                div.style.padding = '8px 12px';
+                div.style.cursor = 'pointer';
+                div.style.borderBottom = '1px solid #eee';
+                div.style.backgroundColor = '#ffffff';
+                div.style.color = '#000000';
+                div.style.textAlign = 'right';
+                div.style.fontSize = '14px';
+                
+                div.onmouseover = () => div.style.backgroundColor = '#f0f8ff';
+                div.onmouseout = () => { if (!div.classList.contains('autocomplete-active')) div.style.backgroundColor = '#ffffff'; };
+
+                if (val) {
+                    const matchIndex = item.toLowerCase().indexOf(val);
+                    if (matchIndex >= 0) {
+                        const before = item.substring(0, matchIndex);
+                        const match = item.substring(matchIndex, matchIndex + val.length);
+                        const after = item.substring(matchIndex + val.length);
+                        div.innerHTML = before + '<strong style="color:#004a99;">' + match + '</strong>' + after;
+                    } else { div.innerText = item; }
+                } else { div.innerText = item; }
+
+                div.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    inputEl.value = item;
+                    suggestionsEl.style.display = 'none';
+                    if (cb) cb(item);
+                    inputEl.dispatchEvent(new Event('input')); 
+                });
+                suggestionsEl.appendChild(div);
             });
-            suggestionsEl.appendChild(div);
-        });
 
-        suggestionsEl.style.position = 'absolute';
-        suggestionsEl.style.top = `${inputEl.offsetTop + inputEl.offsetHeight + 8}px`;
-        suggestionsEl.style.right = '0px';
-        suggestionsEl.style.left = 'auto';
-        suggestionsEl.style.width = 'max-content';
-        suggestionsEl.style.minWidth = `${inputEl.offsetWidth}px`;
-        suggestionsEl.style.maxWidth = 'min(900px, calc(100vw - 32px))';
-        suggestionsEl.style.zIndex = '9999999';
-        suggestionsEl.style.display = 'block';
+            const rect = inputEl.getBoundingClientRect();
+            suggestionsEl.style.position = 'absolute';
+            suggestionsEl.style.top = (inputEl.offsetTop + inputEl.offsetHeight) + 'px';
+            suggestionsEl.style.left = inputEl.offsetLeft + 'px';
+            suggestionsEl.style.width = rect.width + 'px';
+            suggestionsEl.style.zIndex = '9999999';
+            suggestionsEl.style.backgroundColor = '#ffffff';
+            suggestionsEl.style.border = '1px solid #ccc';
+            suggestionsEl.style.borderRadius = '4px';
+            suggestionsEl.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+            suggestionsEl.style.maxHeight = '200px';
+            suggestionsEl.style.overflowY = 'auto';
+            suggestionsEl.style.display = 'block';
+        } else { suggestionsEl.style.display = 'none'; }
     }
 
     inputEl.addEventListener('input', showList);
@@ -1044,35 +1019,27 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
     inputEl.addEventListener('keydown', function(e) {
         if (suggestionsEl.style.display === 'none') return;
         const items = suggestionsEl.getElementsByClassName('autocomplete-item');
-        if (e.key === 'ArrowDown') {
-            currentFocus++;
-            if (currentFocus >= items.length) currentFocus = 0;
-            setActive(items);
-            e.preventDefault();
-        } else if (e.key === 'ArrowUp') {
-            currentFocus--;
-            if (currentFocus < 0) currentFocus = items.length - 1;
-            setActive(items);
-            e.preventDefault();
-        } else if (e.key === 'Enter') {
-            e.preventDefault();
-            if (currentFocus > -1 && items[currentFocus]) items[currentFocus].click();
-            else if (items.length === 1) items[0].click();
-        } else if (e.key === 'Escape') {
-            suggestionsEl.style.display = 'none';
-        }
+        if (e.key === 'ArrowDown') { currentFocus++; if (currentFocus >= items.length) currentFocus = 0; setActive(items); e.preventDefault(); }
+        else if (e.key === 'ArrowUp') { currentFocus--; if (currentFocus < 0) currentFocus = items.length - 1; setActive(items); e.preventDefault(); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (currentFocus > -1 && items[currentFocus]) items[currentFocus].click(); else if (items.length === 1) items[0].click(); }
     });
 
-    function setActive(items) {
-        for (let i = 0; i < items.length; i++) items[i].classList.remove('autocomplete-active');
-        if (items[currentFocus]) {
-            items[currentFocus].classList.add('autocomplete-active');
-            items[currentFocus].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    function setActive(items) { 
+        for (let i=0; i<items.length; i++) {
+            items[i].classList.remove('autocomplete-active'); 
+            items[i].style.backgroundColor = '#ffffff';
         }
+        if (items[currentFocus]) { 
+            items[currentFocus].classList.add('autocomplete-active'); 
+            items[currentFocus].style.backgroundColor = '#e6f2ff';
+            items[currentFocus].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); 
+        } 
     }
 
-    document.addEventListener('click', function(e) {
-        if (!inputEl.contains(e.target) && !suggestionsEl.contains(e.target)) suggestionsEl.style.display = 'none';
+    document.addEventListener('click', function(e) { 
+        if (!inputEl.contains(e.target) && !suggestionsEl.contains(e.target)) {
+            suggestionsEl.style.display = 'none'; 
+        }
     });
 
     suggestionsEl.addEventListener('mousedown', function(e) { e.preventDefault(); });
@@ -1086,48 +1053,27 @@ async function loadInitialData() {
             repSelect.disabled = true;
         }
 
-        const CACHE_KEY = 'dad_app_cache_20260623_rep_pharmacy_cache_fix8';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_20260623_rep_pharmacy_cache_fix8';
+        const CACHE_KEY = 'dad_app_cache_20260623_modal_finance_note_fix1';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_20260623_modal_finance_note_fix1';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
         const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);
         const now = new Date().getTime();
         let repsData = [];
         let prodsData = [];
-        let pharmaciesData = [];
-        let useFreshFirebaseLoad = true;
 
         if (cachedDataStr && cacheTimeStr && (now - parseInt(cacheTimeStr, 10) < CACHE_EXPIRY)) {
-            try {
-                const parsed = JSON.parse(cachedDataStr);
-                if (Array.isArray(parsed.reps) && Array.isArray(parsed.products) && Array.isArray(parsed.pharmacies)) {
-                    repsData = parsed.reps;
-                    prodsData = parsed.products;
-                    pharmaciesData = parsed.pharmacies;
-                    useFreshFirebaseLoad = false;
-                }
-            } catch (error) {
-                useFreshFirebaseLoad = true;
-            }
-        }
-
-        if (useFreshFirebaseLoad) {
-            const [repsSnap, prodSnap, pharmSnap] = await Promise.all([
-                getDocs(collection(db, "reps")),
-                getDocs(collection(db, "products")),
-                getDocs(collection(db, "pharmacies"))
-            ]);
+            const parsed = JSON.parse(cachedDataStr);
+            repsData = parsed.reps || [];
+            prodsData = parsed.products || [];
+        } else {
+            const repsSnap = await getDocs(collection(db, "reps"));
+            const prodSnap = await getDocs(collection(db, "products"));
             repsSnap.forEach(d => repsData.push({ id: d.id, ...d.data() }));
             prodSnap.forEach(d => prodsData.push({ id: d.id, ...d.data() }));
-            pharmSnap.forEach(d => pharmaciesData.push({ id: d.id, ...d.data() }));
-            localStorage.setItem(CACHE_KEY, JSON.stringify({ reps: repsData, products: prodsData, pharmacies: pharmaciesData }));
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ reps: repsData, products: prodsData }));
             localStorage.setItem(CACHE_TIME_KEY, now.toString());
         }
-
-        pharmaciesList = pharmaciesData
-            .map(pharmacy => ({ ...pharmacy }))
-            .filter(pharmacy => getPharmacyName(pharmacy));
-        pharmaciesList.sort((a, b) => getPharmacyName(a).localeCompare(getPharmacyName(b), 'ar'));
 
         if (repSelect) {
             repSelect.innerHTML = '<option value="">-- اختر المندوب --</option>';
@@ -1149,7 +1095,6 @@ async function loadInitialData() {
             productCode: prod.productCode || prod.product_code || prod.code || ''
         }));
         productsList.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
-
         await bootstrapPage();
     } catch(e) {
         console.error("خطأ في تحميل البيانات الأولية:", e);
@@ -1404,62 +1349,48 @@ function updateGrandTotal() {
     autoSaveDraft();
 }
 
-async function handleRepSelectionChange(e) {
-    const selectedRepId = e.target.value;
-    const repPasswordGroup = document.getElementById('repPasswordGroup');
-    const repPasswordInput = document.getElementById('repPasswordInput');
-    const rememberRepPass = document.getElementById('rememberRepPass');
+if (repSelect) repSelect.onchange = async (e) => {
+    if (!e.target.value) {
+        document.getElementById('repPasswordGroup').style.display = 'none';
+        return;
+    }
+    
+    // 🟢 إظهار حقل الرقم السري عند اختيار المندوب
+    document.getElementById('repPasswordGroup').style.display = 'block';
+    
+    // 🟢 استرجاع كلمة المرور إذا كانت محفوظة
+    const savedPass = localStorage.getItem('savedRepPass_' + e.target.value);
+    if (savedPass) {
+        document.getElementById('repPasswordInput').value = savedPass;
+        if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = true;
+    } else {
+        document.getElementById('repPasswordInput').value = '';
+        if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = false;
+    }
 
-    currentPharmaciesData = [];
-    if (pharmacyInput) {
-        pharmacyInput.value = '';
-        pharmacyInput.classList.remove('input-error');
-    }
-    if (startOrderBtn) startOrderBtn.disabled = true;
-
-    if (!selectedRepId) {
-        if (repPasswordGroup) repPasswordGroup.style.display = 'none';
-        if (pharmacyInput) {
-            pharmacyInput.disabled = true;
-            pharmacyInput.placeholder = 'اختر المندوب أولاً';
-        }
-        return;
-    }
-
-    if (repPasswordGroup) repPasswordGroup.style.display = 'block';
-
-    const savedPass = localStorage.getItem('savedRepPass_' + selectedRepId);
-    if (repPasswordInput) repPasswordInput.value = savedPass || '';
-    if (rememberRepPass) rememberRepPass.checked = !!savedPass;
-
-    if (pharmacyInput) pharmacyInput.placeholder = 'جاري التحميل...';
-
-    const pharmaciesReady = await ensurePharmaciesLoaded();
-    if (!pharmaciesReady) {
-        if (pharmacyInput) pharmacyInput.placeholder = 'خطأ في التحميل، الرجاء المحاولة مرة أخرى';
-        return;
-    }
-
-    currentPharmaciesData = getPharmaciesForRep(selectedRepId);
-    const pharmacyNames = getUniquePharmacyNames(currentPharmaciesData);
-
-    if (pharmacyInput) {
-        setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => {
-            if (startOrderBtn) startOrderBtn.disabled = false;
+    pharmacyInput.value = '';
+    pharmacyInput.placeholder = 'جاري التحميل...';
+    try {
+        const q = query(collection(db, "pharmacies"), where("rep_id", "==", e.target.value));
+        const snap = await getDocs(q);
+        let pharmacyNames = [];
+        currentPharmaciesData = []; 
+        snap.forEach(d => {
+            currentPharmaciesData.push(d.data()); 
+            pharmacyNames.push(d.data().name);
         });
+        setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => startOrderBtn.disabled = false);
         pharmacyInput.disabled = false;
-        pharmacyInput.placeholder = pharmacyNames.length ? 'ابحث او اختر الصيدلية...' : 'لا توجد صيدليات لهذا المندوب';
+        pharmacyInput.placeholder = 'ابحث او اختر الصيدلية...';
+    } catch (error) {
+        pharmacyInput.placeholder = 'خطأ في التحميل، الرجاء المحاولة مرة أخرى';
     }
-
-    setTimeout(() => { validatePharmacyInput(); }, 100);
-}
-
-if (repSelect) repSelect.onchange = handleRepSelectionChange;
+};
 if (pharmacyInput) pharmacyInput.oninput = () => { if (startOrderBtn) startOrderBtn.disabled = !pharmacyInput.value.trim(); };
 
 function validatePharmacyInput() {
     const pharmacyName = pharmacyInput.value.trim();
-    const isValid = pharmacyName !== "" && currentPharmaciesData.some(p => getPharmacyName(p) === pharmacyName);
+    const isValid = pharmacyName !== "" && currentPharmaciesData.some(p => p.name === pharmacyName);
     
     if (!isValid && pharmacyName !== "") {
         pharmacyInput.classList.add('input-error');
@@ -1476,7 +1407,7 @@ function validatePharmacyInput() {
 
 pharmacyInput?.addEventListener('blur', validatePharmacyInput);
 pharmacyInput?.addEventListener('input', function() {
-    const isValid = currentPharmaciesData.some(p => getPharmacyName(p) === this.value.trim());
+    const isValid = currentPharmaciesData.some(p => p.name === this.value.trim());
     if (isValid) {
         this.classList.remove('input-error');
         startOrderBtn.disabled = false;
@@ -1484,6 +1415,72 @@ pharmacyInput?.addEventListener('input', function() {
         startOrderBtn.disabled = true;
     }
 });
+
+if (startOrderBtn) startOrderBtn.onclick = async (e) => { e.preventDefault(); // 🟢 أضف هذا السطر لمنع إرسال الفورم...
+                                      if (productsList.length === 0) { 
+        showToast("الرجاء الانتظار... يتم تحميل المنتجات.", "info"); 
+        return; 
+    }
+    const selectedRepNameText = repSelect.options[repSelect.selectedIndex].text;
+    const repPassInput = document.getElementById('repPasswordInput');
+    const enteredPass = repPassInput.value.trim();
+    const expectedHash = repPasswordsMap[selectedRepNameText];
+
+    if (!enteredPass) {
+        repPassInput.classList.add('input-error');
+        return showToast("الرجاء إدخال الرقم السري الخاص بك.", "warning");
+    }
+
+if (expectedHash && btoa(enteredPass) !== expectedHash) {
+        repPassInput.classList.add('input-error');
+        return showToast("الرقم السري للمندوب غير صحيح!", "error");
+    }
+    
+    repPassInput.classList.remove('input-error');
+    // 🟢 حفظ كلمة المرور إذا كان خيار التذكر مفعلاً
+    if (document.getElementById('rememberRepPass') && document.getElementById('rememberRepPass').checked) {
+        localStorage.setItem('savedRepPass_' + repSelect.value, enteredPass);
+    } else {
+        localStorage.removeItem('savedRepPass_' + repSelect.value);
+        repPassInput.value = ''; // تنظيف الحقل كإجراء أمني إذا لم يطلب التذكر
+    }
+    const pharmacyName = pharmacyInput.value.trim();
+    const selectedPharm = currentPharmaciesData.find(p => p.name === pharmacyName);
+    
+    if (!selectedPharm) {
+        pharmacyInput.classList.add('input-error');
+        showToast("الرجاء اختيار صيدلية صحيحة من القائمة حصراً.", "error");
+        return;
+    }
+    
+    currentRepId = repSelect.value;
+    currentRepName = repSelect.options[repSelect.selectedIndex].text;
+    saveRepSession(currentRepId, currentRepName);
+    localStorage.setItem('dad_last_rep_id', currentRepId);
+    currentPharmacyName = pharmacyName;
+    currentPharmacyCode = selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || selectedPharm.customerCode || "";
+
+    const adminOrderSession = getAdminSession();
+    const isAdminOrder = sessionStorage.getItem('adminOrderMode') === '1' && adminOrderSession?.type === 'manager';
+    sessionStorage.setItem('activeOrderContext', JSON.stringify({
+        repId: currentRepId,
+        repName: currentRepName,
+        pharmacyName: currentPharmacyName,
+        pharmacyCode: currentPharmacyCode,
+        isAdminOrder,
+        managerName: isAdminOrder ? adminOrderSession.name : null
+    }));
+
+    window.location.href = 'order.html';
+};
+
+const originalRepOnChange = repSelect?.onchange;
+if (repSelect) repSelect.onchange = async (e) => {
+    if (originalRepOnChange) await originalRepOnChange(e);
+    startOrderBtn.disabled = true;
+    pharmacyInput.classList.remove('input-error');
+    setTimeout(() => { validatePharmacyInput(); }, 100);
+};
 
 if (submitOrderBtn) submitOrderBtn.onclick = async () => {
     if (!navigator.onLine) {
@@ -2160,9 +2157,16 @@ async function openEditOrder(orderId, userType) {
         });
     }
 
-    await ensurePharmaciesLoaded();
-    let editPharmaciesData = getPharmaciesForRep(order.repId);
-    let editPharmacyNames = getUniquePharmacyNames(editPharmaciesData);
+    let editPharmaciesData = [];
+    let editPharmacyNames = [];
+    try {
+        const q = query(collection(db, "pharmacies"), where("rep_id", "==", order.repId));
+        const pharmSnap = await getDocs(q);
+        pharmSnap.forEach(d => {
+            editPharmaciesData.push(d.data());
+            editPharmacyNames.push(d.data().name);
+        });
+    } catch (error) {}
 
     const editModal = document.getElementById('editOrderModal');
     if (editModal) editModal.style.display = 'flex';
@@ -2246,11 +2250,13 @@ async function openEditOrder(orderId, userType) {
         }
 
         editPharmInput.placeholder = 'جاري تحميل الصيدليات...';
-        await ensurePharmaciesLoaded();
-        editPharmaciesData = getPharmaciesForRep(selectedRepId);
-        editPharmacyNames = getUniquePharmacyNames(editPharmaciesData);
-        editPharmInput.placeholder = editPharmacyNames.length ? 'ابحث عن الصيدلية...' : 'لا توجد صيدليات لهذا المندوب';
-        setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
+        try {
+            const q = query(collection(db, "pharmacies"), where("rep_id", "==", selectedRepId));
+            const pharmSnap = await getDocs(q);
+            pharmSnap.forEach(d => { editPharmaciesData.push(d.data()); editPharmacyNames.push(d.data().name); });
+            editPharmInput.placeholder = 'ابحث عن الصيدلية...';
+            setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
+        } catch (error) { editPharmInput.placeholder = 'خطأ في التحميل'; }
     });
 
     editPharmInput.addEventListener('blur', function() {
