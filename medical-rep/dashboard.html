@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة مندوب الدعاية الطبية</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="icon" href="../favicon.ico?v=20260623_medrep_v1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900;1000&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/medrep.css?v=20260623_medrep_v1">
+</head>
+<body>
+    <main class="app-shell">
+        <header class="topbar">
+            <div class="page-title">
+                <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="DAD Logo">
+                <div>
+                    <h1>لوحة مبيعات الدعاية الطبية</h1>
+                    <p>قراءة فقط من الطلبيات المفوترة بعد احتساب ربط المناطق ونسبة اخرين.</p>
+                </div>
+            </div>
+            <div class="top-actions">
+                <button id="refreshBtn" class="btn btn-light" type="button"><i class="ph ph-arrows-clockwise"></i> تحديث</button>
+                <button id="exportBtn" class="btn btn-primary" type="button"><i class="ph ph-file-xls"></i> تصدير Excel</button>
+                <button id="logoutBtn" class="btn btn-dark" type="button"><i class="ph ph-sign-out"></i> خروج</button>
+            </div>
+        </header>
+
+        <section class="identity-strip">
+            <div class="identity-card"><span>المندوب الطبي</span><strong id="repName">-</strong></div>
+            <div class="identity-card"><span>الفريق</span><strong id="repTeam">-</strong></div>
+            <div class="identity-card"><span>التحديث</span><strong id="lastRefresh">-</strong></div>
+        </section>
+
+        <section class="filter-panel">
+            <div class="filter-grid">
+                <div class="field-group"><label for="dateFrom">من تاريخ</label><input id="dateFrom" class="input-control" type="date"></div>
+                <div class="field-group"><label for="dateTo">إلى تاريخ</label><input id="dateTo" class="input-control" type="date"></div>
+                <div class="field-group"><label for="itemFilter">الصنف</label><select id="itemFilter" class="select-control"><option value="">كل الأصناف</option></select></div>
+                <div class="field-group"><label for="areaFilter">المنطقة</label><select id="areaFilter" class="select-control"><option value="">كل المناطق</option></select></div>
+                <div class="field-group"><label for="channelFilter">نوع الاحتساب</label><select id="channelFilter" class="select-control"><option value="all">الكل</option><option value="direct">منطقة مباشرة</option><option value="others">اخرين فقط</option></select></div>
+                <div class="field-group wide"><label for="searchInput">بحث</label><input id="searchInput" class="input-control" type="search" placeholder="صيدلية، كود، صنف، منطقة..."></div>
+            </div>
+        </section>
+
+        <section class="cards-grid">
+            <div class="stat-card"><i class="ph ph-currency-circle-dollar"></i><span>إجمالي المبيعات المحتسبة</span><strong id="cardTotalValue">0.00 د.أ</strong></div>
+            <div class="stat-card"><i class="ph ph-map-pin"></i><span>مبيعات المناطق المباشرة</span><strong id="cardDirectValue">0.00 د.أ</strong></div>
+            <div class="stat-card other-card"><i class="ph ph-percent"></i><span>مبيعات اخرين المحتسبة</span><strong id="cardOtherValue">0.00 د.أ</strong></div>
+            <div class="stat-card"><i class="ph ph-package"></i><span>الكمية المحتسبة</span><strong id="cardQty">0</strong></div>
+            <div class="stat-card"><i class="ph ph-list-checks"></i><span>عدد السطور</span><strong id="cardLines">0</strong></div>
+            <div class="stat-card"><i class="ph ph-target"></i><span>Target Value</span><strong id="cardTarget">غير مرفوع</strong></div>
+            <div class="stat-card"><i class="ph ph-trend-up"></i><span>Achievement</span><strong id="cardAch">-</strong></div>
+        </section>
+
+        <section class="grid-two">
+            <div class="table-card">
+                <div class="card-head">
+                    <div>
+                        <h2>ملخص الأصناف</h2>
+                        <p class="form-note">القيمة المحتسبة = مباشر + اخرين بعد النسبة.</p>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table class="data-table compact-table">
+                        <thead><tr><th>الصنف</th><th>الكمية</th><th>مباشر</th><th>اخرين</th><th>الإجمالي</th></tr></thead>
+                        <tbody id="itemSummaryBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <div class="card-head">
+                    <div>
+                        <h2>تفاصيل المبيعات المحتسبة</h2>
+                        <p class="form-note">يتم عرض المبيعات المفوترة فقط. المندوب الطبي لا يستطيع تنفيذ أي إجراء على الطلبية.</p>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th><th>المنطقة</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الصنف</th><th>كود الصنف</th><th>الكمية الأصلية</th><th>الكمية المحتسبة</th><th>قيمة السطر</th><th>القيمة المحتسبة</th><th>النوع</th><th>رقم الطلب</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesRowsBody"></tbody>
+                    </table>
+                </div>
+                <div id="visibleRowsNote" class="note-muted"></div>
+            </div>
+        </section>
+    </main>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="js/medrep-common.js?v=20260623_medrep_v1"></script>
+    <script type="module" src="js/dashboard.js?v=20260623_medrep_v1"></script>
+</body>
+</html>

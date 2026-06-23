@@ -1,1 +1,59 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بوابة مندوب الدعاية الطبية</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="icon" href="../favicon.ico?v=20260623_medrep_v1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900;1000&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="css/medrep.css?v=20260623_medrep_v1">
+</head>
+<body class="login-page">
+    <main class="login-shell">
+        <section class="hero-panel">
+            <div class="brand-lockup">
+                <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="DAD Logo">
+                <div>
+                    <strong>Medical Promotion Portal</strong>
+                    <span>Read-only sales attribution</span>
+                </div>
+            </div>
+            <div class="hero-content">
+                <span class="eyebrow"><i class="ph ph-stethoscope"></i> بوابة مستقلة عن نظام البيع</span>
+                <h1>متابعة مبيعات مندوب الدعاية الطبية.</h1>
+                <p>الدخول مخصص للمندوب الطبي فقط لقراءة المبيعات المفوترة والمحتسبة حسب المنطقة، الصنف، ونسبة منطقة اخرين.</p>
+                <div class="feature-list">
+                    <div><i class="ph ph-shield-check"></i><span>لا يوجد إنشاء أو تعديل طلبيات من هذه البوابة.</span></div>
+                    <div><i class="ph ph-map-pin-line"></i><span>احتساب مباشر حسب ربط المنطقة بالصنف.</span></div>
+                    <div><i class="ph ph-percent"></i><span>تمييز مبيعات اخرين بنسبتها الخاصة.</span></div>
+                </div>
+            </div>
+        </section>
 
+        <section class="auth-card">
+            <h2>تسجيل دخول المندوب الطبي</h2>
+            <p>استخدم الرقم الوظيفي وتاريخ الميلاد كما سيتم رفعهما من شاشة الأدمن.</p>
+            <div class="field-group">
+                <label for="employeeNo">الرقم الوظيفي</label>
+                <input id="employeeNo" class="input-control" type="text" inputmode="numeric" autocomplete="username" placeholder="مثال: 1001">
+            </div>
+            <div class="field-group">
+                <label for="birthDate">تاريخ الميلاد</label>
+                <input id="birthDate" class="input-control" type="date" autocomplete="bday">
+            </div>
+            <label class="checkbox-line"><input id="rememberMe" type="checkbox"> تذكرني على هذا الجهاز</label>
+            <button id="loginBtn" class="btn btn-primary btn-full" type="button"><i class="ph ph-sign-in"></i> دخول</button>
+            <a class="admin-link" href="admin.html"><i class="ph ph-lock-key"></i> إدارة بوابة الدعاية الطبية</a>
+        </section>
+    </main>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="js/medrep-common.js?v=20260623_medrep_v1"></script>
+    <script type="module" src="js/login.js?v=20260623_medrep_v1"></script>
+</body>
+</html>
