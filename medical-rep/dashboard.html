@@ -13,16 +13,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900;1000&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="css/medrep.css?v=20260623_medrep_v3">
+    <link rel="stylesheet" href="css/medrep.css?v=20260623_medrep_v5">
 </head>
-<body>
+<body class="medrep-dashboard-app">
     <main class="app-shell dashboard-shell">
         <header class="topbar premium-topbar">
             <div class="page-title">
                 <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="DAD Logo">
                 <div>
                     <h1>لوحة مبيعات الدعاية الطبية</h1>
-                    <p>قراءة فقط من الطلبيات المفوترة، بدون عرض البونص أو أي إجراء تشغيلي.</p>
+                    <p>قراءة فقط لمبيعات الدعاية الطبية، بدون عرض البونص أو أي إجراء تشغيلي.</p>
                 </div>
             </div>
             <div class="top-actions">
@@ -33,7 +33,14 @@
             </div>
         </header>
 
-        <section class="analytics-hero">
+        <nav class="mobile-app-tabs" aria-label="تنقل سريع داخل لوحة المندوب">
+            <button class="mobile-tab active" type="button" data-scroll-to="overviewSection"><i class="ph ph-squares-four"></i><span>ملخص</span></button>
+            <button class="mobile-tab" type="button" data-scroll-to="itemsSection"><i class="ph ph-pill"></i><span>أصناف</span></button>
+            <button class="mobile-tab" type="button" data-scroll-to="ordersSection"><i class="ph ph-receipt"></i><span>طلبيات</span></button>
+            <button class="mobile-tab" type="button" data-scroll-to="filtersSection"><i class="ph ph-sliders-horizontal"></i><span>فلتر</span></button>
+        </nav>
+
+        <section id="overviewSection" class="analytics-hero app-section">
             <div class="hero-metric identity-main">
                 <span>المندوب الطبي</span>
                 <strong id="repName">-</strong>
@@ -56,25 +63,25 @@
             </div>
         </section>
 
-        <section class="filter-panel sticky-filters">
+        <section id="filtersSection" class="filter-panel sticky-filters app-section">
             <div class="filter-grid dashboard-filter-grid">
                 <div class="field-group"><label for="dateFrom">من تاريخ</label><input id="dateFrom" class="input-control" type="date"></div>
                 <div class="field-group"><label for="dateTo">إلى تاريخ</label><input id="dateTo" class="input-control" type="date"></div>
                 <div class="field-group"><label for="itemFilter">الصنف</label><select id="itemFilter" class="select-control"><option value="">كل الأصناف</option></select></div>
                 <div class="field-group"><label for="areaFilter">المنطقة</label><select id="areaFilter" class="select-control"><option value="">كل المناطق</option></select></div>
-                <div class="field-group"><label for="channelFilter">نوع الاحتساب</label><select id="channelFilter" class="select-control"><option value="all">الكل</option><option value="direct">مباشر</option><option value="others">اخرين فقط</option></select></div>
+                <div class="field-group" data-feature="others"><label for="channelFilter">نوع الاحتساب</label><select id="channelFilter" class="select-control"><option value="all">الكل</option><option value="direct">مباشر</option><option value="others">اخرين فقط</option></select></div>
                 <div class="field-group wide"><label for="searchInput">بحث سريع</label><input id="searchInput" class="input-control" type="search" placeholder="صيدلية، كود، صنف، منطقة..."></div>
             </div>
         </section>
 
-        <section class="cards-grid performance-cards">
+        <section class="cards-grid performance-cards app-section">
             <div class="stat-card"><i class="ph ph-currency-circle-dollar"></i><span>إجمالي القيمة</span><strong id="cardTotalValue">0.00 د.أ</strong><em id="cardAvgPrice">متوسط السعر: 0.00</em></div>
             <div class="stat-card qty-card"><i class="ph ph-package"></i><span>إجمالي الكمية</span><strong id="cardQty">0</strong><em id="cardLines">0 سطر</em></div>
             <div class="stat-card"><i class="ph ph-map-pin"></i><span>مبيعات مباشرة</span><strong id="cardDirectValue">0.00 د.أ</strong><em id="cardDirectQty">0 كمية</em></div>
-            <div class="stat-card other-card"><i class="ph ph-percent"></i><span>اخرين محتسبة</span><strong id="cardOtherValue">0.00 د.أ</strong><em id="cardOtherQty">0 كمية</em></div>
+            <div class="stat-card other-card" data-feature="others"><i class="ph ph-percent"></i><span>اخرين محتسبة</span><strong id="cardOtherValue">0.00 د.أ</strong><em id="cardOtherQty">0 كمية</em></div>
             <div class="stat-card"><i class="ph ph-storefront"></i><span>صيدليات فعالة</span><strong id="cardPharmacies">0</strong><em>ضمن الفلاتر</em></div>
             <div class="stat-card"><i class="ph ph-pill"></i><span>أصناف فعالة</span><strong id="cardItems">0</strong><em>ضمن الفلاتر</em></div>
-            <div class="stat-card"><i class="ph ph-target"></i><span>Target</span><strong id="cardTarget">غير مرفوع</strong><em id="cardAch">Achievement: -</em></div>
+            <div class="stat-card" data-feature="target"><i class="ph ph-target"></i><span>Target</span><strong id="cardTarget">0</strong><em id="cardAch">Achievement: -</em></div>
         </section>
 
         <section class="insight-grid">
@@ -93,30 +100,30 @@
                 <strong id="bestPharmacy">-</strong>
                 <small id="bestPharmacyMeta">-</small>
             </div>
-            <div class="insight-card">
+            <div class="insight-card" data-feature="others">
                 <span>نسبة مساهمة اخرين</span>
                 <strong id="otherContribution">0%</strong>
                 <small>من القيمة المحتسبة</small>
             </div>
         </section>
 
-        <section class="grid-two rich-grid">
+        <section id="itemsSection" class="grid-two rich-grid app-section">
             <div class="table-card">
                 <div class="card-head">
                     <div>
                         <h2>تحليل الأصناف</h2>
-                        <p class="form-note">الكميات والقيم لكل صنف، مباشر واخرين.</p>
+                        <p class="form-note">الكميات والقيم لكل صنف. تظهر بيانات اخرين فقط عند رفع نسبها.</p>
                     </div>
                 </div>
                 <div class="table-scroll">
                     <table class="data-table compact-table">
-                        <thead><tr><th>الصنف</th><th>الكمية</th><th>مباشر</th><th>اخرين</th><th>الإجمالي</th><th>% اخرين</th></tr></thead>
+                        <thead id="itemSummaryHead"><tr><th>الصنف</th><th>الكمية</th><th>مباشر</th><th>اخرين</th><th>الإجمالي</th><th>% اخرين</th></tr></thead>
                         <tbody id="itemSummaryBody"></tbody>
                     </table>
                 </div>
             </div>
 
-            <div class="table-card">
+            <div class="table-card" data-feature="others">
                 <div class="card-head">
                     <div>
                         <h2>تحليل منطقة اخرين</h2>
@@ -132,34 +139,34 @@
             </div>
         </section>
 
-        <section class="grid-two rich-grid">
-            <div class="table-card">
+        <section id="ordersSection" class="grid-two rich-grid app-section">
+            <div class="table-card orders-panel">
                 <div class="card-head">
                     <div>
                         <h2>الطلبيات</h2>
-                        <p class="form-note">تفاصيل مفوترة فقط. لا يتم عرض البونص.</p>
+                        <p class="form-note">تفاصيل المبيعات المحتسبة. لا يتم عرض البونص.</p>
                     </div>
                 </div>
                 <div class="table-scroll">
                     <table class="data-table compact-table">
-                        <thead><tr><th>التاريخ</th><th>الصيدلية</th><th>المنطقة</th><th>عدد الأصناف</th><th>الكمية</th><th>القيمة</th><th>اخرين</th><th>تفاصيل</th></tr></thead>
+                        <thead id="ordersHead"><tr><th>التاريخ</th><th>الصيدلية</th><th>المنطقة</th><th>عدد الأصناف</th><th>الكمية</th><th>القيمة</th><th>اخرين</th><th>تفاصيل</th></tr></thead>
                         <tbody id="ordersBody"></tbody>
                     </table>
                 </div>
             </div>
 
-            <div class="table-card">
+            <div class="table-card mobile-lines-panel">
                 <div class="card-head">
                     <div>
                         <h2>آخر السطور على الموبايل</h2>
-                        <p class="form-note">بطاقات قراءة سريعة للمندوب.</p>
+                        <p class="form-note">بطاقات قراءة سريعة بتجربة أقرب للتطبيقات على الموبايل.</p>
                     </div>
                 </div>
                 <div id="mobileCards" class="mobile-card-list"></div>
             </div>
         </section>
 
-        <section class="table-card full-width-card">
+        <section class="table-card full-width-card desktop-detail-card app-section">
             <div class="card-head">
                 <div>
                     <h2>تفاصيل المبيعات المحتسبة</h2>
@@ -168,7 +175,7 @@
             </div>
             <div class="table-scroll">
                 <table class="data-table">
-                    <thead>
+                    <thead id="salesRowsHead">
                         <tr>
                             <th>التاريخ</th><th>المنطقة</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الصنف</th><th>الكمية الأصلية</th><th>الكمية المحتسبة</th><th>قيمة السطر</th><th>القيمة المحتسبة</th><th>نسبتك</th><th>النوع</th><th>تفاصيل الطلب</th>
                         </tr>
@@ -188,7 +195,7 @@
     </div>
 
     <div id="toastContainer" class="toast-container"></div>
-    <script src="js/medrep-common.js?v=20260623_medrep_v3"></script>
-    <script type="module" src="js/dashboard.js?v=20260623_medrep_v3"></script>
+    <script src="js/medrep-common.js?v=20260623_medrep_v5"></script>
+    <script type="module" src="js/dashboard.js?v=20260623_medrep_v5"></script>
 </body>
 </html>

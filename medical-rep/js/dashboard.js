@@ -6,7 +6,11 @@ const state = {
     core: null,
     rows: [],
     filtered: [],
-    orderGroups: []
+    orderGroups: [],
+    ui: {
+        showOther: false,
+        showTarget: false
+    }
 };
 
 function requireSession() {
@@ -22,6 +26,58 @@ function requireSession() {
         C.$(`adminBackLink`).hidden = false;
     }
     return session;
+}
+
+function repKey() {
+    return state.session?.normalizedName || C.normalizeArabic(state.session?.name || ``);
+}
+
+function selectedItemKey() {
+    const item = C.$(`itemFilter`)?.value || ``;
+    return item ? C.normalizeItem(item) : ``;
+}
+
+function selectedDateFilters() {
+    return {
+        from: C.$(`dateFrom`)?.value || ``,
+        to: C.$(`dateTo`)?.value || ``
+    };
+}
+
+function hasConfiguredOtherShares() {
+    const currentRepKey = repKey();
+    const itemKey = selectedItemKey();
+    return (state.core?.otherShares || []).some(rule => {
+        const ruleRepKey = C.normalizeArabic(rule.medrep || rule.medrepKey || ``);
+        const ruleItemKey = rule.itemKey || C.normalizeItem(rule.itemName || ``);
+        const pct = C.parseNumber(rule.percentage);
+        if (!pct) return false;
+        if (currentRepKey && ruleRepKey !== currentRepKey) return false;
+        if (itemKey && ruleItemKey !== itemKey) return false;
+        return true;
+    });
+}
+
+function hasTargetData(target = {}) {
+    return C.parseNumber(target.value) > 0 || C.parseNumber(target.qty) > 0;
+}
+
+function setFeatureVisibility(feature, visible) {
+    document.querySelectorAll(`[data-feature="${feature}"]`).forEach(element => {
+        element.hidden = !visible;
+    });
+}
+
+function updateConditionalUi(showOther, showTarget) {
+    state.ui.showOther = showOther;
+    state.ui.showTarget = showTarget;
+    setFeatureVisibility(`others`, showOther);
+    setFeatureVisibility(`target`, showTarget);
+
+    const channelFilter = C.$(`channelFilter`);
+    const otherOption = channelFilter?.querySelector(`option[value="others"]`);
+    if (otherOption) otherOption.hidden = !showOther;
+    if (!showOther && channelFilter?.value === `others`) channelFilter.value = `all`;
 }
 
 function populateFilters() {
@@ -42,13 +98,19 @@ function applyFilters() {
     const to = C.$(`dateTo`)?.value || ``;
     const item = C.$(`itemFilter`)?.value || ``;
     const area = C.$(`areaFilter`)?.value || ``;
-    const channel = C.$(`channelFilter`)?.value || `all`;
+    const showOther = hasConfiguredOtherShares();
+    let channel = C.$(`channelFilter`)?.value || `all`;
+    if (!showOther && channel === `others`) {
+        C.$(`channelFilter`).value = `all`;
+        channel = `all`;
+    }
     const search = C.normalizeArabic(C.$(`searchInput`)?.value || ``);
 
     state.filtered = state.rows.filter(row => {
         if (!C.isWithinRange(row.date, from, to)) return false;
         if (item && row.itemName !== item) return false;
         if (area && row.area !== area) return false;
+        if (!showOther && row.channel === `others`) return false;
         if (channel !== `all` && row.channel !== channel) return false;
         if (search) {
             const haystack = C.normalizeArabic(`${row.pharmacyName} ${row.pharmacyCode} ${row.itemName} ${row.area} ${row.salesRepName} ${row.orderShort}`);
@@ -57,7 +119,7 @@ function applyFilters() {
         return true;
     });
     state.orderGroups = buildOrderGroups(state.filtered);
-    renderDashboard();
+    renderDashboard(showOther);
 }
 
 function buildOrderGroups(rows = []) {
@@ -95,7 +157,7 @@ function aggregateBy(rows = [], keyFactory, seedFactory, reducer) {
     return [...map.values()];
 }
 
-function renderDashboard() {
+function renderDashboard(showOtherFromFilters = false) {
     const totalValue = C.sumRows(state.filtered, `allocatedValue`);
     const directRows = state.filtered.filter(row => row.channel === `direct`);
     const otherRows = state.filtered.filter(row => row.channel === `others`);
@@ -104,7 +166,6 @@ function renderDashboard() {
     const totalQty = C.sumRows(state.filtered, `allocatedQty`);
     const directQty = C.sumRows(directRows, `allocatedQty`);
     const otherQty = C.sumRows(otherRows, `allocatedQty`);
-    const sourceOtherValue = C.sumRows(otherRows, `sourceValue`);
     const target = targetForRows(state.filtered, state.core?.targets || [], {
         repName: state.session.name,
         team: state.session.team,
@@ -112,7 +173,14 @@ function renderDashboard() {
         from: C.$(`dateFrom`)?.value || ``,
         to: C.$(`dateTo`)?.value || ``
     });
-    const achValue = target.value ? (totalValue / target.value) * 100 : null;
+    const showTarget = hasTargetData(target);
+    const showOther = !!showOtherFromFilters;
+    updateConditionalUi(showOther, showTarget);
+
+    const targetValue = C.parseNumber(target.value);
+    const targetQty = C.parseNumber(target.qty);
+    const achValue = targetValue ? (totalValue / targetValue) * 100 : null;
+    const achQty = targetQty ? (totalQty / targetQty) * 100 : null;
     const activePharmacies = new Set(state.filtered.map(row => row.pharmacyCode || row.pharmacyName).filter(Boolean)).size;
     const activeItems = new Set(state.filtered.map(row => row.itemKey).filter(Boolean)).size;
     const avgPrice = totalQty ? totalValue / totalQty : 0;
@@ -129,16 +197,20 @@ function renderDashboard() {
     C.$(`cardOtherQty`).textContent = `${C.formatQty(otherQty)} كمية`;
     C.$(`cardPharmacies`).textContent = activePharmacies.toLocaleString(`en-US`);
     C.$(`cardItems`).textContent = activeItems.toLocaleString(`en-US`);
-    C.$(`cardTarget`).textContent = target.value ? `${C.formatMoney(target.value)} د.أ` : `غير مرفوع`;
-    C.$(`cardAch`).textContent = `Achievement: ${achValue === null ? `-` : `${achValue.toFixed(1)}%`}`;
+
+    if (showTarget) {
+        C.$(`cardTarget`).textContent = targetValue ? `${C.formatMoney(targetValue)} د.أ` : `${C.formatQty(targetQty)} كمية`;
+        C.$(`cardAch`).textContent = targetValue ? `Achievement: ${achValue.toFixed(1)}%` : `Qty Achievement: ${achQty.toFixed(1)}%`;
+    }
+
     C.$(`otherContribution`).textContent = totalValue ? `${((otherValue / totalValue) * 100).toFixed(1)}%` : `0%`;
 
     renderInsightCards();
-    renderItemSummary();
-    renderOtherSummary(sourceOtherValue);
-    renderOrdersTable();
-    renderMobileCards();
-    renderRowsTable();
+    renderItemSummary(showOther);
+    renderOtherSummary(showOther);
+    renderOrdersTable(showOther);
+    renderMobileCards(showOther);
+    renderRowsTable(showOther);
 }
 
 function renderInsightCards() {
@@ -162,19 +234,29 @@ function renderInsightCards() {
     C.$(`bestPharmacyMeta`).textContent = bestPharmacy ? `${C.formatMoney(bestPharmacy.value)} د.أ / ${C.formatQty(bestPharmacy.qty)} كمية` : `-`;
 }
 
-function renderItemSummary() {
-    const rows = aggregateBy(state.filtered, row => row.itemKey, row => ({ itemName: row.itemName, qty: 0, value: 0, other: 0, direct: 0 }), (acc, row) => {
+function renderItemSummary(showOther) {
+    const rows = aggregateBy(state.filtered, row => row.itemKey, row => ({ itemName: row.itemName, qty: 0, value: 0, other: 0, direct: 0, lines: 0 }), (acc, row) => {
         acc.qty += C.parseNumber(row.allocatedQty);
         acc.value += C.parseNumber(row.allocatedValue);
+        acc.lines += 1;
         if (row.channel === `others`) acc.other += C.parseNumber(row.allocatedValue);
         if (row.channel === `direct`) acc.direct += C.parseNumber(row.allocatedValue);
     }).sort((a, b) => b.value - a.value).slice(0, 60);
     const target = C.$(`itemSummaryBody`);
+    const head = C.$(`itemSummaryHead`);
+
+    if (showOther) {
+        head.innerHTML = `<tr><th>الصنف</th><th>الكمية</th><th>مباشر</th><th>اخرين</th><th>الإجمالي</th><th>% اخرين</th></tr>`;
+    } else {
+        head.innerHTML = `<tr><th>الصنف</th><th>الكمية</th><th>قيمة البيع</th><th>عدد السطور</th></tr>`;
+    }
+
     if (!rows.length) {
-        target.innerHTML = `<tr><td colspan="6"><div class="empty-state compact">لا توجد بيانات ضمن الفلاتر.</div></td></tr>`;
+        target.innerHTML = `<tr><td colspan="${showOther ? 6 : 4}"><div class="empty-state compact">لا توجد بيانات ضمن الفلاتر.</div></td></tr>`;
         return;
     }
-    target.innerHTML = rows.map(row => `
+
+    target.innerHTML = rows.map(row => showOther ? `
         <tr>
             <td class="item-name">${C.escapeHtml(row.itemName)}</td>
             <td>${C.formatQty(row.qty)}</td>
@@ -183,17 +265,28 @@ function renderItemSummary() {
             <td><strong>${C.formatMoney(row.value)}</strong></td>
             <td>${row.value ? `${((row.other / row.value) * 100).toFixed(1)}%` : `0%`}</td>
         </tr>
+    ` : `
+        <tr>
+            <td class="item-name">${C.escapeHtml(row.itemName)}</td>
+            <td>${C.formatQty(row.qty)}</td>
+            <td><strong>${C.formatMoney(row.value)}</strong></td>
+            <td>${row.lines}</td>
+        </tr>
     `).join(``);
 }
 
-function renderOtherSummary() {
+function renderOtherSummary(showOther) {
+    const target = C.$(`otherSummaryBody`);
+    if (!showOther) {
+        target.innerHTML = ``;
+        return;
+    }
     const rows = aggregateBy(state.filtered.filter(row => row.channel === `others`), row => `${row.itemKey}|${row.percentage}`, row => ({ itemName: row.itemName, percentage: row.percentage, sourceQty: 0, sourceValue: 0, allocatedQty: 0, allocatedValue: 0 }), (acc, row) => {
         acc.sourceQty += C.parseNumber(row.sourceQty);
         acc.sourceValue += C.parseNumber(row.sourceValue);
         acc.allocatedQty += C.parseNumber(row.allocatedQty);
         acc.allocatedValue += C.parseNumber(row.allocatedValue);
     }).sort((a, b) => b.allocatedValue - a.allocatedValue);
-    const target = C.$(`otherSummaryBody`);
     if (!rows.length) {
         target.innerHTML = `<tr><td colspan="6"><div class="empty-state compact">لا توجد مبيعات اخرين ضمن الفلاتر.</div></td></tr>`;
         return;
@@ -210,11 +303,16 @@ function renderOtherSummary() {
     `).join(``);
 }
 
-function renderOrdersTable() {
+function renderOrdersTable(showOther) {
     const rows = state.orderGroups.slice(0, 120);
     const target = C.$(`ordersBody`);
+    const head = C.$(`ordersHead`);
+    head.innerHTML = showOther
+        ? `<tr><th>التاريخ</th><th>الصيدلية</th><th>المنطقة</th><th>عدد الأصناف</th><th>الكمية</th><th>القيمة</th><th>اخرين</th><th>تفاصيل</th></tr>`
+        : `<tr><th>التاريخ</th><th>الصيدلية</th><th>المنطقة</th><th>عدد الأصناف</th><th>الكمية</th><th>القيمة</th><th>تفاصيل</th></tr>`;
+
     if (!rows.length) {
-        target.innerHTML = `<tr><td colspan="8"><div class="empty-state compact">لا توجد طلبيات ضمن الفلاتر.</div></td></tr>`;
+        target.innerHTML = `<tr><td colspan="${showOther ? 8 : 7}"><div class="empty-state compact">لا توجد طلبيات ضمن الفلاتر.</div></td></tr>`;
         return;
     }
     target.innerHTML = rows.map(order => `
@@ -225,44 +323,52 @@ function renderOrdersTable() {
             <td>${order.itemCount}</td>
             <td>${C.formatQty(order.qty)}</td>
             <td><strong>${C.formatMoney(order.value)}</strong></td>
-            <td>${order.otherValue ? `<span class="badge badge-other">${C.formatMoney(order.otherValue)}</span>` : `<span class="badge badge-direct">لا يوجد</span>`}</td>
+            ${showOther ? `<td>${order.otherValue ? `<span class="badge badge-other">${C.formatMoney(order.otherValue)}</span>` : `<span class="badge badge-direct">لا يوجد</span>`}</td>` : ``}
             <td><button class="btn btn-mini btn-light" type="button" data-order-id="${C.escapeHtml(order.orderId)}"><i class="ph ph-eye"></i> عرض</button></td>
         </tr>
     `).join(``);
 }
 
-function renderMobileCards() {
+function renderMobileCards(showOther) {
     const target = C.$(`mobileCards`);
-    const rows = state.filtered.slice(0, 40);
+    const rows = state.filtered.slice(0, 50);
     if (!rows.length) {
         target.innerHTML = `<div class="empty-state compact">لا توجد بيانات.</div>`;
         return;
     }
-    target.innerHTML = rows.map(row => `
-        <article class="line-card ${row.channel === `others` ? `is-other` : ``}">
-            <div class="line-card-top">
-                <strong>${C.escapeHtml(row.itemName)}</strong>
-                ${row.channel === `others` ? `<span class="badge badge-other">اخرين ${C.parseNumber(row.percentage)}%</span>` : `<span class="badge badge-direct">مباشر</span>`}
-            </div>
-            <div class="line-card-meta"><span>${C.escapeHtml(row.pharmacyName)}</span><span>${C.escapeHtml(row.area)}</span></div>
-            <div class="line-card-numbers">
-                <div><span>كمية</span><strong>${C.formatQty(row.allocatedQty)}</strong></div>
-                <div><span>قيمة</span><strong>${C.formatMoney(row.allocatedValue)}</strong></div>
-                <div><span>أصلية</span><strong>${C.formatMoney(row.sourceValue)}</strong></div>
-            </div>
-        </article>
-    `).join(``);
+    target.innerHTML = rows.map(row => {
+        const isOther = showOther && row.channel === `others`;
+        return `
+            <article class="line-card ${isOther ? `is-other` : ``}">
+                <div class="line-card-top">
+                    <strong>${C.escapeHtml(row.itemName)}</strong>
+                    ${isOther ? `<span class="badge badge-other">اخرين ${C.parseNumber(row.percentage)}%</span>` : `<span class="badge badge-direct">مباشر</span>`}
+                </div>
+                <div class="line-card-meta"><span>${C.escapeHtml(row.pharmacyName)}</span><span>${C.escapeHtml(row.area)}</span></div>
+                <div class="line-card-numbers ${isOther ? `` : `two-metrics`}">
+                    <div><span>كمية</span><strong>${C.formatQty(row.allocatedQty)}</strong></div>
+                    <div><span>قيمة</span><strong>${C.formatMoney(row.allocatedValue)}</strong></div>
+                    ${isOther ? `<div><span>أصلية</span><strong>${C.formatMoney(row.sourceValue)}</strong></div>` : ``}
+                </div>
+                <button class="line-card-action" type="button" data-order-id="${C.escapeHtml(row.orderId)}"><i class="ph ph-receipt"></i> تفاصيل الطلبية</button>
+            </article>
+        `;
+    }).join(``);
 }
 
-function renderRowsTable() {
+function renderRowsTable(showOther) {
     const target = C.$(`salesRowsBody`);
+    const head = C.$(`salesRowsHead`);
     const rows = state.filtered.slice(0, 700);
+    head.innerHTML = showOther
+        ? `<tr><th>التاريخ</th><th>المنطقة</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الصنف</th><th>الكمية الأصلية</th><th>الكمية المحتسبة</th><th>قيمة السطر</th><th>القيمة المحتسبة</th><th>نسبتك</th><th>النوع</th><th>تفاصيل الطلب</th></tr>`
+        : `<tr><th>التاريخ</th><th>المنطقة</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الصنف</th><th>الكمية</th><th>القيمة</th><th>تفاصيل الطلب</th></tr>`;
     C.$(`visibleRowsNote`).textContent = state.filtered.length > 700 ? `يتم عرض أول 700 سطر فقط. استخدم التصدير لرؤية كامل البيانات.` : ``;
     if (!rows.length) {
-        target.innerHTML = `<tr><td colspan="12"><div class="empty-state"><i class="ph ph-chart-line-down"></i><span>لا توجد مبيعات محتسبة لهذا المندوب ضمن الفلاتر الحالية.</span></div></td></tr>`;
+        target.innerHTML = `<tr><td colspan="${showOther ? 12 : 8}"><div class="empty-state"><i class="ph ph-chart-line-down"></i><span>لا توجد مبيعات محتسبة لهذا المندوب ضمن الفلاتر الحالية.</span></div></td></tr>`;
         return;
     }
-    target.innerHTML = rows.map(row => `
+    target.innerHTML = rows.map(row => showOther ? `
         <tr class="${row.channel === `others` ? `row-other` : ``}">
             <td>${C.escapeHtml(row.dateText)}</td>
             <td>${C.escapeHtml(row.area)}</td>
@@ -277,13 +383,25 @@ function renderRowsTable() {
             <td>${row.channel === `others` ? `<span class="badge badge-other">اخرين</span>` : `<span class="badge badge-direct">مباشر</span>`}</td>
             <td><button class="btn btn-mini btn-light" type="button" data-order-id="${C.escapeHtml(row.orderId)}"><i class="ph ph-eye"></i></button></td>
         </tr>
+    ` : `
+        <tr>
+            <td>${C.escapeHtml(row.dateText)}</td>
+            <td>${C.escapeHtml(row.area)}</td>
+            <td class="item-name">${C.escapeHtml(row.pharmacyName)}</td>
+            <td>${C.escapeHtml(row.pharmacyCode || `-`)}</td>
+            <td class="item-name">${C.escapeHtml(row.itemName)}</td>
+            <td><strong>${C.formatQty(row.allocatedQty)}</strong></td>
+            <td><strong>${C.formatMoney(row.allocatedValue)}</strong></td>
+            <td><button class="btn btn-mini btn-light" type="button" data-order-id="${C.escapeHtml(row.orderId)}"><i class="ph ph-eye"></i></button></td>
+        </tr>
     `).join(``);
 }
 
 function openOrderModal(orderId) {
     const order = state.orderGroups.find(item => item.orderId === orderId);
     if (!order) return;
-    const rowsHtml = order.rows.map(row => `
+    const showOtherInOrder = order.rows.some(row => row.channel === `others`);
+    const rowsHtml = order.rows.map(row => showOtherInOrder ? `
         <tr class="${row.channel === `others` ? `row-other` : ``}">
             <td class="item-name">${C.escapeHtml(row.itemName)}</td>
             <td>${C.formatQty(row.sourceQty)}</td>
@@ -293,25 +411,31 @@ function openOrderModal(orderId) {
             <td>${row.channel === `others` ? `${C.parseNumber(row.percentage)}%` : `100%`}</td>
             <td>${row.channel === `others` ? `اخرين` : `مباشر`}</td>
         </tr>
+    ` : `
+        <tr>
+            <td class="item-name">${C.escapeHtml(row.itemName)}</td>
+            <td><strong>${C.formatQty(row.allocatedQty)}</strong></td>
+            <td><strong>${C.formatMoney(row.allocatedValue)}</strong></td>
+        </tr>
     `).join(``);
     C.$(`orderModalContent`).innerHTML = `
         <div class="modal-head">
             <div>
-                <span class="eyebrow"><i class="ph ph-receipt"></i> طلبية مفوترة</span>
+                <span class="eyebrow"><i class="ph ph-receipt"></i> طلبية مبيعات</span>
                 <h2>${C.escapeHtml(order.pharmacyName)}</h2>
                 <p>${C.escapeHtml(order.area)} • ${C.escapeHtml(order.dateText)} • كود ${C.escapeHtml(order.pharmacyCode || `-`)} • طلب ${C.escapeHtml(order.orderShort)}</p>
             </div>
         </div>
-        <div class="modal-stats">
+        <div class="modal-stats ${showOtherInOrder ? `` : `modal-stats-compact`}">
             <div><span>قيمة محتسبة</span><strong>${C.formatMoney(order.value)} د.أ</strong></div>
             <div><span>كمية محتسبة</span><strong>${C.formatQty(order.qty)}</strong></div>
             <div><span>أصناف</span><strong>${order.itemCount}</strong></div>
-            <div><span>اخرين</span><strong>${C.formatMoney(order.otherValue)}</strong></div>
+            ${showOtherInOrder ? `<div><span>اخرين</span><strong>${C.formatMoney(order.otherValue)}</strong></div>` : ``}
         </div>
         <p class="privacy-note"><i class="ph ph-shield-check"></i> البونص مخفي بالكامل عن مندوب الدعاية الطبية.</p>
         <div class="table-scroll">
             <table class="data-table compact-table">
-                <thead><tr><th>الصنف</th><th>الكمية الأصلية</th><th>الكمية المحتسبة</th><th>قيمة السطر</th><th>القيمة المحتسبة</th><th>النسبة</th><th>النوع</th></tr></thead>
+                <thead>${showOtherInOrder ? `<tr><th>الصنف</th><th>الكمية الأصلية</th><th>الكمية المحتسبة</th><th>قيمة السطر</th><th>القيمة المحتسبة</th><th>النسبة</th><th>النوع</th></tr>` : `<tr><th>الصنف</th><th>الكمية</th><th>القيمة</th></tr>`}</thead>
                 <tbody>${rowsHtml}</tbody>
             </table>
         </div>
@@ -329,7 +453,7 @@ async function loadDashboard(force = false) {
         C.$(`cacheStatus`).textContent = state.core.cacheText || `-`;
         populateFilters();
         applyFilters();
-        if (!state.rows.length) C.showToast(`لا توجد مبيعات محتسبة. تحقق من رفع ربط المناطق ونسب اخرين.`, `warning`);
+        if (!state.rows.length) C.showToast(`لا توجد مبيعات محتسبة. تحقق من رفع ربط المناطق.`, `warning`);
     } catch (error) {
         console.error(error);
         C.showToast(`تعذر تحميل بيانات المبيعات. تحقق من الصلاحيات والاتصال.`, `error`);
@@ -340,23 +464,30 @@ async function loadDashboard(force = false) {
 
 function exportRows() {
     if (!state.filtered.length) return C.showToast(`لا توجد بيانات للتصدير.`, `warning`);
-    const rows = state.filtered.map(row => ({
-        'Date': row.dateText,
-        'Team': row.team || state.session.team || ``,
-        'Medical Rep': state.session.name,
-        'Area': row.area,
-        'Pharmacy Code': row.pharmacyCode,
-        'Pharmacy': row.pharmacyName,
-        'Sales Rep': row.salesRepName,
-        'Item Name': row.itemName,
-        'Source Qty': row.sourceQty,
-        'Allocated Qty': row.allocatedQty,
-        'Source Value': row.sourceValue,
-        'Allocated Value': row.allocatedValue,
-        'Channel': row.channel === `others` ? `Other Area` : `Direct Area`,
-        'My Other %': row.channel === `others` ? `${row.percentage}%` : `100%`,
-        'Order ID': row.orderId
-    }));
+    const showOther = state.ui.showOther;
+    const rows = state.filtered.map(row => {
+        const base = {
+            'Date': row.dateText,
+            'Team': row.team || state.session.team || ``,
+            'Medical Rep': state.session.name,
+            'Area': row.area,
+            'Pharmacy Code': row.pharmacyCode,
+            'Pharmacy': row.pharmacyName,
+            'Sales Rep': row.salesRepName,
+            'Item Name': row.itemName,
+            'Qty': row.allocatedQty,
+            'Value': row.allocatedValue,
+            'Order ID': row.orderId
+        };
+        if (!showOther) return base;
+        return {
+            ...base,
+            'Source Qty': row.sourceQty,
+            'Source Value': row.sourceValue,
+            'Channel': row.channel === `others` ? `Other Area` : `Direct Area`,
+            'My Other %': row.channel === `others` ? `${row.percentage}%` : `100%`
+        };
+    });
     C.downloadWorkbook(rows, `Medical Rep Sales`, `medical_rep_sales_${state.session.employeeNo}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
@@ -374,6 +505,15 @@ function bindEvents() {
     document.body.addEventListener(`click`, event => {
         const button = event.target.closest(`[data-order-id]`);
         if (button) openOrderModal(button.dataset.orderId);
+    });
+    document.querySelectorAll(`[data-scroll-to]`).forEach(button => {
+        button.addEventListener(`click`, () => {
+            const target = document.getElementById(button.dataset.scrollTo);
+            if (!target) return;
+            document.querySelectorAll(`.mobile-tab`).forEach(tab => tab.classList.remove(`active`));
+            button.classList.add(`active`);
+            target.scrollIntoView({ behavior: `smooth`, block: `start` });
+        });
     });
     [`dateFrom`, `dateTo`, `itemFilter`, `areaFilter`, `channelFilter`, `searchInput`].forEach(id => {
         C.$(id)?.addEventListener(id === `searchInput` ? `input` : `change`, applyFilters);
