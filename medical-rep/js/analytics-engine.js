@@ -2,7 +2,7 @@ import { db, collection, getDocs, query, where, Timestamp } from './firebase.js'
 
 const C = window.medrepCommon;
 const CACHE_NEVER_EXPIRES = 0;
-const ORDERS_CACHE_KEY = `orders_medrep_dashboard_smart_v7_legacy_missing_status`;
+const ORDERS_CACHE_KEY = `orders_medrep_dashboard_smart_v11_legacy_all_except_rejected_deleted`;
 const INVOICED_CACHE_KEY = `orders_invoiced_smart_v6`;
 const ORDER_INCREMENTAL_FIELDS = [`updatedAt`, `changedAt`, `createdAt`, `exportedAt`, `hiddenAt`, `financeApprovedAt`, `marketManagerApprovedAt`, `supervisorApprovedAt`];
 const PHARMACY_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
@@ -319,14 +319,39 @@ function isLegacySalesOrder(order = {}) {
     const hasModernWorkflow = modernWorkflowKeys.some(key => Object.prototype.hasOwnProperty.call(order, key));
     if (hasModernWorkflow) return false;
 
-    const rawStatus = Object.prototype.hasOwnProperty.call(order, `status`) ? String(order.status || ``).trim() : ``;
-    const normalizedStatus = C.normalizeArabic(rawStatus).toLowerCase();
-    const blockedStatuses = [`pending`, `rejected`, `deleted`, `cancelled`, `canceled`, `returned`, `draft`, `طلب جديد`, `مرفوض`, `محذوف`, `ملغي`, `مرتجع`];
-    if (blockedStatuses.some(status => normalizedStatus === C.normalizeArabic(status).toLowerCase())) return false;
-
     const items = Array.isArray(order.items) ? order.items : [];
     if (!items.length) return false;
-    return !rawStatus || normalizedStatus === `approved` || normalizedStatus === C.normalizeArabic(`معتمد`).toLowerCase();
+
+    // Legacy rule: قبل تطبيق نظام الحالات، كل الطلبيات تعتبر بيعًا
+    // باستثناء الطلبيات المرفوضة أو المحذوفة فقط. لا نمنع pending/returned/draft القديمة.
+    const statusFields = [
+        order.status,
+        order.orderStatus,
+        order.previousStatus,
+        order.actionType,
+        order.deletedReason,
+        order.rejectionReason
+    ];
+    const normalizedStatusText = statusFields
+        .filter(value => value !== undefined && value !== null)
+        .map(value => C.normalizeArabic(String(value)).toLowerCase())
+        .join(` `);
+    const rejectedOrDeletedTokens = [
+        `rejected`,
+        `deleted`,
+        `delete`,
+        `removed`,
+        `مرفوض`,
+        `رفض`,
+        `محذوف`,
+        `حذف`
+    ].map(value => C.normalizeArabic(value).toLowerCase());
+    const hasRejectedOrDeletedStatus = rejectedOrDeletedTokens.some(token => normalizedStatusText.includes(token));
+    const hasDeletionFlag = order.isDeleted === true || !!order.deletedAt || !!order.deletedBy || !!order.deletedByRole;
+    const hasRejectionFlag = order.isRejected === true || !!order.rejectedAt || !!order.rejectedBy || !!order.rejectedByRole;
+    if (hasRejectedOrDeletedStatus || hasDeletionFlag || hasRejectionFlag) return false;
+
+    return true;
 }
 
 function orderDate(order = {}) {
