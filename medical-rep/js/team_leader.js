@@ -16,30 +16,43 @@ function requireAccess() {
     const medrepSession = C.readSession();
     if (admin?.role === `medical_rep_admin`) {
         if (C.$(`teamAdminLink`)) C.$(`teamAdminLink`).hidden = false;
-        return { mode: `admin`, team: teamSession?.team || new URLSearchParams(location.search).get(`team`) || `` };
+        return { mode: `admin`, team: teamSession?.team || new URLSearchParams(location.search).get(`team`) || ``, canViewAllTeams: true, label: `Admin` };
     }
-    if (teamSession?.role === `medical_team_leader`) return { mode: `team`, team: teamSession.team || `` };
-    if (medrepSession?.role === `medical_rep`) return { mode: `rep_team_view`, team: medrepSession.team || `` };
+    if (teamSession?.role === `medical_team_audit`) {
+        return { mode: `audit`, team: ``, canViewAllTeams: true, label: teamSession.displayName || teamSession.username || `Audit` };
+    }
+    if (teamSession?.role === `medical_team_leader`) {
+        return { mode: `team`, team: teamSession.team || ``, canViewAllTeams: false, label: teamSession.team || `Team Leader` };
+    }
+    if (medrepSession?.role === `medical_rep`) return { mode: `rep_team_view`, team: medrepSession.team || ``, canViewAllTeams: false, label: medrepSession.team || `Team` };
     window.location.href = `index.html`;
     return null;
 }
 
+function canViewAllTeams() {
+    return !!state.access?.canViewAllTeams;
+}
+
 function populateTeamFilter() {
+    const group = C.$(`teamFilterGroup`);
     const select = C.$(`teamFilter`);
-    const lockedTeam = state.access?.mode === `team` || state.access?.mode === `rep_team_view` ? state.access.team : ``;
-    const visibleTeams = lockedTeam ? state.teams.filter(team => C.normalizeArabic(team) === C.normalizeArabic(lockedTeam)) : state.teams;
-    select.innerHTML = `<option value="">اختر الفريق</option>${visibleTeams.map(team => `<option value="${C.escapeHtml(team)}">${C.escapeHtml(team)}</option>`).join(``)}`;
-    if (lockedTeam) {
-        state.selectedTeam = visibleTeams[0] || lockedTeam;
-        select.value = state.selectedTeam;
-        select.disabled = true;
+    if (!select) return;
+
+    if (!canViewAllTeams()) {
+        if (group) group.hidden = true;
+        select.innerHTML = ``;
         return;
     }
-    select.disabled = false;
-    if (state.selectedTeam) select.value = state.selectedTeam;
-    if (!select.value && visibleTeams.length === 1) {
-        select.value = visibleTeams[0];
-        state.selectedTeam = visibleTeams[0];
+
+    if (group) group.hidden = false;
+    const oldValue = state.selectedTeam || select.value || ``;
+    select.innerHTML = `<option value="">كل الفرق</option>${state.teams.map(team => `<option value="${C.escapeHtml(team)}">${C.escapeHtml(team)}</option>`).join(``)}`;
+    if (oldValue && state.teams.includes(oldValue)) {
+        select.value = oldValue;
+        state.selectedTeam = oldValue;
+    } else {
+        select.value = ``;
+        state.selectedTeam = ``;
     }
 }
 
@@ -99,14 +112,14 @@ function render() {
     const pharmacyCount = new Set(state.filtered.map(row => row.pharmacyCode || row.pharmacyName).filter(Boolean)).size;
     const avgPrice = totalQty ? totalValue / totalQty : 0;
     const target = targetForRows(state.filtered, state.core?.targets || [], {
-        team: state.selectedTeam,
+        team: state.selectedTeam || ``,
         itemName: C.$(`itemFilter`)?.value || ``,
         from: C.$(`dateFrom`)?.value || ``,
         to: C.$(`dateTo`)?.value || ``
     });
     const achValue = target.value ? (totalValue / target.value) * 100 : null;
 
-    C.$(`teamName`).textContent = state.selectedTeam || `-`;
+    C.$(`teamName`).textContent = state.selectedTeam || (canViewAllTeams() ? `كل الفرق` : (state.access?.team || `الفريق`));
     C.$(`heroValue`).textContent = C.formatMoney(totalValue);
     C.$(`heroQty`).textContent = C.formatQty(totalQty);
     C.$(`cardTotalValue`).textContent = `${C.formatMoney(totalValue)} د.أ`;
@@ -278,9 +291,10 @@ function renderDetails() {
 function applyTeamCore(core) {
     state.core = core;
     state.teams = distinctTeams(state.core);
-    if (!state.selectedTeam) {
-        const access = state.access || requireAccess();
-        state.selectedTeam = access?.team || state.teams[0] || ``;
+    if (canViewAllTeams()) {
+        if (state.selectedTeam && !state.teams.includes(state.selectedTeam)) state.selectedTeam = ``;
+    } else {
+        state.selectedTeam = state.access?.team || state.selectedTeam || ``;
     }
     populateTeamFilter();
     rebuildRows();
@@ -316,7 +330,8 @@ async function loadTeam(force = false) {
 }
 
 function rebuildRows() {
-    state.rows = state.selectedTeam ? buildRowsForTeam(state.selectedTeam, state.core) : [];
+    const teamScope = canViewAllTeams() ? (state.selectedTeam || ``) : (state.access?.team || state.selectedTeam || ``);
+    state.rows = buildRowsForTeam(teamScope, state.core);
     populateFilters();
     applyFilters();
 }
@@ -325,7 +340,7 @@ function exportRows() {
     if (!state.filtered.length) return C.showToast(`لا توجد بيانات للتصدير.`, `warning`);
     const rows = state.filtered.map(row => ({
         'Date': row.dateText,
-        'Team': row.team || state.selectedTeam,
+        'Team': row.team || ``,
         'Medical Rep': row.medrep || ``,
         'Area': row.area,
         'Pharmacy Code': row.pharmacyCode,
@@ -339,21 +354,20 @@ function exportRows() {
         'Other %': row.channel === `others` ? C.formatPercentageRatio(row.percentage) : `100%`,
         'Order ID': row.orderId
     }));
-    C.downloadWorkbook(rows, `Team Sales`, `team_leader_${state.selectedTeam || `team`}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    const scope = state.selectedTeam ? C.normalizeArabic(state.selectedTeam).replace(/\s+/g, `_`) : `all_teams`;
+    C.downloadWorkbook(rows, `Team Sales`, `team_leader_${scope}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 function bindEvents() {
-    C.$(`teamFilter`)?.addEventListener(`change`, () => {
-        if (state.access?.mode === `team` || state.access?.mode === `rep_team_view`) return;
-        state.selectedTeam = C.$(`teamFilter`).value || ``;
-        C.saveTeamSession({ team: state.selectedTeam, adminPreview: !!C.readAdminSession() }, true);
-        rebuildRows();
-    });
     C.$(`refreshBtn`)?.addEventListener(`click`, () => loadTeam(true));
     C.$(`exportBtn`)?.addEventListener(`click`, exportRows);
     C.$(`teamLogoutBtn`)?.addEventListener(`click`, () => {
         C.clearTeamSession();
         window.location.href = `index.html`;
+    });
+    C.$(`teamFilter`)?.addEventListener(`change`, () => {
+        state.selectedTeam = C.$(`teamFilter`)?.value || ``;
+        rebuildRows();
     });
     [`dateFrom`, `dateTo`, `itemFilter`, `areaFilter`, `channelFilter`, `searchInput`].forEach(id => {
         C.$(id)?.addEventListener(id === `searchInput` ? `input` : `change`, applyFilters);
@@ -368,7 +382,7 @@ function initDefaults() {
 const access = requireAccess();
 if (access) {
     state.access = access;
-    state.selectedTeam = access.team || ``;
+    state.selectedTeam = access.canViewAllTeams ? `` : (access.team || ``);
     bindEvents();
     initDefaults();
     loadTeam(false);

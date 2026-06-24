@@ -231,7 +231,7 @@ function readTeamSession() {
 }
 
 function saveTeamSession(session = {}, remember = false) {
-    const payload = JSON.stringify({ ...session, role: `medical_team_leader`, savedAt: Date.now() });
+    const payload = JSON.stringify({ ...session, role: session.role || `medical_team_leader`, savedAt: Date.now() });
     const target = remember ? localStorage : sessionStorage;
     const other = remember ? sessionStorage : localStorage;
     target.setItem(MEDREP_TEAM_SESSION_KEY, payload);

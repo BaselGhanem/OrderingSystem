@@ -2,6 +2,17 @@ import { db, collection, getDocs, query, where, doc, getDoc } from './firebase.j
 
 const C = window.medrepCommon;
 
+const TEAM_AUDIT_MANAGERS = [
+    { username: `manager1`, passwordHash: `56c2e8a8eb98d18a1f6a967c88c69bafe0171533f8a87fc43648c0a92db58b5a`, displayName: `Manager 1` },
+    { username: `manager2`, passwordHash: `67de2152bf76b0f580471aa52abb43b6ae58ea4610e89667c80b83ecef312f6b`, displayName: `Manager 2` },
+    { username: `manager3`, passwordHash: `f953b5ac3ee3174a75fe50df348eaa3c19702e85c9bef2f1e4d5c4414b1e2189`, displayName: `Manager 3` }
+];
+
+function findTeamAuditManager(username = ``, passwordHash = ``) {
+    const key = String(username || ``).trim().toLowerCase();
+    return TEAM_AUDIT_MANAGERS.find(user => user.username.toLowerCase() === key && user.passwordHash === passwordHash) || null;
+}
+
 function normalizeBirthDate(value = ``) {
     if (!value) return ``;
     const date = new Date(`${value}T00:00:00`);
@@ -95,12 +106,26 @@ async function loginTeam() {
     const remember = !!C.$(`rememberTeam`)?.checked;
     const button = C.$(`teamLoginBtn`);
 
-    if (!teamName || !password) return C.showToast(`أدخل اسم الفريق وكلمة المرور.`, `warning`);
+    if (!teamName || !password) return C.showToast(`أدخل اسم الفريق أو حساب المدير وكلمة المرور.`, `warning`);
 
     try {
         C.setLoading(button, true, `دخول`);
-        const access = await findTeamAccess(teamName);
         const incomingHash = await C.hashText(password);
+        const auditManager = findTeamAuditManager(teamName, incomingHash);
+        if (auditManager) {
+            C.saveTeamSession({
+                team: ``,
+                normalizedTeam: ``,
+                username: auditManager.username,
+                displayName: auditManager.displayName,
+                canViewAllTeams: true,
+                role: `medical_team_audit`
+            }, remember);
+            window.location.href = `team_leader.html`;
+            return;
+        }
+
+        const access = await findTeamAccess(teamName);
         if (!access || access.teamLeaderAccessEnabled === false || !access.passwordHash || access.passwordHash !== incomingHash) {
             C.showToast(`بيانات الدخول غير صحيحة.`, `error`);
             return;
@@ -108,6 +133,7 @@ async function loginTeam() {
         C.saveTeamSession({
             team: access.team || teamName,
             normalizedTeam: access.normalizedTeam || C.normalizeArabic(teamName),
+            canViewAllTeams: false,
             role: `medical_team_leader`
         }, remember);
         window.location.href = `team_leader.html`;
@@ -125,7 +151,7 @@ function init() {
         window.location.href = `dashboard.html`;
         return;
     }
-    if (role === `team` && C.readTeamSession()?.role === `medical_team_leader`) {
+    if (role === `team` && [`medical_team_leader`, `medical_team_audit`].includes(C.readTeamSession()?.role)) {
         window.location.href = `team_leader.html`;
         return;
     }

@@ -2,8 +2,8 @@ import { db, collection, getDocs, query, where, Timestamp } from './firebase.js'
 
 const C = window.medrepCommon;
 const CACHE_NEVER_EXPIRES = 0;
-const ORDERS_CACHE_KEY = `orders_medrep_dashboard_smart_v11_legacy_all_except_rejected_deleted`;
-const INVOICED_CACHE_KEY = `orders_invoiced_smart_v6`;
+const ORDERS_CACHE_KEY = `orders_medrep_dashboard_smart_v12_invoiced_action_legacy_all_except_rejected_deleted`;
+const INVOICED_CACHE_KEY = `orders_invoiced_smart_v7_invoiced_action`;
 const ORDER_INCREMENTAL_FIELDS = [`updatedAt`, `changedAt`, `createdAt`, `exportedAt`, `hiddenAt`, `financeApprovedAt`, `marketManagerApprovedAt`, `supervisorApprovedAt`];
 const PHARMACY_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
 
@@ -169,10 +169,17 @@ async function fetchFullMedicalRepOrders() {
 
 async function fetchModernInvoicedOrders() {
     const ordersById = new Map();
+    const invoicedActions = [
+        `orders_staff_hidden`,
+        `orders_staff_hide_after_export`,
+        `orders_staff_invoiced_and_hidden_after_export`
+    ];
     const invoicedQueries = [
-        query(collection(db, `orders`), where(`status`, `==`, `orders_staff_hidden`)),
-        query(collection(db, `orders`), where(`orderStaffStatus`, `==`, `orders_staff_hidden`)),
-        query(collection(db, `orders`), where(`hiddenByOrderStaff`, `==`, true))
+        ...invoicedActions.map(action => query(collection(db, `orders`), where(`status`, `==`, action))),
+        ...invoicedActions.map(action => query(collection(db, `orders`), where(`orderStaffStatus`, `==`, action))),
+        ...invoicedActions.map(action => query(collection(db, `orders`), where(`actionType`, `==`, action))),
+        query(collection(db, `orders`), where(`hiddenByOrderStaff`, `==`, true)),
+        query(collection(db, `orders`), where(`isInvoiced`, `==`, true))
     ];
 
     for (const q of invoicedQueries) {
@@ -286,17 +293,26 @@ async function loadCoreData(force = false, options = {}) {
 }
 
 function isInvoicedOrder(order = {}) {
-    const status = String(order.status || ``);
-    const staffStatus = String(order.orderStaffStatus || ``);
+    const status = String(order.status || ``).trim();
+    const staffStatus = String(order.orderStaffStatus || ``).trim();
+    const actionType = String(order.actionType || ``).trim();
+    const workflowStage = String(order.workflowStage || ``).trim();
     const exportHistory = Array.isArray(order.exportHistory) ? order.exportHistory : [];
     const auditTrail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
-    return status === `orders_staff_hidden` ||
-        staffStatus === `orders_staff_hidden` ||
+    const invoicedSignals = [
+        `orders_staff_hidden`,
+        `orders_staff_hide_after_export`,
+        `orders_staff_invoiced_and_hidden_after_export`
+    ];
+    return invoicedSignals.includes(status) ||
+        invoicedSignals.includes(staffStatus) ||
+        invoicedSignals.includes(actionType) ||
+        workflowStage === `orders_staff_hidden` ||
         !!order.invoicedAt ||
         !!order.isInvoiced ||
         !!order.hiddenByOrderStaff ||
-        exportHistory.some(entry => entry?.hideAfterExport === true || entry?.invoiced === true) ||
-        auditTrail.some(entry => [`orders_staff_hidden`, `orders_staff_hide_after_export`, `orders_staff_invoiced_and_hidden_after_export`].includes(entry?.action));
+        exportHistory.some(entry => entry?.hideAfterExport === true || entry?.invoiced === true || invoicedSignals.includes(String(entry?.action || entry?.source || ``).trim())) ||
+        auditTrail.some(entry => invoicedSignals.includes(String(entry?.action || entry?.type || ``).trim()));
 }
 
 function isLegacySalesOrder(order = {}) {
