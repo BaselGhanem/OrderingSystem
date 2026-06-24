@@ -13,7 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900;1000&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="css/medrep.css?v=20260623_medrep_v3">
+    <link rel="stylesheet" href="css/medrep.css?v=20260624_medrep_v8">
 </head>
 <body>
     <main class="app-shell dashboard-shell">
@@ -22,13 +22,14 @@
                 <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="DAD Logo">
                 <div>
                     <h1>Team Leader Dashboard</h1>
-                    <p>مبيعات كل الأصناف التابعة للفريق، وكل صيدلية بأصنافه فقط.</p>
+                    <p>لوحة مبيعات الفريق</p>
                 </div>
             </div>
             <div class="top-actions">
                 <button id="refreshBtn" class="btn btn-light" type="button"><i class="ph ph-arrows-clockwise"></i> تحديث</button>
                 <button id="exportBtn" class="btn btn-primary" type="button"><i class="ph ph-file-xls"></i> تصدير Excel</button>
-                <a class="btn btn-light" href="admin.html"><i class="ph ph-shield-check"></i> الأدمن</a>
+                <a id="teamAdminLink" class="btn btn-light" href="admin.html" hidden><i class="ph ph-shield-check"></i> الأدمن</a>
+                <button id="teamLogoutBtn" class="btn btn-dark" type="button"><i class="ph ph-sign-out"></i> خروج</button>
             </div>
         </header>
 
@@ -51,7 +52,7 @@
             <div class="hero-metric soft">
                 <span>آخر تحديث</span>
                 <strong id="lastRefresh">-</strong>
-                <small>تخزين داخلي مفعل</small>
+                <small>-</small>
             </div>
         </section>
 
@@ -77,9 +78,17 @@
             <div class="stat-card"><i class="ph ph-target"></i><span>Target Team</span><strong id="cardTarget">غير مرفوع</strong><em id="cardAch">Achievement: -</em></div>
         </section>
 
+
+        <section class="chart-grid app-section">
+            <div class="chart-card table-card">
+                <div class="card-head"><div><h2>المبيعات حسب المنطقة</h2><p class="form-note" id="areaChartMeta">-</p></div></div>
+                <div id="areaChart" class="bar-chart" aria-label="المبيعات حسب المنطقة"></div>
+            </div>
+        </section>
+
         <section class="grid-two rich-grid">
             <div class="table-card">
-                <div class="card-head"><div><h2>مبيعات الأصناف التابعة للفريق</h2><p class="form-note">كل صنف بقيمته وكميته ومساهمة اخرين.</p></div></div>
+                <div class="card-head"><div><h2>مبيعات الأصناف التابعة للفريق</h2><p class="form-note">كل صنف بقيمته وكميته.</p></div></div>
                 <div class="table-scroll">
                     <table class="data-table compact-table">
                         <thead><tr><th>الصنف</th><th>الكمية</th><th>القيمة</th><th>اخرين</th><th>مندوبون</th></tr></thead>
@@ -88,7 +97,7 @@
                 </div>
             </div>
             <div class="table-card">
-                <div class="card-head"><div><h2>أداء المندوبين داخل الفريق</h2><p class="form-note">القيمة والكمية حسب المندوب الطبي.</p></div></div>
+                <div class="card-head"><div><h2>أداء المندوبين داخل الفريق</h2><p class="form-note">القيمة والكمية حسب المندوب.</p></div></div>
                 <div class="table-scroll">
                     <table class="data-table compact-table">
                         <thead><tr><th>المندوب</th><th>الكمية</th><th>القيمة</th><th>اخرين</th><th>أصناف</th></tr></thead>
@@ -99,7 +108,7 @@
         </section>
 
         <section class="table-card full-width-card">
-            <div class="card-head"><div><h2>مبيعات كل صيدلية بأصناف الفريق فقط</h2><p class="form-note">كل صيدلية تظهر فقط بالأصناف التابعة للفريق المختار.</p></div></div>
+            <div class="card-head"><div><h2>مبيعات كل صيدلية بأصناف الفريق فقط</h2><p class="form-note">الأصناف التابعة للفريق فقط.</p></div></div>
             <div class="table-scroll">
                 <table class="data-table">
                     <thead><tr><th>الصيدلية</th><th>كود الصيدلية</th><th>المنطقة</th><th>الصنف</th><th>المندوب الطبي</th><th>الكمية</th><th>القيمة</th><th>اخرين</th></tr></thead>
@@ -109,7 +118,7 @@
         </section>
 
         <section class="table-card full-width-card">
-            <div class="card-head"><div><h2>تفاصيل الفريق</h2><p class="form-note">لا يظهر البونص في هذه الصفحة.</p></div></div>
+            <div class="card-head"><div><h2>تفاصيل الفريق</h2><p class="form-note"></p></div></div>
             <div class="table-scroll">
                 <table class="data-table">
                     <thead><tr><th>التاريخ</th><th>المنطقة</th><th>الصيدلية</th><th>الصنف</th><th>المندوب الطبي</th><th>كمية أصلية</th><th>كمية محتسبة</th><th>قيمة أصلية</th><th>قيمة محتسبة</th><th>النسبة</th><th>النوع</th></tr></thead>
@@ -121,7 +130,7 @@
     </main>
 
     <div id="toastContainer" class="toast-container"></div>
-    <script src="js/medrep-common.js?v=20260623_medrep_v3"></script>
-    <script type="module" src="js/team_leader.js?v=20260623_medrep_v3"></script>
+    <script src="js/medrep-common.js?v=20260624_medrep_v8"></script>
+    <script type="module" src="js/team_leader.js?v=20260624_medrep_v8"></script>
 </body>
 </html>

@@ -211,6 +211,47 @@ function renderDashboard(showOtherFromFilters = false) {
     renderOrdersTable(showOther);
     renderMobileCards(showOther);
     renderRowsTable(showOther);
+    renderAreaChart();
+}
+
+
+function renderAreaChart() {
+    const target = C.$(`areaChart`);
+    const meta = C.$(`areaChartMeta`);
+    if (!target) return;
+    const rows = aggregateBy(state.filtered, row => row.areaKey || C.normalizeArabic(row.area), row => ({
+        area: row.area || `-`,
+        value: 0,
+        qty: 0,
+        pharmacies: new Set()
+    }), (acc, row) => {
+        acc.value += C.parseNumber(row.allocatedValue);
+        acc.qty += C.parseNumber(row.allocatedQty);
+        if (row.pharmacyCode || row.pharmacyName) acc.pharmacies.add(row.pharmacyCode || row.pharmacyName);
+    }).sort((a, b) => b.value - a.value).slice(0, 12);
+
+    if (!rows.length) {
+        target.innerHTML = `<div class="empty-state compact"><i class="ph ph-chart-bar"></i><span>لا توجد بيانات مناطق.</span></div>`;
+        if (meta) meta.textContent = `-`;
+        return;
+    }
+
+    const maxValue = Math.max(...rows.map(row => C.parseNumber(row.value)), 1);
+    const top = rows[0];
+    if (meta) meta.textContent = `${rows.length} منطقة • الأعلى: ${top.area} (${C.formatMoney(top.value)} د.أ)`;
+    target.innerHTML = rows.map((row, index) => {
+        const width = Math.max(4, (C.parseNumber(row.value) / maxValue) * 100);
+        return `
+            <div class="chart-row">
+                <div class="chart-rank">${index + 1}</div>
+                <div class="chart-main">
+                    <div class="chart-label"><strong>${C.escapeHtml(row.area)}</strong><span>${C.formatQty(row.qty)} كمية • ${row.pharmacies.size} صيدلية</span></div>
+                    <div class="chart-track"><div class="chart-fill" style="width:${width}%"></div></div>
+                </div>
+                <div class="chart-value">${C.formatMoney(row.value)}</div>
+            </div>
+        `;
+    }).join(``);
 }
 
 function renderInsightCards() {
@@ -432,7 +473,6 @@ function openOrderModal(orderId) {
             <div><span>أصناف</span><strong>${order.itemCount}</strong></div>
             ${showOtherInOrder ? `<div><span>اخرين</span><strong>${C.formatMoney(order.otherValue)}</strong></div>` : ``}
         </div>
-        <p class="privacy-note"><i class="ph ph-shield-check"></i> البونص مخفي بالكامل عن مندوب الدعاية الطبية.</p>
         <div class="table-scroll">
             <table class="data-table compact-table">
                 <thead>${showOtherInOrder ? `<tr><th>الصنف</th><th>الكمية الأصلية</th><th>الكمية المحتسبة</th><th>قيمة السطر</th><th>القيمة المحتسبة</th><th>النسبة</th><th>النوع</th></tr>` : `<tr><th>الصنف</th><th>الكمية</th><th>القيمة</th></tr>`}</thead>

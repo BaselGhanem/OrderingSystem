@@ -200,6 +200,21 @@ function clearTeamSession() {
     sessionStorage.removeItem(MEDREP_TEAM_SESSION_KEY);
 }
 
+
+function makeTeamAccessDocId(teamName = ``) {
+    return `team_access_${makeDocId([`team_leader`, teamName])}`;
+}
+
+async function hashText(value = ``) {
+    const text = String(value ?? ``);
+    if (window.crypto?.subtle && window.TextEncoder) {
+        const bytes = new TextEncoder().encode(text);
+        const digest = await window.crypto.subtle.digest(`SHA-256`, bytes);
+        return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, `0`)).join(``);
+    }
+    return btoa(unescape(encodeURIComponent(text)));
+}
+
 function setLoading(button, loading, text = `جاري المعالجة...`) {
     if (!button) return;
     if (loading) {
@@ -368,6 +383,8 @@ window.medrepCommon = {
     readTeamSession,
     saveTeamSession,
     clearTeamSession,
+    makeTeamAccessDocId,
+    hashText,
     setLoading,
     showToast,
     isOtherArea,

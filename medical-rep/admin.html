@@ -13,7 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900;1000&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="css/medrep.css?v=20260623_medrep_v3">
+    <link rel="stylesheet" href="css/medrep.css?v=20260624_medrep_v8">
 </head>
 <body>
     <main class="app-shell">
@@ -21,24 +21,24 @@
             <div class="hero-panel" style="min-height: 520px;">
                 <div class="brand-lockup">
                     <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="DAD Logo">
-                    <div><strong>Medical Promotion Admin</strong><span>Independent configuration area</span></div>
+                    <div><strong>Medical Promotion Admin</strong><span>إدارة البوابة</span></div>
                 </div>
                 <div class="hero-content">
                     <span class="eyebrow"><i class="ph ph-database"></i> إعدادات مستقلة</span>
                     <h1>رفع وتعديل بيانات بوابة الدعاية الطبية.</h1>
-                    <p>هذه الصفحة لا تعدّل منطق نظام البيع. هي تنشئ مجموعات Firestore مستقلة للربط والاحتساب فقط.</p>
+                    <p>إدارة بيانات الدخول والربط والتحليلات.</p>
                 </div>
             </div>
             <div class="auth-card">
                 <h2>دخول الأدمن</h2>
-                <p>استخدم كلمة مرور الأدمن الحالية لإدارة ملفات البوابة.</p>
+                <p>أدخل كلمة مرور الأدمن.</p>
                 <div class="field-group">
                     <label for="adminPassword">كلمة المرور</label>
                     <input id="adminPassword" class="input-control" type="password" autocomplete="current-password" placeholder="أدخل كلمة المرور">
                 </div>
                 <label class="checkbox-line"><input id="rememberAdmin" type="checkbox"> تذكرني</label>
                 <button id="adminLoginBtn" class="btn btn-primary btn-full" type="button"><i class="ph ph-lock-key-open"></i> دخول</button>
-                <a class="admin-link" href="index.html"><i class="ph ph-arrow-right"></i> رجوع لشاشة المندوب الطبي</a>
+                <a class="admin-link" href="index.html"><i class="ph ph-arrow-right"></i> رجوع</a>
             </div>
         </section>
 
@@ -48,7 +48,7 @@
                     <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="DAD Logo">
                     <div>
                         <h1>إدارة بوابة الدعاية الطبية</h1>
-                        <p>رفع بيانات الدخول، ربط المناطق، نسب اخرين، وTargets المستقبلية.</p>
+                        <p>إدارة المندوبين، الفرق، الربط، النسب، والTargets.</p>
                     </div>
                 </div>
                 <div class="top-actions">
@@ -69,7 +69,8 @@
             <div id="importWarnings" class="warning-box"></div>
 
             <nav class="tabs" aria-label="Medical rep admin tabs">
-                <button class="tab-btn active" data-tab="tabReps" type="button">بيانات الدخول</button>
+                <button class="tab-btn active" data-tab="tabReps" type="button">المندوبون</button>
+                <button class="tab-btn" data-tab="tabTeamAccess" type="button">Team Leader</button>
                 <button class="tab-btn" data-tab="tabAreaRules" type="button">ربط المناطق</button>
                 <button class="tab-btn" data-tab="tabOtherShares" type="button">نسب اخرين</button>
                 <button class="tab-btn" data-tab="tabTargets" type="button">Targets</button>
@@ -79,7 +80,7 @@
                 <div class="upload-grid">
                     <div class="upload-box">
                         <h3>رفع بيانات المندوبين الطبيين</h3>
-                        <p class="form-note">الأعمدة المطلوبة: Employee No, Birth Date, Medrep, Team, Active.</p>
+                        <p class="form-note">Employee No, Birth Date, Medrep, Team, Active</p>
                         <div class="field-group"><label for="repsFile">ملف Excel</label><input id="repsFile" class="file-control" type="file" accept=".xlsx,.xls"></div>
                         <div class="upload-actions">
                             <button class="btn btn-light" type="button" data-template="reps"><i class="ph ph-download-simple"></i> تنزيل Template</button>
@@ -88,10 +89,34 @@
                         </div>
                     </div>
                     <div class="table-card">
-                        <h2>المندوبون الطبيون</h2>
-                        <p class="form-note">الأدمن يستطيع فتح شاشة أي مندوب مباشرة بدون تاريخ ميلاد أو رقم وظيفي.</p>
+                        <div class="card-head admin-card-head">
+                            <div>
+                                <h2>المندوبون الطبيون</h2>
+                                <p class="form-note">تعديل الرقم الوظيفي وتاريخ الميلاد يدويًا أو عبر Excel.</p>
+                            </div>
+                            <div class="admin-inline-search">
+                                <input id="repAdminSearch" class="input-control" type="search" placeholder="بحث عن مندوب أو فريق...">
+                            </div>
+                        </div>
                         <div id="repsPreview"></div>
+                        <div id="repPager" class="pager"></div>
                     </div>
+                </div>
+            </section>
+
+
+            <section id="tabTeamAccess" class="tab-panel">
+                <div class="table-card full-width-card">
+                    <div class="card-head admin-card-head">
+                        <div>
+                            <h2>صلاحيات Team Leader</h2>
+                            <p class="form-note">اسم المستخدم هو اسم الفريق. أدخل كلمة مرور جديدة عند الحاجة فقط.</p>
+                        </div>
+                        <div class="admin-inline-search">
+                            <input id="teamAccessSearch" class="input-control" type="search" placeholder="بحث عن فريق...">
+                        </div>
+                    </div>
+                    <div id="teamAccessPreview"></div>
                 </div>
             </section>
 
@@ -99,7 +124,7 @@
                 <div class="upload-grid">
                     <div class="upload-box">
                         <h3>رفع ربط المنطقة بالصنف والمندوب</h3>
-                        <p class="form-note">هذا هو ملف Book3: Team, Medrep, Item Name, Area. مثال: مادبا + Oprim 5 Mg Tabs 30 = شاكر سائد.</p>
+                        <p class="form-note">Team, Medrep, Item Name, Area</p>
                         <div class="field-group"><label for="areaRulesFile">ملف Excel</label><input id="areaRulesFile" class="file-control" type="file" accept=".xlsx,.xls"></div>
                         <div class="upload-actions">
                             <button class="btn btn-light" type="button" data-template="areaRules"><i class="ph ph-download-simple"></i> تنزيل Template</button>
@@ -154,7 +179,7 @@
         </section>
     </main>
     <div id="toastContainer" class="toast-container"></div>
-    <script src="js/medrep-common.js?v=20260623_medrep_v3"></script>
-    <script type="module" src="js/admin.js?v=20260623_medrep_v3"></script>
+    <script src="js/medrep-common.js?v=20260624_medrep_v8"></script>
+    <script type="module" src="js/admin.js?v=20260624_medrep_v8"></script>
 </body>
 </html>

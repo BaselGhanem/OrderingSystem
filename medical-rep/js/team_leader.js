@@ -6,14 +6,18 @@ const state = {
     rows: [],
     filtered: [],
     teams: [],
-    selectedTeam: ``
+    selectedTeam: ``,
+    access: null
 };
 
 function requireAccess() {
     const admin = C.readAdminSession();
     const teamSession = C.readTeamSession();
     const medrepSession = C.readSession();
-    if (admin?.role === `medical_rep_admin`) return { mode: `admin`, team: teamSession?.team || new URLSearchParams(location.search).get(`team`) || `` };
+    if (admin?.role === `medical_rep_admin`) {
+        if (C.$(`teamAdminLink`)) C.$(`teamAdminLink`).hidden = false;
+        return { mode: `admin`, team: teamSession?.team || new URLSearchParams(location.search).get(`team`) || `` };
+    }
     if (teamSession?.role === `medical_team_leader`) return { mode: `team`, team: teamSession.team || `` };
     if (medrepSession?.role === `medical_rep`) return { mode: `rep_team_view`, team: medrepSession.team || `` };
     window.location.href = `index.html`;
@@ -22,11 +26,20 @@ function requireAccess() {
 
 function populateTeamFilter() {
     const select = C.$(`teamFilter`);
-    select.innerHTML = `<option value="">اختر الفريق</option>${state.teams.map(team => `<option value="${C.escapeHtml(team)}">${C.escapeHtml(team)}</option>`).join(``)}`;
+    const lockedTeam = state.access?.mode === `team` || state.access?.mode === `rep_team_view` ? state.access.team : ``;
+    const visibleTeams = lockedTeam ? state.teams.filter(team => C.normalizeArabic(team) === C.normalizeArabic(lockedTeam)) : state.teams;
+    select.innerHTML = `<option value="">اختر الفريق</option>${visibleTeams.map(team => `<option value="${C.escapeHtml(team)}">${C.escapeHtml(team)}</option>`).join(``)}`;
+    if (lockedTeam) {
+        state.selectedTeam = visibleTeams[0] || lockedTeam;
+        select.value = state.selectedTeam;
+        select.disabled = true;
+        return;
+    }
+    select.disabled = false;
     if (state.selectedTeam) select.value = state.selectedTeam;
-    if (!select.value && state.teams.length === 1) {
-        select.value = state.teams[0];
-        state.selectedTeam = state.teams[0];
+    if (!select.value && visibleTeams.length === 1) {
+        select.value = visibleTeams[0];
+        state.selectedTeam = visibleTeams[0];
     }
 }
 
@@ -112,6 +125,49 @@ function render() {
     renderRepSummary();
     renderPharmacyItems();
     renderDetails();
+    renderAreaChart();
+}
+
+
+function renderAreaChart() {
+    const target = C.$(`areaChart`);
+    const meta = C.$(`areaChartMeta`);
+    if (!target) return;
+    const rows = aggregateBy(state.filtered, row => row.areaKey || C.normalizeArabic(row.area), row => ({
+        area: row.area || `-`,
+        value: 0,
+        qty: 0,
+        reps: new Set(),
+        pharmacies: new Set()
+    }), (acc, row) => {
+        acc.value += C.parseNumber(row.allocatedValue);
+        acc.qty += C.parseNumber(row.allocatedQty);
+        if (row.medrep) acc.reps.add(row.medrep);
+        if (row.pharmacyCode || row.pharmacyName) acc.pharmacies.add(row.pharmacyCode || row.pharmacyName);
+    }).sort((a, b) => b.value - a.value).slice(0, 14);
+
+    if (!rows.length) {
+        target.innerHTML = `<div class="empty-state compact"><i class="ph ph-chart-bar"></i><span>لا توجد بيانات مناطق.</span></div>`;
+        if (meta) meta.textContent = `-`;
+        return;
+    }
+
+    const maxValue = Math.max(...rows.map(row => C.parseNumber(row.value)), 1);
+    const top = rows[0];
+    if (meta) meta.textContent = `${rows.length} منطقة • الأعلى: ${top.area} (${C.formatMoney(top.value)} د.أ)`;
+    target.innerHTML = rows.map((row, index) => {
+        const width = Math.max(4, (C.parseNumber(row.value) / maxValue) * 100);
+        return `
+            <div class="chart-row">
+                <div class="chart-rank">${index + 1}</div>
+                <div class="chart-main">
+                    <div class="chart-label"><strong>${C.escapeHtml(row.area)}</strong><span>${C.formatQty(row.qty)} كمية • ${row.reps.size} مندوب • ${row.pharmacies.size} صيدلية</span></div>
+                    <div class="chart-track"><div class="chart-fill" style="width:${width}%"></div></div>
+                </div>
+                <div class="chart-value">${C.formatMoney(row.value)}</div>
+            </div>
+        `;
+    }).join(``);
 }
 
 function renderItemSummary() {
@@ -223,7 +279,7 @@ function applyTeamCore(core) {
     state.core = core;
     state.teams = distinctTeams(state.core);
     if (!state.selectedTeam) {
-        const access = requireAccess();
+        const access = state.access || requireAccess();
         state.selectedTeam = access?.team || state.teams[0] || ``;
     }
     populateTeamFilter();
@@ -288,12 +344,17 @@ function exportRows() {
 
 function bindEvents() {
     C.$(`teamFilter`)?.addEventListener(`change`, () => {
+        if (state.access?.mode === `team` || state.access?.mode === `rep_team_view`) return;
         state.selectedTeam = C.$(`teamFilter`).value || ``;
         C.saveTeamSession({ team: state.selectedTeam, adminPreview: !!C.readAdminSession() }, true);
         rebuildRows();
     });
     C.$(`refreshBtn`)?.addEventListener(`click`, () => loadTeam(true));
     C.$(`exportBtn`)?.addEventListener(`click`, exportRows);
+    C.$(`teamLogoutBtn`)?.addEventListener(`click`, () => {
+        C.clearTeamSession();
+        window.location.href = `index.html`;
+    });
     [`dateFrom`, `dateTo`, `itemFilter`, `areaFilter`, `channelFilter`, `searchInput`].forEach(id => {
         C.$(id)?.addEventListener(id === `searchInput` ? `input` : `change`, applyFilters);
     });
@@ -306,6 +367,7 @@ function initDefaults() {
 
 const access = requireAccess();
 if (access) {
+    state.access = access;
     state.selectedTeam = access.team || ``;
     bindEvents();
     initDefaults();
