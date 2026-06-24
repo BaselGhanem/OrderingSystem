@@ -304,7 +304,7 @@ async function loadTeam(force = false) {
     const button = C.$(`refreshBtn`);
     try {
         C.setLoading(button, true, force ? `تحديث` : `تحميل`);
-        const core = await loadCoreData(force, { cacheFirst: true });
+        const core = await loadCoreData(force, { cacheFirst: true, includeLegacySales: true });
         applyTeamCore(core);
         hydrateTeamBackground(core.backgroundPromise);
     } catch (error) {
