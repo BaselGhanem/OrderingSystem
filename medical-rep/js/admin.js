@@ -305,7 +305,7 @@ function renderSimpleTable(id, rows, keys, labels) {
         <div class="table-scroll">
             <table class="data-table compact-table">
                 <thead><tr>${keys.map(key => `<th>${labels[key] || key}</th>`).join(``)}</tr></thead>
-                <tbody>${rows.map(row => `<tr>${keys.map(key => `<td>${C.escapeHtml(key === `percentage` ? `${C.parseNumber(row[key])}%` : row[key] ?? `-`)}</td>`).join(``)}</tr>`).join(``)}</tbody>
+                <tbody>${rows.map(row => `<tr>${keys.map(key => `<td>${C.escapeHtml(key === `percentage` ? C.formatPercentageRatio(row[key]) : row[key] ?? `-`)}</td>`).join(``)}</tr>`).join(``)}</tbody>
             </table>
         </div>
     `;
@@ -357,13 +357,23 @@ function buildOtherShareRows(rows) {
         const team = String(C.rowValue(row, [`Team`, `الفريق`, `اسم الفريق`])).trim();
         const medrep = String(C.rowValue(row, [`Medrep`, `Medical Rep`, `مندوب`, `المندوب`, `اسم المندوب`])).trim();
         const itemName = String(C.rowValue(row, [`Item Name`, `Item`, `Product`, `الصنف`, `اسم الصنف`])).trim();
-        const percentage = C.parseNumber(C.rowValue(row, [`Percentage from others`, `Percentage`, `%`, `نسبة اخرين`, `نسبة منطقة اخرين`, `النسبة`]));
+        const rawPercentage = C.rowValue(row, [`Percentage from others`, `Percentage`, `%`, `نسبة اخرين`, `نسبة منطقة اخرين`, `النسبة`]);
+        const percentage = C.parsePercentageRatio(rawPercentage, { allowEmpty: true, allowLegacyPercent: true });
         if (!medrep) errors.push(`السطر ${index + 2}: اسم المندوب مفقود.`);
         if (!itemName) errors.push(`السطر ${index + 2}: اسم الصنف مفقود.`);
-        if (!percentage) errors.push(`السطر ${index + 2}: النسبة مفقودة أو صفر.`);
-        if (percentage < 0 || percentage > 200) errors.push(`السطر ${index + 2}: النسبة غير منطقية (${percentage}%).`);
-        return { team, medrep, medrepKey: C.normalizeArabic(medrep), itemName, itemKey: C.normalizeItem(itemName), percentage, source: `other_share_upload` };
-    }).filter(row => row.medrep && row.itemName && row.percentage > 0);
+        if (percentage === null || percentage === 0) errors.push(`السطر ${index + 2}: النسبة مفقودة أو صفر.`);
+        if (Number.isNaN(percentage)) errors.push(`السطر ${index + 2}: النسبة غير صحيحة. استخدم رقمًا بين 0 و 1 أو صيغة مثل 20%.`);
+        if (Number.isFinite(percentage) && percentage > 1) errors.push(`السطر ${index + 2}: النسبة أعلى من 100%.`);
+        return {
+            team,
+            medrep,
+            medrepKey: C.normalizeArabic(medrep),
+            itemName,
+            itemKey: C.normalizeItem(itemName),
+            percentage,
+            source: `other_share_upload`
+        };
+    }).filter(row => row.medrep && row.itemName && Number.isFinite(row.percentage) && row.percentage > 0 && row.percentage <= 1);
     return { clean, errors };
 }
 
@@ -419,7 +429,7 @@ function downloadTemplate(kind) {
     const templates = {
         reps: { name: `medical_reps_login_template_${today}.xlsx`, sheet: `Medical Reps`, rows: [{ 'Employee No': `1001`, 'Birth Date': `1990-01-31`, 'Medrep': `شاكر سائد`, 'Team': `Matador`, 'Active': `yes` }] },
         areaRules: { name: `medical_rep_area_rules_template_${today}.xlsx`, sheet: `Area Rules`, rows: [{ 'Team': `Matador`, 'Medrep': `شاكر سائد`, 'Item Name': `Oprim 5 Mg Tabs 30`, 'Area': `مادبا` }] },
-        otherShares: { name: `medical_rep_other_shares_template_${today}.xlsx`, sheet: `Other Shares`, rows: [{ 'Team': `Matador`, 'Item Name': `Oprim 5 Mg Tabs 30`, 'Medrep': `شاكر سائد`, 'Percentage from others': `20%` }] },
+        otherShares: { name: `medical_rep_other_shares_template_${today}.xlsx`, sheet: `Other Shares`, rows: [{ 'Team': `Matador`, 'Item Name': `Oprim 5 Mg Tabs 30`, 'Medrep': `شاكر سائد`, 'Percentage from others': 0.2 }, { 'Team': `Matador`, 'Item Name': `Oprim 10 Mg Tabs 30`, 'Medrep': `شاكر سائد`, 'Percentage from others': 0.00002096721775504 }] },
         targets: { name: `medical_rep_targets_template_${today}.xlsx`, sheet: `Targets`, rows: [{ 'Year': new Date().getFullYear(), 'Month': new Date().getMonth() + 1, 'Team': `Matador`, 'Medrep': `شاكر سائد`, 'Item Name': `Oprim 5 Mg Tabs 30`, 'Target Value': 10000, 'Target Qty': 500 }] }
     }[kind];
     C.downloadWorkbook(templates.rows, templates.sheet, templates.name);
@@ -430,7 +440,7 @@ function exportCurrent(kind) {
     const config = {
         reps: { rows: state.managedReps.map(row => ({ 'Employee No': row.employeeNo || ``, 'Birth Date': row.birthDate || ``, 'Medrep': row.name || ``, 'Team': row.team || ``, 'Active': row.active === false ? `no` : `yes` })), sheet: `Medical Reps`, name: `medical_reps_current_${today}.xlsx` },
         areaRules: { rows: state.areaRules.map(row => ({ 'Team': row.team || ``, 'Medrep': row.medrep || ``, 'Item Name': row.itemName || ``, 'Area': row.area || `` })), sheet: `Area Rules`, name: `medical_rep_area_rules_current_${today}.xlsx` },
-        otherShares: { rows: state.otherShares.map(row => ({ 'Team': row.team || ``, 'Item Name': row.itemName || ``, 'Medrep': row.medrep || ``, 'Percentage from others': row.percentage || 0 })), sheet: `Other Shares`, name: `medical_rep_other_shares_current_${today}.xlsx` },
+        otherShares: { rows: state.otherShares.map(row => ({ 'Team': row.team || ``, 'Item Name': row.itemName || ``, 'Medrep': row.medrep || ``, 'Percentage from others': Number.isFinite(C.parsePercentageRatio(row.percentage, { allowEmpty: true })) ? C.parsePercentageRatio(row.percentage) : `` })), sheet: `Other Shares`, name: `medical_rep_other_shares_current_${today}.xlsx` },
         targets: { rows: state.targets.map(row => ({ 'Year': row.year || ``, 'Month': row.month || ``, 'Team': row.team || ``, 'Medrep': row.medrep || ``, 'Item Name': row.itemName || ``, 'Target Value': row.targetValue || 0, 'Target Qty': row.targetQty || 0 })), sheet: `Targets`, name: `medical_rep_targets_current_${today}.xlsx` }
     }[kind];
     if (!config.rows.length) return C.showToast(`لا توجد بيانات للتصدير.`, `warning`);

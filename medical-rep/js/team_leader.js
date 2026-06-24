@@ -245,7 +245,7 @@ function renderPharmacyItems() {
             <td>${C.escapeHtml(row.medrep || `-`)}</td>
             <td>${C.formatQty(row.qty)}</td>
             <td><strong>${C.formatMoney(row.value)}</strong></td>
-            <td>${row.channel === `others` ? `<span class="badge badge-other">${C.parseNumber(row.percentage)}%</span>` : `<span class="badge badge-direct">مباشر</span>`}</td>
+            <td>${row.channel === `others` ? `<span class="badge badge-other">${C.formatPercentageRatio(row.percentage)}</span>` : `<span class="badge badge-direct">مباشر</span>`}</td>
         </tr>
     `).join(``);
 }
@@ -269,7 +269,7 @@ function renderDetails() {
             <td><strong>${C.formatQty(row.allocatedQty)}</strong></td>
             <td>${C.formatMoney(row.sourceValue)}</td>
             <td><strong>${C.formatMoney(row.allocatedValue)}</strong></td>
-            <td>${row.channel === `others` ? `${C.parseNumber(row.percentage)}%` : `100%`}</td>
+            <td>${row.channel === `others` ? `${C.formatPercentageRatio(row.percentage)}` : `100%`}</td>
             <td>${row.channel === `others` ? `<span class="badge badge-other">اخرين</span>` : `<span class="badge badge-direct">مباشر</span>`}</td>
         </tr>
     `).join(``);
@@ -336,7 +336,7 @@ function exportRows() {
         'Source Value': row.sourceValue,
         'Allocated Value': row.allocatedValue,
         'Channel': row.channel === `others` ? `Other Area` : `Direct Area`,
-        'Other %': row.channel === `others` ? `${row.percentage}%` : `100%`,
+        'Other %': row.channel === `others` ? C.formatPercentageRatio(row.percentage) : `100%`,
         'Order ID': row.orderId
     }));
     C.downloadWorkbook(rows, `Team Sales`, `team_leader_${state.selectedTeam || `team`}_${new Date().toISOString().slice(0, 10)}.xlsx`);

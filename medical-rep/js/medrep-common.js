@@ -41,17 +41,60 @@ function normalizeItem(value = ``) {
         .trim();
 }
 
+function normalizeNumericText(value) {
+    let text = String(value ?? ``)
+        .replace(/[٠-٩]/g, digit => String(`٠١٢٣٤٥٦٧٨٩`.indexOf(digit)))
+        .replace(/[۰-۹]/g, digit => String(`۰۱۲۳۴۵۶۷۸۹`.indexOf(digit)))
+        .replace(/ /g, ` `)
+        .trim();
+
+    const hasComma = text.includes(`,`);
+    const hasDot = text.includes(`.`);
+    if (hasComma && !hasDot) {
+        const parts = text.split(`,`);
+        const last = parts[parts.length - 1] || ``;
+        const commaLooksDecimal = parts.length === 2 && last.length > 0 && last.length <= 16;
+        text = commaLooksDecimal ? text.replace(`,`, `.`) : text.replace(/,/g, ``);
+    } else {
+        text = text.replace(/,/g, ``);
+    }
+
+    return text.replace(/[^0-9.eE+\-]/g, ``).trim();
+}
+
 function parseNumber(value) {
     if (value === null || value === undefined || value === ``) return 0;
     if (typeof value === `number`) return Number.isFinite(value) ? value : 0;
-    const normalized = String(value)
-        .replace(/,/g, ``)
-        .replace(/[٪%]/g, ``)
-        .replace(/[٠-٩]/g, digit => String(`٠١٢٣٤٥٦٧٨٩`.indexOf(digit)))
-        .replace(/[^0-9.\-]/g, ``)
-        .trim();
-    const parsed = Number(normalized);
+    const parsed = Number(normalizeNumericText(value));
     return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parsePercentageRatio(value, options = {}) {
+    const { allowEmpty = false, allowLegacyPercent = true } = options;
+    if (value === null || value === undefined || String(value).trim() === ``) return allowEmpty ? null : 0;
+
+    const rawText = String(value).trim();
+    const hasPercentSign = /[%٪]/.test(rawText);
+    const normalizedText = normalizeNumericText(rawText);
+    if (typeof value !== `number` && !normalizedText) return NaN;
+    const numeric = typeof value === `number` ? value : Number(normalizedText);
+
+    if (!Number.isFinite(numeric) || numeric < 0) return NaN;
+    if (hasPercentSign) return numeric / 100;
+    if (numeric >= 0 && numeric <= 1) return numeric;
+    if (allowLegacyPercent && numeric > 1 && numeric <= 100) return numeric / 100;
+    return NaN;
+}
+
+function formatPercentageRatio(value, options = {}) {
+    const { emptyText = `-`, maximumFractionDigits = 6 } = options;
+    const ratio = parsePercentageRatio(value, { allowEmpty: true });
+    if (ratio === null || !Number.isFinite(ratio)) return emptyText;
+    const percent = ratio * 100;
+    return `${percent.toLocaleString(`en-US`, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits
+    })}%`;
 }
 
 function formatMoney(value) {
@@ -365,6 +408,8 @@ window.medrepCommon = {
     normalizeArabic,
     normalizeItem,
     parseNumber,
+    parsePercentageRatio,
+    formatPercentageRatio,
     formatMoney,
     formatQty,
     toDate,

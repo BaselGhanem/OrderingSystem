@@ -440,12 +440,12 @@ function buildRowsFromMaps(orders, pharmaciesByCode, pharmaciesByName, areaRuleM
             if (C.isOtherArea(area)) {
                 const matches = otherShareMap.get(itemKey) || [];
                 matches.forEach(match => {
-                    const pct = C.parseNumber(match.percentage);
-                    if (!pct) return;
+                    const pct = C.parsePercentageRatio(match.percentage);
+                    if (!Number.isFinite(pct) || pct <= 0) return;
                     result.push({
                         ...common,
-                        allocatedQty: qty * pct / 100,
-                        allocatedValue: value * pct / 100,
+                        allocatedQty: qty * pct,
+                        allocatedValue: value * pct,
                         percentage: pct,
                         channel: `others`,
                         team: match.team || meta.defaultTeam || ``,
@@ -463,7 +463,7 @@ function buildRowsFromMaps(orders, pharmaciesByCode, pharmaciesByName, areaRuleM
                     ...common,
                     allocatedQty: qty,
                     allocatedValue: value,
-                    percentage: 100,
+                    percentage: 1,
                     channel: `direct`,
                     team: match.team || meta.defaultTeam || ``,
                     medrep: match.medrep || meta.owner || ``,

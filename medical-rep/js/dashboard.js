@@ -50,7 +50,7 @@ function hasConfiguredOtherShares() {
     return (state.core?.otherShares || []).some(rule => {
         const ruleRepKey = C.normalizeArabic(rule.medrep || rule.medrepKey || ``);
         const ruleItemKey = rule.itemKey || C.normalizeItem(rule.itemName || ``);
-        const pct = C.parseNumber(rule.percentage);
+        const pct = C.parsePercentageRatio(rule.percentage);
         if (!pct) return false;
         if (currentRepKey && ruleRepKey !== currentRepKey) return false;
         if (itemKey && ruleItemKey !== itemKey) return false;
@@ -335,7 +335,7 @@ function renderOtherSummary(showOther) {
     target.innerHTML = rows.map(row => `
         <tr class="row-other">
             <td class="item-name">${C.escapeHtml(row.itemName)}</td>
-            <td><span class="badge badge-other">${C.parseNumber(row.percentage)}%</span></td>
+            <td><span class="badge badge-other">${C.formatPercentageRatio(row.percentage)}</span></td>
             <td>${C.formatQty(row.sourceQty)}</td>
             <td>${C.formatMoney(row.sourceValue)}</td>
             <td><strong>${C.formatQty(row.allocatedQty)}</strong></td>
@@ -383,7 +383,7 @@ function renderMobileCards(showOther) {
             <article class="line-card ${isOther ? `is-other` : ``}">
                 <div class="line-card-top">
                     <strong>${C.escapeHtml(row.itemName)}</strong>
-                    ${isOther ? `<span class="badge badge-other">اخرين ${C.parseNumber(row.percentage)}%</span>` : `<span class="badge badge-direct">مباشر</span>`}
+                    ${isOther ? `<span class="badge badge-other">اخرين ${C.formatPercentageRatio(row.percentage)}</span>` : `<span class="badge badge-direct">مباشر</span>`}
                 </div>
                 <div class="line-card-meta"><span>${C.escapeHtml(row.pharmacyName)}</span><span>${C.escapeHtml(row.area)}</span></div>
                 <div class="line-card-numbers ${isOther ? `` : `two-metrics`}">
@@ -420,7 +420,7 @@ function renderRowsTable(showOther) {
             <td><strong>${C.formatQty(row.allocatedQty)}</strong></td>
             <td>${C.formatMoney(row.sourceValue)}</td>
             <td><strong>${C.formatMoney(row.allocatedValue)}</strong></td>
-            <td>${row.channel === `others` ? `${C.parseNumber(row.percentage)}%` : `100%`}</td>
+            <td>${row.channel === `others` ? `${C.formatPercentageRatio(row.percentage)}` : `100%`}</td>
             <td>${row.channel === `others` ? `<span class="badge badge-other">اخرين</span>` : `<span class="badge badge-direct">مباشر</span>`}</td>
             <td><button class="btn btn-mini btn-light" type="button" data-order-id="${C.escapeHtml(row.orderId)}"><i class="ph ph-eye"></i></button></td>
         </tr>
@@ -449,7 +449,7 @@ function openOrderModal(orderId) {
             <td>${C.formatQty(row.allocatedQty)}</td>
             <td>${C.formatMoney(row.sourceValue)}</td>
             <td><strong>${C.formatMoney(row.allocatedValue)}</strong></td>
-            <td>${row.channel === `others` ? `${C.parseNumber(row.percentage)}%` : `100%`}</td>
+            <td>${row.channel === `others` ? `${C.formatPercentageRatio(row.percentage)}` : `100%`}</td>
             <td>${row.channel === `others` ? `اخرين` : `مباشر`}</td>
         </tr>
     ` : `
@@ -543,7 +543,7 @@ function exportRows() {
             'Source Qty': row.sourceQty,
             'Source Value': row.sourceValue,
             'Channel': row.channel === `others` ? `Other Area` : `Direct Area`,
-            'My Other %': row.channel === `others` ? `${row.percentage}%` : `100%`
+            'My Other %': row.channel === `others` ? C.formatPercentageRatio(row.percentage) : `100%`
         };
     });
     C.downloadWorkbook(rows, `Medical Rep Sales`, `medical_rep_sales_${state.session.employeeNo}_${new Date().toISOString().slice(0, 10)}.xlsx`);
