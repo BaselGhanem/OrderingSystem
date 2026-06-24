@@ -2,7 +2,7 @@ import { db, collection, getDocs, query, where, Timestamp } from './firebase.js'
 
 const C = window.medrepCommon;
 const CACHE_NEVER_EXPIRES = 0;
-const ORDERS_CACHE_KEY = `orders_medrep_dashboard_smart_v6`;
+const ORDERS_CACHE_KEY = `orders_medrep_dashboard_smart_v7_legacy_missing_status`;
 const INVOICED_CACHE_KEY = `orders_invoiced_smart_v6`;
 const ORDER_INCREMENTAL_FIELDS = [`updatedAt`, `changedAt`, `createdAt`, `exportedAt`, `hiddenAt`, `financeApprovedAt`, `marketManagerApprovedAt`, `supervisorApprovedAt`];
 const PHARMACY_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
@@ -189,24 +189,33 @@ async function fetchModernInvoicedOrders() {
 }
 
 async function fetchLegacySalesOrders() {
-    const ordersById = new Map();
-    const legacyQueries = [
-        query(collection(db, `orders`), where(`status`, `==`, `approved`)),
-        query(collection(db, `orders`), where(`status`, `==`, ``)),
-        query(collection(db, `orders`), where(`status`, `==`, null))
-    ];
+    try {
+        // مهم لشاشة مندوب الدعاية فقط:
+        // Firestore لا يستطيع جلب المستندات التي لا تحتوي حقل status باستخدام where(status == null).
+        // لذلك يتم عمل backfill كامل مرة واحدة فقط لهذا الكاش الجديد، ثم تعتمد التحديثات التالية على incremental sync.
+        const allRows = await fetchFullCollection(`orders`);
+        return allRows.filter(order => isLegacySalesOrder(order));
+    } catch (fullError) {
+        console.warn(`تعذر تنفيذ فحص الطلبيات القديمة الكامل لشاشة مندوب الدعاية، سيتم استخدام استعلامات احتياطية:`, fullError);
+        const ordersById = new Map();
+        const legacyQueries = [
+            query(collection(db, `orders`), where(`status`, `==`, `approved`)),
+            query(collection(db, `orders`), where(`status`, `==`, ``)),
+            query(collection(db, `orders`), where(`status`, `==`, null))
+        ];
 
-    for (const q of legacyQueries) {
-        try {
-            const snap = await getDocs(q);
-            snapshotToRows(snap).forEach(order => {
-                if (isLegacySalesOrder(order)) ordersById.set(order.id, order);
-            });
-        } catch (error) {
-            console.warn(`تعذر تنفيذ استعلام الطلبيات القديمة لشاشة مندوب الدعاية:`, error);
+        for (const q of legacyQueries) {
+            try {
+                const snap = await getDocs(q);
+                snapshotToRows(snap).forEach(order => {
+                    if (isLegacySalesOrder(order)) ordersById.set(order.id, order);
+                });
+            } catch (error) {
+                console.warn(`تعذر تنفيذ استعلام الطلبيات القديمة لشاشة مندوب الدعاية:`, error);
+            }
         }
+        return [...ordersById.values()];
     }
-    return [...ordersById.values()];
 }
 
 function readCoreCache(includeLegacySales = false) {
