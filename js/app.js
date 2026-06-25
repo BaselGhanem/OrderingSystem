@@ -524,15 +524,26 @@ const SALES_EXCLUDED_WORKFLOW_STATUSES = new Set([
     'deleted_by_reports'
 ]);
 
+function isFinanciallyExcludedLikeReports(order = {}, status = '') {
+    const normalizedStatus = String(status || order.status || order.orderStatus || order.workflowStatus || '').trim();
+    return normalizedStatus.startsWith('deleted_') ||
+        order.workflowStage === 'deleted' ||
+        !!order.deletedAt ||
+        order.isDeleted === true ||
+        normalizedStatus === 'rejected' ||
+        normalizedStatus === 'market_manager_rejected' ||
+        normalizedStatus === 'finance_rejected' ||
+        order.marketManagerStatus === 'market_manager_rejected' ||
+        order.financeStatus === 'finance_rejected';
+}
+
 function getOrderSalesBucket(order = {}) {
     const rawStatus = String(order.status || order.orderStatus || order.workflowStatus || '').trim();
     const effectiveStatus = String(getEffectiveOrderStatus(order) || rawStatus || '').trim();
     const status = effectiveStatus || rawStatus;
     const value = parseAppNumber(order.grandTotal);
-    const isDeletedWorkflow = status.startsWith('deleted_') || order.workflowStage === 'deleted';
-    const isLegacyStatus = status === '' || status === 'pending' || status === 'approved' || status === 'returned';
 
-    if (isDeletedWorkflow || SALES_EXCLUDED_WORKFLOW_STATUSES.has(status)) {
+    if (isFinanciallyExcludedLikeReports(order, status)) {
         return { bucket: 'excluded', value: Math.abs(value), status };
     }
 
@@ -540,23 +551,18 @@ function getOrderSalesBucket(order = {}) {
         return { bucket: 'return', value: Math.abs(value), status };
     }
 
-    if (isLegacyStatus || SALES_POSITIVE_STATUSES.has(status)) {
-        return { bucket: 'order', value: Math.abs(value), status };
-    }
-
-    return { bucket: 'excluded', value: Math.abs(value), status };
+    return { bucket: 'order', value: Math.abs(value), status };
 }
 
 function summarizeOrdersBySalesStatus(orders = []) {
     return orders.reduce((acc, order) => {
         const bucket = getOrderSalesBucket(order);
+        acc.countedCount += 1;
         if (bucket.bucket === 'order') {
             acc.ordersTotal += bucket.value;
-            acc.countedCount += 1;
             acc.orderCount += 1;
         } else if (bucket.bucket === 'return') {
             acc.returnsTotal += bucket.value;
-            acc.countedCount += 1;
             acc.returnCount += 1;
         } else {
             acc.excludedCount += 1;
@@ -1131,8 +1137,8 @@ async function loadInitialData() {
             repSelect.disabled = true;
         }
 
-        const CACHE_KEY = 'dad_app_cache_20260625_supervisor_edit_sales_fix2';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_20260625_supervisor_edit_sales_fix2';
+        const CACHE_KEY = 'dad_app_cache_20260625_report_logic_cache_fix1';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_20260625_report_logic_cache_fix1';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
         const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);
