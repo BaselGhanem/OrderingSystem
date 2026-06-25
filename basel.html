@@ -235,7 +235,9 @@
       cursor: pointer;
       background: var(--teal);
       color: #fff;
-      white-space: nowrap;
+      white-space: normal;
+      overflow: hidden;
+      text-overflow: ellipsis;
       transition: transform .18s ease, box-shadow .18s ease, background .18s ease, opacity .18s ease;
       display: inline-flex;
       align-items: center;
@@ -328,6 +330,121 @@
       border-color: rgba(9, 153, 153, .65);
       box-shadow: 0 0 0 4px rgba(9, 153, 153, .12);
       background: #fff;
+    }
+
+
+    .pharmacy-field { position: relative; }
+
+    .pharmacy-combo {
+      position: relative;
+    }
+
+    .pharmacy-combo input {
+      padding-inline-end: 42px;
+      font-weight: 700;
+    }
+
+    .pharmacy-clear {
+      position: absolute;
+      top: 50%;
+      inset-inline-end: 8px;
+      width: 30px;
+      height: 30px;
+      min-height: 30px;
+      padding: 0;
+      transform: translateY(-50%);
+      border-radius: 999px;
+      background: #eef4f5;
+      color: #526276;
+      box-shadow: none;
+      z-index: 4;
+      font-family: var(--font-num);
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .pharmacy-clear:hover {
+      background: rgba(9, 153, 153, .12);
+      color: var(--teal-dark);
+      box-shadow: none;
+      transform: translateY(-50%);
+    }
+
+    .pharmacy-dropdown {
+      position: absolute;
+      inset-inline: 0;
+      top: calc(100% + 8px);
+      z-index: 80;
+      display: none;
+      max-height: 330px;
+      overflow: auto;
+      padding: 8px;
+      border: 1px solid rgba(9, 153, 153, .18);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .98);
+      box-shadow: 0 22px 55px rgba(15, 23, 42, .16);
+      backdrop-filter: blur(14px);
+      animation: dropdownIn .16s cubic-bezier(.2,.8,.2,1) both;
+    }
+
+    .pharmacy-dropdown.open { display: grid; gap: 6px; }
+
+    @keyframes dropdownIn {
+      from { opacity: 0; transform: translateY(8px) scale(.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .pharmacy-option {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 10px;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      color: var(--ink);
+      box-shadow: none;
+      text-align: right;
+      cursor: pointer;
+      transition: background .14s ease, transform .14s ease;
+    }
+
+    .pharmacy-option:hover {
+      background: rgba(9, 153, 153, .075);
+      box-shadow: none;
+      transform: translateY(-1px);
+    }
+
+    .pharmacy-option .p-code {
+      direction: ltr;
+      font-family: var(--font-num);
+      font-weight: 900;
+      color: var(--teal-dark);
+      background: rgba(9, 153, 153, .10);
+      border: 1px solid rgba(9, 153, 153, .14);
+      border-radius: 999px;
+      padding: 4px 8px;
+      min-width: 54px;
+      text-align: center;
+    }
+
+    .pharmacy-option .p-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 800;
+    }
+
+    .pharmacy-option .p-count {
+      color: var(--muted);
+      font-family: var(--font-num);
+      font-size: 11px;
+      font-weight: 800;
+      direction: ltr;
     }
 
     .metrics {
@@ -435,7 +552,7 @@
     }
 
     .table-wrap {
-      overflow-x: auto;
+      overflow-x: hidden;
       max-height: calc(100vh - 430px);
       min-height: 280px;
     }
@@ -511,11 +628,23 @@
 
     table {
       width: 100%;
-      min-width: 1080px;
+      min-width: 0;
+      table-layout: fixed;
       border-collapse: separate;
       border-spacing: 0;
       background: transparent;
     }
+
+    .orders-table .col-select { width: 40px; }
+    .orders-table .col-index { width: 44px; }
+    .orders-table .col-date { width: 82px; }
+    .orders-table .col-time { width: 58px; }
+    .orders-table .col-rep { width: 12%; }
+    .orders-table .col-pharmacy { width: 18%; }
+    .orders-table .col-total { width: 88px; }
+    .orders-table .col-source { width: 86px; }
+    .orders-table .col-status { width: 130px; }
+    .orders-table .col-actions { width: 130px; }
 
     th,
     td {
@@ -584,6 +713,48 @@
       align-items: center;
       flex-wrap: nowrap;
     }
+
+
+    .date-cell,
+    .time-cell,
+    .money,
+    .actions-cell,
+    .select-cell,
+    .select-head {
+      white-space: nowrap;
+    }
+
+    .pharmacy-cell {
+      white-space: nowrap;
+    }
+
+    .pharmacy-display {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .pharmacy-code-badge {
+      flex: 0 0 auto;
+      direction: ltr;
+      font-family: var(--font-num);
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--teal-dark);
+      background: rgba(9, 153, 153, .10);
+      border: 1px solid rgba(9, 153, 153, .14);
+      border-radius: 999px;
+      padding: 3px 7px;
+    }
+
+    .pharmacy-name-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
 
     .icon-btn {
       width: 42px;
@@ -820,7 +991,8 @@
       .modal-grid.two { grid-template-columns: 1fr; }
       .hero-side { grid-template-columns: 1fr; }
       .table-headline { align-items: flex-start; flex-direction: column; }
-      .table-wrap { max-height: none; }
+      .table-wrap { max-height: none; overflow-x: auto; }
+      table { min-width: 980px; }
       .modal { padding: 0; }
       .modal-box { width: 100%; height: 100vh; max-height: 100vh; border-radius: 0; }
       .modal-top, .modal-actions { padding: 14px; }
@@ -871,10 +1043,13 @@
           <select id="statusFilter"></select>
         </div>
 
-        <div class="field">
+        <div class="field pharmacy-field">
           <label for="pharmacyFilter">فلتر الصيدلية <span class="hint-mini" id="pharmacyOptionsCount">0</span></label>
-          <input id="pharmacyFilter" list="pharmacyOptions" placeholder="اكتب اسم أو كود الصيدلية" autocomplete="off" />
-          <datalist id="pharmacyOptions"></datalist>
+          <div class="pharmacy-combo" id="pharmacyCombo">
+            <input id="pharmacyFilter" placeholder="اكتب كود أو اسم الصيدلية" autocomplete="off" inputmode="search" />
+            <button type="button" class="pharmacy-clear" onclick="clearPharmacyFilterOnly()" title="مسح فلتر الصيدلية" aria-label="مسح فلتر الصيدلية">×</button>
+            <div id="pharmacyDropdown" class="pharmacy-dropdown" role="listbox"></div>
+          </div>
         </div>
 
         <div class="field">
@@ -908,7 +1083,7 @@
       <div class="metric">
         <div class="metric-title">الحالات المتاحة</div>
         <div id="kpiStatusesCount" class="metric-value">0</div>
-        <div class="metric-note">بعد التاريخ والصيدلية</div>
+        <div class="metric-note">آخر الحالات فقط</div>
       </div>
     </section>
 
@@ -916,7 +1091,7 @@
       <div class="table-headline">
         <div>
           <div class="table-title">الطلبيات المعروضة</div>
-          <div class="table-subtitle">كل تغيير في الفلاتر يعيد حساب الجدول والبطاقات فورًا.</div>
+          <div class="table-subtitle">كل تغيير في الفلاتر يعيد حساب الجدول والبطاقات فورًا حسب آخر حالة فعلية فقط.</div>
         </div>
         <div id="loading" class="status-line">جاري قراءة الطلبيات...</div>
       </div>
@@ -933,16 +1108,29 @@
         </div>
       </div>
       <div class="table-wrap">
-        <table>
+        <table class="orders-table">
+          <colgroup>
+            <col class="col-select" />
+            <col class="col-index" />
+            <col class="col-date" />
+            <col class="col-time" />
+            <col class="col-rep" />
+            <col class="col-pharmacy" />
+            <col class="col-total" />
+            <col class="col-source" />
+            <col class="col-status" />
+            <col class="col-actions" />
+          </colgroup>
           <thead>
             <tr>
               <th class="select-head"><input id="selectAllCurrentPage" class="order-check" type="checkbox" aria-label="تحديد كل المعروض" onchange="toggleSelectAllVisible(this.checked)" /></th>
-              <th>#</th>
+              <th>تسلسل</th>
               <th>التاريخ</th>
+              <th>الوقت</th>
               <th>المندوب</th>
               <th>الصيدلية</th>
               <th>قيمة الطلبية</th>
-              <th>الحقل</th>
+              <th>مصدر الحالة</th>
               <th>الحالة الحالية</th>
               <th>إجراءات</th>
             </tr>
@@ -1120,12 +1308,22 @@
     let selectedOrderIds = new Set();
     let moveMode = `single`;
     let filterSyncing = false;
+    let cacheRenderDone = false;
+    let allOrdersVersion = 0;
+    let currentPharmacyOptions = [];
+    let currentPharmacyOptionsByKey = new Map();
+    let optionMemo = new Map();
+
+    const BASEL_ORDERS_CACHE_KEY = `basel_orders_cache_v4`;
+    const BASEL_FILTER_CACHE_KEY = `basel_filter_state_v2`;
+    const BASEL_CACHE_TTL_MS = 10 * 60 * 1000;
+    const MAX_PHARMACY_DROPDOWN_ROWS = 80;
 
     const loading = document.getElementById(`loading`);
     const errorBox = document.getElementById(`errorBox`);
     const statusFilter = document.getElementById(`statusFilter`);
     const pharmacyFilter = document.getElementById(`pharmacyFilter`);
-    const pharmacyOptions = document.getElementById(`pharmacyOptions`);
+    const pharmacyDropdown = document.getElementById(`pharmacyDropdown`);
     const fromDate = document.getElementById(`fromDate`);
     const toDate = document.getElementById(`toDate`);
     const ordersBody = document.getElementById(`ordersBody`);
@@ -1190,6 +1388,94 @@
       showToast.timer = setTimeout(() => toast.classList.remove(`show`), 3200);
     }
 
+
+    function safeJsonClone(value) {
+      return JSON.parse(JSON.stringify(value, (key, val) => {
+        if (val && typeof val.toDate === `function`) {
+          const date = val.toDate();
+          return { __type: `firestoreTimestamp`, seconds: Math.floor(date.getTime() / 1000), nanoseconds: (date.getTime() % 1000) * 1000000 };
+        }
+        if (val instanceof Date) return { __type: `date`, value: val.toISOString() };
+        return val;
+      }));
+    }
+
+    function saveOrdersCache() {
+      try {
+        const payload = {
+          savedAt: Date.now(),
+          orders: safeJsonClone(allOrders)
+        };
+        localStorage.setItem(BASEL_ORDERS_CACHE_KEY, JSON.stringify(payload));
+      } catch (error) {
+        console.warn(`Basel cache save skipped`, error);
+      }
+    }
+
+    function loadOrdersCache() {
+      try {
+        const raw = localStorage.getItem(BASEL_ORDERS_CACHE_KEY);
+        if (!raw) return false;
+        const payload = JSON.parse(raw);
+        if (!payload?.orders?.length) return false;
+        const age = Date.now() - Number(payload.savedAt || 0);
+        if (age > BASEL_CACHE_TTL_MS) return false;
+        allOrders = payload.orders;
+        allOrdersVersion += 1;
+        optionMemo.clear();
+        cacheRenderDone = true;
+        renderMoveStatusOptions();
+        syncFilterOptionsAndRender();
+        lastLoadedAt.textContent = `محفوظ محليًا`;
+        loading.innerHTML = `تم عرض نسخة محفوظة داخليًا، ويتم تحديثها من Firebase عند الضغط على تحديث البيانات.`;
+        return true;
+      } catch (error) {
+        console.warn(`Basel cache load skipped`, error);
+        return false;
+      }
+    }
+
+    function saveFilterState() {
+      try {
+        localStorage.setItem(BASEL_FILTER_CACHE_KEY, JSON.stringify({
+          fromDate: fromDate.value || ``,
+          toDate: toDate.value || ``,
+          status: statusFilter.value || ``,
+          pharmacy: pharmacyFilter.value || ``
+        }));
+      } catch (error) {
+        console.warn(`Basel filter cache skipped`, error);
+      }
+    }
+
+    function restoreFilterState() {
+      try {
+        const raw = localStorage.getItem(BASEL_FILTER_CACHE_KEY);
+        if (!raw) return;
+        const state = JSON.parse(raw);
+        if (state.fromDate) fromDate.value = state.fromDate;
+        if (state.toDate) toDate.value = state.toDate;
+        if (state.pharmacy) pharmacyFilter.value = state.pharmacy;
+      } catch (error) {
+        console.warn(`Basel filter restore skipped`, error);
+      }
+    }
+
+    function normalizeSearch(value) {
+      return String(value || ``)
+        .toLowerCase()
+        .normalize(`NFD`)
+        .replace(/[ً-ٰٟـ]/g, ``)
+        .replace(/[̀-ͯ]/g, ``)
+        .replace(/[^\p{L}\p{N}]+/gu, ` `)
+        .trim()
+        .replace(/\s+/g, ` `);
+    }
+
+    function getSearchWords(value) {
+      return normalizeSearch(value).split(` `).filter(Boolean);
+    }
+
     function toDateInputValue(date) {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, `0`);
@@ -1244,6 +1530,16 @@
       return parsed ? parsed.toLocaleString(`en-GB`) : (order.date || order.orderDate || `-`);
     }
 
+    function getOrderDateOnly(order) {
+      const parsed = parseOrderDate(order);
+      return parsed ? parsed.toLocaleDateString(`en-GB`) : (order.date || order.orderDate || `-`);
+    }
+
+    function getOrderTimeOnly(order) {
+      const parsed = parseOrderDate(order);
+      return parsed ? parsed.toLocaleTimeString(`en-GB`, { hour: `2-digit`, minute: `2-digit` }) : `-`;
+    }
+
     function getArabicStatusName(value) {
       if (!value) return `-`;
       return STATUS_LABELS[value] || value;
@@ -1261,8 +1557,25 @@
       return order.pharmacyCode || order.pharmacy_code || order.customerCode || order.customer_code || ``;
     }
 
+    function getPharmacyLabel(order) {
+      const name = getPharmacyName(order);
+      const code = getPharmacyCode(order);
+      return code ? `${code} — ${name}` : name;
+    }
+
     function getPharmacySearchText(order) {
-      return `${getPharmacyName(order)} ${getPharmacyCode(order)}`.toLowerCase().trim();
+      return normalizeSearch(`${getPharmacyCode(order)} ${getPharmacyName(order)} ${getPharmacyLabel(order)}`);
+    }
+
+    function pharmacyDisplayHtml(order) {
+      const name = getPharmacyName(order);
+      const code = getPharmacyCode(order);
+      return `
+        <span class="pharmacy-display">
+          ${code ? `<span class="pharmacy-code-badge">${escapeHtml(code)}</span>` : ``}
+          <span class="pharmacy-name-text">${escapeHtml(name)}</span>
+        </span>
+      `;
     }
 
     function getOrderItems(order) {
@@ -1317,13 +1630,62 @@
       return { fieldName: parts[0] || ``, value: parts.slice(1).join(`|||`) };
     }
 
+    function extractStatusFromLogEntry(entry = {}) {
+      const direct = entry.to || entry.newStatus || entry.targetStatus || entry.status || entry.value || ``;
+      const nested = entry.newValue?.status || entry.after?.status || entry.data?.status || ``;
+      const status = String(nested || direct || ``).trim();
+      return status && KNOWN_WORKFLOW_STATUSES.includes(status) ? status : ``;
+    }
+
+    function getLogEntryDate(entry = {}) {
+      return normalizeDate(entry.at || entry.timestamp || entry.createdAt || entry.date || entry.time || entry.changedAt || entry.updatedAt);
+    }
+
+    function getLatestStatusFromLogs(order = {}) {
+      const logCollections = [
+        order.auditTrail,
+        order.auditLog,
+        order.workflowLog,
+        order.statusLog,
+        order.statusHistory,
+        order.history,
+        order.logs
+      ].filter(Array.isArray);
+
+      let latest = { status: ``, time: 0 };
+
+      logCollections.flat().forEach(entry => {
+        const status = extractStatusFromLogEntry(entry);
+        if (!status) return;
+        const time = getLogEntryDate(entry)?.getTime() || 0;
+        if (time >= latest.time) latest = { status, time };
+      });
+
+      return latest.status;
+    }
+
     function getPrimaryStatus(order = {}) {
-      const rawStatus = order.status || order.orderStatus || order.workflowStatus || ``;
+      const rawStatus = String(order.status || order.orderStatus || order.workflowStatus || ``).trim();
       const terminalOrReturned = rawStatus.startsWith(`deleted_`) || [`returned_to_rep`, `returned_to_supervisor`, `returned_to_market_manager`, `returned_to_finance`, `market_manager_rejected`, `finance_rejected`, `rejected`].includes(rawStatus);
+
       if (terminalOrReturned || order.workflowStage === `deleted`) return rawStatus || `deleted`;
-      if (rawStatus === `orders_staff_hidden` || order.orderStaffStatus === `orders_staff_hidden` || order.orderStaffStatus === `orders_staff_invoiced_and_hidden_after_export` || order.hiddenByOrderStaff === true || order.isInvoiced === true) return `orders_staff_hidden`;
+      if (rawStatus === `orders_staff_hidden` || rawStatus === `orders_staff_invoiced_and_hidden_after_export` || order.orderStaffStatus === `orders_staff_hidden` || order.orderStaffStatus === `orders_staff_invoiced_and_hidden_after_export` || order.hiddenByOrderStaff === true || order.isInvoiced === true) return `orders_staff_hidden`;
       if (rawStatus === `orders_staff_exported` || order.orderStaffStatus === `orders_staff_exported` || order.orderStaffExported === true || !!order.exportedAt) return `orders_staff_exported`;
-      return rawStatus;
+      if (rawStatus) return rawStatus;
+
+      const stage = String(order.workflowStage || order.currentStep || ``).trim();
+
+      if (stage === `orders_staff`) return order.orderStaffStatus || (order.financeStatus === `finance_approved` ? `orders_staff_pending` : ``);
+      if (stage === `finance`) return order.financeStatus || `finance_pending`;
+      if (stage === `market_manager`) return order.marketManagerStatus || `market_manager_pending`;
+      if (stage === `supervisor`) return order.supervisorStatus || `pending_supervisor_approval`;
+      if (stage === `representative`) return `returned_to_rep`;
+
+      return order.orderStaffStatus || order.financeStatus || order.marketManagerStatus || order.supervisorStatus || getLatestStatusFromLogs(order) || ``;
+    }
+
+    function getLatestWorkflowStatus(order = {}) {
+      return getPrimaryStatus(order) || getLatestStatusFromLogs(order) || `بدون حالة`;
     }
 
     function orderMatchesDate(order) {
@@ -1337,15 +1699,16 @@
     }
 
     function orderMatchesPharmacy(order, value = pharmacyFilter.value) {
-      const term = String(value || ``).toLowerCase().trim();
-      if (!term) return true;
-      return getPharmacySearchText(order).includes(term);
+      const words = getSearchWords(value);
+      if (!words.length) return true;
+      const haystack = getPharmacySearchText(order);
+      return words.every(word => haystack.includes(word));
     }
 
     function orderMatchesStatus(order, statusKey = statusFilter.value) {
       if (!statusKey) return true;
       const selected = parseStatusKey(statusKey);
-      return String(order[selected.fieldName] ?? ``).trim() === selected.value;
+      return getLatestWorkflowStatus(order) === selected.value;
     }
 
     function baseOrdersForStatusOptions() {
@@ -1358,23 +1721,29 @@
 
     function discoverStatuses(orders) {
       const map = new Map();
+
       orders.forEach(order => {
-        Object.keys(STATUS_FIELDS).forEach(fieldName => {
-          const rawValue = order[fieldName];
-          if (rawValue === undefined || rawValue === null || rawValue === ``) return;
-          const value = String(rawValue).trim();
-          if (!value) return;
-          const key = buildStatusKey(fieldName, value);
-          if (!map.has(key)) {
-            map.set(key, { key, fieldName, fieldArabicName: STATUS_FIELDS[fieldName], value, arabicStatusName: getArabicStatusName(value), count: 0 });
-          }
-          map.get(key).count += 1;
-        });
+        const value = getLatestWorkflowStatus(order);
+        if (!value) return;
+
+        const fieldName = `latestWorkflowStatus`;
+        const key = buildStatusKey(fieldName, value);
+
+        if (!map.has(key)) {
+          map.set(key, {
+            key,
+            fieldName,
+            fieldArabicName: `آخر حالة فعلية للطلبية`,
+            value,
+            arabicStatusName: getArabicStatusName(value),
+            count: 0
+          });
+        }
+
+        map.get(key).count += 1;
       });
-      return Array.from(map.values()).sort((a, b) => {
-        if (a.fieldName !== b.fieldName) return a.fieldName.localeCompare(b.fieldName);
-        return b.count - a.count;
-      });
+
+      return Array.from(map.values()).sort((a, b) => b.count - a.count || a.arabicStatusName.localeCompare(b.arabicStatusName, `ar`));
     }
 
     function discoverPharmacies(orders) {
@@ -1382,13 +1751,17 @@
       orders.forEach(order => {
         const name = getPharmacyName(order);
         const code = getPharmacyCode(order);
-        const label = `${name}${code ? ` — ${code}` : ``}`;
         if (!name || name === `-`) return;
-        const key = label.toLowerCase();
-        if (!map.has(key)) map.set(key, { label, count: 0 });
+        const label = code ? `${code} — ${name}` : name;
+        const search = normalizeSearch(`${code} ${name} ${label}`);
+        const key = search || normalizeSearch(label);
+        if (!map.has(key)) map.set(key, { key, label, name, code, search, count: 0 });
         map.get(key).count += 1;
       });
-      return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, `ar`));
+      return Array.from(map.values()).sort((a, b) => {
+        const codeCompare = String(a.code || ``).localeCompare(String(b.code || ``), `en`, { numeric: true });
+        return codeCompare || a.name.localeCompare(b.name, `ar`);
+      });
     }
 
     function renderStatusOptions(options) {
@@ -1396,7 +1769,7 @@
       const exists = !previous || options.some(item => item.key === previous);
       const valueToSet = exists ? previous : ``;
       statusFilter.innerHTML = `
-        <option value="">كل الحالات ضمن التاريخ والصيدلية</option>
+        <option value="">كل آخر الحالات ضمن التاريخ والصيدلية</option>
         ${options.map(status => `
           <option value="${escapeAttr(status.key)}">
             ${escapeHtml(status.fieldArabicName)} — ${escapeHtml(status.arabicStatusName)} — ${escapeHtml(status.value)} (${status.count})
@@ -1409,8 +1782,51 @@
     }
 
     function renderPharmacyOptions(options) {
-      pharmacyOptions.innerHTML = options.slice(0, 900).map(item => `<option value="${escapeAttr(item.label)}">${item.count} طلبية</option>`).join(``);
+      currentPharmacyOptions = options;
+      currentPharmacyOptionsByKey = new Map(options.map(item => [item.key, item]));
       pharmacyOptionsCount.textContent = `${options.length}`;
+      renderPharmacyDropdown();
+    }
+
+    function getVisiblePharmacyOptions() {
+      const words = getSearchWords(pharmacyFilter.value);
+      const ranked = words.length
+        ? currentPharmacyOptions.filter(item => words.every(word => item.search.includes(word)))
+        : currentPharmacyOptions;
+      return ranked.slice(0, MAX_PHARMACY_DROPDOWN_ROWS);
+    }
+
+    function renderPharmacyDropdown(forceOpen = false) {
+      if (!pharmacyDropdown) return;
+      const visible = getVisiblePharmacyOptions();
+      if (!visible.length) {
+        pharmacyDropdown.innerHTML = `<div class="empty-state" style="padding:18px">لا توجد صيدليات ضمن الفلاتر الحالية.</div>`;
+      } else {
+        pharmacyDropdown.innerHTML = visible.map(item => `
+          <button type="button" class="pharmacy-option" onclick="selectPharmacyFromDropdown('${escapeAttr(item.key)}')" title="${escapeAttr(item.label)}">
+            <span class="p-code">${escapeHtml(item.code || `--`)}</span>
+            <span class="p-name">${escapeHtml(item.name)}</span>
+            <span class="p-count">${formatCount(item.count)}</span>
+          </button>
+        `).join(``);
+      }
+      const shouldOpen = forceOpen || document.activeElement === pharmacyFilter;
+      pharmacyDropdown.classList.toggle(`open`, shouldOpen);
+    }
+
+    function selectPharmacyFromDropdown(key) {
+      const item = currentPharmacyOptionsByKey.get(key);
+      if (!item) return;
+      pharmacyFilter.value = item.label;
+      pharmacyDropdown.classList.remove(`open`);
+      syncFilterOptionsAndRender();
+    }
+
+    function clearPharmacyFilterOnly() {
+      pharmacyFilter.value = ``;
+      renderPharmacyDropdown(false);
+      syncFilterOptionsAndRender();
+      pharmacyFilter.focus();
     }
 
     function renderMoveStatusOptions() {
@@ -1497,14 +1913,40 @@
     }
 
 
+    function ordersMemoKey(type) {
+      const pharmacyPart = type === `pharmacy` ? `` : normalizeSearch(pharmacyFilter.value || ``);
+      return [type, allOrdersVersion, fromDate.value || ``, toDate.value || ``, statusFilter.value || ``, pharmacyPart].join(`|`);
+    }
+
+    function getMemoizedStatusOptions() {
+      const key = ordersMemoKey(`status`);
+      if (!optionMemo.has(key)) optionMemo.set(key, discoverStatuses(baseOrdersForStatusOptions()));
+      return optionMemo.get(key);
+    }
+
+    function getMemoizedPharmacyOptions() {
+      const key = ordersMemoKey(`pharmacy`);
+      if (!optionMemo.has(key)) optionMemo.set(key, discoverPharmacies(baseOrdersForPharmacyOptions()));
+      return optionMemo.get(key);
+    }
+
+    function compareOrdersByDateTimeDesc(a, b) {
+      const at = parseOrderDate(a)?.getTime() || 0;
+      const bt = parseOrderDate(b)?.getTime() || 0;
+      if (bt !== at) return bt - at;
+      return String(b.id || ``).localeCompare(String(a.id || ``));
+    }
+
+
     function syncFilterOptionsAndRender() {
       if (filterSyncing) return;
       filterSyncing = true;
-      const statusOptions = discoverStatuses(baseOrdersForStatusOptions());
+      const statusOptions = getMemoizedStatusOptions();
       renderStatusOptions(statusOptions);
-      const pharmacyOptionRows = discoverPharmacies(baseOrdersForPharmacyOptions());
+      const pharmacyOptionRows = getMemoizedPharmacyOptions();
       renderPharmacyOptions(pharmacyOptionRows);
-      currentFilteredOrders = getFilteredOrders().sort((a, b) => (parseOrderDate(b)?.getTime() || 0) - (parseOrderDate(a)?.getTime() || 0));
+      currentFilteredOrders = getFilteredOrders().sort(compareOrdersByDateTimeDesc);
+      saveFilterState();
       pruneSelectionToCurrentFilter();
       updateKpis(currentFilteredOrders);
       renderOrdersTable();
@@ -1514,26 +1956,27 @@
 
     function renderOrdersTable() {
       if (!currentFilteredOrders.length) {
-        ordersBody.innerHTML = `<tr><td colspan="9"><div class="empty-state">لا توجد طلبيات ضمن الفلاتر الحالية.<br>غيّر التاريخ أو الحالة أو الصيدلية.</div></td></tr>`;
+        ordersBody.innerHTML = `<tr><td colspan="10"><div class="empty-state">لا توجد طلبيات ضمن الفلاتر الحالية.<br>غيّر التاريخ أو الحالة أو الصيدلية.</div></td></tr>`;
         updateSelectionUi();
         return;
       }
 
       const selected = statusFilter.value ? parseStatusKey(statusFilter.value) : null;
       ordersBody.innerHTML = currentFilteredOrders.map((order, index) => {
-        const fieldLabel = selected ? (STATUS_FIELDS[selected.fieldName] || selected.fieldName) : `الحالة الرئيسية`;
-        const statusValue = selected ? selected.value : (getPrimaryStatus(order) || order.status || `-`);
+        const fieldLabel = `آخر حالة فعلية`;
+        const statusValue = getLatestWorkflowStatus(order);
         return `
           <tr class="${selectedOrderIds.has(order.id) ? `selected-row` : ``}" style="animation-delay:${Math.min(index * 16, 220)}ms">
             <td class="select-cell"><input class="order-check" type="checkbox" data-order-select value="${escapeAttr(order.id)}" ${selectedOrderIds.has(order.id) ? `checked` : ``} onchange="toggleOrderSelection('${escapeAttr(order.id)}', this.checked)" aria-label="تحديد الطلبية" /></td>
             <td class="num">${index + 1}</td>
-            <td class="num">${escapeHtml(getOrderDate(order))}</td>
-            <td>${escapeHtml(getRepName(order))}</td>
-            <td>${escapeHtml(getPharmacyName(order))}</td>
+            <td class="num date-cell">${escapeHtml(getOrderDateOnly(order))}</td>
+            <td class="num time-cell">${escapeHtml(getOrderTimeOnly(order))}</td>
+            <td title="${escapeAttr(getRepName(order))}">${escapeHtml(getRepName(order))}</td>
+            <td class="pharmacy-cell" title="${escapeAttr(getPharmacyLabel(order))}">${pharmacyDisplayHtml(order)}</td>
             <td class="money">${formatMoney(getOrderTotal(order))}</td>
-            <td>${escapeHtml(fieldLabel)}</td>
+            <td title="${escapeAttr(fieldLabel)}">${escapeHtml(fieldLabel)}</td>
             <td><span class="status-pill"><span>${escapeHtml(getArabicStatusName(statusValue))}</span><span class="raw">${escapeHtml(statusValue)}</span></span></td>
-            <td>
+            <td class="actions-cell">
               <div class="actions">
                 <button type="button" class="icon-btn" title="مشاهدة وتعديل" onclick="showDetails('${escapeAttr(order.id)}')">
                   <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1581,7 +2024,7 @@
           <div class="field"><label>اسم الصيدلية</label><input id="editPharmacyName" value="${escapeAttr(getPharmacyName(order) === `-` ? `` : getPharmacyName(order))}" /></div>
           <div class="field"><label>كود الصيدلية</label><input id="editPharmacyCode" value="${escapeAttr(getPharmacyCode(order))}" /></div>
           <div class="field"><label>إجمالي الطلبية</label><input id="editGrandTotal" class="num" type="number" step="0.001" value="${escapeAttr(getOrderTotal(order).toFixed(3))}" /></div>
-          <div class="field"><label>الحالة الحالية</label><input readonly value="${escapeAttr(getArabicStatusName(getPrimaryStatus(order)))} — ${escapeAttr(getPrimaryStatus(order) || ``)}" /></div>
+          <div class="field"><label>الحالة الحالية</label><input readonly value="${escapeAttr(getArabicStatusName(getLatestWorkflowStatus(order)))} — ${escapeAttr(getLatestWorkflowStatus(order) || ``)}" /></div>
         </div>
         <div class="field"><label>ملاحظة الطلبية</label><textarea id="editOrderNote" placeholder="ملاحظة الطلبية">${escapeHtml(getOrderNote(order))}</textarea></div>
         <div class="section-title">الأصناف <span id="editItemsCount">${items.length}</span></div>
@@ -1764,7 +2207,7 @@
       moveModalTitle.textContent = `نقل الطلبية إلى حالة أخرى`;
       moveModalHint.textContent = `تغيير الحالة هنا يحدّث الحقول الأساسية المرتبطة بالـ Workflow وليس الحقل المعروض فقط، حتى ينعكس التغيير في باقي صفحات الموقع.`;
       confirmMoveButton.textContent = `تأكيد النقل`;
-      const current = getPrimaryStatus(order);
+      const current = getLatestWorkflowStatus(order);
       if (current && Array.from(moveStatusSelect.options).some(option => option.value === current)) moveStatusSelect.value = current;
       openModal(`moveModal`);
     }
@@ -1839,7 +2282,7 @@
       if (!selectedOrderIdForMove) return;
       const order = allOrders.find(item => item.id === selectedOrderIdForMove);
       if (!order) return showToast(`لم يتم العثور على الطلبية.`, `error`);
-      const previousStatus = getPrimaryStatus(order) || order.status || ``;
+      const previousStatus = getLatestWorkflowStatus(order) || order.status || ``;
       const message = `هل أنت متأكد من نقل الطلبية من:\n${getArabicStatusName(previousStatus)}\nإلى:\n${getArabicStatusName(targetStatus)}؟`;
       if (!confirm(message)) return;
       await applyStatusPatchToOrders([selectedOrderIdForMove], targetStatus, note, `manual_workflow_status_change`);
@@ -1890,11 +2333,15 @@
       try {
         if (!quiet) {
           loading.innerHTML = `جاري قراءة الطلبيات...`;
-          ordersBody.innerHTML = `<tr><td colspan="9" class="loader-row"><span class="skeleton" style="width:90%;height:18px"></span><br><span class="skeleton" style="width:70%;height:18px"></span></td></tr>`;
+          ordersBody.innerHTML = `<tr><td colspan="10" class="loader-row"><span class="skeleton" style="width:90%;height:18px"></span><br><span class="skeleton" style="width:70%;height:18px"></span></td></tr>`;
+          loadOrdersCache();
         }
         errorBox.style.display = `none`;
         const snap = await getDocs(collection(db, `orders`));
         allOrders = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        allOrdersVersion += 1;
+        optionMemo.clear();
+        saveOrdersCache();
         renderMoveStatusOptions();
         syncFilterOptionsAndRender();
         lastLoadedAt.textContent = new Date().toLocaleTimeString(`en-GB`, { hour: `2-digit`, minute: `2-digit`, second: `2-digit` });
@@ -1902,7 +2349,7 @@
         console.error(error);
         errorBox.style.display = `block`;
         errorBox.textContent = `حدث خطأ أثناء قراءة Firebase: ${error.message}`;
-        loading.textContent = `فشل تحميل البيانات.`;
+        if (!cacheRenderDone) loading.textContent = `فشل تحميل البيانات.`;
       }
     }
 
@@ -1922,15 +2369,16 @@
     function clearStatusAndPharmacy() {
       statusFilter.value = ``;
       pharmacyFilter.value = ``;
+      if (pharmacyDropdown) pharmacyDropdown.classList.remove(`open`);
       syncFilterOptionsAndRender();
     }
 
     function exportCurrentViewCsv() {
       if (!currentFilteredOrders.length) return showToast(`لا توجد بيانات لتصديرها.`, `warning`);
-      const rows = [[`Order ID`, `Date`, `Rep`, `Pharmacy`, `Pharmacy Code`, `Total`, `Status`, `Status Arabic`]];
+      const rows = [[`Order ID`, `Date`, `Time`, `Rep`, `Pharmacy`, `Pharmacy Code`, `Total`, `Status`, `Status Arabic`]];
       currentFilteredOrders.forEach(order => {
         const status = getPrimaryStatus(order) || order.status || ``;
-        rows.push([order.id || ``, getOrderDate(order), getRepName(order), getPharmacyName(order), getPharmacyCode(order), getOrderTotal(order), status, getArabicStatusName(status)]);
+        rows.push([order.id || ``, getOrderDateOnly(order), getOrderTimeOnly(order), getRepName(order), getPharmacyName(order), getPharmacyCode(order), getOrderTotal(order), status, getArabicStatusName(status)]);
       });
       const csv = rows.map(row => row.map(value => `"${String(value ?? ``).replace(/"/g, `""`)}"`).join(`,`)).join(`\n`);
       const blob = new Blob([`\uFEFF${csv}`], { type: `text/csv;charset=utf-8;` });
@@ -1948,12 +2396,22 @@
       let timer = null;
       return () => {
         clearTimeout(timer);
-        timer = setTimeout(syncFilterOptionsAndRender, 120);
+        timer = setTimeout(() => {
+          renderPharmacyDropdown(true);
+          syncFilterOptionsAndRender();
+        }, 45);
       };
     })();
 
     statusFilter.addEventListener(`change`, syncFilterOptionsAndRender);
     pharmacyFilter.addEventListener(`input`, debouncedSync);
+    pharmacyFilter.addEventListener(`focus`, () => renderPharmacyDropdown(true));
+    pharmacyFilter.addEventListener(`keydown`, event => {
+      if (event.key === `Escape`) pharmacyDropdown.classList.remove(`open`);
+    });
+    document.addEventListener(`click`, event => {
+      if (!event.target.closest(`#pharmacyCombo`)) pharmacyDropdown.classList.remove(`open`);
+    });
     fromDate.addEventListener(`change`, syncFilterOptionsAndRender);
     toDate.addEventListener(`change`, syncFilterOptionsAndRender);
 
@@ -1975,9 +2433,12 @@
     window.hardDeleteSelectedOrder = hardDeleteSelectedOrder;
     window.resetFiltersToCurrentMonth = resetFiltersToCurrentMonth;
     window.clearStatusAndPharmacy = clearStatusAndPharmacy;
+    window.selectPharmacyFromDropdown = selectPharmacyFromDropdown;
+    window.clearPharmacyFilterOnly = clearPharmacyFilterOnly;
     window.exportCurrentViewCsv = exportCurrentViewCsv;
 
     setDefaultDates();
+    restoreFilterState();
     loadOrders();
   </script>
 </body>
