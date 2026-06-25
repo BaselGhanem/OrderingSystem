@@ -333,7 +333,29 @@
     }
 
 
-    .pharmacy-field { position: relative; }
+    .shell > .panel {
+      position: relative;
+      z-index: 90;
+      overflow: visible;
+      isolation: isolate;
+    }
+
+    .metrics {
+      position: relative;
+      z-index: 10;
+    }
+
+    .table-panel {
+      position: relative;
+      z-index: 5;
+    }
+
+    .filters-grid,
+    .field {
+      overflow: visible;
+    }
+
+    .pharmacy-field { position: relative; z-index: 110; }
 
     .pharmacy-combo {
       position: relative;
@@ -374,16 +396,17 @@
       position: absolute;
       inset-inline: 0;
       top: calc(100% + 8px);
-      z-index: 80;
+      z-index: 9999;
       display: none;
-      max-height: 330px;
+      max-height: min(360px, 52vh);
       overflow: auto;
-      padding: 8px;
-      border: 1px solid rgba(9, 153, 153, .18);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, .98);
-      box-shadow: 0 22px 55px rgba(15, 23, 42, .16);
-      backdrop-filter: blur(14px);
+      padding: 10px;
+      border: 1px solid rgba(9, 153, 153, .24);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, .99);
+      box-shadow: 0 28px 70px rgba(15, 23, 42, .26);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
       animation: dropdownIn .16s cubic-bezier(.2,.8,.2,1) both;
     }
 
@@ -552,9 +575,10 @@
     }
 
     .table-wrap {
-      overflow-x: hidden;
+      overflow: auto;
       max-height: calc(100vh - 430px);
       min-height: 280px;
+      scrollbar-gutter: stable;
     }
 
     .bulk-toolbar {
@@ -653,6 +677,8 @@
       text-align: right;
       vertical-align: middle;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     th {
@@ -723,6 +749,10 @@
     .select-head {
       white-space: nowrap;
     }
+
+    .actions-cell,
+    .select-cell,
+    .select-head { overflow: visible; }
 
     .pharmacy-cell {
       white-space: nowrap;
@@ -1046,7 +1076,7 @@
         <div class="field pharmacy-field">
           <label for="pharmacyFilter">فلتر الصيدلية <span class="hint-mini" id="pharmacyOptionsCount">0</span></label>
           <div class="pharmacy-combo" id="pharmacyCombo">
-            <input id="pharmacyFilter" placeholder="اكتب كود أو اسم الصيدلية" autocomplete="off" inputmode="search" />
+            <input id="pharmacyFilter" placeholder="اكتب كود أو اسم الصيدلية — الكتابة تكفي للتصفية" autocomplete="off" inputmode="search" />
             <button type="button" class="pharmacy-clear" onclick="clearPharmacyFilterOnly()" title="مسح فلتر الصيدلية" aria-label="مسح فلتر الصيدلية">×</button>
             <div id="pharmacyDropdown" class="pharmacy-dropdown" role="listbox"></div>
           </div>
@@ -1314,10 +1344,11 @@
     let currentPharmacyOptionsByKey = new Map();
     let optionMemo = new Map();
 
-    const BASEL_ORDERS_CACHE_KEY = `basel_orders_cache_v4`;
+    const BASEL_ORDERS_CACHE_KEY = `basel_orders_cache_v5`;
     const BASEL_FILTER_CACHE_KEY = `basel_filter_state_v2`;
     const BASEL_CACHE_TTL_MS = 10 * 60 * 1000;
-    const MAX_PHARMACY_DROPDOWN_ROWS = 80;
+    const MAX_PHARMACY_DROPDOWN_ROWS = 28;
+    const MIN_PHARMACY_DROPDOWN_CHARS = 2;
 
     const loading = document.getElementById(`loading`);
     const errorBox = document.getElementById(`errorBox`);
@@ -1421,6 +1452,7 @@
         const age = Date.now() - Number(payload.savedAt || 0);
         if (age > BASEL_CACHE_TTL_MS) return false;
         allOrders = payload.orders;
+        hydrateOrdersForFastFiltering();
         allOrdersVersion += 1;
         optionMemo.clear();
         cacheRenderDone = true;
@@ -1459,6 +1491,37 @@
       } catch (error) {
         console.warn(`Basel filter restore skipped`, error);
       }
+    }
+
+    function hydrateOrdersForFastFiltering() {
+      allOrders = allOrders.map(order => {
+        const date = normalizeDate(order.createdAt || order.date || order.orderDate || order.timestamp || order.created_at || order.updatedAt || order.changedAt);
+        const dateTs = date ? date.getTime() : 0;
+        const pharmacyName = order.pharmacyName || order.customerName || order.clientName || order.pharmacy || `-`;
+        const pharmacyCode = order.pharmacyCode || order.pharmacy_code || order.customerCode || order.customer_code || ``;
+        const pharmacyLabel = pharmacyCode ? `${pharmacyCode} — ${pharmacyName}` : pharmacyName;
+        const repName = order.repName || order.representativeName || order.medicalRep || order.rep || order.createdByName || order.userName || `-`;
+        const items = Array.isArray(order.items) ? order.items : Array.isArray(order.orderItems) ? order.orderItems : Array.isArray(order.products) ? order.products : [];
+        const directTotal = parseNumber(order.total || order.totalValue || order.netTotal || order.orderTotal || order.grandTotal || order.value || 0);
+        const itemsTotal = directTotal ? directTotal : items.reduce((sum, item) => {
+          const qty = parseNumber(item.qty || item.quantity || item.qnt || 0);
+          const price = parseNumber(item.price || item.unitPrice || item.publicPrice || item.finalPrice || 0);
+          return sum + parseNumber(item.total || item.totalValue || item.lineTotal || item.value || (qty * price) || 0);
+        }, 0);
+
+        order.__baselDateTs = dateTs;
+        order.__baselDateOnly = date ? date.toLocaleDateString(`en-GB`) : (order.date || order.orderDate || `-`);
+        order.__baselTimeOnly = date ? date.toLocaleTimeString(`en-GB`, { hour: `2-digit`, minute: `2-digit` }) : `-`;
+        order.__baselRepName = repName;
+        order.__baselPharmacyName = pharmacyName;
+        order.__baselPharmacyCode = pharmacyCode;
+        order.__baselPharmacyLabel = pharmacyLabel;
+        order.__baselPharmacySearch = normalizeSearch(`${pharmacyCode} ${pharmacyName} ${pharmacyLabel}`);
+        order.__baselTotal = itemsTotal;
+        order.__baselLatestStatus = getPrimaryStatus(order) || getLatestStatusFromLogs(order) || `بدون حالة`;
+        order.__baselLatestStatusArabic = STATUS_LABELS[order.__baselLatestStatus] || order.__baselLatestStatus;
+        return order;
+      });
     }
 
     function normalizeSearch(value) {
@@ -1522,20 +1585,24 @@
     }
 
     function parseOrderDate(order) {
+      if (typeof order.__baselDateTs === `number`) return order.__baselDateTs ? new Date(order.__baselDateTs) : null;
       return normalizeDate(order.createdAt || order.date || order.orderDate || order.timestamp || order.created_at || order.updatedAt || order.changedAt);
     }
 
     function getOrderDate(order) {
+      if (order.__baselDateOnly && order.__baselTimeOnly) return `${order.__baselDateOnly}, ${order.__baselTimeOnly}`;
       const parsed = parseOrderDate(order);
       return parsed ? parsed.toLocaleString(`en-GB`) : (order.date || order.orderDate || `-`);
     }
 
     function getOrderDateOnly(order) {
+      if (order.__baselDateOnly) return order.__baselDateOnly;
       const parsed = parseOrderDate(order);
       return parsed ? parsed.toLocaleDateString(`en-GB`) : (order.date || order.orderDate || `-`);
     }
 
     function getOrderTimeOnly(order) {
+      if (order.__baselTimeOnly) return order.__baselTimeOnly;
       const parsed = parseOrderDate(order);
       return parsed ? parsed.toLocaleTimeString(`en-GB`, { hour: `2-digit`, minute: `2-digit` }) : `-`;
     }
@@ -1546,25 +1613,26 @@
     }
 
     function getRepName(order) {
-      return order.repName || order.representativeName || order.medicalRep || order.rep || order.createdByName || order.userName || `-`;
+      return order.__baselRepName || order.repName || order.representativeName || order.medicalRep || order.rep || order.createdByName || order.userName || `-`;
     }
 
     function getPharmacyName(order) {
-      return order.pharmacyName || order.customerName || order.clientName || order.pharmacy || `-`;
+      return order.__baselPharmacyName || order.pharmacyName || order.customerName || order.clientName || order.pharmacy || `-`;
     }
 
     function getPharmacyCode(order) {
-      return order.pharmacyCode || order.pharmacy_code || order.customerCode || order.customer_code || ``;
+      return order.__baselPharmacyCode || order.pharmacyCode || order.pharmacy_code || order.customerCode || order.customer_code || ``;
     }
 
     function getPharmacyLabel(order) {
+      if (order.__baselPharmacyLabel) return order.__baselPharmacyLabel;
       const name = getPharmacyName(order);
       const code = getPharmacyCode(order);
       return code ? `${code} — ${name}` : name;
     }
 
     function getPharmacySearchText(order) {
-      return normalizeSearch(`${getPharmacyCode(order)} ${getPharmacyName(order)} ${getPharmacyLabel(order)}`);
+      return order.__baselPharmacySearch || normalizeSearch(`${getPharmacyCode(order)} ${getPharmacyName(order)} ${getPharmacyLabel(order)}`);
     }
 
     function pharmacyDisplayHtml(order) {
@@ -1686,16 +1754,16 @@
     }
 
     function getLatestWorkflowStatus(order = {}) {
-      return getPrimaryStatus(order) || getLatestStatusFromLogs(order) || `بدون حالة`;
+      return order.__baselLatestStatus || getPrimaryStatus(order) || getLatestStatusFromLogs(order) || `بدون حالة`;
     }
 
     function orderMatchesDate(order) {
-      const orderDate = parseOrderDate(order);
-      if (!orderDate) return true;
-      const start = fromDate.value ? new Date(`${fromDate.value}T00:00:00`) : null;
-      const end = toDate.value ? new Date(`${toDate.value}T23:59:59`) : null;
-      if (start && orderDate < start) return false;
-      if (end && orderDate > end) return false;
+      const ts = typeof order.__baselDateTs === `number` ? order.__baselDateTs : (parseOrderDate(order)?.getTime() || 0);
+      if (!ts) return true;
+      const start = fromDate.value ? new Date(`${fromDate.value}T00:00:00`).getTime() : null;
+      const end = toDate.value ? new Date(`${toDate.value}T23:59:59`).getTime() : null;
+      if (start && ts < start) return false;
+      if (end && ts > end) return false;
       return true;
     }
 
@@ -1790,18 +1858,32 @@
     }
 
     function getVisiblePharmacyOptions() {
+      const normalizedTerm = normalizeSearch(pharmacyFilter.value);
       const words = getSearchWords(pharmacyFilter.value);
-      const ranked = words.length
-        ? currentPharmacyOptions.filter(item => words.every(word => item.search.includes(word)))
-        : currentPharmacyOptions;
+      if (!words.length || normalizedTerm.length < MIN_PHARMACY_DROPDOWN_CHARS) return [];
+      const ranked = currentPharmacyOptions.filter(item => words.every(word => item.search.includes(word)));
       return ranked.slice(0, MAX_PHARMACY_DROPDOWN_ROWS);
     }
 
     function renderPharmacyDropdown(forceOpen = false) {
       if (!pharmacyDropdown) return;
+      const normalizedTerm = normalizeSearch(pharmacyFilter.value);
+      const words = getSearchWords(pharmacyFilter.value);
+      const matchingOptionsCount = words.length
+        ? currentPharmacyOptions.filter(item => words.every(word => item.search.includes(word))).length
+        : currentPharmacyOptions.length;
+      pharmacyOptionsCount.textContent = `${matchingOptionsCount}`;
+
       const visible = getVisiblePharmacyOptions();
+
+      if (normalizedTerm.length < MIN_PHARMACY_DROPDOWN_CHARS) {
+        pharmacyDropdown.classList.remove(`open`);
+        pharmacyDropdown.innerHTML = ``;
+        return;
+      }
+
       if (!visible.length) {
-        pharmacyDropdown.innerHTML = `<div class="empty-state" style="padding:18px">لا توجد صيدليات ضمن الفلاتر الحالية.</div>`;
+        pharmacyDropdown.innerHTML = `<div class="empty-state" style="padding:18px">لا توجد صيدليات مطابقة، لكن الجدول يتفلتر حسب النص المكتوب.</div>`;
       } else {
         pharmacyDropdown.innerHTML = visible.map(item => `
           <button type="button" class="pharmacy-option" onclick="selectPharmacyFromDropdown('${escapeAttr(item.key)}')" title="${escapeAttr(item.label)}">
@@ -1811,7 +1893,8 @@
           </button>
         `).join(``);
       }
-      const shouldOpen = forceOpen || document.activeElement === pharmacyFilter;
+
+      const shouldOpen = (forceOpen || document.activeElement === pharmacyFilter) && normalizedTerm.length >= MIN_PHARMACY_DROPDOWN_CHARS;
       pharmacyDropdown.classList.toggle(`open`, shouldOpen);
     }
 
@@ -1932,8 +2015,8 @@
     }
 
     function compareOrdersByDateTimeDesc(a, b) {
-      const at = parseOrderDate(a)?.getTime() || 0;
-      const bt = parseOrderDate(b)?.getTime() || 0;
+      const at = typeof a.__baselDateTs === `number` ? a.__baselDateTs : (parseOrderDate(a)?.getTime() || 0);
+      const bt = typeof b.__baselDateTs === `number` ? b.__baselDateTs : (parseOrderDate(b)?.getTime() || 0);
       if (bt !== at) return bt - at;
       return String(b.id || ``).localeCompare(String(a.id || ``));
     }
@@ -2340,6 +2423,7 @@
         errorBox.style.display = `none`;
         const snap = await getDocs(collection(db, `orders`));
         allOrders = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        hydrateOrdersForFastFiltering();
         allOrdersVersion += 1;
         optionMemo.clear();
         saveOrdersCache();
@@ -2398,9 +2482,8 @@
       return () => {
         clearTimeout(timer);
         timer = setTimeout(() => {
-          renderPharmacyDropdown(true);
           syncFilterOptionsAndRender();
-        }, 45);
+        }, 110);
       };
     })();
 
