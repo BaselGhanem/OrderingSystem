@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إدارة حالات الطلبيات</title>
+
+  <style>
+    :root {
+      --teal: #099999;
+      --teal-dark: #077a7a;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --soft: #f8fafc;
+      --bg: #f4f7f8;
+      --danger: #b91c1c;
+      --shadow: 0 18px 50px rgba(15, 23, 42, 0.10);
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(9, 153, 153, 0.12), transparent 36%),
+        linear-gradient(180deg, #f8fbfb, var(--bg));
+      color: var(--ink);
+      padding: 24px;
+    }
+
+    .card {
+      max-width: 1480px;
+      margin: auto;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(14px);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      animation: riseIn .35s ease both;
+    }
+
+    @keyframes riseIn {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--teal);
+      font-size: clamp(22px, 2vw, 30px);
+      letter-spacing: -0.3px;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .refresh-btn {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-weight: 800;
+      cursor: pointer;
+      background: var(--ink);
+      color: #fff;
+      white-space: nowrap;
+      transition: .2s ease;
+    }
+
+    .refresh-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px rgba(15, 23, 42, .18);
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: minmax(240px, 1.4fr) repeat(2, minmax(170px, .7fr));
+      gap: 12px;
+      align-items: end;
+      padding: 14px;
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      margin-bottom: 14px;
+    }
+
+    label {
+      font-size: 13px;
+      color: #475569;
+      font-weight: 800;
+      display: block;
+      margin-bottom: 7px;
+    }
+
+    select,
+    input {
+      width: 100%;
+      padding: 12px 13px;
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      font-size: 14px;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+      transition: .18s ease;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 4px rgba(9, 153, 153, .12);
+    }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .kpi {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeScale .28s ease both;
+    }
+
+    .kpi::before {
+      content: "";
+      position: absolute;
+      inset-inline-start: 0;
+      top: 0;
+      width: 5px;
+      height: 100%;
+      background: var(--teal);
+    }
+
+    @keyframes fadeScale {
+      from {
+        opacity: 0;
+        transform: scale(.985);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .kpi-title {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .kpi-value {
+      font-size: clamp(22px, 2.2vw, 34px);
+      font-weight: 900;
+      color: var(--ink);
+      direction: ltr;
+      text-align: right;
+    }
+
+    .status {
+      margin-bottom: 14px;
+      color: #475569;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .error {
+      color: var(--danger);
+      background: #fee2e2;
+      padding: 12px;
+      border-radius: 12px;
+      display: none;
+      margin-bottom: 16px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      min-width: 1180px;
+    }
+
+    th,
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 900;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tbody tr {
+      transition: .16s ease;
+      animation: rowIn .22s ease both;
+    }
+
+    tbody tr:hover {
+      background: #f8fbfb;
+    }
+
+    @keyframes rowIn {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .code {
+      direction: ltr;
+      text-align: left;
+      font-family: Consolas, monospace;
+      color: #0f766e;
+      font-weight: 800;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      border: 0;
+      border-radius: 13px;
+      padding: 10px 13px;
+      font-weight: 800;
+      cursor: pointer;
+      background: var(--teal);
+      color: #fff;
+      white-space: nowrap;
+      transition: .18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      background: var(--teal-dark);
+    }
+
+    button.secondary {
+      background: #334155;
+    }
+
+    button.secondary:hover {
+      background: #1e293b;
+    }
+
+    button.light {
+      background: #e2e8f0;
+      color: var(--ink);
+    }
+
+    button.icon-btn {
+      width: 42px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border-radius: 14px;
+      background: #ecfeff;
+      color: #0f766e;
+      border: 1px solid #ccfbf1;
+    }
+
+    button.icon-btn:hover {
+      background: #ccfbf1;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.58);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 9999;
+      animation: fadeIn .18s ease both;
+    }
+
+    .modal.open {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-box {
+      width: min(1050px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      background: #fff;
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.28);
+      animation: modalIn .22s ease both;
+    }
+
+    @keyframes modalIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(.985);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .modal-head h2 {
+      margin: 0;
+      font-size: 20px;
+      color: var(--ink);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .info {
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 12px;
+      }
+
+      .card {
+        padding: 14px;
+      }
+
+      .header {
+        flex-direction: column;
+      }
+
+      .filters,
+      .kpis,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .refresh-btn {
+        width: 100%;
+      }
+
+      .modal {
+        padding: 0;
+      }
+
+      .modal-box {
+        width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <div class="header">
+      <div>
+        <h1>إدارة حالات الطلبيات على Firebase</h1>
+        <div class="subtitle">
+          فلترة مباشرة حسب الحالة والتاريخ، مع عرض الطلبيات، تفاصيل الأصناف، وقيمة الطلبيات المتأثرة.
+        </div>
+      </div>
+
+      <button type="button" class="refresh-btn" onclick="loadOrders()">تحديث البيانات</button>
+    </div>
+
+    <div id="loading" class="status">جاري قراءة الطلبيات...</div>
+    <div id="errorBox" class="error"></div>
+
+    <div class="filters">
+      <div>
+        <label>فلترة حسب الحالة الموجودة</label>
+        <select id="statusFilter"></select>
+      </div>
+
+      <div>
+        <label>من تاريخ</label>
+        <input id="fromDate" type="date" />
+      </div>
+
+      <div>
+        <label>إلى تاريخ</label>
+        <input id="toDate" type="date" />
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi">
+        <div class="kpi-title">عدد الطلبيات حسب الفلترة</div>
+        <div id="kpiOrdersCount" class="kpi-value">0</div>
+      </div>
+
+      <div class="kpi">
+        <div class="kpi-title">إجمالي قيمة الطلبيات</div>
+        <div id="kpiOrdersValue" class="kpi-value">0.00</div>
+      </div>
+
+      <div class="kpi">
+        <div class="kpi-title">متوسط قيمة الطلبية</div>
+        <div id="kpiAverageValue" class="kpi-value">0.00</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>التاريخ</th>
+            <th>المندوب</th>
+            <th>الصيدلية</th>
+            <th>قيمة الطلبية</th>
+            <th>الحقل</th>
+            <th>الحالة الحالية</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="ordersBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="detailsModal" class="modal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2>تفاصيل الطلبية</h2>
+        <button type="button" class="light" onclick="closeModal('detailsModal')">إغلاق</button>
+      </div>
+      <div id="detailsContent"></div>
+    </div>
+  </div>
+
+  <div id="moveModal" class="modal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2>نقل الطلبية إلى حالة أخرى</h2>
+        <button type="button" class="light" onclick="closeModal('moveModal')">إغلاق</button>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label>الحالة الجديدة</label>
+          <select id="moveStatusSelect"></select>
+        </div>
+
+        <div>
+          <label>ملاحظة إجبارية</label>
+          <input id="moveNote" placeholder="اكتب سبب تغيير الحالة" />
+        </div>
+      </div>
+
+      <button type="button" onclick="confirmMoveOrder()">تأكيد النقل</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      getDocs,
+      doc,
+      updateDoc,
+      serverTimestamp,
+      arrayUnion
+    } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
+      authDomain: "dad-ordering-system.firebaseapp.com",
+      projectId: "dad-ordering-system",
+      storageBucket: "dad-ordering-system.firebasestorage.app",
+      messagingSenderId: "43886677849",
+      appId: "1:43886677849:web:de5f80c06e1b743c948648"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const ACTION_BY = `Basel`;
+
+    const STATUS_FIELDS = {
+      status: `الحالة الرئيسية`,
+      orderStatus: `حالة الطلبية`,
+      workflowStatus: `حالة مسار العمل`,
+      workflowStage: `مرحلة مسار العمل`,
+      supervisorStatus: `حالة المشرف`,
+      marketManagerStatus: `حالة مدير السوق`,
+      financeStatus: `حالة المالية`,
+      orderStaffStatus: `حالة قسم الطلبيات`,
+      requiredOwner: `المطلوب من`,
+      currentOwner: `المالك الحالي`,
+      nextOwner: `الجهة التالية`,
+      currentStep: `الخطوة الحالية`
+    };
+
+    const STATUS_LABELS = {
+      pending: `قيد موافقة المشرف`,
+      pending_supervisor_approval: `قيد موافقة المشرف`,
+      supervisor_approved: `معتمد من المشرف`,
+
+      market_manager_pending: `بانتظار مدير السوق`,
+      market_manager_approved: `معتمد من مدير السوق`,
+      market_manager_rejected: `مرفوض من مدير السوق`,
+
+      finance_pending: `بانتظار المالية`,
+      finance_approved: `معتمد مالياً`,
+      finance_rejected: `مرفوض مالياً`,
+
+      orders_staff_pending: `جاهز لقسم الطلبيات`,
+      orders_staff_exported: `تم تصديره`,
+      orders_staff_hidden: `تمت الفوترة`,
+      orders_staff_edited_returned_to_finance: `تم تعديله وإرجاعه للمالية`,
+
+      returned_to_rep: `مرجعة للمندوب`,
+      returned_to_supervisor: `مرجعة للمشرف`,
+      returned_to_market_manager: `مرجعة لمدير السوق`,
+      returned_to_finance: `مرجعة للمالية`,
+
+      returned: `مرتجع`,
+      approved: `موافق عليه`,
+      rejected: `مرفوض`,
+
+      deleted: `محذوف`,
+      deleted_by_supervisor: `محذوف من المشرف`,
+      deleted_by_market_manager: `محذوف من مدير السوق`,
+      deleted_by_orders_staff: `محذوف من قسم الطلبيات`,
+      deleted_by_reports: `محذوف من التقارير`,
+
+      representative: `المندوب`,
+      supervisor: `المشرف`,
+      market_manager: `مدير السوق`,
+      finance_controller: `المالية`,
+      finance: `المالية`,
+      orders_staff: `قسم الطلبيات`,
+      none: `لا يوجد`
+    };
+
+    let allOrders = [];
+    let discoveredStatuses = [];
+    let selectedOrderIdForMove = null;
+    let selectedCurrentFilter = null;
+
+    const loading = document.getElementById(`loading`);
+    const errorBox = document.getElementById(`errorBox`);
+    const statusFilter = document.getElementById(`statusFilter`);
+    const fromDate = document.getElementById(`fromDate`);
+    const toDate = document.getElementById(`toDate`);
+    const ordersBody = document.getElementById(`ordersBody`);
+    const detailsContent = document.getElementById(`detailsContent`);
+    const moveStatusSelect = document.getElementById(`moveStatusSelect`);
+    const moveNote = document.getElementById(`moveNote`);
+    const kpiOrdersCount = document.getElementById(`kpiOrdersCount`);
+    const kpiOrdersValue = document.getElementById(`kpiOrdersValue`);
+    const kpiAverageValue = document.getElementById(`kpiAverageValue`);
+
+    function escapeHtml(value) {
+      return String(value ?? ``)
+        .replace(/&/g, `&amp;`)
+        .replace(/</g, `&lt;`)
+        .replace(/>/g, `&gt;`)
+        .replace(/"/g, `&quot;`)
+        .replace(/'/g, `&#039;`);
+    }
+
+    function getArabicStatusName(value) {
+      if (!value) return `-`;
+      return STATUS_LABELS[value] || value;
+    }
+
+    function formatMoney(value) {
+      return Number(value || 0).toLocaleString(`en-US`, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function toDateInputValue(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, `0`);
+      const day = String(date.getDate()).padStart(2, `0`);
+
+      return `${year}-${month}-${day}`;
+    }
+
+    function setDefaultDates() {
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      fromDate.value = toDateInputValue(firstDay);
+      toDate.value = toDateInputValue(today);
+    }
+
+    function parseOrderDate(order) {
+      const raw =
+        order.date ||
+        order.orderDate ||
+        order.createdAt ||
+        order.timestamp ||
+        order.created_at ||
+        ``;
+
+      if (raw?.toDate) return raw.toDate();
+
+      if (raw instanceof Date) return raw;
+
+      if (typeof raw === `string`) {
+        const normalized = raw.includes(`/`)
+          ? raw.split(`/`).reverse().join(`-`)
+          : raw;
+
+        const parsed = new Date(normalized);
+
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+      }
+
+      return null;
+    }
+
+    function getOrderDate(order) {
+      const parsed = parseOrderDate(order);
+
+      if (parsed) {
+        return parsed.toLocaleDateString(`ar-JO`);
+      }
+
+      return order.date || order.orderDate || `-`;
+    }
+
+    function getRepName(order) {
+      return (
+        order.repName ||
+        order.representativeName ||
+        order.medicalRep ||
+        order.rep ||
+        order.createdByName ||
+        order.userName ||
+        `-`
+      );
+    }
+
+    function getPharmacyName(order) {
+      return (
+        order.pharmacyName ||
+        order.customerName ||
+        order.clientName ||
+        order.pharmacy ||
+        `-`
+      );
+    }
+
+    function getOrderItems(order) {
+      if (Array.isArray(order.items)) return order.items;
+      if (Array.isArray(order.orderItems)) return order.orderItems;
+      if (Array.isArray(order.products)) return order.products;
+
+      return [];
+    }
+
+    function getItemQty(item) {
+      return Number(item.qty || item.quantity || item.qnt || 0);
+    }
+
+    function getItemPrice(item) {
+      return Number(item.price || item.unitPrice || item.publicPrice || item.finalPrice || 0);
+    }
+
+    function getItemTotal(item) {
+      const qty = getItemQty(item);
+      const price = getItemPrice(item);
+
+      return Number(item.total || item.totalValue || item.lineTotal || item.value || (qty * price) || 0);
+    }
+
+    function getOrderTotal(order) {
+      const directValue = Number(
+        order.total ||
+        order.totalValue ||
+        order.netTotal ||
+        order.orderTotal ||
+        order.grandTotal ||
+        order.value ||
+        0
+      );
+
+      if (directValue) return directValue;
+
+      return getOrderItems(order).reduce((sum, item) => sum + getItemTotal(item), 0);
+    }
+
+    function buildStatusKey(fieldName, value) {
+      return `${fieldName}|||${value}`;
+    }
+
+    function parseStatusKey(key) {
+      const parts = key.split(`|||`);
+
+      return {
+        fieldName: parts[0],
+        value: parts.slice(1).join(`|||`)
+      };
+    }
+
+    function discoverStatuses() {
+      const map = new Map();
+
+      allOrders.forEach(order => {
+        Object.keys(STATUS_FIELDS).forEach(fieldName => {
+          const rawValue = order[fieldName];
+
+          if (rawValue === undefined || rawValue === null || rawValue === ``) return;
+
+          const value = String(rawValue).trim();
+
+          if (!value) return;
+
+          const key = buildStatusKey(fieldName, value);
+
+          if (!map.has(key)) {
+            map.set(key, {
+              key,
+              fieldName,
+              fieldArabicName: STATUS_FIELDS[fieldName],
+              value,
+              arabicStatusName: getArabicStatusName(value),
+              count: 0
+            });
+          }
+
+          map.get(key).count += 1;
+        });
+      });
+
+      discoveredStatuses = Array.from(map.values()).sort((a, b) => {
+        if (a.fieldName !== b.fieldName) {
+          return a.fieldName.localeCompare(b.fieldName);
+        }
+
+        return b.count - a.count;
+      });
+    }
+
+    function renderStatusFilter() {
+      statusFilter.innerHTML = `
+        <option value="">كل الحالات</option>
+        ${discoveredStatuses.map(status => `
+          <option value="${escapeHtml(status.key)}">
+            ${escapeHtml(status.fieldArabicName)} — ${escapeHtml(status.arabicStatusName)} — ${escapeHtml(status.value)} (${status.count})
+          </option>
+        `).join(``)}
+      `;
+
+      moveStatusSelect.innerHTML = discoveredStatuses.map(status => `
+        <option value="${escapeHtml(status.key)}">
+          ${escapeHtml(status.fieldArabicName)} — ${escapeHtml(status.arabicStatusName)} — ${escapeHtml(status.value)}
+        </option>
+      `).join(``);
+    }
+
+    function orderMatchesStatus(order, statusKey) {
+      if (!statusKey) return true;
+
+      const selected = parseStatusKey(statusKey);
+
+      return String(order[selected.fieldName] ?? ``).trim() === selected.value;
+    }
+
+    function orderMatchesDate(order) {
+      const orderDate = parseOrderDate(order);
+
+      if (!orderDate) return true;
+
+      const start = fromDate.value ? new Date(`${fromDate.value}T00:00:00`) : null;
+      const end = toDate.value ? new Date(`${toDate.value}T23:59:59`) : null;
+
+      if (start && orderDate < start) return false;
+      if (end && orderDate > end) return false;
+
+      return true;
+    }
+
+    function getFilteredOrders() {
+      const selectedKey = statusFilter.value;
+
+      return allOrders.filter(order => {
+        return orderMatchesStatus(order, selectedKey) && orderMatchesDate(order);
+      });
+    }
+
+    function updateKpis(filteredOrders) {
+      const count = filteredOrders.length;
+      const total = filteredOrders.reduce((sum, order) => sum + getOrderTotal(order), 0);
+      const average = count ? total / count : 0;
+
+      kpiOrdersCount.textContent = count.toLocaleString(`en-US`);
+      kpiOrdersValue.textContent = formatMoney(total);
+      kpiAverageValue.textContent = formatMoney(average);
+    }
+
+    function renderFilteredOrders() {
+      selectedCurrentFilter = statusFilter.value;
+
+      const filteredOrders = getFilteredOrders();
+      const selected = selectedCurrentFilter ? parseStatusKey(selectedCurrentFilter) : null;
+
+      updateKpis(filteredOrders);
+
+      if (!filteredOrders.length) {
+        ordersBody.innerHTML = `
+          <tr>
+            <td colspan="8" class="muted">لا توجد طلبيات ضمن الفلترة الحالية.</td>
+          </tr>
+        `;
+
+        loading.innerHTML = `لا توجد نتائج ضمن الفلترة الحالية.`;
+        return;
+      }
+
+      ordersBody.innerHTML = filteredOrders.map((order, index) => {
+        const fieldLabel = selected
+          ? STATUS_FIELDS[selected.fieldName] || selected.fieldName
+          : `كل الحالات`;
+
+        const statusValue = selected
+          ? selected.value
+          : order.status || order.orderStatus || order.workflowStatus || `-`;
+
+        return `
+          <tr style="animation-delay:${Math.min(index * 18, 240)}ms">
+            <td>${index + 1}</td>
+            <td>${escapeHtml(getOrderDate(order))}</td>
+            <td>${escapeHtml(getRepName(order))}</td>
+            <td>${escapeHtml(getPharmacyName(order))}</td>
+            <td class="code">${formatMoney(getOrderTotal(order))}</td>
+            <td>${escapeHtml(fieldLabel)}</td>
+            <td>
+              <div>${escapeHtml(getArabicStatusName(statusValue))}</div>
+              <div class="code">${escapeHtml(statusValue)}</div>
+            </td>
+            <td>
+              <div class="actions">
+                <button type="button" class="icon-btn" title="عرض التفاصيل" onclick="showDetails('${escapeHtml(order.id)}')">
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <button type="button" onclick="openMoveModal('${escapeHtml(order.id)}')">نقل إلى حالة أخرى</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join(``);
+
+      loading.innerHTML = `
+        عدد الطلبيات المعروضة: <strong>${filteredOrders.length}</strong>
+      `;
+    }
+
+    function showDetails(orderId) {
+      const order = allOrders.find(item => item.id === orderId);
+
+      if (!order) return;
+
+      const items = getOrderItems(order);
+
+      detailsContent.innerHTML = `
+        <div class="grid">
+          <div class="info"><strong>التاريخ:</strong><br>${escapeHtml(getOrderDate(order))}</div>
+          <div class="info"><strong>المندوب:</strong><br>${escapeHtml(getRepName(order))}</div>
+          <div class="info"><strong>الصيدلية:</strong><br>${escapeHtml(getPharmacyName(order))}</div>
+          <div class="info"><strong>قيمة الطلبية:</strong><br>${formatMoney(getOrderTotal(order))}</div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الصنف</th>
+                <th>الكمية</th>
+                <th>البونص</th>
+                <th>السعر</th>
+                <th>القيمة</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                items.length
+                  ? items.map((item, index) => {
+                      const name =
+                        item.name ||
+                        item.itemName ||
+                        item.productName ||
+                        item.product ||
+                        `-`;
+
+                      const qty = getItemQty(item);
+                      const bonus = Number(item.bonus || item.free || 0);
+                      const price = getItemPrice(item);
+                      const total = getItemTotal(item);
+
+                      return `
+                        <tr>
+                          <td>${index + 1}</td>
+                          <td>${escapeHtml(name)}</td>
+                          <td>${qty}</td>
+                          <td>${bonus}</td>
+                          <td class="code">${formatMoney(price)}</td>
+                          <td class="code">${formatMoney(total)}</td>
+                        </tr>
+                      `;
+                    }).join(``)
+                  : `<tr><td colspan="6" class="muted">لا توجد أصناف محفوظة داخل الطلبية.</td></tr>`
+              }
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      openModal(`detailsModal`);
+    }
+
+    function openMoveModal(orderId) {
+      selectedOrderIdForMove = orderId;
+      moveNote.value = ``;
+      openModal(`moveModal`);
+    }
+
+    async function confirmMoveOrder() {
+      if (!selectedOrderIdForMove) return;
+
+      const targetKey = moveStatusSelect.value;
+      const note = moveNote.value.trim();
+
+      if (!targetKey) {
+        alert(`اختر الحالة الجديدة.`);
+        return;
+      }
+
+      if (!note) {
+        alert(`الملاحظة إجبارية.`);
+        return;
+      }
+
+      const target = parseStatusKey(targetKey);
+      const order = allOrders.find(item => item.id === selectedOrderIdForMove);
+
+      if (!order) {
+        alert(`لم يتم العثور على الطلبية.`);
+        return;
+      }
+
+      const previousValue = order[target.fieldName] ?? null;
+
+      const confirmMessage = `هل أنت متأكد من نقل الطلبية إلى:\n${STATUS_FIELDS[target.fieldName] || target.fieldName} - ${getArabicStatusName(target.value)}؟`;
+
+      if (!confirm(confirmMessage)) return;
+
+      const ref = doc(db, `orders`, selectedOrderIdForMove);
+
+      await updateDoc(ref, {
+        [target.fieldName]: target.value,
+
+        lastManualStatusChangeAt: serverTimestamp(),
+        lastManualStatusChangeBy: ACTION_BY,
+        lastManualStatusChangeNote: note,
+        lastManualStatusChangeField: target.fieldName,
+        lastManualStatusChangeValue: target.value,
+
+        auditTrail: arrayUnion({
+          action: `manual_status_change`,
+          by: ACTION_BY,
+          at: new Date().toISOString(),
+          field: target.fieldName,
+          fieldArabicName: STATUS_FIELDS[target.fieldName] || target.fieldName,
+          from: previousValue,
+          to: target.value,
+          toArabicName: getArabicStatusName(target.value),
+          note
+        })
+      });
+
+      closeModal(`moveModal`);
+      alert(`تم تغيير الحالة بنجاح بواسطة Basel.`);
+
+      await loadOrders();
+
+      if (selectedCurrentFilter) {
+        statusFilter.value = selectedCurrentFilter;
+      }
+
+      renderFilteredOrders();
+    }
+
+    async function loadOrders() {
+      try {
+        loading.style.display = `block`;
+        errorBox.style.display = `none`;
+        loading.textContent = `جاري قراءة الطلبيات...`;
+        ordersBody.innerHTML = ``;
+
+        const snap = await getDocs(collection(db, `orders`));
+
+        allOrders = snap.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }));
+
+        discoverStatuses();
+        renderStatusFilter();
+        renderFilteredOrders();
+
+        loading.innerHTML = `
+          تم فحص <strong>${allOrders.length}</strong> طلبية.
+        `;
+
+      } catch (error) {
+        console.error(error);
+
+        loading.style.display = `none`;
+        errorBox.style.display = `block`;
+        errorBox.textContent = `حدث خطأ أثناء قراءة Firebase: ${error.message}`;
+      }
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.add(`open`);
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove(`open`);
+    }
+
+    statusFilter.addEventListener(`change`, renderFilteredOrders);
+    fromDate.addEventListener(`change`, renderFilteredOrders);
+    toDate.addEventListener(`change`, renderFilteredOrders);
+
+    window.showDetails = showDetails;
+    window.openMoveModal = openMoveModal;
+    window.confirmMoveOrder = confirmMoveOrder;
+    window.closeModal = closeModal;
+    window.loadOrders = loadOrders;
+
+    setDefaultDates();
+    loadOrders();
+  </script>
+</body>
+</html>
