@@ -1039,7 +1039,7 @@
     <section class="panel">
       <div class="filters-grid">
         <div class="field">
-          <label for="statusFilter">فلترة حسب الحالة الموجودة <span class="hint-mini" id="statusOptionsCount">0</span></label>
+          <label for="statusFilter">فلترة حسب آخر حالة فعلية للطلبية <span class="hint-mini" id="statusOptionsCount">0</span></label>
           <select id="statusFilter"></select>
         </div>
 
@@ -1130,7 +1130,7 @@
               <th>المندوب</th>
               <th>الصيدلية</th>
               <th>قيمة الطلبية</th>
-              <th>مصدر الحالة</th>
+              <th>مرجع الحالة</th>
               <th>الحالة الحالية</th>
               <th>إجراءات</th>
             </tr>
@@ -1631,9 +1631,10 @@
     }
 
     function extractStatusFromLogEntry(entry = {}) {
+      const actionStatus = KNOWN_WORKFLOW_STATUSES.includes(String(entry.action || ``).trim()) ? String(entry.action).trim() : ``;
       const direct = entry.to || entry.newStatus || entry.targetStatus || entry.status || entry.value || ``;
       const nested = entry.newValue?.status || entry.after?.status || entry.data?.status || ``;
-      const status = String(nested || direct || ``).trim();
+      const status = String(nested || direct || actionStatus || ``).trim();
       return status && KNOWN_WORKFLOW_STATUSES.includes(status) ? status : ``;
     }
 
@@ -1769,10 +1770,10 @@
       const exists = !previous || options.some(item => item.key === previous);
       const valueToSet = exists ? previous : ``;
       statusFilter.innerHTML = `
-        <option value="">كل آخر الحالات ضمن التاريخ والصيدلية</option>
+        <option value="">كل آخر الحالات الفعلية</option>
         ${options.map(status => `
           <option value="${escapeAttr(status.key)}">
-            ${escapeHtml(status.fieldArabicName)} — ${escapeHtml(status.arabicStatusName)} — ${escapeHtml(status.value)} (${status.count})
+            ${escapeHtml(status.arabicStatusName)} — ${escapeHtml(status.value)} (${status.count})
           </option>
         `).join(``)}
       `;
