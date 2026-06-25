@@ -372,6 +372,7 @@ const WORKFLOW_STATUS_LABELS = {
     orders_staff_pending: 'جاهز للمعالجة',
     orders_staff_exported: 'تم تصديره',
     orders_staff_hidden: 'تمت الفوترة',
+    orders_staff_invoiced_and_hidden_after_export: 'تمت الفوترة',
     returned_to_rep: 'مرجعة للمندوب',
     returned_to_supervisor: 'مرجعة للمشرف',
     returned_to_market_manager: 'مرجعة لمدير السوق',
@@ -398,7 +399,9 @@ function appOrderHasAuditAction(order = {}, actions = []) {
 function appOrderHasHiddenInvoiceEvidence(order = {}) {
     const exportRows = Array.isArray(order.exportHistory) ? order.exportHistory : [];
     return order.status === 'orders_staff_hidden' ||
+        order.status === 'orders_staff_invoiced_and_hidden_after_export' ||
         order.orderStaffStatus === 'orders_staff_hidden' ||
+        order.orderStaffStatus === 'orders_staff_invoiced_and_hidden_after_export' ||
         order.hiddenByOrderStaff === true ||
         order.isInvoiced === true ||
         !!order.invoicedAt ||
@@ -486,6 +489,81 @@ function isRepApprovedVisibleStatus(status) {
         'returned_to_finance',
         'rejected'
     ].includes(status || '');
+}
+
+
+// Sales figures after the approval workflow must be based on revenue-impacting statuses only.
+// Legacy orders that existed before workflow statuses (empty status / pending / approved / returned) keep the old accounting behavior.
+const SALES_POSITIVE_STATUSES = new Set([
+    'approved',
+    'finance_approved',
+    'orders_staff_pending',
+    'orders_staff_exported',
+    'orders_staff_hidden',
+    'orders_staff_invoiced_and_hidden_after_export'
+]);
+
+const SALES_RETURN_STATUSES = new Set(['returned']);
+
+const SALES_EXCLUDED_WORKFLOW_STATUSES = new Set([
+    'pending_supervisor_approval',
+    'supervisor_approved',
+    'market_manager_pending',
+    'market_manager_approved',
+    'market_manager_rejected',
+    'finance_pending',
+    'finance_rejected',
+    'returned_to_rep',
+    'returned_to_supervisor',
+    'returned_to_market_manager',
+    'returned_to_finance',
+    'rejected',
+    'deleted_by_supervisor',
+    'deleted_by_market_manager',
+    'deleted_by_orders_staff',
+    'deleted_by_reports'
+]);
+
+function getOrderSalesBucket(order = {}) {
+    const rawStatus = String(order.status || order.orderStatus || order.workflowStatus || '').trim();
+    const effectiveStatus = String(getEffectiveOrderStatus(order) || rawStatus || '').trim();
+    const status = effectiveStatus || rawStatus;
+    const value = parseAppNumber(order.grandTotal);
+    const isDeletedWorkflow = status.startsWith('deleted_') || order.workflowStage === 'deleted';
+    const isLegacyStatus = status === '' || status === 'pending' || status === 'approved' || status === 'returned';
+
+    if (isDeletedWorkflow || SALES_EXCLUDED_WORKFLOW_STATUSES.has(status)) {
+        return { bucket: 'excluded', value: Math.abs(value), status };
+    }
+
+    if (value < 0 || SALES_RETURN_STATUSES.has(status)) {
+        return { bucket: 'return', value: Math.abs(value), status };
+    }
+
+    if (isLegacyStatus || SALES_POSITIVE_STATUSES.has(status)) {
+        return { bucket: 'order', value: Math.abs(value), status };
+    }
+
+    return { bucket: 'excluded', value: Math.abs(value), status };
+}
+
+function summarizeOrdersBySalesStatus(orders = []) {
+    return orders.reduce((acc, order) => {
+        const bucket = getOrderSalesBucket(order);
+        if (bucket.bucket === 'order') {
+            acc.ordersTotal += bucket.value;
+            acc.countedCount += 1;
+            acc.orderCount += 1;
+        } else if (bucket.bucket === 'return') {
+            acc.returnsTotal += bucket.value;
+            acc.countedCount += 1;
+            acc.returnCount += 1;
+        } else {
+            acc.excludedCount += 1;
+        }
+        acc.netTotal = acc.ordersTotal - acc.returnsTotal;
+        return acc;
+    }, { ordersTotal: 0, returnsTotal: 0, netTotal: 0, countedCount: 0, orderCount: 0, returnCount: 0, excludedCount: 0 });
 }
 
 function buildAuditEntry(action, user, role, oldValue = null, newValue = null, notes = '') {
@@ -888,7 +966,7 @@ function getCurrentFilteredAllOrders() {
     return allOrdersData.filter(order => {
         const repName = (order.repName || '').toLowerCase();
         const pharmName = (order.pharmacyName || '').toLowerCase();
-        const orderStatus = (order.status || '').trim();
+        const orderStatus = String(getEffectiveOrderStatus(order) || order.status || '').trim();
         return repName.includes(repFilter) && pharmName.includes(pharmFilter) && (statusFilter === '' || orderStatus === statusFilter) && isOrderInDateRange(order, fromVal, toVal);
     });
 }
@@ -1053,8 +1131,8 @@ async function loadInitialData() {
             repSelect.disabled = true;
         }
 
-        const CACHE_KEY = 'dad_app_cache_20260623_modal_finance_note_fix1';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_20260623_modal_finance_note_fix1';
+        const CACHE_KEY = 'dad_app_cache_20260625_supervisor_edit_sales_fix2';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_20260625_supervisor_edit_sales_fix2';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
         const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);
@@ -1657,28 +1735,22 @@ function applyMyOrdersFilters() {
 // 💡 تحديث الـ Dashboard المتقدم للمدير (ديناميكي 100%)
 function updateAdvancedManagerDashboard(orders) {
     const countLabel = document.querySelector('#dashDailyCount')?.previousElementSibling;
-    if(countLabel) countLabel.innerText = "عدد الطلبيات المعروضة";
+    if(countLabel) countLabel.innerText = "عدد الطلبيات المحتسبة";
 
-    let ordersTotal = 0;
-    let returnsTotal = 0;
-    let approvedCount = 0;
+    const summary = summarizeOrdersBySalesStatus(orders);
     const pharmCounts = {};
     const uniquePharms = new Set();
 
     orders.forEach(o => {
-        const value = parseAppNumber(o.grandTotal);
-        if (value < 0 || o.status === 'returned') returnsTotal += Math.abs(value);
-        else ordersTotal += value;
-        if (isRepApprovedVisibleStatus(getEffectiveOrderStatus(o))) approvedCount++;
+        const bucket = getOrderSalesBucket(o);
+        if (bucket.bucket === 'excluded') return;
         if (o.pharmacyName) {
             pharmCounts[o.pharmacyName] = (pharmCounts[o.pharmacyName] || 0) + 1;
             uniquePharms.add(o.pharmacyName);
         }
     });
 
-    const netTotal = ordersTotal - returnsTotal;
-    const periodCount = orders.length;
-    const appRate = periodCount > 0 ? Math.round((approvedCount / periodCount) * 100) : 0;
+    const appRate = orders.length > 0 ? Math.round((summary.countedCount / orders.length) * 100) : 0;
     let topPharm = "-";
     let maxC = 0;
     for (const [p, c] of Object.entries(pharmCounts)) {
@@ -1686,10 +1758,10 @@ function updateAdvancedManagerDashboard(orders) {
     }
 
     const money = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " د.ا";
-    const e1 = getEl('dashDailyCount'); if(e1) e1.innerText = periodCount;
-    const e2 = getEl('dashTotalValue'); if(e2) e2.innerText = money(ordersTotal);
-    const eReturns = getEl('dashReturnsValue'); if(eReturns) eReturns.innerText = money(returnsTotal);
-    const eNet = getEl('dashNetValue'); if(eNet) eNet.innerText = money(netTotal);
+    const e1 = getEl('dashDailyCount'); if(e1) e1.innerText = summary.countedCount;
+    const e2 = getEl('dashTotalValue'); if(e2) e2.innerText = money(summary.ordersTotal);
+    const eReturns = getEl('dashReturnsValue'); if(eReturns) eReturns.innerText = money(summary.returnsTotal);
+    const eNet = getEl('dashNetValue'); if(eNet) eNet.innerText = money(summary.netTotal);
     const e3 = getEl('dashApprovalRate'); if(e3) e3.innerText = appRate + "%";
     const e4 = getEl('dashTopPharmacy'); if(e4) e4.innerText = topPharm;
     const e5 = getEl('dashUniquePharmacies'); if(e5) e5.innerText = uniquePharms.size;
@@ -1766,7 +1838,7 @@ function applyManagerFilters() {
         const matchRep = repFilterText === '' || repNameClean.includes(repFilterText);
         
         const matchPharm = pharmFilter === '' || (o.pharmacyName && o.pharmacyName.toLowerCase().includes(pharmFilter));
-        const matchStatus = statusFilter === '' || o.status === statusFilter;
+        const matchStatus = statusFilter === '' || getEffectiveOrderStatus(o) === statusFilter;
         
         let matchDate = true;
         if (o.createdAt && o.createdAt.toDate) {
@@ -1957,20 +2029,12 @@ function renderAllOrders(orders) {
 }
 
 function updateAllOrdersStats(orders) {
-    const count = orders.length;
-    let ordersTotal = 0;
-    let returnsTotal = 0;
-    orders.forEach(order => {
-        const value = parseAppNumber(order.grandTotal);
-        if (value < 0 || order.status === 'returned') returnsTotal += Math.abs(value);
-        else ordersTotal += value;
-    });
-    const netTotal = ordersTotal - returnsTotal;
+    const summary = summarizeOrdersBySalesStatus(orders);
     const fmt = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (getEl('totalOrdersCount')) getEl('totalOrdersCount').innerText = count;
-    if (getEl('totalOrdersSum')) getEl('totalOrdersSum').innerText = fmt(ordersTotal);
-    if (getEl('totalReturnsSum')) getEl('totalReturnsSum').innerText = fmt(returnsTotal);
-    if (getEl('totalNetSum')) getEl('totalNetSum').innerText = fmt(netTotal);
+    if (getEl('totalOrdersCount')) getEl('totalOrdersCount').innerText = summary.countedCount;
+    if (getEl('totalOrdersSum')) getEl('totalOrdersSum').innerText = fmt(summary.ordersTotal);
+    if (getEl('totalReturnsSum')) getEl('totalReturnsSum').innerText = fmt(summary.returnsTotal);
+    if (getEl('totalNetSum')) getEl('totalNetSum').innerText = fmt(summary.netTotal);
 }
 
 function showOrderDetails(order) {
@@ -2090,7 +2154,7 @@ function filterAllOrders() {
     const filtered = allOrdersData.filter(order => {
         const repName = (order.repName || '').toLowerCase();
         const pharmName = (order.pharmacyName || '').toLowerCase();
-        const orderStatus = (order.status || '').trim();
+        const orderStatus = String(getEffectiveOrderStatus(order) || order.status || '').trim();
         return repName.includes(repFilter) &&
                pharmName.includes(pharmFilter) &&
                (statusFilter === '' || orderStatus === statusFilter) &&
@@ -2146,26 +2210,60 @@ async function openEditOrder(orderId, userType) {
     const order = orderDoc.data();
     editingOrderId = orderId;
     const isRepresentativeReturnedEdit = userType === 'representative' && canRepresentativeEditReturnedOrder({ id: orderId, ...order });
+    const isSupervisorOrderEdit = APP_PAGE === 'supervisor' && userType !== 'representative';
+    const lockRepSelection = isSupervisorOrderEdit || isRepresentativeReturnedEdit;
+    const originalRepId = String(order.repId || '').trim();
+    const originalRepName = String(order.repName || currentRepName || '').trim();
 
     let repOptionsHTML = '<option value="">-- اختر المندوب --</option>';
     const mainRepSelect = document.getElementById('repSelect');
-    if(mainRepSelect) {
+    if(mainRepSelect && !lockRepSelection) {
         Array.from(mainRepSelect.options).forEach(opt => {
             if (opt.value) {
-                repOptionsHTML += `<option value="${opt.value}" ${opt.value === order.repId ? 'selected' : ''}>${opt.textContent}</option>`;
+                repOptionsHTML += `<option value="${escapePrintHtml(opt.value)}" ${opt.value === order.repId ? 'selected' : ''}>${escapePrintHtml(opt.textContent)}</option>`;
             }
         });
     }
 
+    const repFieldHTML = lockRepSelection
+        ? `
+                    <div style="flex: 1; min-width: 200px;">
+                        <label style="font-weight: 600; font-size: 14px; margin-bottom: 8px; display: block; color: #333;">المندوب:</label>
+                        <input type="text" value="${escapePrintHtml(originalRepName || 'غير محدد')}" readonly style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px; background: #f8fafc; color: #334155;">
+                        <input type="hidden" id="editRepId" value="${escapePrintHtml(originalRepId)}">
+                    </div>`
+        : `
+                    <div style="flex: 1; min-width: 200px;">
+                        <label style="font-weight: 600; font-size: 14px; margin-bottom: 8px; display: block; color: #333;">المندوب:</label>
+                        <select id="editRepSelect" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;">
+                            ${repOptionsHTML}
+                        </select>
+                    </div>`;
+
     let editPharmaciesData = [];
     let editPharmacyNames = [];
     try {
-        const q = query(collection(db, "pharmacies"), where("rep_id", "==", order.repId));
-        const pharmSnap = await getDocs(q);
+        let pharmSnap;
+        if (originalRepId) {
+            const q = query(collection(db, "pharmacies"), where("rep_id", "==", originalRepId));
+            pharmSnap = await getDocs(q);
+        } else {
+            pharmSnap = await getDocs(collection(db, "pharmacies"));
+        }
         pharmSnap.forEach(d => {
-            editPharmaciesData.push(d.data());
-            editPharmacyNames.push(d.data().name);
+            const data = d.data();
+            editPharmaciesData.push(data);
+            if (data.name) editPharmacyNames.push(data.name);
         });
+        if (order.pharmacyName && !editPharmacyNames.includes(order.pharmacyName)) {
+            editPharmaciesData.push({
+                name: order.pharmacyName,
+                pharmacyCode: getPharmacyCodeFromOrder(order),
+                pharmacy_code: getPharmacyCodeFromOrder(order),
+                rep_id: originalRepId
+            });
+            editPharmacyNames.push(order.pharmacyName);
+        }
     } catch (error) {}
 
     const editModal = document.getElementById('editOrderModal');
@@ -2179,12 +2277,7 @@ async function openEditOrder(orderId, userType) {
             <div style="flex: 0 0 auto; padding-bottom: 15px; margin-bottom: 10px; border-bottom: 2px solid #eee;">
                 <h3 style="margin: 0 0 15px 0; color: #004a99;"><i class="ph ph-pencil-simple"></i> تعديل طلبية</h3>
                 <div style="display: flex; gap: 15px; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                    <div style="flex: 1; min-width: 200px;">
-                        <label style="font-weight: 600; font-size: 14px; margin-bottom: 8px; display: block; color: #333;">المندوب:</label>
-                        <select id="editRepSelect" ${isRepresentativeReturnedEdit ? 'disabled' : ''} style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;">
-                            ${repOptionsHTML}
-                        </select>
-                    </div>
+${repFieldHTML}
                     <div style="flex: 1; min-width: 200px; position: relative;">
                         <label style="font-weight: 600; font-size: 14px; margin-bottom: 8px; display: block; color: #333;">اسم الصيدلية:</label>
                         <div class="autocomplete-wrapper" style="width: 100%;">
@@ -2237,27 +2330,33 @@ async function openEditOrder(orderId, userType) {
 
     setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
 
-    editRepSelect.addEventListener('change', async function() {
-        const selectedRepId = this.value;
-        editPharmaciesData = [];
-        editPharmacyNames = [];
-        editPharmInput.value = ''; 
-        
-        if (!selectedRepId) {
-            editPharmInput.placeholder = 'اختر المندوب أولاً';
-            setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
-            return;
-        }
+    if (editRepSelect && !lockRepSelection) {
+        editRepSelect.addEventListener('change', async function() {
+            const selectedRepId = this.value;
+            editPharmaciesData = [];
+            editPharmacyNames = [];
+            editPharmInput.value = ''; 
+            
+            if (!selectedRepId) {
+                editPharmInput.placeholder = 'اختر المندوب أولاً';
+                setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
+                return;
+            }
 
-        editPharmInput.placeholder = 'جاري تحميل الصيدليات...';
-        try {
-            const q = query(collection(db, "pharmacies"), where("rep_id", "==", selectedRepId));
-            const pharmSnap = await getDocs(q);
-            pharmSnap.forEach(d => { editPharmaciesData.push(d.data()); editPharmacyNames.push(d.data().name); });
-            editPharmInput.placeholder = 'ابحث عن الصيدلية...';
-            setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
-        } catch (error) { editPharmInput.placeholder = 'خطأ في التحميل'; }
-    });
+            editPharmInput.placeholder = 'جاري تحميل الصيدليات...';
+            try {
+                const q = query(collection(db, "pharmacies"), where("rep_id", "==", selectedRepId));
+                const pharmSnap = await getDocs(q);
+                pharmSnap.forEach(d => {
+                    const data = d.data();
+                    editPharmaciesData.push(data);
+                    if (data.name) editPharmacyNames.push(data.name);
+                });
+                editPharmInput.placeholder = 'ابحث عن الصيدلية...';
+                setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
+            } catch (error) { editPharmInput.placeholder = 'خطأ في التحميل'; }
+        });
+    }
 
     editPharmInput.addEventListener('blur', function() {
         const val = this.value.trim();
@@ -2351,12 +2450,15 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
             const items = [];
             let invalidItem = false;
 
-            const newRepId = editRepSelect.value;
-            if (!newRepId) { editRepSelect.style.border = "2px solid red"; return showToast("يرجى اختيار المندوب أولاً.", "warning"); }
-            const newRepName = editRepSelect.options[editRepSelect.selectedIndex].text;
+            const newRepId = lockRepSelection ? originalRepId : (editRepSelect?.value || '');
+            if (!lockRepSelection && !newRepId) { editRepSelect.style.border = "2px solid red"; return showToast("يرجى اختيار المندوب أولاً.", "warning"); }
+            const newRepName = lockRepSelection ? originalRepName : editRepSelect.options[editRepSelect.selectedIndex].text;
 
             const newPharmName = editPharmInput.value.trim();
-            const selectedPharm = editPharmaciesData.find(p => p.name === newPharmName);
+            let selectedPharm = editPharmaciesData.find(p => p.name === newPharmName);
+            if (!selectedPharm && newPharmName === (order.pharmacyName || '')) {
+                selectedPharm = { pharmacyCode: getPharmacyCodeFromOrder(order), pharmacy_code: getPharmacyCodeFromOrder(order) };
+            }
             
             if (!selectedPharm) { editPharmInput.style.border = "2px solid red"; return showToast("يرجى اختيار صيدلية صحيحة من القائمة.", "error"); }
 
@@ -2382,11 +2484,14 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 const workflowReset = (isSupervisorPendingStatus(order.status) || isRepresentativeReturnedEdit)
                     ? { status: "pending_supervisor_approval", workflowStage: "supervisor", supervisorStatus: "pending_supervisor_approval", returnResolvedAt: new Date(), returnResolvedBy: newRepName }
                     : {};
+                const actorName = isRepresentativeReturnedEdit ? newRepName : (currentManagerName || 'Supervisor');
                 await updateOrderWithAudit(editingOrderId, { 
                     repId: newRepId, repName: newRepName, managerName: getManagerName(newRepName), 
                     pharmacyName: newPharmName, pharmacyCode: selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || "",
-                    items: items, grandTotal: newGrandTotal, ...workflowReset
-                }, buildAuditEntry(isRepresentativeReturnedEdit ? 'representative_resubmitted_returned_order' : 'supervisor_order_edited', isRepresentativeReturnedEdit ? newRepName : (currentManagerName || 'Supervisor'), isRepresentativeReturnedEdit ? 'representative' : 'supervisor', { orderId: editingOrderId, status: order.status || '' }, { grandTotal: newGrandTotal, status: workflowReset.status || order.status || '' }));
+                    items: items, grandTotal: newGrandTotal,
+                    lastEditedBy: actorName, lastEditedByRole: isRepresentativeReturnedEdit ? 'representative' : 'supervisor', lastEditedAt: new Date(),
+                    ...workflowReset
+                }, buildAuditEntry(isRepresentativeReturnedEdit ? 'representative_resubmitted_returned_order' : 'supervisor_order_edited', actorName, isRepresentativeReturnedEdit ? 'representative' : 'supervisor', { orderId: editingOrderId, status: order.status || '' }, { grandTotal: newGrandTotal, status: workflowReset.status || order.status || '' }));
                 showToast("تم تحديث الطلبية بنجاح", "success");
                 closeEditModal();
             } catch (e) { showToast("حدث خطأ أثناء التحديث", "error"); }
