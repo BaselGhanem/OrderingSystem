@@ -1219,8 +1219,8 @@ async function loadInitialData() {
             repSelect.disabled = true;
         }
 
-        const CACHE_KEY = 'dad_app_cache_20260628_monthly_report_cache_fix1';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_20260628_monthly_report_cache_fix1';
+        const CACHE_KEY = 'dad_app_cache_20260628_quota_cooldown_fix1';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_20260628_quota_cooldown_fix1';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
         const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);
@@ -1315,8 +1315,8 @@ async function bootstrapPage() {
         const adminSession = getAdminSession();
         const isAdminOrderMode = sessionStorage.getItem('adminOrderMode') === '1';
         if (adminSession && adminSession.remember && !isAdminOrderMode) {
-            if (adminSession.type === 'manager') window.location.href = 'supervisor.html?v=20260628_table_pagination_fix1';
-            if (adminSession.type === 'reports') window.location.href = 'reports.html?v=20260628_table_pagination_fix1';
+            if (adminSession.type === 'manager') window.location.href = 'supervisor.html?v=20260628_quota_cooldown_fix1';
+            if (adminSession.type === 'reports') window.location.href = 'reports.html?v=20260628_quota_cooldown_fix1';
         }
     }
 }
@@ -1728,7 +1728,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
 
         if (isAdmin) {
             sessionStorage.removeItem('activeOrderContext');
-            window.location.href = 'supervisor.html?v=20260628_table_pagination_fix1';
+            window.location.href = 'supervisor.html?v=20260628_quota_cooldown_fix1';
             return;
         }
 
@@ -1771,8 +1771,8 @@ async function loadMyOrders(forceRemote = false) {
             .filter(o => isRepVisibleOrderStatus(getEffectiveOrderStatus(o)));
         applyMyOrdersFilters();
     } catch(e) {
-        console.error(e);
-        showToast("خطأ في جلب البيانات. قلل مدى التاريخ أو انتظر تجدد كوتا Firebase.", "error");
+        console.warn(e?.code || e?.message || e);
+        showToast("تعذر تحديث البيانات من Firebase. تم استخدام الكاش إن وجد أو انتظر تجدد الكوتا.", "warning");
     }
 }
 
@@ -2732,9 +2732,9 @@ if (confirmAdminLoginBtn) confirmAdminLoginBtn.onclick = (e) => {
         saveAdminSession(selectedAdminName, selectedAdminType, rememberMe);
         if (selectedAdminType === 'reports') {
             sessionStorage.removeItem('adminOrderMode');
-            window.location.href = 'reports.html?v=20260628_table_pagination_fix1';
+            window.location.href = 'reports.html?v=20260628_quota_cooldown_fix1';
         } else {
-            window.location.href = 'supervisor.html?v=20260628_table_pagination_fix1';
+            window.location.href = 'supervisor.html?v=20260628_quota_cooldown_fix1';
         }
     } else {
         showToast("رمز المرور غير صحيح!", "error");

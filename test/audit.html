@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <link rel="icon" href="favicon.ico?v=20260628_table_pagination_fix1">
+    <link rel="icon" href="favicon.ico?v=20260628_quota_cooldown_fix1">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20260628_table_pagination_fix1">
+    <link rel="stylesheet" href="style.css?v=20260628_quota_cooldown_fix1">
     <style>
         :root {
             --audit-teal: #099999;
@@ -1044,7 +1044,7 @@
                 $('lastLoadedAt').textContent = `آخر تحميل: ${new Date().toLocaleString('en-GB')} — ${result.fromCacheOnly ? 'كاش شهري' : 'Firebase/كاش'} — ${REPORT_CACHE_VERSION}`;
                 applyFilters();
             } catch (error) {
-                console.error(error);
+                console.warn(error?.code || error?.message || error);
                 $('auditBody').innerHTML = `<tr><td colspan="10"><div class="audit-empty">تعذر تحميل البيانات. تحقق من صلاحيات Firebase أو الاتصال أو قلل مدى التاريخ.</div></td></tr>`;
                 setToast('تعذر تحميل بيانات التدقيق.', 'error');
             } finally {

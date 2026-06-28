@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <link rel="icon" href="./favicon.ico?v=20260628_table_pagination_fix1" />
+  <link rel="icon" href="./favicon.ico?v=20260628_quota_cooldown_fix1" />
   <meta charset="UTF-8" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
@@ -1369,13 +1369,48 @@
     let currentPharmacyOptionsByKey = new Map();
     let optionMemo = new Map();
 
-    const BASEL_CACHE_VERSION = `20260628_monthly_report_cache_fix1`;
-    const BASEL_ORDERS_CACHE_PREFIX = `basel_orders_cache_${BASEL_CACHE_VERSION}`;
+    const BASEL_CACHE_VERSION = `20260628_quota_cooldown_fix1`;
+    const BASEL_DATA_CACHE_VERSION = `20260628_monthly_report_cache_fix1`;
+    const BASEL_ORDERS_CACHE_PREFIX = `basel_orders_cache_${BASEL_DATA_CACHE_VERSION}`;
     const BASEL_FILTER_CACHE_KEY = `basel_filter_state_v2`;
-    const BASEL_CACHE_TTL_MS = 10 * 60 * 1000;
+    const BASEL_CACHE_TTL_MS = 60 * 60 * 1000;
     const BASEL_HISTORICAL_CACHE_TTL_MS = 365 * 24 * 60 * 60 * 1000;
     const MAX_PHARMACY_DROPDOWN_ROWS = 28;
     const MIN_PHARMACY_DROPDOWN_CHARS = 2;
+    const FIRESTORE_QUOTA_COOLDOWN_KEY = `dad_firestore_quota_cooldown_until`;
+    const FIRESTORE_QUOTA_COOLDOWN_MS = 60 * 60 * 1000;
+
+    function firestoreQuotaText(error) {
+      return `${error?.code || ``} ${error?.name || ``} ${error?.message || ``}`.toLowerCase();
+    }
+
+    function isFirestoreQuotaError(error) {
+      const text = firestoreQuotaText(error);
+      return text.includes(`resource-exhausted`) || text.includes(`quota`) || text.includes(`429`);
+    }
+
+    function quotaCooldownUntil() {
+      try {
+        return Number(localStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || sessionStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || 0);
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    function isFirestoreQuotaCooldownActive() {
+      return Date.now() < quotaCooldownUntil();
+    }
+
+    function activateFirestoreQuotaCooldown(error) {
+      if (!isFirestoreQuotaError(error)) return;
+      const until = Date.now() + FIRESTORE_QUOTA_COOLDOWN_MS;
+      try { localStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
+      try { sessionStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
+    }
+
+    function quotaCooldownMinutes() {
+      return Math.max(1, Math.ceil((quotaCooldownUntil() - Date.now()) / 60000));
+    }
 
     const loading = document.getElementById(`loading`);
     const errorBox = document.getElementById(`errorBox`);
@@ -2505,6 +2540,14 @@
         }
         errorBox.style.display = `none`;
         if (!forceRemote && loadOrdersCache(range, false)) return;
+        if (isFirestoreQuotaCooldownActive()) {
+          if (loadOrdersCache(range, true)) {
+            showToast(`تم عرض آخر نسخة محفوظة بدون إعادة استهلاك الكوتا.`, `warning`);
+            lastLoadedAt.textContent = `كاش محفوظ / إعادة المحاولة بعد ${quotaCooldownMinutes()} دقيقة`;
+            return;
+          }
+          throw new Error(`Firebase quota cooldown active`);
+        }
         const ordersQuery = query(
           collection(db, `orders`),
           where(`createdAt`, `>=`, range.from),
@@ -2521,13 +2564,16 @@
         syncFilterOptionsAndRender();
         lastLoadedAt.textContent = new Date().toLocaleTimeString(`en-GB`, { hour: `2-digit`, minute: `2-digit`, second: `2-digit` });
       } catch (error) {
-        console.error(error);
+        activateFirestoreQuotaCooldown(error);
+        console.warn(`Basel orders load skipped/failed`, error?.code || error?.message || error);
         if (loadOrdersCache(range, true)) {
           showToast(`تم عرض آخر نسخة محفوظة لأن Firebase غير متاح أو الكوتا ممتلئة.`, `warning`);
           return;
         }
         errorBox.style.display = `block`;
-        errorBox.textContent = `حدث خطأ أثناء قراءة Firebase: ${error.message}`;
+        errorBox.textContent = isFirestoreQuotaError(error)
+          ? `كوتا Firebase ممتلئة ولا توجد نسخة محفوظة لهذا المدى. انتظر تجدد الكوتا أو افتح مدى تاريخ سبق تحميله.`
+          : `حدث خطأ أثناء قراءة Firebase: ${error.message}`;
         if (!cacheRenderDone) loading.textContent = `فشل تحميل البيانات.`;
       }
     }

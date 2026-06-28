@@ -47,10 +47,45 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
-const WORKFLOW_CACHE_VERSION = '20260628_monthly_report_cache_fix1';
-const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
-const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
-const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
+const WORKFLOW_CACHE_VERSION = '20260628_quota_cooldown_fix1';
+const WORKFLOW_DATA_CACHE_VERSION = '20260628_monthly_report_cache_fix1';
+const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
+const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_DATA_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
+const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_DATA_CACHE_VERSION}_orders_staff_all`;
+const FIRESTORE_QUOTA_COOLDOWN_KEY = 'dad_firestore_quota_cooldown_until';
+const FIRESTORE_QUOTA_COOLDOWN_MS = 1000 * 60 * 60;
+
+function firestoreQuotaText(error) {
+    return `${error?.code || ''} ${error?.name || ''} ${error?.message || ''}`.toLowerCase();
+}
+
+function isFirestoreQuotaError(error) {
+    const text = firestoreQuotaText(error);
+    return text.includes('resource-exhausted') || text.includes('quota') || text.includes('429');
+}
+
+function quotaCooldownUntil() {
+    try {
+        return Number(localStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || sessionStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || 0);
+    } catch (_) {
+        return 0;
+    }
+}
+
+function isFirestoreQuotaCooldownActive() {
+    return Date.now() < quotaCooldownUntil();
+}
+
+function activateFirestoreQuotaCooldown(error) {
+    if (!isFirestoreQuotaError(error)) return;
+    const until = Date.now() + FIRESTORE_QUOTA_COOLDOWN_MS;
+    try { localStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
+    try { sessionStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
+}
+
+function quotaCooldownMinutes() {
+    return Math.max(1, Math.ceil((quotaCooldownUntil() - Date.now()) / 60000));
+}
 
 
 const WORKFLOW_TABLE_PAGE_SIZE = 50;
@@ -204,7 +239,7 @@ function writeCache(key, orders) {
 
 function readProductsCache() {
     try {
-        const raw = localStorage.getItem(`dad_products_${WORKFLOW_CACHE_VERSION}`) || sessionStorage.getItem(`dad_products_${WORKFLOW_CACHE_VERSION}`);
+        const raw = localStorage.getItem(`dad_products_${WORKFLOW_DATA_CACHE_VERSION}`) || sessionStorage.getItem(`dad_products_${WORKFLOW_DATA_CACHE_VERSION}`);
         if (!raw) return null;
         const payload = JSON.parse(raw);
         if (!payload || !Array.isArray(payload.products)) return null;
@@ -225,9 +260,9 @@ function writeProductsCache(products) {
         price: product.price ?? product.unitPrice ?? product.value ?? 0
     }));
     try {
-        localStorage.setItem(`dad_products_${WORKFLOW_CACHE_VERSION}`, JSON.stringify({ savedAt: Date.now(), products: compact }));
+        localStorage.setItem(`dad_products_${WORKFLOW_DATA_CACHE_VERSION}`, JSON.stringify({ savedAt: Date.now(), products: compact }));
     } catch (_) {
-        try { sessionStorage.setItem(`dad_products_${WORKFLOW_CACHE_VERSION}`, JSON.stringify({ savedAt: Date.now(), products: compact.slice(0, 1000) })); } catch (__) {}
+        try { sessionStorage.setItem(`dad_products_${WORKFLOW_DATA_CACHE_VERSION}`, JSON.stringify({ savedAt: Date.now(), products: compact.slice(0, 1000) })); } catch (__) {}
     }
 }
 
@@ -729,6 +764,10 @@ async function refreshOrdersFromFirebase(source = currentPageOrderSource(), cach
     const startedAt = Date.now();
     const loadToken = ++state.loadToken;
     try {
+        if (isFirestoreQuotaCooldownActive()) {
+            showDataModeNotice(`كوتا Firebase ممتلئة؛ تم إبقاء آخر نسخة محفوظة. إعادة المحاولة بعد ${quotaCooldownMinutes()} دقيقة تقريباً`);
+            return state.orders;
+        }
         const sources = Array.isArray(source) ? source : [source];
         const freshById = new Map();
         const results = await Promise.allSettled(sources.map(src => getDocs(src)));
@@ -751,8 +790,9 @@ async function refreshOrdersFromFirebase(source = currentPageOrderSource(), cach
         state.onOrdersChange?.();
         return state.orders;
     } catch (error) {
-        console.error('Workflow orders load failed', error);
-        showToast('فشل تحميل الطلبيات من Firebase. تم عرض آخر نسخة مخزنة إن وجدت.', 'error');
+        activateFirestoreQuotaCooldown(error);
+        console.warn('Workflow orders load skipped/failed', error?.code || error?.message || error);
+        showToast('فشل تحميل الطلبيات من Firebase. تم عرض آخر نسخة مخزنة إن وجدت.', isFirestoreQuotaError(error) ? 'warning' : 'error');
         return state.orders;
     } finally {
         console.debug(`workflow load ${WORKFLOW_PAGE}: ${Date.now() - startedAt}ms`);
@@ -768,6 +808,10 @@ async function refreshAllOrdersForStaffPaginated() {
     let allOrders = [];
 
     try {
+        if (isFirestoreQuotaCooldownActive()) {
+            showDataModeNotice(`كوتا Firebase ممتلئة؛ تم إبقاء آخر نسخة محفوظة للكل. إعادة المحاولة بعد ${quotaCooldownMinutes()} دقيقة تقريباً`);
+            return state.orders;
+        }
         for (let page = 0; page < maxPages; page++) {
             const pageQuery = lastDoc
                 ? query(ordersRef, orderBy(documentId()), startAfter(lastDoc), limit(pageSize))
@@ -791,8 +835,9 @@ async function refreshAllOrdersForStaffPaginated() {
         showDataModeNotice(`آخر تحديث للكل: ${new Date().toLocaleTimeString('en-GB')} — ${state.orders.length} طلبية`);
         return state.orders;
     } catch (error) {
-        console.error('Paginated all orders load failed', error);
-        showToast('فشل تحميل كل الطلبيات. تم إبقاء آخر بيانات ظاهرة بدون تعليق الصفحة.', 'error');
+        activateFirestoreQuotaCooldown(error);
+        console.warn('Paginated all orders load skipped/failed', error?.code || error?.message || error);
+        showToast('فشل تحميل كل الطلبيات. تم إبقاء آخر بيانات ظاهرة بدون تعليق الصفحة.', isFirestoreQuotaError(error) ? 'warning' : 'error');
         return state.orders;
     }
 }

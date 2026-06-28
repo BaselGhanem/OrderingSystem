@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <link rel="icon" href="./favicon.ico?v=20260628_table_pagination_fix1">
+  <link rel="icon" href="./favicon.ico?v=20260628_quota_cooldown_fix1">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -1040,7 +1040,7 @@
         <div class="hero-actions">
           <button class="btn" type="button" id="refreshTopBtn"><i class="ph ph-arrow-clockwise"></i> تحديث البيانات</button>
           <button class="btn secondary" type="button" id="exportTopBtn"><i class="ph ph-file-xls"></i> تصدير المعروض</button>
-          <a class="btn ghost" href="basel.html?v=20260628_table_pagination_fix1"><i class="ph ph-sliders-horizontal"></i> Basel.html</a>
+          <a class="btn ghost" href="basel.html?v=20260628_quota_cooldown_fix1"><i class="ph ph-sliders-horizontal"></i> Basel.html</a>
           <a class="btn ghost" href="audit.html"><i class="ph ph-shield-check"></i> Audit.html</a>
         </div>
       </div>
@@ -1273,11 +1273,46 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const ACTION_BY = `Control Center`;
-    const CONTROL_VERSION = `20260628_monthly_report_cache_fix1`;
+    const CONTROL_VERSION = `20260628_quota_cooldown_fix1`;
+    const CONTROL_DATA_CACHE_VERSION = `20260628_monthly_report_cache_fix1`;
     const ORDERS_CACHE_PREFIX = `dad_control_orders_cache_`;
-    const ORDERS_CACHE_TTL_MS = 10 * 60 * 1000;
+    const ORDERS_CACHE_TTL_MS = 60 * 60 * 1000;
     const HISTORICAL_ORDERS_CACHE_TTL_MS = 365 * 24 * 60 * 60 * 1000;
     const CONTROL_PAGE_SIZE = 50;
+    const FIRESTORE_QUOTA_COOLDOWN_KEY = `dad_firestore_quota_cooldown_until`;
+    const FIRESTORE_QUOTA_COOLDOWN_MS = 60 * 60 * 1000;
+
+    function firestoreQuotaText(error) {
+      return `${error?.code || ``} ${error?.name || ``} ${error?.message || ``}`.toLowerCase();
+    }
+
+    function isFirestoreQuotaError(error) {
+      const text = firestoreQuotaText(error);
+      return text.includes(`resource-exhausted`) || text.includes(`quota`) || text.includes(`429`);
+    }
+
+    function quotaCooldownUntil() {
+      try {
+        return Number(localStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || sessionStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || 0);
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    function isFirestoreQuotaCooldownActive() {
+      return Date.now() < quotaCooldownUntil();
+    }
+
+    function activateFirestoreQuotaCooldown(error) {
+      if (!isFirestoreQuotaError(error)) return;
+      const until = Date.now() + FIRESTORE_QUOTA_COOLDOWN_MS;
+      try { localStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
+      try { sessionStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
+    }
+
+    function quotaCooldownMinutes() {
+      return Math.max(1, Math.ceil((quotaCooldownUntil() - Date.now()) / 60000));
+    }
 
     const $ = id => document.getElementById(id);
 
@@ -2153,7 +2188,7 @@
         toValue,
         fromDate,
         toDate,
-        key: `${CONTROL_VERSION}_${fromValue}_${toValue}`
+        key: `${CONTROL_DATA_CACHE_VERSION}_${fromValue}_${toValue}`
       };
     }
 
@@ -2228,6 +2263,19 @@
 
       state.loadingPromise = (async () => {
         try {
+          if (isFirestoreQuotaCooldownActive()) {
+            const staleOrders = readOrdersCache(range, true);
+            if (staleOrders) {
+              hydrateOrders(staleOrders);
+              state.loadedRangeKey = range.key;
+              $(`lastLoadedAt`).textContent = new Date().toLocaleString(`en-GB`);
+              $(`connectionHint`).textContent = `كوتا Firebase ممتلئة؛ تم عرض آخر نسخة محفوظة. إعادة المحاولة بعد ${quotaCooldownMinutes()} دقيقة تقريباً`;
+              if (!quiet) toast(`تم عرض آخر نسخة محفوظة بدون إعادة استهلاك الكوتا.`, `warning`);
+              return;
+            }
+            throw new Error(`Firebase quota cooldown active`);
+          }
+
           if (!quiet) setBusy(true, `جاري تحميل Firebase حسب التاريخ...`);
           const snap = await getDocs(buildOrdersQuery(range));
           const rawOrders = snap.docs.map(item => ({ id: item.id, ...item.data() }));
@@ -2238,17 +2286,20 @@
           $(`connectionHint`).textContent = `تم تحميل ${formatCount(state.orders.length)} طلبية من ${range.fromValue} إلى ${range.toValue}`;
           toast(`تم تحديث البيانات.`, `success`);
         } catch (error) {
-          console.error(error);
+          activateFirestoreQuotaCooldown(error);
+          console.warn(`Control orders load skipped/failed`, error?.code || error?.message || error);
           const fallbackOrders = readOrdersCache(range, true);
           if (fallbackOrders) {
             hydrateOrders(fallbackOrders);
             state.loadedRangeKey = range.key;
-            $(`connectionHint`).textContent = `تعذر التحديث بسبب كوتا Firebase؛ تم عرض آخر نسخة محفوظة`;
-            toast(`تم عرض آخر نسخة محفوظة لأن كوتا Firebase ممتلئة.`, `warning`);
+            $(`connectionHint`).textContent = isFirestoreQuotaError(error)
+              ? `تعذر التحديث بسبب كوتا Firebase؛ تم عرض آخر نسخة محفوظة. إعادة المحاولة بعد ${quotaCooldownMinutes()} دقيقة تقريباً`
+              : `تعذر التحديث؛ تم عرض آخر نسخة محفوظة`;
+            toast(`تم عرض آخر نسخة محفوظة لأن Firebase غير متاح أو الكوتا ممتلئة.`, `warning`);
             return;
           }
-          toast(`تعذر تحميل البيانات: كوتا Firebase ممتلئة أو الاتصال غير متاح.`, `error`);
-          $(`ordersBody`).innerHTML = `<tr><td colspan="11"><div class="empty-state">تعذر تحميل البيانات من Firebase. قلل مدى التاريخ أو انتظر تجدد الكوتا.</div></td></tr>`;
+          toast(`تعذر تحميل البيانات: كوتا Firebase ممتلئة أو لا توجد نسخة محفوظة لهذا المدى.`, `error`);
+          $(`ordersBody`).innerHTML = `<tr><td colspan="11"><div class="empty-state">تعذر تحميل البيانات من Firebase ولا توجد نسخة محفوظة لهذا المدى. افتح مدى تاريخ سبق تحميله أو انتظر تجدد الكوتا.</div></td></tr>`;
         } finally {
           state.loadingPromise = null;
           setBusy(false);

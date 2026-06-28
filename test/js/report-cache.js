@@ -1,12 +1,46 @@
 import { db, collection, getDocs, query, where, orderBy } from './firebase.js';
 
-export const REPORT_CACHE_VERSION = `20260628_monthly_report_cache_fix1`;
+export const REPORT_CACHE_VERSION = `20260628_quota_cooldown_fix1`;
 
 const ORDER_COLLECTION = `orders`;
 const HISTORICAL_TTL_MS = 1000 * 60 * 60 * 24 * 365;
-const CURRENT_TTL_MS = 1000 * 60 * 10;
+const CURRENT_TTL_MS = 1000 * 60 * 60;
 const DEFAULT_START_MONTH = 0;
-const CACHE_PREFIX = `dad_month_orders_${REPORT_CACHE_VERSION}`;
+const REPORT_DATA_CACHE_VERSION = `20260628_monthly_report_cache_fix1`;
+const CACHE_PREFIX = `dad_month_orders_${REPORT_DATA_CACHE_VERSION}`;
+
+const FIRESTORE_QUOTA_COOLDOWN_KEY = `dad_firestore_quota_cooldown_until`;
+const FIRESTORE_QUOTA_COOLDOWN_MS = 1000 * 60 * 60;
+
+function isQuotaError(error) {
+    const text = `${error?.code || ``} ${error?.name || ``} ${error?.message || ``}`.toLowerCase();
+    return text.includes(`resource-exhausted`) || text.includes(`quota`) || text.includes(`429`);
+}
+
+function quotaCooldownUntil() {
+    try {
+        return Number(localStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || sessionStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || 0);
+    } catch (_) {
+        return 0;
+    }
+}
+
+function quotaCooldownActive() {
+    return Date.now() < quotaCooldownUntil();
+}
+
+function activateQuotaCooldown(error) {
+    if (!isQuotaError(error)) return;
+    const until = Date.now() + FIRESTORE_QUOTA_COOLDOWN_MS;
+    try { localStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
+    try { sessionStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
+}
+
+function quotaCooldownMessage() {
+    const remaining = Math.max(1, Math.ceil((quotaCooldownUntil() - Date.now()) / 60000));
+    return `Firebase quota cooldown active. Retry after ${remaining} minute(s).`;
+}
+
 
 function pad2(value) {
     return String(value).padStart(2, `0`);
@@ -84,7 +118,7 @@ function compactOrder(order = {}) {
 
 function writeMonthCache(namespace, date, orders = []) {
     const payload = JSON.stringify({
-        version: REPORT_CACHE_VERSION,
+        version: REPORT_DATA_CACHE_VERSION,
         month: monthKey(date),
         historical: isHistoricalMonth(date),
         savedAt: Date.now(),
@@ -170,16 +204,27 @@ export async function loadReportOrdersByDateRange(options = {}) {
             continue;
         }
 
+        if (quotaCooldownActive()) {
+            const stale = readMonthCache(namespace, part.month, true);
+            if (stale) {
+                combined.push(...stale);
+                monthStatuses.push({ month: monthKey(part.month), source: `quota-cache`, historical: isHistoricalMonth(part.month), rows: stale.length, error: quotaCooldownMessage() });
+                continue;
+            }
+            throw new Error(quotaCooldownMessage());
+        }
+
         try {
             const rows = await fetchMonthOrders(part);
             writeMonthCache(namespace, part.month, rows);
             combined.push(...rows);
             monthStatuses.push({ month: monthKey(part.month), source: `firebase`, historical: isHistoricalMonth(part.month), rows: rows.length });
         } catch (error) {
+            activateQuotaCooldown(error);
             const stale = readMonthCache(namespace, part.month, true);
             if (stale) {
                 combined.push(...stale);
-                monthStatuses.push({ month: monthKey(part.month), source: `stale-cache`, historical: isHistoricalMonth(part.month), rows: stale.length, error: String(error?.message || error) });
+                monthStatuses.push({ month: monthKey(part.month), source: isQuotaError(error) ? `quota-cache` : `stale-cache`, historical: isHistoricalMonth(part.month), rows: stale.length, error: String(error?.message || error) });
                 continue;
             }
             throw error;
@@ -190,8 +235,8 @@ export async function loadReportOrdersByDateRange(options = {}) {
         orders: dedupeSortOrders(combined),
         range,
         monthStatuses,
-        fromCacheOnly: monthStatuses.length > 0 && monthStatuses.every(item => item.source === `cache`),
-        usedStaleCache: monthStatuses.some(item => item.source === `stale-cache`)
+        fromCacheOnly: monthStatuses.length > 0 && monthStatuses.every(item => [`cache`, `stale-cache`, `quota-cache`].includes(item.source)),
+        usedStaleCache: monthStatuses.some(item => item.source === `stale-cache` || item.source === `quota-cache`)
     };
 }
 

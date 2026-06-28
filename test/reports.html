@@ -14,7 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=20260628_table_pagination_fix1">
+    <link rel="stylesheet" href="style.css?v=20260628_quota_cooldown_fix1">
 
     <style>
         .dashboard-cards {
@@ -709,7 +709,7 @@
                 document.getElementById('loadingScreen').style.display = 'none';
                 document.getElementById('dashboardContent').style.display = 'block';
             } catch (error) {
-                console.error("خطا في جلب البيانات:", error);
+                console.warn("خطا في جلب البيانات:", error?.code || error?.message || error);
                 document.getElementById('loadingScreen').innerHTML = `<h3 style="color:red;">حدث خطا اثناء تحميل البيانات. قلل مدى التاريخ أو انتظر تجدد كوتا Firebase.</h3>`;
             } finally {
                 reportsLoadingRangeKey = '';
@@ -726,7 +726,7 @@
                 productsCatalog.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
                 await loadReportsOrders(false);
             } catch (error) {
-                console.error("خطا في جلب البيانات:", error);
+                console.warn("خطا في جلب البيانات:", error?.code || error?.message || error);
                 document.getElementById('loadingScreen').innerHTML = `<h3 style="color:red;">حدث خطا اثناء تحميل البيانات.</h3>`;
             }
         });
