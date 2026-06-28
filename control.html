@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <link rel="icon" href="./favicon.ico?v=20260628_firestore_lite_fix1">
+  <link rel="icon" href="./favicon.ico?v=20260628_control_quota_fix1">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -1026,7 +1026,7 @@
         <div class="hero-actions">
           <button class="btn" type="button" id="refreshTopBtn"><i class="ph ph-arrow-clockwise"></i> تحديث البيانات</button>
           <button class="btn secondary" type="button" id="exportTopBtn"><i class="ph ph-file-xls"></i> تصدير المعروض</button>
-          <a class="btn ghost" href="basel.html?v=20260628_firestore_lite_fix1"><i class="ph ph-sliders-horizontal"></i> Basel.html</a>
+          <a class="btn ghost" href="basel.html?v=20260628_control_quota_fix1"><i class="ph ph-sliders-horizontal"></i> Basel.html</a>
           <a class="btn ghost" href="audit.html"><i class="ph ph-shield-check"></i> Audit.html</a>
         </div>
       </div>
@@ -1237,6 +1237,9 @@
       getFirestore,
       collection,
       getDocs,
+      query,
+      where,
+      orderBy,
       doc,
       writeBatch,
       serverTimestamp,
@@ -1255,6 +1258,9 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const ACTION_BY = `Control Center`;
+    const CONTROL_VERSION = `20260628_control_quota_fix1`;
+    const ORDERS_CACHE_PREFIX = `dad_control_orders_cache_`;
+    const ORDERS_CACHE_TTL_MS = 10 * 60 * 1000;
 
     const $ = id => document.getElementById(id);
 
@@ -1264,7 +1270,9 @@
       selected: new Set(),
       activeOrderId: null,
       statusTargets: [],
-      loading: false
+      loading: false,
+      loadingPromise: null,
+      loadedRangeKey: ``
     };
 
     const STATUS_LABELS = {
@@ -2055,7 +2063,7 @@
         closeDetails();
         state.selected.clear();
         toast(`تم تغيير الحالة وتسجيل الحركة بنجاح.`, `success`);
-        await loadOrders(true);
+        await loadOrders(true, true);
       } catch (error) {
         console.error(error);
         toast(`فشل تغيير الحالة: ${error.message}`, `error`);
@@ -2070,24 +2078,118 @@
       renderTable();
     }
 
-    async function loadOrders(quiet = false) {
-      try {
-        if (!quiet) setBusy(true, `جاري تحميل Firebase...`);
-        const snap = await getDocs(collection(db, `orders`));
-        state.orders = snap.docs.map(item => enrichOrder({ id: item.id, ...item.data() }));
-        state.orders.sort((a, b) => b.__dateTs - a.__dateTs);
-        buildStatusOptions();
-        $(`lastLoadedAt`).textContent = new Date().toLocaleString(`en-GB`);
-        $(`connectionHint`).textContent = `تم تحميل ${formatCount(state.orders.length)} طلبية`;
-        applyFilters();
-        toast(`تم تحديث البيانات.`, `success`);
-      } catch (error) {
-        console.error(error);
-        toast(`تعذر تحميل البيانات. تحقق من صلاحيات Firebase أو الاتصال.`, `error`);
-        $(`ordersBody`).innerHTML = `<tr><td colspan="11"><div class="empty-state">تعذر تحميل البيانات من Firebase.</div></td></tr>`;
-      } finally {
-        setBusy(false);
+    function selectedOrdersRange() {
+      const today = new Date();
+      let fromValue = $(`dateFrom`).value;
+      let toValue = $(`dateTo`).value;
+      if (!fromValue && !toValue) {
+        const first = new Date(today.getFullYear(), today.getMonth(), 1);
+        fromValue = toDateInputValue(first);
+        toValue = toDateInputValue(today);
+        $(`dateFrom`).value = fromValue;
+        $(`dateTo`).value = toValue;
       }
+      if (!fromValue) fromValue = `2000-01-01`;
+      if (!toValue) toValue = toDateInputValue(today);
+      const fromDate = new Date(`${fromValue}T00:00:00`);
+      const toDate = new Date(`${toValue}T23:59:59`);
+      return {
+        fromValue,
+        toValue,
+        fromDate,
+        toDate,
+        key: `${CONTROL_VERSION}_${fromValue}_${toValue}`
+      };
+    }
+
+    function ordersCacheKey(range) {
+      return `${ORDERS_CACHE_PREFIX}${range.key}`;
+    }
+
+    function readOrdersCache(range, allowExpired = false) {
+      try {
+        const raw = localStorage.getItem(ordersCacheKey(range));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.orders)) return null;
+        const age = Date.now() - Number(parsed.savedAt || 0);
+        if (!allowExpired && age > ORDERS_CACHE_TTL_MS) return null;
+        return parsed.orders;
+      } catch (error) {
+        console.warn(`Control cache read failed`, error);
+        return null;
+      }
+    }
+
+    function writeOrdersCache(range, orders) {
+      try {
+        localStorage.setItem(ordersCacheKey(range), JSON.stringify({
+          savedAt: Date.now(),
+          orders
+        }));
+      } catch (error) {
+        console.warn(`Control cache write failed`, error);
+      }
+    }
+
+    function hydrateOrders(rawOrders = []) {
+      state.orders = rawOrders.map(order => enrichOrder(order));
+      state.orders.sort((a, b) => b.__dateTs - a.__dateTs);
+      buildStatusOptions();
+      applyFilters();
+    }
+
+    function buildOrdersQuery(range) {
+      return query(
+        collection(db, `orders`),
+        where(`createdAt`, `>=`, range.fromDate),
+        where(`createdAt`, `<=`, range.toDate),
+        orderBy(`createdAt`, `desc`)
+      );
+    }
+
+    async function loadOrders(quiet = false, forceRemote = false) {
+      if (state.loadingPromise) return state.loadingPromise;
+      const range = selectedOrdersRange();
+      const cachedOrders = readOrdersCache(range, false);
+      if (cachedOrders && !forceRemote) {
+        hydrateOrders(cachedOrders);
+        state.loadedRangeKey = range.key;
+        $(`lastLoadedAt`).textContent = new Date().toLocaleString(`en-GB`);
+        $(`connectionHint`).textContent = `تم عرض ${formatCount(state.orders.length)} طلبية من الكاش المحلي`;
+        if (!quiet) toast(`تم عرض البيانات من الكاش المحلي.`, `success`);
+        return;
+      }
+
+      state.loadingPromise = (async () => {
+        try {
+          if (!quiet) setBusy(true, `جاري تحميل Firebase حسب التاريخ...`);
+          const snap = await getDocs(buildOrdersQuery(range));
+          const rawOrders = snap.docs.map(item => ({ id: item.id, ...item.data() }));
+          writeOrdersCache(range, rawOrders);
+          hydrateOrders(rawOrders);
+          state.loadedRangeKey = range.key;
+          $(`lastLoadedAt`).textContent = new Date().toLocaleString(`en-GB`);
+          $(`connectionHint`).textContent = `تم تحميل ${formatCount(state.orders.length)} طلبية من ${range.fromValue} إلى ${range.toValue}`;
+          toast(`تم تحديث البيانات.`, `success`);
+        } catch (error) {
+          console.error(error);
+          const fallbackOrders = readOrdersCache(range, true);
+          if (fallbackOrders) {
+            hydrateOrders(fallbackOrders);
+            state.loadedRangeKey = range.key;
+            $(`connectionHint`).textContent = `تعذر التحديث بسبب كوتا Firebase؛ تم عرض آخر نسخة محفوظة`;
+            toast(`تم عرض آخر نسخة محفوظة لأن كوتا Firebase ممتلئة.`, `warning`);
+            return;
+          }
+          toast(`تعذر تحميل البيانات: كوتا Firebase ممتلئة أو الاتصال غير متاح.`, `error`);
+          $(`ordersBody`).innerHTML = `<tr><td colspan="11"><div class="empty-state">تعذر تحميل البيانات من Firebase. قلل مدى التاريخ أو انتظر تجدد الكوتا.</div></td></tr>`;
+        } finally {
+          state.loadingPromise = null;
+          setBusy(false);
+        }
+      })();
+      return state.loadingPromise;
     }
 
     function pruneSelection() {
@@ -2170,7 +2272,7 @@
       $(`ownerFilter`).value = ``;
       $(`historyFilter`).value = ``;
       $(`sortMode`).value = `date_desc`;
-      applyFilters();
+      loadOrders(false, false);
     }
 
     function toast(message, type = `info`) {
@@ -2190,11 +2292,13 @@
     };
 
     function bindEvents() {
-      [`dateFrom`, `dateTo`, `statusFilter`, `ownerFilter`, `historyFilter`, `sortMode`].forEach(id => $(id).addEventListener(`change`, applyFilters));
+      const debouncedDateLoad = debounce(() => loadOrders(false, false), 250);
+      [`statusFilter`, `ownerFilter`, `historyFilter`, `sortMode`].forEach(id => $(id).addEventListener(`change`, applyFilters));
+      [`dateFrom`, `dateTo`].forEach(id => $(id).addEventListener(`change`, debouncedDateLoad));
       [`searchBox`, `pharmacySearch`].forEach(id => $(id).addEventListener(`input`, debounce(applyFilters, 120)));
       $(`resetFiltersBtn`).addEventListener(`click`, resetFilters);
-      $(`refreshBtn`).addEventListener(`click`, () => loadOrders(false));
-      $(`refreshTopBtn`).addEventListener(`click`, () => loadOrders(false));
+      $(`refreshBtn`).addEventListener(`click`, () => loadOrders(false, true));
+      $(`refreshTopBtn`).addEventListener(`click`, () => loadOrders(false, true));
       $(`exportBtn`).addEventListener(`click`, exportVisibleExcel);
       $(`exportTopBtn`).addEventListener(`click`, exportVisibleExcel);
       $(`bulkStatusBtn`).addEventListener(`click`, () => openStatusModal(Array.from(state.selected)));
