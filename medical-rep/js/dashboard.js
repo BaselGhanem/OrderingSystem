@@ -577,5 +577,10 @@ function initDefaults() {
 if (requireSession()) {
     bindEvents();
     initDefaults();
+    setTimeout(() => C.maybeShowFirstRunDemo(`rep`, {
+        userKey: state.session.employeeNo || state.session.normalizedName || state.session.name,
+        employeeNo: state.session.employeeNo || ``,
+        name: state.session.name || ``
+    }), 500);
     loadDashboard(false);
 }

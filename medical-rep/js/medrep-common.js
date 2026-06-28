@@ -367,6 +367,158 @@ function clearMedrepCache() {
     });
 }
 
+
+const FIRST_RUN_DEMO_VERSION = `20260628_demo_once_v1`;
+
+function firstRunDemoKey(role = `user`, userKey = ``) {
+    const safeRole = normalizeArabic(role || `user`).replace(/\s+/g, `_`) || `user`;
+    const safeUser = normalizeArabic(userKey || `default`).replace(/\s+/g, `_`) || `default`;
+    return `dad_medrep_first_run_demo_${FIRST_RUN_DEMO_VERSION}_${safeRole}_${safeUser}`;
+}
+
+function demoSlidesForRole(role = `rep`) {
+    if (role === `team`) {
+        return [
+            {
+                icon: `ph-users-three`,
+                title: `لوحة الفريق`,
+                body: `تشاهد إجمالي قيمة وكمية الفريق ضمن الفترة المختارة، مع عدد المندوبين والأصناف والصيدليات.`
+            },
+            {
+                icon: `ph-funnel`,
+                title: `فلترة دقيقة`,
+                body: `استخدم التاريخ، الفريق، الصنف، المنطقة، ونوع الاحتساب للوصول إلى الرقم المطلوب بدون تشويش.`
+            },
+            {
+                icon: `ph-percent`,
+                title: `مساهمة اخرين`,
+                body: `منطقة اخرين تظهر ضمن التحليل كنسبة محتسبة لكل صنف ومندوب حسب الإعدادات المرفوعة من الأدمن.`
+            },
+            {
+                icon: `ph-file-xls`,
+                title: `تصدير Excel`,
+                body: `يمكن تصدير النتائج الحالية كما تظهر بعد الفلاتر لاستخدامها في المتابعة أو المراجعة.`
+            }
+        ];
+    }
+    return [
+        {
+            icon: `ph-shield-check`,
+            title: `خصوصية المبيعات`,
+            body: `تفاصيل مبيعاتك المباشرة تظهر لك فقط. مبيعات اخرين تظهر كملخص صنف وقيمة وكمية بدون صيدليات أو تفاصيل مندوبين آخرين.`
+        },
+        {
+            icon: `ph-calendar-check`,
+            title: `اختر الفترة والفلاتر`,
+            body: `غيّر التاريخ، الصنف، المنطقة، أو نوع الاحتساب لرؤية أرقامك فورًا حسب الحاجة.`
+        },
+        {
+            icon: `ph-chart-line-up`,
+            title: `اقرأ الأداء بسرعة`,
+            body: `الكروت والرسوم والجداول تختصر القيمة والكمية، وتفصل المباشر عن اخرين عند وجود نسب مرفوعة لك.`
+        },
+        {
+            icon: `ph-file-xls`,
+            title: `تصدير مرتب`,
+            body: `زر Excel يصدر مبيعاتك المباشرة بالتفاصيل، ويصدر اخرين كملخص أصناف فقط للحفاظ على الخصوصية.`
+        }
+    ];
+}
+
+function maybeShowFirstRunDemo(role = `rep`, profile = {}) {
+    const userKey = profile.userKey || profile.employeeNo || profile.team || profile.name || role;
+    const key = firstRunDemoKey(role, userKey);
+    try {
+        if (localStorage.getItem(key) === `seen`) return;
+    } catch (error) {
+        return;
+    }
+
+    const slides = demoSlidesForRole(role);
+    let index = 0;
+    const roleLabel = role === `team` ? `Team Leader Demo` : `Medical Rep Demo`;
+    const overlay = document.createElement(`div`);
+    overlay.className = `first-run-demo-backdrop`;
+    overlay.setAttribute(`role`, `dialog`);
+    overlay.setAttribute(`aria-modal`, `true`);
+    overlay.innerHTML = `
+        <section class="first-run-demo-card">
+            <div class="first-run-demo-head">
+                <div>
+                    <span>${escapeHtml(roleLabel)}</span>
+                    <h2>شرح سريع قبل الاستخدام</h2>
+                </div>
+                <button class="first-run-demo-icon-btn" type="button" data-demo-close aria-label="إغلاق"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="first-run-demo-progress"><span data-demo-progress></span></div>
+            <div class="first-run-demo-body">
+                <div class="first-run-demo-copy">
+                    <i data-demo-icon class="ph ph-shield-check"></i>
+                    <h3 data-demo-title></h3>
+                    <p data-demo-body></p>
+                    <small data-demo-count></small>
+                </div>
+                <div class="first-run-demo-phone" aria-hidden="true">
+                    <div class="demo-phone-camera"></div>
+                    <div class="demo-phone-screen">
+                        <div class="demo-phone-header"></div>
+                        <div class="demo-phone-kpi-line"></div>
+                        <div class="demo-phone-grid"><span></span><span></span><span></span><span></span></div>
+                        <div class="demo-phone-bars"><i></i><i></i><i></i></div>
+                    </div>
+                </div>
+            </div>
+            <div class="first-run-demo-actions">
+                <button class="btn btn-light" type="button" data-demo-prev>السابق</button>
+                <button class="btn btn-light" type="button" data-demo-skip>تخطي</button>
+                <button class="btn btn-primary" type="button" data-demo-next>التالي</button>
+            </div>
+        </section>
+    `;
+
+    const markSeen = () => {
+        try { localStorage.setItem(key, `seen`); } catch (error) { /* ignore */ }
+        overlay.remove();
+    };
+
+    const render = () => {
+        const slide = slides[index];
+        const progress = ((index + 1) / slides.length) * 100;
+        const icon = overlay.querySelector(`[data-demo-icon]`);
+        if (icon) icon.className = `ph ${slide.icon}`;
+        overlay.querySelector(`[data-demo-title]`).textContent = slide.title;
+        overlay.querySelector(`[data-demo-body]`).textContent = slide.body;
+        overlay.querySelector(`[data-demo-count]`).textContent = `${index + 1} / ${slides.length}`;
+        overlay.querySelector(`[data-demo-progress]`).style.width = `${progress}%`;
+        overlay.querySelector(`[data-demo-prev]`).disabled = index === 0;
+        overlay.querySelector(`[data-demo-next]`).innerHTML = index === slides.length - 1 ? `<i class="ph ph-check-circle"></i> إنهاء` : `التالي`;
+    };
+
+    overlay.addEventListener(`click`, event => {
+        if (event.target === overlay) return;
+        if (event.target.closest(`[data-demo-close]`) || event.target.closest(`[data-demo-skip]`)) {
+            markSeen();
+            return;
+        }
+        if (event.target.closest(`[data-demo-prev]`)) {
+            index = Math.max(0, index - 1);
+            render();
+            return;
+        }
+        if (event.target.closest(`[data-demo-next]`)) {
+            if (index >= slides.length - 1) {
+                markSeen();
+                return;
+            }
+            index += 1;
+            render();
+        }
+    });
+
+    document.body.appendChild(overlay);
+    render();
+}
+
 function cacheAgeText(payload) {
     if (!payload?.savedAt) return `غير متاح`;
     const minutes = Math.max(0, Math.round((Date.now() - payload.savedAt) / 60000));
@@ -440,6 +592,7 @@ window.medrepCommon = {
     cacheSet,
     cacheRemove,
     clearMedrepCache,
+    maybeShowFirstRunDemo,
     cacheAgeText,
     saveAdminImpersonation,
     sumRows,

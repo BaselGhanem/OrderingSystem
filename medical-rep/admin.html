@@ -13,7 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900;1000&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="css/medrep.css?v=20260624_medrep_v10">
+    <link rel="stylesheet" href="css/medrep.css?v=20260628_aligned_tables_v11">
 </head>
 <body>
     <main class="app-shell admin-shell">
@@ -140,6 +140,21 @@
             </section>
 
             <section id="tabOtherShares" class="tab-panel">
+                <div class="table-card full-width-card other-reconcile-panel">
+                    <div class="card-head admin-card-head">
+                        <div>
+                            <h2>ضبط نسب منطقة اخرين حسب الصنف</h2>
+                            <p class="form-note">لكل Team + صنف يجب أن يكون مجموع نسب المندوبين 100%. أي صنف أقل أو أعلى من 100% يحتاج إعادة احتساب.</p>
+                        </div>
+                        <div class="admin-inline-search other-share-tools">
+                            <input id="otherShareSearch" class="input-control" type="search" placeholder="بحث عن صنف، فريق، مندوب...">
+                            <label class="checkbox-line compact-check"><input id="showOnlyOtherShareIssues" type="checkbox" checked> عرض غير المكتمل فقط</label>
+                        </div>
+                    </div>
+                    <div id="otherShareReconcileSummary" class="other-reconcile-summary"></div>
+                    <div id="otherShareReconcilePreview"></div>
+                </div>
+
                 <div class="upload-grid">
                     <div class="upload-box">
                         <h3>رفع نسب منطقة اخرين</h3>
@@ -179,7 +194,7 @@
         </section>
     </main>
     <div id="toastContainer" class="toast-container"></div>
-    <script src="js/medrep-common.js?v=20260624_medrep_v10"></script>
-    <script type="module" src="js/admin.js?v=20260624_medrep_v10"></script>
+    <script src="js/medrep-common.js?v=20260628_aligned_tables_v11"></script>
+    <script type="module" src="js/admin.js?v=20260628_aligned_tables_v11"></script>
 </body>
 </html>

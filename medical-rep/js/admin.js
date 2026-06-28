@@ -26,6 +26,9 @@ const state = {
     otherShares: [],
     targets: [],
     teamAccess: [],
+    otherShareGroups: [],
+    otherShareSearch: ``,
+    showOnlyOtherShareIssues: true,
     repPage: 1,
     repSearch: ``,
     teamAccessSearch: ``
@@ -112,6 +115,7 @@ async function refreshAll(force = false) {
         state.otherShares = otherShares;
         state.targets = targets;
         state.managedReps = buildManagedRepRows();
+        state.otherShareGroups = buildOtherShareGroups();
         renderSummary();
         renderTables();
     } catch (error) {
@@ -121,9 +125,10 @@ async function refreshAll(force = false) {
 }
 
 function renderSummary() {
+    const invalidOtherGroups = state.otherShareGroups.filter(group => !group.isBalanced).length;
     C.$(`repsCount`).textContent = state.managedReps.length;
     C.$(`areaRulesCount`).textContent = state.areaRules.length;
-    C.$(`otherSharesCount`).textContent = state.otherShares.length;
+    C.$(`otherSharesCount`).textContent = invalidOtherGroups ? `${invalidOtherGroups}/${state.otherShareGroups.length}` : state.otherShares.length;
     C.$(`targetsCount`).textContent = state.targets.length;
 }
 
@@ -178,6 +183,168 @@ function deriveTeams() {
     ].map(team => String(team || ``).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, `ar`));
 }
 
+
+function normalizedShareRow(row = {}) {
+    const team = String(row.team || ``).trim();
+    const itemName = String(row.itemName || row.item || row.product || ``).trim();
+    const medrep = String(row.medrep || row.name || ``).trim();
+    const itemKey = row.itemKey || C.normalizeItem(itemName);
+    const medrepKey = row.medrepKey || C.normalizeArabic(medrep);
+    const pct = C.parsePercentageRatio(row.percentage, { allowEmpty: true, allowLegacyPercent: true });
+    return {
+        ...row,
+        team,
+        itemName,
+        medrep,
+        itemKey,
+        medrepKey,
+        percentage: Number.isFinite(pct) ? pct : 0,
+        docId: row.id || C.makeDocId([itemKey, medrepKey])
+    };
+}
+
+function buildOtherShareGroups() {
+    const groups = new Map();
+    state.otherShares.map(normalizedShareRow).forEach(row => {
+        if (!row.itemKey || !row.medrepKey) return;
+        const teamKey = C.normalizeArabic(row.team || `بدون فريق`);
+        const groupKey = C.makeDocId([teamKey, row.itemKey]);
+        const current = groups.get(groupKey) || {
+            groupKey,
+            team: row.team || `بدون فريق`,
+            teamKey,
+            itemName: row.itemName || `-`,
+            itemKey: row.itemKey,
+            shares: [],
+            total: 0,
+            missing: 1,
+            isBalanced: false
+        };
+        current.shares.push(row);
+        current.total += C.parseNumber(row.percentage);
+        groups.set(groupKey, current);
+    });
+
+    return [...groups.values()].map(group => {
+        group.shares.sort((a, b) => String(a.medrep || ``).localeCompare(String(b.medrep || ``), `ar`));
+        group.total = Math.round(group.total * 1000000000) / 1000000000;
+        group.missing = Math.round((1 - group.total) * 1000000000) / 1000000000;
+        group.isBalanced = Math.abs(group.total - 1) <= 0.000001;
+        return group;
+    }).sort((a, b) => {
+        if (a.isBalanced !== b.isBalanced) return a.isBalanced ? 1 : -1;
+        return String(a.itemName || ``).localeCompare(String(b.itemName || ``), `ar`);
+    });
+}
+
+function eligibleRepsForShareGroup(group = {}) {
+    const existing = new Set((group.shares || []).map(row => row.medrepKey));
+    const teamKey = C.normalizeArabic(group.team || ``);
+    const preferred = state.managedReps.filter(rep => {
+        const repKey = rep.key || C.normalizeArabic(rep.name || ``);
+        if (existing.has(repKey)) return false;
+        if (!teamKey || group.team === `بدون فريق`) return true;
+        return C.normalizeArabic(rep.team || ``) === teamKey;
+    });
+    const fallback = state.managedReps.filter(rep => {
+        const repKey = rep.key || C.normalizeArabic(rep.name || ``);
+        return !existing.has(repKey) && !preferred.some(item => (item.key || C.normalizeArabic(item.name || ``)) === repKey);
+    });
+    return [...preferred, ...fallback].slice(0, 250);
+}
+
+function filteredOtherShareGroups() {
+    const search = C.normalizeArabic(state.otherShareSearch);
+    return state.otherShareGroups.filter(group => {
+        if (state.showOnlyOtherShareIssues && group.isBalanced) return false;
+        if (!search) return true;
+        const haystack = C.normalizeArabic(`${group.team} ${group.itemName} ${(group.shares || []).map(row => row.medrep).join(` `)}`);
+        return haystack.includes(search);
+    });
+}
+
+function shareStatusBadge(group = {}) {
+    if (group.isBalanced) return `<span class="badge badge-direct">مكتمل 100%</span>`;
+    if (group.total < 1) return `<span class="badge badge-warning">ناقص ${C.formatPercentageRatio(1 - group.total)}</span>`;
+    return `<span class="badge badge-danger">زائد ${C.formatPercentageRatio(group.total - 1)}</span>`;
+}
+
+function renderOtherShareReconciliation() {
+    const target = C.$(`otherShareReconcilePreview`);
+    const summary = C.$(`otherShareReconcileSummary`);
+    if (!target) return;
+
+    const invalidCount = state.otherShareGroups.filter(group => !group.isBalanced).length;
+    const balancedCount = state.otherShareGroups.length - invalidCount;
+    if (summary) {
+        summary.innerHTML = `
+            <div class="other-reconcile-chip ${invalidCount ? `danger` : `ok`}"><span>بحاجة إعادة احتساب</span><strong>${invalidCount.toLocaleString(`en-US`)}</strong></div>
+            <div class="other-reconcile-chip"><span>مكتملة 100%</span><strong>${balancedCount.toLocaleString(`en-US`)}</strong></div>
+            <div class="other-reconcile-chip"><span>إجمالي الأصناف</span><strong>${state.otherShareGroups.length.toLocaleString(`en-US`)}</strong></div>
+        `;
+    }
+
+    const groups = filteredOtherShareGroups();
+    if (!state.otherShareGroups.length) {
+        target.innerHTML = `<div class="empty-state compact"><i class="ph ph-percent"></i><span>لا توجد نسب مرفوعة لمنطقة اخرين.</span></div>`;
+        return;
+    }
+    if (!groups.length) {
+        target.innerHTML = `<div class="empty-state compact"><i class="ph ph-check-circle"></i><span>لا توجد نتائج ضمن الفلتر الحالي.</span></div>`;
+        return;
+    }
+
+    target.innerHTML = `
+        <div class="other-share-card-list">
+            ${groups.map(group => {
+                const reps = eligibleRepsForShareGroup(group);
+                return `
+                    <article class="other-share-card ${group.isBalanced ? `is-balanced` : `needs-work`}" data-other-group="${C.escapeHtml(group.groupKey)}">
+                        <div class="other-share-card-head">
+                            <div>
+                                <span class="mini-label">${C.escapeHtml(group.team || `بدون فريق`)}</span>
+                                <h3>${C.escapeHtml(group.itemName || `-`)}</h3>
+                            </div>
+                            <div class="other-share-total">
+                                ${shareStatusBadge(group)}
+                                <strong>${C.formatPercentageRatio(group.total, { maximumFractionDigits: 4 })}</strong>
+                            </div>
+                        </div>
+                        <div class="table-scroll mobile-safe-scroll">
+                            <table class="data-table compact-table other-share-edit-table">
+                                <thead><tr><th>المندوب</th><th>النسبة %</th><th>حذف</th></tr></thead>
+                                <tbody>
+                                    ${group.shares.map(share => `
+                                        <tr>
+                                            <td class="item-name">${C.escapeHtml(share.medrep || `-`)}</td>
+                                            <td>
+                                                <input class="input-control table-input percent-input" type="number" inputmode="decimal" min="0" max="100" step="0.000001" value="${(C.parseNumber(share.percentage) * 100).toFixed(6).replace(/\.0+$/, ``).replace(/(\.\d*?)0+$/, `$1`)}" data-share-pct="${C.escapeHtml(group.groupKey)}" data-share-doc="${C.escapeHtml(share.docId)}" data-share-team="${C.escapeHtml(group.team || ``)}" data-share-item="${C.escapeHtml(group.itemName || ``)}" data-share-item-key="${C.escapeHtml(group.itemKey || ``)}" data-share-medrep="${C.escapeHtml(share.medrep || ``)}" data-share-medrep-key="${C.escapeHtml(share.medrepKey || ``)}">
+                                            </td>
+                                            <td><button class="btn btn-mini btn-light danger-mini" type="button" data-delete-share="${C.escapeHtml(share.docId)}"><i class="ph ph-trash"></i></button></td>
+                                        </tr>
+                                    `).join(``)}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="other-share-add-row">
+                            <select class="select-control" data-add-share-rep="${C.escapeHtml(group.groupKey)}">
+                                <option value="">إضافة مندوب...</option>
+                                ${reps.map(rep => `<option value="${C.escapeHtml(rep.key || C.normalizeArabic(rep.name || ``))}" data-rep-name="${C.escapeHtml(rep.name || ``)}" data-rep-team="${C.escapeHtml(rep.team || ``)}">${C.escapeHtml(rep.name || ``)}${rep.team ? ` - ${C.escapeHtml(rep.team)}` : ``}</option>`).join(``)}
+                            </select>
+                            <input class="input-control" type="number" inputmode="decimal" min="0" max="100" step="0.000001" placeholder="النسبة %" data-add-share-pct="${C.escapeHtml(group.groupKey)}">
+                            <button class="btn btn-light" type="button" data-add-share="${C.escapeHtml(group.groupKey)}"><i class="ph ph-plus"></i> إضافة</button>
+                        </div>
+                        <div class="other-share-card-actions">
+                            <span>المجموع يجب أن يساوي 100% قبل اعتماد المجموعة.</span>
+                            <button class="btn btn-primary" type="button" data-save-share-group="${C.escapeHtml(group.groupKey)}"><i class="ph ph-floppy-disk"></i> حفظ المجموعة</button>
+                        </div>
+                    </article>
+                `;
+            }).join(``)}
+        </div>
+    `;
+}
+
 function teamAccessFor(team = ``) {
     const key = C.normalizeArabic(team);
     return state.teamAccess.find(row => C.normalizeArabic(row.team || row.teamName || ``) === key) || null;
@@ -189,6 +356,7 @@ function renderTables() {
     renderSimpleTable(`areaRulesPreview`, state.areaRules.slice(0, 80), [`team`, `medrep`, `itemName`, `area`], {
         team: `الفريق`, medrep: `المندوب`, itemName: `الصنف`, area: `المنطقة`
     });
+    renderOtherShareReconciliation();
     renderSimpleTable(`otherSharesPreview`, state.otherShares.slice(0, 80), [`team`, `itemName`, `medrep`, `percentage`], {
         team: `الفريق`, itemName: `الصنف`, medrep: `المندوب`, percentage: `نسبة اخرين`
     });
@@ -519,6 +687,129 @@ async function saveTeamPassword(team, button) {
     }
 }
 
+
+async function saveOtherShareGroup(groupKey, button) {
+    const group = state.otherShareGroups.find(item => item.groupKey === groupKey);
+    if (!group) return C.showToast(`تعذر تحديد الصنف.`, `error`);
+    const inputs = [...document.querySelectorAll(`[data-share-pct="${cssEscape(groupKey)}"]`)];
+    if (!inputs.length) return C.showToast(`لا توجد نسب قابلة للحفظ.`, `warning`);
+
+    const rows = [];
+    let total = 0;
+    for (const input of inputs) {
+        const pct = C.parsePercentageRatio(`${input.value}%`, { allowEmpty: true, allowLegacyPercent: true });
+        if (!Number.isFinite(pct) || pct <= 0 || pct > 1) {
+            return C.showToast(`كل النسب يجب أن تكون أكبر من 0 وأقل أو تساوي 100%.`, `warning`);
+        }
+        total += pct;
+        rows.push({
+            docId: input.dataset.shareDoc,
+            team: input.dataset.shareTeam || group.team || ``,
+            itemName: input.dataset.shareItem || group.itemName || ``,
+            itemKey: input.dataset.shareItemKey || group.itemKey || C.normalizeItem(group.itemName || ``),
+            medrep: input.dataset.shareMedrep || ``,
+            medrepKey: input.dataset.shareMedrepKey || C.normalizeArabic(input.dataset.shareMedrep || ``),
+            percentage: pct
+        });
+    }
+
+    if (Math.abs(total - 1) > 0.000001) {
+        return C.showToast(`لا يمكن الحفظ: مجموع نسب هذا الصنف ${C.formatPercentageRatio(total, { maximumFractionDigits: 4 })} وليس 100%.`, `warning`);
+    }
+
+    try {
+        C.setLoading(button, true, `حفظ`);
+        const batch = writeBatch(db);
+        rows.forEach(row => {
+            const docId = row.docId || C.makeDocId([row.itemKey, row.medrepKey]);
+            batch.set(doc(db, COLLECTIONS.otherShares, docId), {
+                team: row.team,
+                itemName: row.itemName,
+                itemKey: row.itemKey,
+                medrep: row.medrep,
+                medrepKey: row.medrepKey,
+                percentage: row.percentage,
+                source: `admin_manual_rebalance`,
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+        });
+        await batch.commit();
+        C.cacheRemove(`collection_${COLLECTIONS.otherShares}`);
+        C.cacheRemove(`meta_collection_${COLLECTIONS.otherShares}`);
+        C.showToast(`تم حفظ المجموعة ومجموعها 100%.`, `success`);
+        await refreshAll(true);
+    } catch (error) {
+        console.error(error);
+        C.showToast(`تعذر حفظ نسب الصنف.`, `error`);
+    } finally {
+        C.setLoading(button, false);
+    }
+}
+
+async function addOtherShareToGroup(groupKey, button) {
+    const group = state.otherShareGroups.find(item => item.groupKey === groupKey);
+    if (!group) return C.showToast(`تعذر تحديد الصنف.`, `error`);
+    const select = document.querySelector(`[data-add-share-rep="${cssEscape(groupKey)}"]`);
+    const input = document.querySelector(`[data-add-share-pct="${cssEscape(groupKey)}"]`);
+    const repKey = select?.value || ``;
+    const selected = select?.selectedOptions?.[0];
+    const medrep = selected?.dataset?.repName || ``;
+    const team = group.team && group.team !== `بدون فريق` ? group.team : (selected?.dataset?.repTeam || ``);
+    const pct = C.parsePercentageRatio(`${input?.value || ``}%`, { allowEmpty: true, allowLegacyPercent: true });
+    if (!repKey || !medrep) return C.showToast(`اختر المندوب أولاً.`, `warning`);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 1) return C.showToast(`أدخل نسبة صحيحة بين 0 و 100%.`, `warning`);
+    if ((group.shares || []).some(row => row.medrepKey === repKey)) return C.showToast(`هذا المندوب موجود على الصنف بالفعل.`, `warning`);
+
+    const nextTotal = group.total + pct;
+    if (nextTotal > 1.000001) {
+        return C.showToast(`لا يمكن الإضافة: المجموع سيصبح ${C.formatPercentageRatio(nextTotal, { maximumFractionDigits: 4 })}.`, `warning`);
+    }
+
+    const payload = {
+        team,
+        itemName: group.itemName,
+        itemKey: group.itemKey,
+        medrep,
+        medrepKey: repKey,
+        percentage: pct,
+        source: `admin_manual_add`,
+        updatedAt: serverTimestamp()
+    };
+
+    try {
+        C.setLoading(button, true, `إضافة`);
+        await setDoc(doc(db, COLLECTIONS.otherShares, C.makeDocId([group.itemKey, repKey])), payload, { merge: true });
+        C.cacheRemove(`collection_${COLLECTIONS.otherShares}`);
+        C.cacheRemove(`meta_collection_${COLLECTIONS.otherShares}`);
+        C.showToast(nextTotal === 1 ? `تمت الإضافة والمجموع 100%.` : `تمت الإضافة. لا يزال الصنف بحاجة ضبط إلى 100%.`, nextTotal === 1 ? `success` : `warning`);
+        await refreshAll(true);
+    } catch (error) {
+        console.error(error);
+        C.showToast(`تعذر إضافة المندوب للصنف.`, `error`);
+    } finally {
+        C.setLoading(button, false);
+    }
+}
+
+async function deleteOtherShare(docId, button) {
+    if (!docId) return C.showToast(`تعذر تحديد السجل.`, `error`);
+    const ok = window.confirm(`هل تريد حذف هذه النسبة من منطقة اخرين؟`);
+    if (!ok) return;
+    try {
+        C.setLoading(button, true, `حذف`);
+        await deleteDoc(doc(db, COLLECTIONS.otherShares, docId));
+        C.cacheRemove(`collection_${COLLECTIONS.otherShares}`);
+        C.cacheRemove(`meta_collection_${COLLECTIONS.otherShares}`);
+        C.showToast(`تم حذف النسبة.`, `success`);
+        await refreshAll(true);
+    } catch (error) {
+        console.error(error);
+        C.showToast(`تعذر حذف النسبة.`, `error`);
+    } finally {
+        C.setLoading(button, false);
+    }
+}
+
 function openRepDashboard(employeeNo) {
     const rep = state.managedReps.find(row => String(row.employeeNo || ``) === String(employeeNo || ``));
     if (!rep || !rep.employeeNo) return C.showToast(`أدخل الرقم الوظيفي أولاً.`, `warning`);
@@ -569,6 +860,14 @@ function bindEvents() {
         state.teamAccessSearch = event.target.value || ``;
         renderTeamAccessTable();
     });
+    C.$(`otherShareSearch`)?.addEventListener(`input`, event => {
+        state.otherShareSearch = event.target.value || ``;
+        renderOtherShareReconciliation();
+    });
+    C.$(`showOnlyOtherShareIssues`)?.addEventListener(`change`, event => {
+        state.showOnlyOtherShareIssues = !!event.target.checked;
+        renderOtherShareReconciliation();
+    });
     document.querySelectorAll(`[data-template]`).forEach(button => button.addEventListener(`click`, () => downloadTemplate(button.dataset.template)));
     document.querySelectorAll(`[data-export]`).forEach(button => button.addEventListener(`click`, () => exportCurrent(button.dataset.export)));
     document.body.addEventListener(`click`, event => {
@@ -580,6 +879,12 @@ function bindEvents() {
         if (saveRepButton) saveManualRep(saveRepButton.dataset.saveRep, saveRepButton);
         const saveTeamButton = event.target.closest(`[data-save-team-pass]`);
         if (saveTeamButton) saveTeamPassword(saveTeamButton.dataset.saveTeamPass, saveTeamButton);
+        const saveShareGroupButton = event.target.closest(`[data-save-share-group]`);
+        if (saveShareGroupButton) saveOtherShareGroup(saveShareGroupButton.dataset.saveShareGroup, saveShareGroupButton);
+        const addShareButton = event.target.closest(`[data-add-share]`);
+        if (addShareButton) addOtherShareToGroup(addShareButton.dataset.addShare, addShareButton);
+        const deleteShareButton = event.target.closest(`[data-delete-share]`);
+        if (deleteShareButton) deleteOtherShare(deleteShareButton.dataset.deleteShare, deleteShareButton);
         const pagerButton = event.target.closest(`[data-rep-page]`);
         if (pagerButton) {
             state.repPage += pagerButton.dataset.repPage === `next` ? 1 : -1;

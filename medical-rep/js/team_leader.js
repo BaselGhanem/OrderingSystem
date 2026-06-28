@@ -385,5 +385,10 @@ if (access) {
     state.selectedTeam = access.canViewAllTeams ? `` : (access.team || ``);
     bindEvents();
     initDefaults();
+    setTimeout(() => C.maybeShowFirstRunDemo(`team`, {
+        userKey: access.team || access.label || access.mode || `team`,
+        team: access.team || ``,
+        name: access.label || ``
+    }), 500);
     loadTeam(false);
 }
