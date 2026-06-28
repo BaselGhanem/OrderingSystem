@@ -1,0 +1,2151 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <link rel="icon" href="favicon.ico?v=20260628_table_pagination_fix1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>إعدادات الموقع | DAR ALDAWAA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="style.css?v=20260628_table_pagination_fix1">
+    <style>
+        :root {
+            --settings-accent: #099999;
+            --settings-accent-dark: #077979;
+            --settings-surface: rgba(255, 255, 255, 0.94);
+            --settings-border: rgba(15, 59, 92, 0.12);
+            --settings-muted: #64748b;
+        }
+
+        body {
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .settings-shell {
+            width: min(1480px, calc(100% - clamp(18px, 3vw, 44px)));
+            margin: 22px auto;
+            display: grid;
+            gap: 18px;
+        }
+
+        .settings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            padding: clamp(16px, 3vw, 24px);
+        }
+
+        .settings-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .settings-title img {
+            width: 54px;
+            height: 54px;
+            object-fit: contain;
+            background: white;
+            border-radius: 16px;
+            padding: 6px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .settings-title h1 {
+            font-size: clamp(1.2rem, 3vw, 1.8rem);
+            margin: 0;
+            color: var(--primary);
+            line-height: 1.2;
+        }
+
+        .settings-title p {
+            margin: 4px 0 0;
+            color: var(--settings-muted);
+            font-weight: 600;
+            font-size: clamp(0.84rem, 2vw, 0.96rem);
+        }
+
+        .settings-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .settings-actions a,
+        .settings-action-btn,
+        .tab-button,
+        .btn-local {
+            font-family: 'Cairo', system-ui, sans-serif;
+            border: 0;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .settings-tabs {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 10px;
+            border-radius: 18px;
+            background: rgba(255,255,255,0.72);
+            border: 1px solid var(--settings-border);
+            box-shadow: var(--shadow-sm);
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab-button {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 16px;
+            border-radius: 14px;
+            color: var(--secondary);
+            background: #f8fafc;
+            font-weight: 800;
+            border: 1px solid #e2e8f0;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .tab-button.active {
+            color: white;
+            background: linear-gradient(135deg, var(--primary), var(--settings-accent));
+            border-color: transparent;
+            box-shadow: 0 10px 22px rgba(9, 153, 153, 0.20);
+        }
+
+        .settings-card {
+            display: none;
+            padding: clamp(16px, 2vw, 26px);
+            border-radius: 22px;
+            background: var(--settings-surface);
+            border: 1px solid var(--settings-border);
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(14px);
+        }
+
+        .settings-card.active {
+            display: block;
+        }
+
+        .card-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
+
+        .card-heading h2 {
+            margin: 0;
+            color: var(--primary);
+            font-size: clamp(1.05rem, 2.6vw, 1.45rem);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-heading p {
+            margin: 6px 0 0;
+            color: var(--settings-muted);
+            font-weight: 600;
+            line-height: 1.7;
+        }
+
+        .utility-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 12px;
+        }
+
+        .upload-panel,
+        .info-panel,
+        .warning-panel,
+        .danger-panel {
+            border-radius: 16px;
+            padding: 16px;
+            line-height: 1.8;
+        }
+
+        .upload-panel {
+            display: grid;
+            gap: 12px;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+        }
+
+        .info-panel {
+            background: #e0f2fe;
+            border: 1px solid #bae6fd;
+            color: #075985;
+        }
+
+        .warning-panel {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            color: #92400e;
+        }
+
+        .danger-panel {
+            background: #fef2f2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+        }
+
+        .file-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        input[type="file"] {
+            width: min(100%, 460px);
+            padding: 11px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            background: white;
+            font-family: 'Cairo', system-ui, sans-serif;
+        }
+
+        .btn-local,
+        .settings-action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 42px;
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: white;
+            background: var(--primary);
+            transition: var(--transition);
+        }
+
+        .btn-local:hover,
+        .settings-action-btn:hover {
+            filter: brightness(0.94);
+            transform: translateY(-1px);
+        }
+
+        .btn-teal { background: var(--settings-accent); }
+        .btn-green { background: #059669; }
+        .btn-blue { background: #2563eb; }
+        .btn-orange { background: #d97706; }
+        .btn-red { background: #dc2626; }
+        .btn-muted { background: #475569; color: white; }
+        .btn-small { min-height: 34px; padding: 7px 12px; font-size: 0.84rem; border-radius: 9px; }
+
+        .status-box {
+            min-height: 26px;
+            margin-top: 12px;
+            font-weight: 800;
+            line-height: 1.8;
+            color: var(--settings-muted);
+        }
+
+        .table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            margin-top: 14px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .settings-table {
+            width: 100%;
+            min-width: 760px;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        .settings-table th,
+        .settings-table td {
+            padding: 13px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: right;
+            vertical-align: middle;
+        }
+
+        .settings-table th {
+            background: var(--primary);
+            color: white;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .settings-table tr:hover td {
+            background: #f8fafc;
+        }
+
+        .table-input {
+            width: 100%;
+            min-width: 120px;
+            padding: 9px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-family: 'Cairo', system-ui, sans-serif;
+            font-size: 0.92rem;
+        }
+
+        .table-input:focus {
+            outline: none;
+            border-color: var(--settings-accent);
+            box-shadow: 0 0 0 3px rgba(9, 153, 153, 0.14);
+        }
+
+        .doc-id-text {
+            direction: ltr;
+            text-align: left;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            color: #64748b;
+            font-size: 0.84rem;
+            word-break: break-word;
+        }
+
+        code {
+            display: inline-block;
+            direction: ltr;
+            background: white;
+            color: #b91c1c;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-weight: 800;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        .inline-code-list {
+            direction: ltr;
+            display: inline-block;
+            color: #0369a1;
+            font-weight: 800;
+            margin-top: 5px;
+            word-break: break-word;
+        }
+
+        .manual-entry-panel {
+            display: grid;
+            gap: 14px;
+            margin-top: 14px;
+            padding: 16px;
+            border-radius: 16px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .manual-entry-panel strong {
+            color: var(--primary);
+            font-size: 1rem;
+        }
+
+        .manual-form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+
+        .settings-field {
+            display: grid;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .settings-field label {
+            color: var(--secondary);
+            font-weight: 800;
+            font-size: 0.88rem;
+        }
+
+        .table-select,
+        .settings-select {
+            width: 100%;
+            min-width: 150px;
+            padding: 9px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: white;
+            font-family: 'Cairo', system-ui, sans-serif;
+            font-size: 0.92rem;
+        }
+
+        .settings-select:focus,
+        .table-select:focus {
+            outline: none;
+            border-color: var(--settings-accent);
+            box-shadow: 0 0 0 3px rgba(9, 153, 153, 0.14);
+        }
+
+        .settings-form-actions {
+            display: flex;
+            align-items: end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .table-actions-cell {
+            display: inline-flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+
+
+        .products-workflow-panel {
+            display: grid;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .workflow-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+
+        .workflow-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 15px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: var(--secondary);
+            font-weight: 800;
+            line-height: 1.6;
+        }
+
+        .workflow-step span {
+            flex: 0 0 28px;
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            background: var(--settings-accent);
+            font-size: 0.86rem;
+        }
+
+        .bulk-actions-grid {
+            display: grid;
+            grid-template-columns: minmax(220px, 1.2fr) minmax(260px, 1.5fr) auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .danger-details {
+            border-radius: 16px;
+            border: 1px solid #fecaca;
+            background: #fff7ed;
+            overflow: hidden;
+        }
+
+        .danger-details summary {
+            cursor: pointer;
+            padding: 13px 16px;
+            color: #9a3412;
+            font-weight: 900;
+            list-style: none;
+        }
+
+        .danger-details summary::-webkit-details-marker { display: none; }
+        .danger-details .upload-panel { border: 0; border-radius: 0; background: #fff7ed; }
+
+        .settings-table-toolbar {
+            display: grid;
+            grid-template-columns: minmax(240px, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 16px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+
+        .settings-search {
+            width: 100%;
+            min-height: 42px;
+            border-radius: 12px;
+            border: 1px solid #cbd5e1;
+            padding: 9px 12px;
+            font-family: 'Cairo', system-ui, sans-serif;
+            font-weight: 700;
+            background: white;
+        }
+
+        .settings-search:focus {
+            outline: none;
+            border-color: var(--settings-accent);
+            box-shadow: 0 0 0 3px rgba(9, 153, 153, 0.14);
+        }
+
+        .pagination-bar {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pagination-info {
+            color: var(--settings-muted);
+            font-weight: 800;
+            white-space: nowrap;
+            padding: 0 4px;
+        }
+
+        .products-table-wrap {
+            max-height: min(62vh, 680px);
+            overflow: auto;
+        }
+
+        .products-table-wrap .settings-table thead th,
+        .pharmacies-table-wrap .settings-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 4;
+        }
+
+        .pharmacies-table-wrap {
+            max-height: min(62vh, 680px);
+            overflow: auto;
+        }
+
+        .settings-table.compact-products {
+            min-width: 920px;
+        }
+
+        .settings-table.compact-products th,
+        .settings-table.compact-products td {
+            padding: 10px 11px;
+        }
+
+        .settings-table.compact-products .table-input {
+            min-width: 100px;
+            padding: 8px 9px;
+        }
+
+        .settings-table.compact-products .product-name {
+            min-width: 260px;
+        }
+
+        .settings-table.compact-products .doc-id-text {
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .row-edited td { background: #ecfeff !important; }
+
+        @media (min-width: 1440px) {
+            .settings-shell { width: min(1640px, calc(100vw - 56px)); }
+            .settings-card { padding: 28px; }
+        }
+
+        @media (max-width: 980px) {
+            .bulk-actions-grid,
+            .settings-table-toolbar { grid-template-columns: 1fr; }
+            .pagination-bar { justify-content: flex-start; }
+        }
+
+        @media (max-width: 520px) {
+            .settings-shell { width: min(100% - 16px, 1280px); margin: 12px auto; }
+            .settings-header { align-items: stretch; }
+            .settings-title { align-items: flex-start; }
+            .settings-title img { width: 44px; height: 44px; }
+            .settings-actions, .file-row { width: 100%; }
+            .settings-actions a, .settings-action-btn, .file-row .btn-local { width: 100%; }
+            .tab-button { padding: 10px 13px; font-size: 0.88rem; }
+            input[type="file"] { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-shapes"><div class="shape shape-1"></div><div class="shape shape-2"></div></div>
+
+    <div class="settings-shell">
+        <header class="settings-header glass-panel">
+            <div class="settings-title">
+                <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="Dar Al Dawaa Logo">
+                <div>
+                    <h1>إعدادات الموقع</h1>
+                    <p>مركز واحد لإدارة الأصناف، الصيدليات، التصدير، وأرشفة البيانات القديمة.</p>
+                </div>
+            </div>
+            <div class="settings-actions">
+                <a href="reports.html?v=20260628_table_pagination_fix1" class="settings-action-btn btn-muted"><i class="ph ph-chart-line-up"></i> التقارير</a>
+                <a href="index.html?switch=1" class="settings-action-btn"><i class="ph ph-house"></i> الرئيسية</a>
+            </div>
+        </header>
+
+        <nav class="settings-tabs" aria-label="أقسام إعدادات الموقع">
+            <button type="button" class="tab-button active" data-target="productsPanel"><i class="ph ph-package"></i> الأصناف</button>
+            <button type="button" class="tab-button" data-target="pharmaciesPanel"><i class="ph ph-storefront"></i> الصيدليات</button>
+            <button type="button" class="tab-button" data-target="exportPanel"><i class="ph ph-download-simple"></i> التصدير</button>
+            <button type="button" class="tab-button" data-target="oldOrdersPanel"><i class="ph ph-archive-box"></i> الطلبيات السابقة</button>
+            <button type="button" class="tab-button" data-target="oldReturnsPanel"><i class="ph ph-arrow-counter-clockwise"></i> المرتجعات السابقة</button>
+        </nav>
+
+        <section id="productsPanel" class="settings-card active">
+            <div class="card-heading">
+                <div>
+                    <h2><i class="ph ph-package"></i> إدارة وتحديث الأصناف</h2>
+                    <p>تحديث شامل عبر Excel أو تعديل وحذف مباشر من جدول المنتجات الحالي.</p>
+                </div>
+                <button type="button" id="reloadProductsBtn" class="btn-local btn-muted"><i class="ph ph-arrows-clockwise"></i> تحديث الجدول</button>
+            </div>
+
+            <div class="products-workflow-panel">
+                <div class="info-panel">
+                    <strong><i class="ph ph-microsoft-excel-logo"></i> أسرع طريقة لتعديل الأصناف:</strong>
+                    نزّل ملف الأصناف كما هو من Firebase، عدّل <code>name</code> أو <code>code</code> أو <code>productCode</code> أو <code>price</code>، ثم ارفع نفس الملف. النظام يحدث السجلات حسب <code>Document_ID</code> ولا يحذف أي صنف غير موجود في الملف. إذا تغيّر كود الصنف، سيتم تبديل الكود القديم بالجديد داخل الطلبيات الموجودة فقط، بدون تعديل السعر أو الكمية أو الإجمالي.
+                </div>
+                <div class="workflow-steps">
+                    <div class="workflow-step"><span>1</span><div>تنزيل ملف الأصناف الحالي من قاعدة البيانات.</div></div>
+                    <div class="workflow-step"><span>2</span><div>تعديل الاسم أو الكود أو السعر داخل Excel فقط.</div></div>
+                    <div class="workflow-step"><span>3</span><div>رفع نفس الملف لتحديث Firebase مباشرة. تغيير الكود ينعكس على كودات الطلبيات القديمة فقط.</div></div>
+                </div>
+                <div class="upload-panel">
+                    <strong>تعديل الأصناف بدون حذف البيانات القديمة</strong>
+                    <div class="bulk-actions-grid">
+                        <button type="button" id="downloadProductsEditableBtn" class="btn-local btn-green"><i class="ph ph-download-simple"></i> تنزيل الأصناف للتعديل</button>
+                        <input type="file" id="productsPatchFile" accept=".xlsx, .xls">
+                        <button type="button" id="productsPatchImportBtn" class="btn-local btn-teal"><i class="ph ph-upload-simple"></i> رفع نفس الملف بعد التعديل</button>
+                    </div>
+                </div>
+                <details class="danger-details">
+                    <summary><i class="ph ph-warning-diamond"></i> استبدال كامل لقائمة الأصناف — استخدمه فقط عند بناء القائمة من الصفر</summary>
+                    <div class="upload-panel">
+                        <strong>هذا الخيار يحذف كل الأصناف الحالية ثم يرفع الملف الجديد.</strong>
+                        <div class="file-row">
+                            <input type="file" id="productsExcelFile" accept=".xlsx, .xls">
+                            <button type="button" id="productsImportBtn" class="btn-local btn-red"><i class="ph ph-upload-simple"></i> استبدال كامل للأصناف</button>
+                        </div>
+                        <div class="danger-panel">
+                            الأعمدة المدعومة: <code>Document_ID</code>، <code>name</code>، <code>code</code>، <code>Product Code</code>، <code>productCode</code>، <code>price</code>. هذا الخيار خطر لأنه يمسح المنتجات غير الموجودة في الملف.
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="manual-entry-panel" aria-label="إضافة صنف جديد">
+                <strong><i class="ph ph-plus-circle"></i> إضافة صنف جديد</strong>
+                <div class="manual-form-grid">
+                    <div class="settings-field">
+                        <label for="newProductName">اسم الصنف</label>
+                        <input type="text" id="newProductName" class="table-input" placeholder="مثال: Product Name">
+                    </div>
+                    <div class="settings-field">
+                        <label for="newProductCode">كود الصنف</label>
+                        <input type="text" id="newProductCode" class="table-input" placeholder="مثال: P-001">
+                    </div>
+                    <div class="settings-field">
+                        <label for="newProductPrice">السعر</label>
+                        <input type="number" id="newProductPrice" class="table-input" min="0" step="0.01" value="0.00">
+                    </div>
+                    <div class="settings-form-actions">
+                        <button type="button" id="addProductBtn" class="btn-local btn-green"><i class="ph ph-plus"></i> إضافة الصنف</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="productsStatus" class="status-box"></div>
+            <div class="settings-table-toolbar" aria-label="أدوات جدول الأصناف">
+                <input type="search" id="productsSearchInput" class="settings-search" placeholder="بحث سريع بالاسم أو الكود أو Document_ID...">
+                <div class="pagination-bar">
+                    <button type="button" id="saveVisibleProductsBtn" class="btn-local btn-small btn-green"><i class="ph ph-floppy-disk"></i> حفظ الظاهر</button>
+                    <button type="button" id="prevProductsPageBtn" class="btn-local btn-small btn-muted"><i class="ph ph-caret-right"></i> السابق</button>
+                    <span id="productsPageInfo" class="pagination-info">-</span>
+                    <button type="button" id="nextProductsPageBtn" class="btn-local btn-small btn-muted">التالي <i class="ph ph-caret-left"></i></button>
+                </div>
+            </div>
+            <div class="table-wrap products-table-wrap">
+                <table class="settings-table compact-products">
+                    <thead>
+                        <tr>
+                            <th style="width: 18%;">Document_ID</th>
+                            <th style="width: 36%;">اسم المنتج</th>
+                            <th style="width: 22%;">كود المنتج</th>
+                            <th style="width: 10%;">السعر</th>
+                            <th style="width: 14%; text-align:center;">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTableBody">
+                        <tr><td colspan="5" style="text-align:center; color:#64748b;">جاري تحميل المنتجات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="pharmaciesPanel" class="settings-card">
+            <div class="card-heading">
+                <div>
+                    <h2><i class="ph ph-storefront"></i> إدارة وتحديث الصيدليات</h2>
+                    <p>تحديث شامل عبر Excel أو إضافة وتعديل وحذف مباشر مع ربط كل صيدلية بالمندوب المسؤول عنها.</p>
+                </div>
+                <button type="button" id="reloadPharmaciesBtn" class="btn-local btn-muted"><i class="ph ph-arrows-clockwise"></i> تحديث الجدول</button>
+            </div>
+
+            <div class="info-panel">
+                <strong>الأعمدة المطلوبة في السطر الأول عند الاستيراد:</strong><br>
+                <code>Name</code> <code>rep_id</code> <code>pharmacy_code</code> <code>Supervisor</code> <code>Area</code>
+            </div>
+            <div class="upload-panel" style="margin-top: 14px;">
+                <strong>تحديث شامل عبر ملف Excel</strong>
+                <div class="file-row">
+                    <input type="file" id="pharmaciesExcelFile" accept=".xlsx, .xls">
+                    <button type="button" id="pharmaciesImportBtn" class="btn-local btn-teal"><i class="ph ph-upload-simple"></i> بدء تحديث قاعدة البيانات</button>
+                </div>
+            </div>
+
+            <div class="manual-entry-panel" aria-label="إضافة صيدلية جديدة">
+                <strong><i class="ph ph-plus-circle"></i> إضافة صيدلية جديدة</strong>
+                <div class="manual-form-grid">
+                    <div class="settings-field">
+                        <label for="newPharmacyName">اسم الصيدلية</label>
+                        <input type="text" id="newPharmacyName" class="table-input" placeholder="اسم الصيدلية">
+                    </div>
+                    <div class="settings-field">
+                        <label for="newPharmacyCode">كود الصيدلية</label>
+                        <input type="text" id="newPharmacyCode" class="table-input" placeholder="اختياري">
+                    </div>
+                    <div class="settings-field">
+                        <label for="newPharmacyRep">المندوب</label>
+                        <select id="newPharmacyRep" class="settings-select">
+                            <option value="">جاري تحميل المناديب...</option>
+                        </select>
+                    </div>
+                    <div class="settings-field">
+                        <label for="newPharmacySupervisor">المشرف</label>
+                        <input type="text" id="newPharmacySupervisor" class="table-input" placeholder="اختياري">
+                    </div>
+                    <div class="settings-field">
+                        <label for="newPharmacyArea">المنطقة</label>
+                        <input type="text" id="newPharmacyArea" class="table-input" placeholder="اختياري">
+                    </div>
+                    <div class="settings-form-actions">
+                        <button type="button" id="addPharmacyBtn" class="btn-local btn-green"><i class="ph ph-plus"></i> إضافة الصيدلية</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pharmaciesStatus" class="status-box"></div>
+            <div class="table-wrap pharmacies-table-wrap">
+                <table class="settings-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 18%;">Document_ID</th>
+                            <th style="width: 22%;">اسم الصيدلية</th>
+                            <th style="width: 14%;">كود الصيدلية</th>
+                            <th style="width: 18%;">المندوب</th>
+                            <th style="width: 11%;">المشرف</th>
+                            <th style="width: 9%;">المنطقة</th>
+                            <th style="width: 8%; text-align:center;">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pharmaciesTableBody">
+                        <tr><td colspan="7" style="text-align:center; color:#64748b;">جاري تحميل الصيدليات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="exportPanel" class="settings-card">
+            <div class="card-heading">
+                <div>
+                    <h2><i class="ph ph-download-simple"></i> تصدير بيانات قاعدة البيانات</h2>
+                    <p>تحميل القوائم الأساسية من Firestore إلى ملفات Excel.</p>
+                </div>
+            </div>
+
+            <div class="utility-grid">
+                <button type="button" id="exportPharmaciesBtn" class="btn-local btn-green"><i class="ph ph-storefront"></i> تحميل الصيدليات</button>
+                <button type="button" id="exportRepsBtn" class="btn-local btn-blue"><i class="ph ph-user-list"></i> تحميل المناديب</button>
+                <button type="button" id="exportProductsBtn" class="btn-local btn-orange"><i class="ph ph-package"></i> تحميل المنتجات</button>
+                <a href="pharmacy-areas.html" class="btn-local btn-teal" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;"><i class="ph ph-map-pin"></i> تدقيق مناطق الصيدليات</a>
+            </div>
+            <div id="exportStatus" class="status-box"></div>
+        </section>
+
+        <section id="oldOrdersPanel" class="settings-card">
+            <div class="card-heading">
+                <div>
+                    <h2><i class="ph ph-archive-box"></i> رفع الطلبيات السابقة</h2>
+                    <p>إضافة الطلبيات القديمة إلى الأرشيف بدون حذف أي طلبية موجودة حاليًا.</p>
+                </div>
+            </div>
+
+            <div class="warning-panel"><strong><i class="ph ph-shield-check"></i> أمان البيانات:</strong> هذا الإجراء يضيف الطلبيات القديمة فقط، ولا يحذف أي طلبية حالية.</div>
+            <div class="info-panel" style="margin-top: 14px;">
+                <strong>الأعمدة المطلوبة في ملف الإكسل:</strong><br>
+                <span class="inline-code-list">التاريخ, المندوب, كود الصيدلية, الصيدلية, كود المنتج, الصنف, الكمية, البونص, السعر, المجموع الفرعي, ملاحظة الصنف, الاجمالي الكلي, ملاحظة الطلبية, الحالة</span>
+            </div>
+            <div class="upload-panel" style="margin-top: 14px;">
+                <div class="file-row">
+                    <input type="file" id="oldOrdersFile" accept=".xlsx, .xls">
+                    <button type="button" id="oldOrdersImportBtn" class="btn-local btn-green"><i class="ph ph-upload-simple"></i> بدء رفع الطلبيات</button>
+                </div>
+            </div>
+            <div id="oldOrdersStatus" class="status-box"></div>
+        </section>
+
+        <section id="oldReturnsPanel" class="settings-card">
+            <div class="card-heading">
+                <div>
+                    <h2><i class="ph ph-arrow-counter-clockwise"></i> رفع المرتجعات السابقة</h2>
+                    <p>إضافة المرتجعات القديمة كطلبيات بقيم سالبة وحالة returned.</p>
+                </div>
+            </div>
+
+            <div class="warning-panel"><strong>أمان البيانات:</strong> هذا الإجراء يضيف المرتجعات القديمة فقط، ولا يحذف أي طلبية حالية.</div>
+            <div class="danger-panel" style="margin-top: 14px;"><strong>تنبيه:</strong> أدخل الأرقام بالموجب في Excel، والنظام يحوّل الإجمالي والأصناف إلى السالب تلقائيًا.</div>
+            <div class="info-panel" style="margin-top: 14px;">
+                <strong>الأعمدة المطلوبة في ملف الإكسل:</strong><br>
+                <span class="inline-code-list">التاريخ, المندوب, كود الصيدلية, الصيدلية, كود المنتج, الصنف, الكمية, البونص, السعر, المجموع الفرعي, ملاحظة الصنف, الاجمالي الكلي, ملاحظة الطلبية, الحالة</span>
+            </div>
+            <div class="upload-panel" style="margin-top: 14px;">
+                <div class="file-row">
+                    <input type="file" id="oldReturnsFile" accept=".xlsx, .xls">
+                    <button type="button" id="oldReturnsImportBtn" class="btn-local btn-red"><i class="ph ph-upload-simple"></i> بدء رفع المرتجعات</button>
+                </div>
+            </div>
+            <div id="oldReturnsStatus" class="status-box"></div>
+        </section>
+    </div>
+
+    <script type="module">
+        import { db, collection, getDocs, deleteDoc, setDoc, doc, addDoc, updateDoc } from './js/firebase.js';
+
+        const repManagerMap = {
+            "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
+            "محمد الفاعوري": "عبدالله الناطور", "اجود التلهوني": "عبدالله الناطور", "يزيد الرقب": "محمد طوالبه",
+            "تامر عقل": "محمد طوالبه", "محمد ابو يامين": "عبدالله الناطور", "مراد الظاهر": "عبدالله الناطور"
+        };
+
+        let repsOptions = [];
+        let pharmaciesLoaded = false;
+        let productsRowsCache = [];
+        let productsCurrentPage = 1;
+        const PRODUCTS_PAGE_SIZE = 50;
+
+        const invalidateOperationalCaches = (scope = 'all') => {
+            const prefixes = ['dad_app_cache', 'dad_app_cache_time', 'dad_orders_', 'dad_products_'];
+            const removeMatching = (storage) => {
+                try {
+                    Object.keys(storage).forEach(key => {
+                        const shouldRemove = prefixes.some(prefix => key.startsWith(prefix));
+                        if (shouldRemove) storage.removeItem(key);
+                    });
+                    storage.setItem('dad_cache_invalidated_at', new Date().toISOString());
+                    storage.setItem('dad_cache_invalidated_scope', scope);
+                } catch (_) {}
+            };
+            removeMatching(localStorage);
+            removeMatching(sessionStorage);
+        };
+
+        const getRepNameById = (repId) => {
+            const match = repsOptions.find(rep => rep.id === repId);
+            return match ? match.name : '';
+        };
+
+        const getRepSelectOptionsHtml = (selectedValue = '') => {
+            const normalizedSelected = String(selectedValue || '').trim();
+            const baseOptions = ['<option value="">-- اختر المندوب --</option>'];
+            let hasSelected = !normalizedSelected;
+
+            repsOptions.forEach(rep => {
+                const selected = rep.id === normalizedSelected ? ' selected' : '';
+                if (selected) hasSelected = true;
+                baseOptions.push(`<option value="${escapeHtml(rep.id)}"${selected}>${escapeHtml(rep.name || rep.id)}</option>`);
+            });
+
+            if (!hasSelected && normalizedSelected) {
+                baseOptions.push(`<option value="${escapeHtml(normalizedSelected)}" selected>مندوب غير موجود: ${escapeHtml(normalizedSelected)}</option>`);
+            }
+
+            return baseOptions.join('');
+        };
+
+        const renderNewPharmacyRepSelect = () => {
+            const select = document.getElementById('newPharmacyRep');
+            if (!select) return;
+            select.innerHTML = getRepSelectOptionsHtml('');
+            select.disabled = repsOptions.length === 0;
+            if (repsOptions.length === 0) {
+                select.innerHTML = '<option value="">لا توجد مناديب في قاعدة البيانات</option>';
+            }
+        };
+
+        const setStatus = (id, message, color = '#64748b', asHtml = false) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (asHtml) el.innerHTML = message;
+            else el.innerText = message;
+            el.style.color = color;
+        };
+
+        const escapeHtml = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+
+        const parseExcelDate = (dateStr) => {
+            if (!dateStr) return new Date();
+            const dStr = String(dateStr).trim();
+            if (dStr.includes('/')) {
+                const parts = dStr.split('/');
+                if (parts.length === 3) {
+                    const day = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1;
+                    const year = parseInt(parts[2].length === 2 ? `20${parts[2]}` : parts[2], 10);
+                    return new Date(year, month, day, 12, 0, 0);
+                }
+            }
+            return new Date(dateStr);
+        };
+
+
+        const parseSafeNumber = (value) => {
+            if (value === null || value === undefined || value === '') return 0;
+            if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+            const normalized = String(value)
+                .replace(/,/g, '')
+                .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+                .replace(/[^0-9.\-]/g, '')
+                .trim();
+            const parsed = Number(normalized);
+            return Number.isFinite(parsed) ? parsed : 0;
+        };
+
+
+        function renderMiniTable(headers = [], rows = [], maxRows = 12) {
+            if (!rows.length) return '<div class="info-panel">لا توجد تفاصيل إضافية.</div>';
+            const visibleRows = rows.slice(0, maxRows);
+            return `<div class="table-responsive validation-preview-table"><table class="order-table"><thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${visibleRows.map(row => `<tr>${headers.map(h => `<td data-label="${escapeHtml(h)}">${escapeHtml(row[h] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table>${rows.length > maxRows ? `<div class="info-panel" style="margin-top:8px;">تم عرض أول ${maxRows} صف من أصل ${rows.length}.</div>` : ''}</div>`;
+        }
+
+        function confirmImportWizard({ title, summary = [], warnings = [], errors = [], previewHeaders = [], previewRows = [], confirmText = 'متابعة التنفيذ' }) {
+            return new Promise(resolve => {
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay import-wizard-overlay';
+                overlay.innerHTML = `
+                    <div class="modal-content import-wizard-modal glass-panel">
+                        <div class="workflow-modal-header">
+                            <div><h2><i class="ph ph-clipboard-text"></i> ${escapeHtml(title)}</h2><p>مراجعة آمنة قبل الكتابة على Firebase</p></div>
+                            <button type="button" class="close-modal wizard-cancel"><i class="ph ph-x-circle"></i></button>
+                        </div>
+                        <div class="import-wizard-grid">
+                            <div class="info-panel"><strong>ملخص العملية</strong><ul>${summary.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>
+                            ${warnings.length ? `<div class="warning-panel"><strong>تنبيهات</strong><ul>${warnings.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+                            ${errors.length ? `<div class="danger-panel"><strong>أخطاء تمنع التنفيذ</strong><ul>${errors.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+                        </div>
+                        ${previewHeaders.length ? renderMiniTable(previewHeaders, previewRows, 10) : ''}
+                        <div class="workflow-modal-footer">
+                            <strong>${errors.length ? 'لا يمكن التنفيذ قبل تصحيح الأخطاء.' : 'لا يتم تنفيذ أي تغيير قبل الضغط على المتابعة.'}</strong>
+                            <div>
+                                <button type="button" class="btn-local btn-gray wizard-cancel">إلغاء</button>
+                                <button type="button" class="btn-local btn-green wizard-confirm" ${errors.length ? 'disabled' : ''}>${escapeHtml(confirmText)}</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+                overlay.querySelectorAll('.wizard-cancel').forEach(btn => btn.addEventListener('click', () => { overlay.remove(); resolve(false); }));
+                overlay.querySelector('.wizard-confirm')?.addEventListener('click', () => { overlay.remove(); resolve(true); });
+            });
+        }
+
+        function duplicateValues(values = []) {
+            const seen = new Set();
+            const dupes = new Set();
+            values.filter(Boolean).forEach(value => {
+                const key = String(value).trim();
+                if (seen.has(key)) dupes.add(key);
+                seen.add(key);
+            });
+            return Array.from(dupes);
+        }
+
+        function downloadRowsAsExcel(rows = [], fileName = 'Report.xlsx', sheetName = 'Report') {
+            if (!rows.length || typeof XLSX === 'undefined') return;
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            XLSX.writeFile(wb, fileName);
+        }
+
+        let lastProductCodeSyncRows = [];
+        window.downloadProductCodeSyncReport = function() {
+            downloadRowsAsExcel(lastProductCodeSyncRows, `Product_Code_Sync_Report_${new Date().toISOString().slice(0,10)}.xlsx`, 'Code Sync');
+        };
+
+        const rowValue = (row, aliases, fallback = '') => {
+            for (const alias of aliases) {
+                if (row[alias] !== undefined && row[alias] !== null && String(row[alias]).trim() !== '') return row[alias];
+            }
+            const entries = Object.entries(row);
+            const lowerAliases = aliases.map(a => String(a).trim().toLowerCase());
+            for (const [key, value] of entries) {
+                if (lowerAliases.includes(String(key).trim().toLowerCase()) && value !== undefined && value !== null && String(value).trim() !== '') return value;
+            }
+            return fallback;
+        };
+
+        const serializeForExcel = (value) => {
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') return value;
+            if (value instanceof Date) return value.toISOString();
+            if (typeof value === 'object' && typeof value.toDate === 'function') return value.toDate().toISOString();
+            try { return JSON.stringify(value); } catch (_) { return String(value); }
+        };
+
+        const productCodeFromData = (data = {}) => String(data.productCode || data.product_code || data.code || '').trim();
+
+        const normalizedProductFromDoc = (item) => {
+            const data = item.data ? item.data() : item;
+            const productCode = productCodeFromData(data);
+            return {
+                id: item.id,
+                raw: { ...data },
+                name: String(data.name || '').trim(),
+                productCode,
+                price: parseSafeNumber(data.price)
+            };
+        };
+
+        const buildProductPayload = ({ name, productCode, price }) => ({
+            name: String(name || '').trim(),
+            code: String(productCode || '').trim(),
+            productCode: String(productCode || '').trim(),
+            product_code: String(productCode || '').trim(),
+            price: Number(parseSafeNumber(price).toFixed(2))
+        });
+
+        const normalizeProductCode = (value) => String(value || '').trim();
+
+        const mergeCodeChange = (map, oldCode, newCode) => {
+            const previousCode = normalizeProductCode(oldCode);
+            const nextCode = normalizeProductCode(newCode);
+            if (!previousCode || !nextCode || previousCode === nextCode) return;
+            map.set(previousCode, nextCode);
+        };
+
+        async function syncProductCodeChangesWithOrders(codeChanges, statusId = 'productsStatus') {
+            const entries = Array.from(codeChanges.entries()).filter(([oldCode, newCode]) => oldCode && newCode && oldCode !== newCode);
+            if (entries.length === 0) return { changedOrders: 0, changedItems: 0, reportRows: [] };
+
+            setStatus(statusId, `جاري تحديث كودات الأصناف داخل الطلبيات الحالية...`, '#f59e0b');
+
+            const changesMap = new Map(entries);
+            const ordersSnap = await getDocs(collection(db, 'orders'));
+            const operations = [];
+            const reportRows = [];
+            let changedItems = 0;
+
+            ordersSnap.docs.forEach(orderDoc => {
+                const order = orderDoc.data() || {};
+                const items = Array.isArray(order.items) ? order.items : [];
+                if (items.length === 0) return;
+
+                let orderChanged = false;
+                const updatedItems = items.map((item, itemIndex) => {
+                    if (!item || typeof item !== 'object') return item;
+                    const currentCode = normalizeProductCode(item.productCode || item.product_code || item.code);
+                    const nextCode = changesMap.get(currentCode);
+                    if (!nextCode) return item;
+
+                    orderChanged = true;
+                    changedItems += 1;
+                    reportRows.push({
+                        'Order ID': orderDoc.id,
+                        'Order Date': serializeForExcel(order.createdAt || order.updatedAt),
+                        'Representative': order.repName || order.representativeName || '',
+                        'Pharmacy': order.pharmacyName || '',
+                        'Product Name': item.name || '',
+                        'Item Index': itemIndex + 1,
+                        'Old Code': currentCode,
+                        'New Code': nextCode,
+                        'Price Preserved': item.price ?? '',
+                        'Qty Preserved': item.qty ?? item.quantity ?? '',
+                        'Subtotal Preserved': item.total ?? item.subtotal ?? ''
+                    });
+                    return {
+                        ...item,
+                        productCode: nextCode,
+                        product_code: nextCode,
+                        code: nextCode
+                    };
+                });
+
+                if (!orderChanged) return;
+
+                const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+                operations.push({
+                    id: orderDoc.id,
+                    payload: {
+                        items: updatedItems,
+                        productCodeSyncAt: new Date(),
+                        productCodeSyncCount: reportRows.length,
+                        auditTrail: [
+                            ...trail,
+                            {
+                                action: 'product_code_sync',
+                                user: 'Settings Page',
+                                role: 'settings_admin',
+                                timestamp: new Date().toISOString(),
+                                syncCount: entries.length,
+                                notes: 'تم تحديث كودات الأصناف داخل الطلبية حسب ملف الأصناف في الإعدادات بدون تعديل الأسعار أو الكميات أو الإجماليات.'
+                            }
+                        ],
+                        updatedAt: new Date()
+                    }
+                });
+            });
+
+            lastProductCodeSyncRows = reportRows;
+
+            if (operations.length === 0) {
+                setStatus(statusId, `تم تحديث الأصناف. لا توجد طلبيات تحتوي الكودات القديمة.`, '#10b981');
+                return { changedOrders: 0, changedItems: 0, reportRows: [] };
+            }
+
+            await runInChunks(operations, operation => updateDoc(doc(db, 'orders', operation.id), operation.payload), 100, statusId, 'تم تحديث كودات الطلبيات');
+            const reportHtml = `<div class="success-panel"><strong>تقرير مزامنة الأكواد:</strong> تم تحديث ${changedItems} صنف داخل ${operations.length} طلبية مع الحفاظ على السعر والكمية والمجموع. <button type="button" class="btn-local btn-small btn-blue" onclick="downloadProductCodeSyncReport()">تحميل تقرير المزامنة</button></div>`;
+            setStatus(statusId, reportHtml, '#10b981', true);
+            return { changedOrders: operations.length, changedItems, reportRows };
+        }
+
+
+        const getFilteredProducts = () => {
+            const queryValue = String(document.getElementById('productsSearchInput')?.value || '').trim().toLowerCase();
+            if (!queryValue) return productsRowsCache;
+            return productsRowsCache.filter(product => {
+                const haystack = `${product.id} ${product.name} ${product.productCode} ${product.price}`.toLowerCase();
+                return haystack.includes(queryValue);
+            });
+        };
+
+        const runInChunks = async (items, handler, chunkSize = 250, statusId = '', statusPrefix = '') => {
+            let completed = 0;
+            for (let index = 0; index < items.length; index += chunkSize) {
+                const chunk = items.slice(index, index + chunkSize);
+                await Promise.all(chunk.map(handler));
+                completed += chunk.length;
+                if (statusId && statusPrefix) setStatus(statusId, `${statusPrefix} ${completed} / ${items.length}`, '#f59e0b');
+            }
+        };
+
+        const readExcelFile = (file, options = {}) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    resolve(XLSX.utils.sheet_to_json(firstSheet, options));
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.querySelectorAll('.tab-button').forEach((button) => {
+            button.addEventListener('click', async () => {
+                document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.settings-card').forEach(panel => panel.classList.remove('active'));
+                button.classList.add('active');
+                document.getElementById(button.dataset.target)?.classList.add('active');
+                if (button.dataset.target === 'pharmaciesPanel' && !pharmaciesLoaded) await loadPharmacies();
+            });
+        });
+
+        function renderProductsTable() {
+            const tableBody = document.getElementById('productsTableBody');
+            const pageInfo = document.getElementById('productsPageInfo');
+            const prevBtn = document.getElementById('prevProductsPageBtn');
+            const nextBtn = document.getElementById('nextProductsPageBtn');
+            const filtered = getFilteredProducts();
+            const totalPages = Math.max(1, Math.ceil(filtered.length / PRODUCTS_PAGE_SIZE));
+            productsCurrentPage = Math.min(Math.max(1, productsCurrentPage), totalPages);
+            const startIndex = (productsCurrentPage - 1) * PRODUCTS_PAGE_SIZE;
+            const visibleRows = filtered.slice(startIndex, startIndex + PRODUCTS_PAGE_SIZE);
+
+            tableBody.innerHTML = '';
+
+            if (visibleRows.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">لا توجد نتائج مطابقة للبحث الحالي.</td></tr>`;
+            } else {
+                visibleRows.forEach((product) => {
+                    const formattedPrice = Number(parseSafeNumber(product.price).toFixed(2));
+                    const tr = document.createElement('tr');
+                    tr.dataset.id = product.id;
+                    tr.innerHTML = `
+                        <td class="doc-id-text" title="${escapeHtml(product.id)}">${escapeHtml(product.id)}</td>
+                        <td><input type="text" class="table-input product-name" value="${escapeHtml(product.name || '')}"></td>
+                        <td><input type="text" class="table-input product-code" value="${escapeHtml(product.productCode || '')}"></td>
+                        <td><input type="number" class="table-input product-price" value="${escapeHtml(formattedPrice.toFixed(2))}" step="0.01"></td>
+                        <td style="text-align:center; white-space:nowrap;">
+                            <span class="table-actions-cell">
+                                <button type="button" class="btn-local btn-small btn-green save-product-btn" data-id="${escapeHtml(product.id)}">حفظ</button>
+                                <button type="button" class="btn-local btn-small btn-red delete-product-btn" data-id="${escapeHtml(product.id)}">حذف</button>
+                            </span>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            }
+
+            tableBody.querySelectorAll('.save-product-btn').forEach(button => {
+                button.addEventListener('click', () => updateSingleProduct(button));
+            });
+
+            tableBody.querySelectorAll('.delete-product-btn').forEach(button => {
+                button.addEventListener('click', () => deleteSingleProduct(button));
+            });
+
+            tableBody.querySelectorAll('.product-name, .product-code, .product-price').forEach(input => {
+                input.addEventListener('input', () => input.closest('tr')?.classList.add('row-edited'));
+            });
+
+            if (pageInfo) {
+                const from = filtered.length === 0 ? 0 : startIndex + 1;
+                const to = Math.min(startIndex + visibleRows.length, filtered.length);
+                pageInfo.textContent = `${from}-${to} من ${filtered.length}`;
+            }
+            if (prevBtn) prevBtn.disabled = productsCurrentPage <= 1;
+            if (nextBtn) nextBtn.disabled = productsCurrentPage >= totalPages;
+        }
+
+        async function loadProducts() {
+            const tableBody = document.getElementById('productsTableBody');
+            setStatus('productsStatus', 'جاري تحميل المنتجات...', '#f59e0b');
+
+            try {
+                const snap = await getDocs(collection(db, 'products'));
+                productsRowsCache = snap.docs.map(normalizedProductFromDoc).sort((a, b) => a.name.localeCompare(b.name));
+                productsCurrentPage = 1;
+
+                if (snap.empty) {
+                    tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">لا توجد منتجات حالياً في قاعدة البيانات.</td></tr>`;
+                    setStatus('productsStatus', 'لا توجد منتجات حالياً.', '#64748b');
+                    renderProductsTable();
+                    return;
+                }
+
+                renderProductsTable();
+                setStatus('productsStatus', `تم تحميل ${snap.size} منتج. يتم عرض ${PRODUCTS_PAGE_SIZE} صنف في الصفحة لتسريع التعامل.`, '#10b981');
+            } catch (error) {
+                console.error('Error loading products:', error);
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#dc2626;">حدث خطأ أثناء تحميل البيانات.</td></tr>`;
+                setStatus('productsStatus', 'حدث خطأ أثناء تحميل المنتجات.', '#dc2626');
+            }
+        }
+
+        async function addNewProduct() {
+            const nameInput = document.getElementById('newProductName');
+            const codeInput = document.getElementById('newProductCode');
+            const priceInput = document.getElementById('newProductPrice');
+            const button = document.getElementById('addProductBtn');
+
+            const nameVal = nameInput.value.trim();
+            const codeVal = codeInput.value.trim();
+            let priceVal = Number(priceInput.value) || 0;
+            priceVal = Number(priceVal.toFixed(2));
+
+            if (!nameVal || !codeVal) {
+                alert('اسم الصنف وكود الصنف حقول إجبارية.');
+                return;
+            }
+
+            const originalText = button.innerText;
+            button.innerText = 'جاري الإضافة...';
+            button.disabled = true;
+
+            try {
+                const snap = await getDocs(collection(db, 'products'));
+                const duplicate = snap.docs.some(item => {
+                    const data = item.data();
+                    const existingCode = String(data.productCode || data.product_code || data.code || '').trim();
+                    const existingName = String(data.name || '').trim();
+                    return existingCode === codeVal || existingName === nameVal;
+                });
+
+                if (duplicate && !confirm('يوجد صنف بنفس الاسم أو الكود. هل تريد الإضافة رغم ذلك؟')) return;
+
+                await addDoc(collection(db, 'products'), {
+                    name: nameVal,
+                    code: codeVal,
+                    productCode: codeVal,
+                    product_code: codeVal,
+                    price: priceVal
+                });
+
+                nameInput.value = '';
+                codeInput.value = '';
+                priceInput.value = '0.00';
+                invalidateOperationalCaches('products');
+                setStatus('productsStatus', 'تمت إضافة الصنف ومزامنته مع Firebase بنجاح.', '#10b981');
+                await loadProducts();
+            } catch (error) {
+                console.error('Error adding product:', error);
+                alert('حدث خطأ أثناء إضافة الصنف.');
+            } finally {
+                button.innerText = originalText;
+                button.disabled = false;
+            }
+        }
+
+        async function updateSingleProduct(button) {
+            const row = button.closest('tr');
+            const id = button.dataset.id;
+            const nameVal = row.querySelector('.product-name').value.trim();
+            const codeVal = row.querySelector('.product-code').value.trim();
+            let priceVal = Number(row.querySelector('.product-price').value) || 0;
+            priceVal = Number(priceVal.toFixed(2));
+
+            if (!nameVal || !codeVal) {
+                alert('لا يمكن ترك الاسم أو الكود فارغاً.');
+                return;
+            }
+
+            const originalText = button.innerText;
+            button.innerText = 'جاري...';
+            button.disabled = true;
+
+            try {
+                const productData = buildProductPayload({ name: nameVal, productCode: codeVal, price: priceVal });
+                const cached = productsRowsCache.find(product => product.id === id);
+                const oldCode = cached?.productCode || cached?.raw?.productCode || cached?.raw?.product_code || cached?.raw?.code || '';
+                const codeChanges = new Map();
+                mergeCodeChange(codeChanges, oldCode, productData.productCode);
+
+                await updateDoc(doc(db, 'products', id), productData);
+                let syncResult = { changedOrders: 0, changedItems: 0 };
+                if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+
+                if (cached) Object.assign(cached, { name: productData.name, productCode: productData.productCode, price: productData.price, raw: { ...cached.raw, ...productData } });
+                invalidateOperationalCaches('products');
+                row.querySelector('.product-price').value = priceVal.toFixed(2);
+                row.classList.remove('row-edited');
+                button.innerText = 'تم';
+                const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية.` : '';
+                const reportButton = syncResult.reportRows?.length ? ` <button type="button" class="btn-local btn-small btn-blue" onclick="downloadProductCodeSyncReport()">تحميل تقرير المزامنة</button>` : '';
+                setStatus('productsStatus', `تم حفظ تعديل المنتج بنجاح.${syncMessage}${reportButton}`, '#10b981', true);
+            } catch (error) {
+                console.error('Error updating product:', error);
+                alert('حدث خطأ أثناء حفظ التعديل.');
+            } finally {
+                setTimeout(() => {
+                    button.innerText = originalText;
+                    button.disabled = false;
+                }, 1200);
+            }
+        }
+
+        async function deleteSingleProduct(button) {
+            const id = button.dataset.id;
+            if (!confirm('هل أنت متأكد من حذف هذا الصنف نهائياً من قاعدة البيانات؟')) return;
+
+            try {
+                await deleteDoc(doc(db, 'products', id));
+                productsRowsCache = productsRowsCache.filter(product => product.id !== id);
+                invalidateOperationalCaches('products');
+                renderProductsTable();
+                setStatus('productsStatus', 'تم حذف الصنف بنجاح.', '#10b981');
+            } catch (error) {
+                console.error('Error deleting product:', error);
+                alert('حدث خطأ أثناء محاولة الحذف.');
+            }
+        }
+
+        async function importProducts() {
+            const fileInput = document.getElementById('productsExcelFile');
+            const file = fileInput.files[0];
+            if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
+
+            const confirmed = confirm('تحذير مهم: هذا الخيار سيحذف كل الأصناف الحالية من Firebase ثم يرفع الأصناف الموجودة في الملف فقط. استخدم رفع نفس الملف بعد التعديل إذا كنت تريد تعديل أسعار أو أكواد فقط. هل تريد الاستمرار بالاستبدال الكامل؟');
+            if (!confirmed) return;
+
+            setStatus('productsStatus', 'جاري قراءة ملف المنتجات...', '#f59e0b');
+
+            try {
+                const excelData = await readExcelFile(file, { defval: '' });
+                if (excelData.length === 0) {
+                    setStatus('productsStatus', 'الملف فارغ أو الترويسة غير صحيحة.', '#dc2626');
+                    return;
+                }
+
+                const validRows = excelData.map(row => ({
+                    raw: row,
+                    documentId: String(rowValue(row, ['Document_ID', 'document_id', 'ID', 'id'])).trim(),
+                    name: String(rowValue(row, ['name', 'Name', 'اسم المنتج', 'الصنف', 'Product Name'])).trim(),
+                    productCode: String(rowValue(row, ['Product Code', 'productCode', 'product_code', 'code', 'Code', 'كود المنتج', 'كود الصنف'])).trim(),
+                    price: parseSafeNumber(rowValue(row, ['price', 'Price', 'السعر']))
+                })).filter(row => row.name && row.productCode);
+
+                if (validRows.length === 0) {
+                    setStatus('productsStatus', 'لم يتم العثور على منتجات صالحة. يجب وجود اسم المنتج وكود المنتج.', '#dc2626');
+                    return;
+                }
+
+                const duplicateCodes = duplicateValues(validRows.map(row => row.productCode));
+                const duplicateNames = duplicateValues(validRows.map(row => row.name));
+                const wizardOk = await confirmImportWizard({
+                    title: 'معاينة استبدال المنتجات الكامل',
+                    summary: [`عدد الصفوف المقروءة: ${excelData.length}`, `عدد المنتجات الصالحة: ${validRows.length}`, 'هذا الخيار يستبدل قائمة المنتجات الحالية بالكامل بعد المعاينة.'],
+                    warnings: ['سيتم حذف المنتجات غير الموجودة في الملف من master data فقط؛ الطلبيات القديمة لن تتغير أسعارها أو كمياتها.', ...duplicateCodes.slice(0, 5).map(code => `كود مكرر داخل الملف: ${code}`), ...duplicateNames.slice(0, 5).map(name => `اسم مكرر داخل الملف: ${name}`)],
+                    previewHeaders: ['name', 'productCode', 'price', 'documentId'],
+                    previewRows: validRows,
+                    confirmText: 'تأكيد الاستبدال الكامل'
+                });
+                if (!wizardOk) return;
+
+                setStatus('productsStatus', 'جاري قراءة الأصناف الحالية قبل الاستبدال...', '#f59e0b');
+                const snap = await getDocs(collection(db, 'products'));
+                const existingById = new Map();
+                snap.docs.forEach(item => existingById.set(item.id, item.data()));
+                const codeChanges = new Map();
+                validRows.forEach(row => {
+                    if (!row.documentId || !existingById.has(row.documentId)) return;
+                    mergeCodeChange(codeChanges, productCodeFromData(existingById.get(row.documentId)), row.productCode);
+                });
+
+                setStatus('productsStatus', 'جاري حذف المنتجات القديمة...', '#f59e0b');
+                await runInChunks(snap.docs, item => deleteDoc(doc(db, 'products', item.id)), 250, 'productsStatus', 'تم حذف');
+
+                setStatus('productsStatus', `جاري إضافة ${validRows.length} منتج جديد...`, '#f59e0b');
+                await runInChunks(validRows, row => {
+                    const productData = buildProductPayload(row);
+                    if (row.documentId) return setDoc(doc(db, 'products', row.documentId), productData);
+                    return addDoc(collection(db, 'products'), productData);
+                }, 250, 'productsStatus', 'تم رفع');
+
+                let syncResult = { changedOrders: 0, changedItems: 0 };
+                if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+
+                invalidateOperationalCaches('products');
+                fileInput.value = '';
+                const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية موجودة بالكود الجديد فقط.` : '';
+                const reportButton = syncResult.reportRows?.length ? ` <button type="button" class="btn-local btn-small btn-blue" onclick="downloadProductCodeSyncReport()">تحميل تقرير المزامنة</button>` : '';
+                setStatus('productsStatus', `تم الاستبدال الكامل بنجاح. تمت إضافة ${validRows.length} منتج.${syncMessage}${reportButton}`, '#10b981', true);
+                await loadProducts();
+            } catch (error) {
+                console.error('Error during products import:', error);
+                setStatus('productsStatus', 'حدث خطأ أثناء تحديث المنتجات.', '#dc2626');
+            }
+        }
+
+        async function exportProductsEditable(statusId = 'productsStatus') {
+            setStatus(statusId, 'جاري تجهيز ملف الأصناف من Firebase...', '#f59e0b');
+
+            try {
+                const snap = await getDocs(collection(db, 'products'));
+                const rows = snap.docs.map(item => {
+                    const data = item.data();
+                    const productCode = productCodeFromData(data);
+                    const orderedRow = {
+                        Document_ID: item.id,
+                        name: String(data.name || '').trim(),
+                        code: productCode,
+                        productCode,
+                        product_code: productCode,
+                        price: Number(parseSafeNumber(data.price).toFixed(2))
+                    };
+
+                    Object.entries(data).forEach(([key, value]) => {
+                        if (['name', 'code', 'productCode', 'product_code', 'price'].includes(key)) return;
+                        orderedRow[key] = serializeForExcel(value);
+                    });
+
+                    return orderedRow;
+                }).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+                if (rows.length === 0) {
+                    setStatus(statusId, 'لا توجد أصناف حالياً للتنزيل.', '#dc2626');
+                    return;
+                }
+
+                const worksheet = XLSX.utils.json_to_sheet(rows);
+                worksheet['!freeze'] = { xSplit: 0, ySplit: 1 };
+                worksheet['!cols'] = [
+                    { wch: 28 },
+                    { wch: 42 },
+                    { wch: 24 },
+                    { wch: 24 },
+                    { wch: 24 },
+                    { wch: 12 }
+                ];
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Products Editable');
+                const today = new Date().toISOString().slice(0, 10);
+                XLSX.writeFile(workbook, `products_editable_${today}.xlsx`);
+                setStatus(statusId, `تم تنزيل ${rows.length} صنف. عدّل الملف ثم ارفعه من زر رفع نفس الملف بعد التعديل.`, '#10b981');
+            } catch (error) {
+                console.error('Error during editable product export:', error);
+                setStatus(statusId, 'حدث خطأ أثناء تنزيل ملف الأصناف.', '#dc2626');
+            }
+        }
+
+        async function importProductsPatch() {
+            const fileInput = document.getElementById('productsPatchFile');
+            const file = fileInput.files[0];
+            if (!file) return alert('الرجاء اختيار ملف الأصناف المعدل أولاً.');
+
+            setStatus('productsStatus', 'جاري قراءة ملف الأصناف المعدل...', '#f59e0b');
+
+            try {
+                const excelData = await readExcelFile(file, { defval: '' });
+                if (excelData.length === 0) {
+                    setStatus('productsStatus', 'الملف فارغ أو لا يحتوي بيانات قابلة للقراءة.', '#dc2626');
+                    return;
+                }
+
+                const rows = excelData.map((row, index) => ({
+                    rowNumber: index + 2,
+                    documentId: String(rowValue(row, ['Document_ID', 'document_id', 'ID', 'id'])).trim(),
+                    name: String(rowValue(row, ['name', 'Name', 'اسم المنتج', 'الصنف', 'Product Name'])).trim(),
+                    productCode: String(rowValue(row, ['Product Code', 'productCode', 'product_code', 'code', 'Code', 'كود المنتج', 'كود الصنف'])).trim(),
+                    price: parseSafeNumber(rowValue(row, ['price', 'Price', 'السعر']))
+                })).filter(row => row.name && row.productCode);
+
+                if (rows.length === 0) {
+                    setStatus('productsStatus', 'لم يتم العثور على صفوف صالحة. يجب وجود name و productCode أو code.', '#dc2626');
+                    return;
+                }
+
+                const duplicateIds = rows
+                    .map(row => row.documentId)
+                    .filter(Boolean)
+                    .filter((id, index, arr) => arr.indexOf(id) !== index);
+                const duplicateCodes = rows
+                    .map(row => row.productCode)
+                    .filter(Boolean)
+                    .filter((code, index, arr) => arr.indexOf(code) !== index);
+
+                if (duplicateIds.length > 0) {
+                    setStatus('productsStatus', `تم إيقاف الرفع: يوجد Document_ID مكرر داخل الملف: ${[...new Set(duplicateIds)].slice(0, 5).join(', ')}`, '#dc2626');
+                    return;
+                }
+
+                if (duplicateCodes.length > 0 && !confirm(`يوجد كود منتج مكرر داخل الملف. أول الأكواد المكررة: ${[...new Set(duplicateCodes)].slice(0, 5).join(', ')}. هل تريد الاستمرار؟`)) return;
+
+                const currentSnap = await getDocs(collection(db, 'products'));
+                const existingIds = new Set(currentSnap.docs.map(item => item.id));
+                const existingById = new Map();
+                const codeToId = new Map();
+                currentSnap.docs.forEach(item => {
+                    const data = item.data();
+                    existingById.set(item.id, data);
+                    const code = productCodeFromData(data);
+                    if (code && !codeToId.has(code)) codeToId.set(code, item.id);
+                });
+
+                let updates = 0;
+                let creates = 0;
+                const codeChanges = new Map();
+                const operations = rows.map(row => {
+                    const payload = buildProductPayload(row);
+                    const targetId = row.documentId || codeToId.get(row.productCode) || '';
+                    if (targetId && existingIds.has(targetId)) {
+                        updates += 1;
+                        mergeCodeChange(codeChanges, productCodeFromData(existingById.get(targetId)), payload.productCode);
+                        return { type: 'update', id: targetId, payload };
+                    }
+                    if (targetId && row.documentId) {
+                        creates += 1;
+                        return { type: 'createWithId', id: targetId, payload };
+                    }
+                    creates += 1;
+                    return { type: 'create', payload };
+                });
+
+                const confirmed = await confirmImportWizard({
+                    title: 'معاينة تحديث المنتجات من الملف',
+                    summary: [`سيتم تحديث ${updates} صنف.`, `سيتم إضافة ${creates} صنف جديد عند الحاجة.`, 'لن يتم حذف أي صنف غير موجود في الملف.', codeChanges.size > 0 ? `سيتم تحديث ${codeChanges.size} تغيير كود داخل الطلبيات بدون تعديل الأسعار أو الكميات أو الإجماليات.` : 'لا توجد تغييرات أكواد تحتاج مزامنة.'],
+                    warnings: duplicateCodes.length > 0 ? duplicateCodes.slice(0, 8).map(code => `كود مكرر داخل الملف: ${code}`) : [],
+                    previewHeaders: ['documentId', 'name', 'productCode', 'price'],
+                    previewRows: rows,
+                    confirmText: 'تنفيذ تحديث المنتجات'
+                });
+                if (!confirmed) return;
+
+                await runInChunks(operations, operation => {
+                    if (operation.type === 'create') return addDoc(collection(db, 'products'), operation.payload);
+                    return setDoc(doc(db, 'products', operation.id), operation.payload, { merge: true });
+                }, 250, 'productsStatus', 'تمت معالجة');
+
+                let syncResult = { changedOrders: 0, changedItems: 0 };
+                if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+
+                invalidateOperationalCaches('products');
+                fileInput.value = '';
+                const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية موجودة بالكود الجديد فقط.` : '';
+                const reportButton = syncResult.reportRows?.length ? ` <button type="button" class="btn-local btn-small btn-blue" onclick="downloadProductCodeSyncReport()">تحميل تقرير المزامنة</button>` : '';
+                setStatus('productsStatus', `تم تحديث الأصناف بنجاح. تحديث: ${updates}، إضافة: ${creates}.${syncMessage}${reportButton}`, '#10b981', true);
+                await loadProducts();
+            } catch (error) {
+                console.error('Error during products patch import:', error);
+                setStatus('productsStatus', 'حدث خطأ أثناء رفع ملف الأصناف المعدل.', '#dc2626');
+            }
+        }
+
+        async function saveVisibleProducts() {
+            const rows = Array.from(document.querySelectorAll('#productsTableBody tr[data-id]'));
+            if (rows.length === 0) return alert('لا توجد أصناف ظاهرة للحفظ.');
+            const editedRows = rows.filter(row => row.classList.contains('row-edited'));
+            const targetRows = editedRows.length > 0 ? editedRows : rows;
+            const confirmed = confirm(`سيتم حفظ ${targetRows.length} صف من الجدول الظاهر. هل تريد المتابعة؟`);
+            if (!confirmed) return;
+
+            try {
+                const codeChanges = new Map();
+                await runInChunks(targetRows, async row => {
+                    const id = row.dataset.id;
+                    const productData = buildProductPayload({
+                        name: row.querySelector('.product-name')?.value,
+                        productCode: row.querySelector('.product-code')?.value,
+                        price: row.querySelector('.product-price')?.value
+                    });
+
+                    if (!productData.name || !productData.productCode) throw new Error(`صف ناقص البيانات: ${id}`);
+                    const cached = productsRowsCache.find(product => product.id === id);
+                    mergeCodeChange(codeChanges, cached?.productCode || cached?.raw?.productCode || cached?.raw?.product_code || cached?.raw?.code || '', productData.productCode);
+
+                    await updateDoc(doc(db, 'products', id), productData);
+                    if (cached) Object.assign(cached, { name: productData.name, productCode: productData.productCode, price: productData.price, raw: { ...cached.raw, ...productData } });
+                    row.classList.remove('row-edited');
+                }, 100, 'productsStatus', 'تم حفظ');
+
+                let syncResult = { changedOrders: 0, changedItems: 0 };
+                if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+
+                invalidateOperationalCaches('products');
+                const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية موجودة بالكود الجديد فقط.` : '';
+                const reportButton = syncResult.reportRows?.length ? ` <button type="button" class="btn-local btn-small btn-blue" onclick="downloadProductCodeSyncReport()">تحميل تقرير المزامنة</button>` : '';
+                setStatus('productsStatus', `تم حفظ ${targetRows.length} صنف من الجدول الظاهر.${syncMessage}${reportButton}`, '#10b981', true);
+            } catch (error) {
+                console.error('Error while saving visible products:', error);
+                setStatus('productsStatus', 'حدث خطأ أثناء حفظ الأصناف الظاهرة. تأكد من عدم وجود اسم أو كود فارغ.', '#dc2626');
+            }
+        }
+
+        async function loadRepsForSettings() {
+            try {
+                const snap = await getDocs(collection(db, 'reps'));
+                repsOptions = snap.docs.map(item => ({
+                    id: item.id,
+                    name: String(item.data().name || item.id).trim()
+                })).filter(rep => rep.id && rep.name);
+                repsOptions.sort((a, b) => a.name.localeCompare(b.name));
+                renderNewPharmacyRepSelect();
+            } catch (error) {
+                console.error('Error loading reps:', error);
+                repsOptions = [];
+                renderNewPharmacyRepSelect();
+                setStatus('pharmaciesStatus', 'حدث خطأ أثناء تحميل المناديب.', '#dc2626');
+            }
+        }
+
+        async function loadPharmacies() {
+            const tableBody = document.getElementById('pharmaciesTableBody');
+            if (!tableBody) return;
+
+            setStatus('pharmaciesStatus', 'جاري تحميل الصيدليات...', '#f59e0b');
+
+            try {
+                if (repsOptions.length === 0) await loadRepsForSettings();
+
+                const snap = await getDocs(collection(db, 'pharmacies'));
+                tableBody.innerHTML = '';
+
+                if (snap.empty) {
+                    pharmaciesLoaded = true;
+                    tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#64748b;">لا توجد صيدليات حالياً في قاعدة البيانات.</td></tr>`;
+                    setStatus('pharmaciesStatus', 'لا توجد صيدليات حالياً.', '#64748b');
+                    return;
+                }
+
+                const rows = snap.docs.map(item => ({ id: item.id, ...item.data() }));
+                rows.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+                rows.forEach((pharmacy) => {
+                    const repId = String(pharmacy.rep_id || pharmacy.repId || '').trim();
+                    const pharmacyCode = pharmacy.pharmacyCode || pharmacy.pharmacy_code || '';
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="doc-id-text">${escapeHtml(pharmacy.id)}</td>
+                        <td><input type="text" class="table-input pharmacy-name" value="${escapeHtml(pharmacy.name || '')}"></td>
+                        <td><input type="text" class="table-input pharmacy-code" value="${escapeHtml(pharmacyCode)}"></td>
+                        <td><select class="table-select pharmacy-rep">${getRepSelectOptionsHtml(repId)}</select></td>
+                        <td><input type="text" class="table-input pharmacy-supervisor" value="${escapeHtml(pharmacy.supervisor || '')}"></td>
+                        <td><input type="text" class="table-input pharmacy-area" value="${escapeHtml(pharmacy.area || '')}"></td>
+                        <td style="text-align:center; white-space:nowrap;">
+                            <span class="table-actions-cell">
+                                <button type="button" class="btn-local btn-small btn-green save-pharmacy-btn" data-id="${escapeHtml(pharmacy.id)}">حفظ</button>
+                                <button type="button" class="btn-local btn-small btn-red delete-pharmacy-btn" data-id="${escapeHtml(pharmacy.id)}">حذف</button>
+                            </span>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+
+                tableBody.querySelectorAll('.save-pharmacy-btn').forEach(button => {
+                    button.addEventListener('click', () => updateSinglePharmacy(button));
+                });
+
+                tableBody.querySelectorAll('.delete-pharmacy-btn').forEach(button => {
+                    button.addEventListener('click', () => deleteSinglePharmacy(button));
+                });
+
+                pharmaciesLoaded = true;
+                setStatus('pharmaciesStatus', `تم تحميل ${snap.size} صيدلية.`, '#10b981');
+            } catch (error) {
+                console.error('Error loading pharmacies:', error);
+                tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#dc2626;">حدث خطأ أثناء تحميل البيانات.</td></tr>`;
+                setStatus('pharmaciesStatus', 'حدث خطأ أثناء تحميل الصيدليات.', '#dc2626');
+            }
+        }
+
+        async function addNewPharmacy() {
+            const nameInput = document.getElementById('newPharmacyName');
+            const codeInput = document.getElementById('newPharmacyCode');
+            const repSelect = document.getElementById('newPharmacyRep');
+            const supervisorInput = document.getElementById('newPharmacySupervisor');
+            const areaInput = document.getElementById('newPharmacyArea');
+            const button = document.getElementById('addPharmacyBtn');
+
+            const nameVal = nameInput.value.trim();
+            const codeVal = codeInput.value.trim();
+            const repId = repSelect.value.trim();
+            const repName = getRepNameById(repId);
+            const supervisorVal = supervisorInput.value.trim() || repManagerMap[repName] || '-';
+            const areaVal = areaInput.value.trim() || '-';
+
+            if (!nameVal || !repId) {
+                alert('اسم الصيدلية واختيار المندوب حقول إجبارية.');
+                return;
+            }
+
+            const originalText = button.innerText;
+            button.innerText = 'جاري الإضافة...';
+            button.disabled = true;
+
+            try {
+                const snap = await getDocs(collection(db, 'pharmacies'));
+                const duplicate = snap.docs.some(item => {
+                    const data = item.data();
+                    const existingCode = String(data.pharmacyCode || data.pharmacy_code || '').trim();
+                    const existingName = String(data.name || '').trim();
+                    return (codeVal && existingCode === codeVal) || existingName === nameVal;
+                });
+
+                if (duplicate && !confirm('توجد صيدلية بنفس الاسم أو الكود. هل تريد الإضافة رغم ذلك؟')) return;
+
+                await addDoc(collection(db, 'pharmacies'), {
+                    name: nameVal,
+                    rep_id: repId,
+                    repId,
+                    repName,
+                    pharmacy_code: codeVal || '-',
+                    pharmacyCode: codeVal || '-',
+                    supervisor: supervisorVal,
+                    area: areaVal
+                });
+
+                nameInput.value = '';
+                codeInput.value = '';
+                repSelect.value = '';
+                supervisorInput.value = '';
+                areaInput.value = '';
+                invalidateOperationalCaches('all');
+                setStatus('pharmaciesStatus', 'تمت إضافة الصيدلية ومزامنتها مع Firebase بنجاح.', '#10b981');
+                await loadPharmacies();
+            } catch (error) {
+                console.error('Error adding pharmacy:', error);
+                alert('حدث خطأ أثناء إضافة الصيدلية.');
+            } finally {
+                button.innerText = originalText;
+                button.disabled = false;
+            }
+        }
+
+        async function updateSinglePharmacy(button) {
+            const row = button.closest('tr');
+            const id = button.dataset.id;
+            const nameVal = row.querySelector('.pharmacy-name').value.trim();
+            const codeVal = row.querySelector('.pharmacy-code').value.trim();
+            const repId = row.querySelector('.pharmacy-rep').value.trim();
+            const repName = getRepNameById(repId);
+            const supervisorVal = row.querySelector('.pharmacy-supervisor').value.trim() || repManagerMap[repName] || '-';
+            const areaVal = row.querySelector('.pharmacy-area').value.trim() || '-';
+
+            if (!nameVal || !repId) {
+                alert('لا يمكن ترك اسم الصيدلية أو المندوب فارغاً.');
+                return;
+            }
+
+            const originalText = button.innerText;
+            button.innerText = 'جاري...';
+            button.disabled = true;
+
+            try {
+                await updateDoc(doc(db, 'pharmacies', id), {
+                    name: nameVal,
+                    rep_id: repId,
+                    repId,
+                    repName,
+                    pharmacy_code: codeVal || '-',
+                    pharmacyCode: codeVal || '-',
+                    supervisor: supervisorVal,
+                    area: areaVal
+                });
+                invalidateOperationalCaches('all');
+                button.innerText = 'تم';
+                setStatus('pharmaciesStatus', 'تم حفظ تعديل الصيدلية ومزامنته مع Firebase بنجاح.', '#10b981');
+            } catch (error) {
+                console.error('Error updating pharmacy:', error);
+                alert('حدث خطأ أثناء حفظ تعديل الصيدلية.');
+            } finally {
+                setTimeout(() => {
+                    button.innerText = originalText;
+                    button.disabled = false;
+                }, 1200);
+            }
+        }
+
+        async function deleteSinglePharmacy(button) {
+            const id = button.dataset.id;
+            if (!confirm('هل أنت متأكد من حذف هذه الصيدلية نهائياً من قاعدة البيانات؟')) return;
+
+            try {
+                await deleteDoc(doc(db, 'pharmacies', id));
+                invalidateOperationalCaches('all');
+                button.closest('tr')?.remove();
+                setStatus('pharmaciesStatus', 'تم حذف الصيدلية من Firebase بنجاح.', '#10b981');
+            } catch (error) {
+                console.error('Error deleting pharmacy:', error);
+                alert('حدث خطأ أثناء محاولة حذف الصيدلية.');
+            }
+        }
+
+        async function importPharmacies() {
+            const fileInput = document.getElementById('pharmaciesExcelFile');
+            const file = fileInput.files[0];
+            if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
+
+            setStatus('pharmaciesStatus', 'جاري فحص الملف...', '#f59e0b', false);
+
+            try {
+                if (repsOptions.length === 0) await loadRepsForSettings();
+                const excelData = await readExcelFile(file, { defval: '' });
+                if (excelData.length === 0) {
+                    setStatus('pharmaciesStatus', 'الملف فارغ أو لا يمكن قراءته.', '#dc2626');
+                    return;
+                }
+
+                const normalizedRows = excelData.map(originalRow => Object.keys(originalRow).reduce((acc, key) => {
+                    acc[key.trim()] = originalRow[key];
+                    return acc;
+                }, {}));
+
+                const validRows = normalizedRows.map(row => ({
+                    name: String(rowValue(row, ['Name', 'name', 'الصيدلية', 'اسم الصيدلية'])).trim(),
+                    rep_id: String(rowValue(row, ['rep_id', 'Rep ID', 'repId', 'مندوب'])).trim(),
+                    pharmacyCode: String(rowValue(row, ['pharmacy_code', 'pharmacyCode', 'Pharmacy Code', 'كود الصيدلية'])).trim(),
+                    supervisor: String(rowValue(row, ['Supervisor', 'supervisor', 'المدير'], '-')).trim(),
+                    area: String(rowValue(row, ['Area', 'area', 'المنطقة'], '-')).trim()
+                })).filter(row => row.name && row.rep_id);
+
+                if (validRows.length === 0) {
+                    setStatus('pharmaciesStatus', `❌ تم إيقاف العملية لحماية البيانات.<br><div class="danger-panel" style="margin-top:10px;">لم يتم العثور على أعمدة مطابقة. تأكد أن السطر الأول يحتوي على اسم الصيدلية و rep_id. لم يتم حذف أي بيانات قديمة.</div>`, '#dc2626', true);
+                    return;
+                }
+
+                const duplicatePharmacyCodes = duplicateValues(validRows.map(row => row.pharmacyCode));
+                const pharmacyWizardOk = await confirmImportWizard({
+                    title: 'معاينة رفع الصيدليات',
+                    summary: [`عدد الصفوف المقروءة: ${excelData.length}`, `عدد الصيدليات الصالحة: ${validRows.length}`, 'سيتم تحديث master data للصيدليات بعد التأكيد.'],
+                    warnings: ['هذا الإجراء يستبدل قائمة الصيدليات الحالية حسب منطق النسخة الحالية.', ...duplicatePharmacyCodes.slice(0, 8).map(code => `كود صيدلية مكرر داخل الملف: ${code}`)],
+                    previewHeaders: ['name', 'rep_id', 'pharmacyCode', 'supervisor', 'area'],
+                    previewRows: validRows,
+                    confirmText: 'تنفيذ رفع الصيدليات'
+                });
+                if (!pharmacyWizardOk) return;
+
+                setStatus('pharmaciesStatus', 'الملف سليم.. جاري حذف الصيدليات القديمة...', '#004a99');
+                const snap = await getDocs(collection(db, 'pharmacies'));
+                await Promise.all(snap.docs.map(item => deleteDoc(doc(db, 'pharmacies', item.id))));
+
+                setStatus('pharmaciesStatus', `جاري إضافة ${validRows.length} صيدلية جديدة...`, '#f59e0b');
+                await Promise.all(validRows.map(row => {
+                    const repName = getRepNameById(row.rep_id) || row.rep_id;
+                    return addDoc(collection(db, 'pharmacies'), {
+                        name: row.name,
+                        rep_id: row.rep_id,
+                        repId: row.rep_id,
+                        repName,
+                        pharmacy_code: row.pharmacyCode || '-',
+                        pharmacyCode: row.pharmacyCode || '-',
+                        supervisor: row.supervisor || '-',
+                        area: row.area || '-'
+                    });
+                }));
+
+                invalidateOperationalCaches('all');
+                fileInput.value = '';
+                setStatus('pharmaciesStatus', `تم التحديث بنجاح. تمت إضافة ${validRows.length} صيدلية إلى النظام.`, '#10b981');
+                await loadPharmacies();
+            } catch (error) {
+                console.error('Error during pharmacies import:', error);
+                setStatus('pharmaciesStatus', 'حدث خطأ غير متوقع أثناء معالجة بيانات الصيدليات.', '#dc2626');
+            }
+        }
+
+        async function downloadCollection(collectionName, arabicName) {
+            setStatus('exportStatus', `جاري جلب بيانات ${arabicName}...`, '#f59e0b');
+
+            try {
+                const snap = await getDocs(collection(db, collectionName));
+                const data = [];
+                snap.forEach(item => {
+                    const row = { Document_ID: item.id, ...item.data() };
+                    if (collectionName === 'products') {
+                        row['Product Code'] = row.productCode || row.product_code || row.code || '';
+                    }
+                    if (collectionName === 'pharmacies') {
+                        row['Pharmacy Code'] = row.pharmacyCode || row.pharmacy_code || '';
+                    }
+                    data.push(row);
+                });
+
+                if (data.length === 0) {
+                    setStatus('exportStatus', 'لا توجد بيانات في هذه القائمة.', '#dc2626');
+                    return;
+                }
+
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, arabicName);
+                XLSX.writeFile(wb, `${arabicName}_Export.xlsx`);
+
+                setStatus('exportStatus', `تم تحميل ${data.length} سجل بنجاح.`, '#10b981');
+            } catch (error) {
+                console.error('Error during export:', error);
+                setStatus('exportStatus', 'حدث خطأ أثناء سحب البيانات.', '#dc2626');
+            }
+        }
+
+        async function importOldOrders() {
+            const file = document.getElementById('oldOrdersFile').files[0];
+            if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
+
+            setStatus('oldOrdersStatus', 'جاري قراءة الملف وتجميع الأصناف...', '#f59e0b');
+
+            try {
+                const excelData = await readExcelFile(file, { raw: false });
+                if (excelData.length === 0) {
+                    setStatus('oldOrdersStatus', 'الملف فارغ أو الترويسة غير صحيحة.', '#dc2626');
+                    return;
+                }
+
+                const groupedOrders = new Map();
+                excelData.forEach(row => {
+                    const rowRepName = String(rowValue(row, ['المندوب', 'Rep', 'repName', 'Representative'])).trim();
+                    const rowPharmacyName = String(rowValue(row, ['الصيدلية', 'Pharmacy', 'pharmacyName', 'Customer'])).trim();
+                    if (!rowRepName || !rowPharmacyName) return;
+                    const orderDateValue = rowValue(row, ['التاريخ', 'Date', 'date', 'createdAt']);
+                    const orderKey = `${orderDateValue}_${rowRepName}_${rowPharmacyName}`;
+
+                    if (!groupedOrders.has(orderKey)) {
+                        groupedOrders.set(orderKey, {
+                            repName: rowRepName,
+                            repId: '',
+                            managerName: repManagerMap[rowRepName] || 'غير محدد',
+                            pharmacyName: rowPharmacyName,
+                            pharmacyCode: String(rowValue(row, ['كود الصيدلية', 'Pharmacy Code', 'pharmacyCode', 'pharmacy_code'], '-')).trim(),
+                            orderNote: String(rowValue(row, ['ملاحظة الطلبية', 'Order Note', 'orderNote'])).trim(),
+                            grandTotal: parseSafeNumber(rowValue(row, ['الاجمالي الكلي', 'Grand Total', 'grandTotal'])),
+                            status: String(rowValue(row, ['الحالة', 'Status', 'status'], 'approved')).trim(),
+                            createdAt: parseExcelDate(orderDateValue),
+                            updatedAt: parseExcelDate(orderDateValue),
+                            items: []
+                        });
+                    }
+
+                    const itemName = String(rowValue(row, ['الصنف', 'Product', 'Item', 'name'])).trim();
+                    if (itemName) {
+                        groupedOrders.get(orderKey).items.push({
+                            name: itemName,
+                            productCode: String(rowValue(row, ['كود المنتج', 'Product Code', 'productCode', 'product_code', 'code'])).trim(),
+                            qty: parseSafeNumber(rowValue(row, ['الكمية', 'Qty', 'qty'])) || 1,
+                            bonus: parseSafeNumber(rowValue(row, ['البونص', 'Bonus', 'bonus'])),
+                            price: parseSafeNumber(rowValue(row, ['السعر', 'Price', 'price'])),
+                            total: parseSafeNumber(rowValue(row, ['المجموع الفرعي', 'Subtotal', 'total'])),
+                            note: String(rowValue(row, ['ملاحظة الصنف', 'Item Note', 'itemNote'])).trim()
+                        });
+                    }
+                });
+
+                const ordersArray = Array.from(groupedOrders.values()).map(order => {
+                    const calculated = order.items.reduce((sum, item) => sum + parseSafeNumber(item.total), 0);
+                    if (!order.grandTotal && calculated) order.grandTotal = calculated;
+                    return order;
+                });
+                const oldOrdersOk = await confirmImportWizard({
+                    title: 'معاينة رفع الطلبيات التاريخية',
+                    summary: [`عدد الصفوف المقروءة: ${excelData.length}`, `عدد الطلبيات بعد التجميع: ${ordersArray.length}`, 'سيتم إضافة الطلبيات بدون حذف أي طلبية حالية.'],
+                    warnings: ordersArray.some(order => !order.items.length) ? ['بعض الطلبيات لا تحتوي أصناف بعد التجميع.'] : [],
+                    previewHeaders: ['repName', 'pharmacyName', 'pharmacyCode', 'grandTotal', 'status'],
+                    previewRows: ordersArray,
+                    confirmText: 'رفع الطلبيات التاريخية'
+                });
+                if (!oldOrdersOk) return;
+                setStatus('oldOrdersStatus', `تم تجميع الأصناف إلى ${ordersArray.length} طلبية. جاري الرفع بدون حذف القديم...`, '#f59e0b');
+                await Promise.all(ordersArray.map(orderData => addDoc(collection(db, 'orders'), orderData)));
+                document.getElementById('oldOrdersFile').value = '';
+                setStatus('oldOrdersStatus', `تم رفع ${ordersArray.length} طلبية سابقة بنجاح.`, '#10b981');
+            } catch (error) {
+                console.error('Error during old orders import:', error);
+                setStatus('oldOrdersStatus', 'حدث خطأ أثناء رفع الطلبيات السابقة. افتح F12 لمشاهدة التفاصيل.', '#dc2626');
+            }
+        }
+
+        async function importOldReturns() {
+            const file = document.getElementById('oldReturnsFile').files[0];
+            if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
+
+            setStatus('oldReturnsStatus', 'جاري قراءة الملف وتجميع الأصناف...', '#f59e0b');
+
+            try {
+                const excelData = await readExcelFile(file, { raw: false });
+                if (excelData.length === 0) {
+                    setStatus('oldReturnsStatus', 'الملف فارغ أو الترويسة غير صحيحة.', '#dc2626');
+                    return;
+                }
+
+                const groupedReturns = new Map();
+                excelData.forEach(row => {
+                    const rowRepName = String(rowValue(row, ['المندوب', 'Rep', 'repName', 'Representative'])).trim();
+                    const rowPharmacyName = String(rowValue(row, ['الصيدلية', 'Pharmacy', 'pharmacyName', 'Customer'])).trim();
+                    if (!rowRepName || !rowPharmacyName) return;
+                    const returnDateValue = rowValue(row, ['التاريخ', 'Date', 'date', 'createdAt']);
+                    const returnKey = `${returnDateValue}_${rowRepName}_${rowPharmacyName}`;
+
+                    if (!groupedReturns.has(returnKey)) {
+                        const rawGrandTotal = parseSafeNumber(rowValue(row, ['الاجمالي الكلي', 'Grand Total', 'grandTotal']));
+                        const grandTotal = rawGrandTotal > 0 ? -rawGrandTotal : rawGrandTotal;
+
+                        groupedReturns.set(returnKey, {
+                            repName: rowRepName,
+                            repId: '',
+                            managerName: repManagerMap[rowRepName] || 'غير محدد',
+                            pharmacyName: rowPharmacyName,
+                            pharmacyCode: String(rowValue(row, ['كود الصيدلية', 'Pharmacy Code', 'pharmacyCode', 'pharmacy_code'], '-')).trim(),
+                            orderNote: String(rowValue(row, ['ملاحظة الطلبية', 'Order Note', 'orderNote'])).trim(),
+                            grandTotal,
+                            status: 'returned',
+                            createdAt: parseExcelDate(returnDateValue),
+                            updatedAt: parseExcelDate(returnDateValue),
+                            items: []
+                        });
+                    }
+
+                    const itemName = String(rowValue(row, ['الصنف', 'Product', 'Item', 'name'])).trim();
+                    if (itemName) {
+                        const rawTotal = parseSafeNumber(rowValue(row, ['المجموع الفرعي', 'Subtotal', 'total']));
+                        const itemTotal = rawTotal > 0 ? -rawTotal : rawTotal;
+
+                        groupedReturns.get(returnKey).items.push({
+                            name: itemName,
+                            productCode: String(rowValue(row, ['كود المنتج', 'Product Code', 'productCode', 'product_code', 'code'])).trim(),
+                            qty: parseSafeNumber(rowValue(row, ['الكمية', 'Qty', 'qty'])) || 1,
+                            bonus: parseSafeNumber(rowValue(row, ['البونص', 'Bonus', 'bonus'])),
+                            price: parseSafeNumber(rowValue(row, ['السعر', 'Price', 'price'])),
+                            total: itemTotal,
+                            note: String(rowValue(row, ['ملاحظة الصنف', 'Item Note', 'itemNote'])).trim()
+                        });
+                    }
+                });
+
+                const returnsArray = Array.from(groupedReturns.values()).map(order => {
+                    const calculated = order.items.reduce((sum, item) => sum + parseSafeNumber(item.total), 0);
+                    if (!order.grandTotal && calculated) order.grandTotal = calculated > 0 ? -calculated : calculated;
+                    return order;
+                });
+                const oldReturnsOk = await confirmImportWizard({
+                    title: 'معاينة رفع المرتجعات التاريخية',
+                    summary: [`عدد الصفوف المقروءة: ${excelData.length}`, `عدد المرتجعات بعد التجميع: ${returnsArray.length}`, 'ستدخل المرتجعات ضمن sales totals بقيم سالبة.'],
+                    warnings: returnsArray.some(order => order.grandTotal > 0) ? ['يوجد مرتجعات بقيم موجبة؛ سيتم التعامل معها حسب منطق التحويل إلى السالب.'] : [],
+                    previewHeaders: ['repName', 'pharmacyName', 'pharmacyCode', 'grandTotal', 'status'],
+                    previewRows: returnsArray,
+                    confirmText: 'رفع المرتجعات التاريخية'
+                });
+                if (!oldReturnsOk) return;
+                setStatus('oldReturnsStatus', `تم تجميع ${returnsArray.length} مرتجع. جاري الرفع على قاعدة البيانات...`, '#f59e0b');
+                await Promise.all(returnsArray.map(returnData => addDoc(collection(db, 'orders'), returnData)));
+                document.getElementById('oldReturnsFile').value = '';
+                setStatus('oldReturnsStatus', `تم رفع ${returnsArray.length} مرتجع بنجاح كطلبيات بقيم سالبة.`, '#10b981');
+            } catch (error) {
+                console.error('Error during old returns import:', error);
+                setStatus('oldReturnsStatus', 'حدث خطأ أثناء رفع المرتجعات السابقة. افتح F12 لمشاهدة التفاصيل.', '#dc2626');
+            }
+        }
+
+        document.getElementById('reloadProductsBtn').addEventListener('click', loadProducts);
+        document.getElementById('addProductBtn').addEventListener('click', addNewProduct);
+        document.getElementById('downloadProductsEditableBtn').addEventListener('click', exportProductsEditable);
+        document.getElementById('productsPatchImportBtn').addEventListener('click', importProductsPatch);
+        document.getElementById('saveVisibleProductsBtn').addEventListener('click', saveVisibleProducts);
+        document.getElementById('productsImportBtn').addEventListener('click', importProducts);
+        document.getElementById('productsSearchInput').addEventListener('input', () => {
+            productsCurrentPage = 1;
+            renderProductsTable();
+        });
+        document.getElementById('prevProductsPageBtn').addEventListener('click', () => {
+            productsCurrentPage -= 1;
+            renderProductsTable();
+        });
+        document.getElementById('nextProductsPageBtn').addEventListener('click', () => {
+            productsCurrentPage += 1;
+            renderProductsTable();
+        });
+        document.getElementById('reloadPharmaciesBtn').addEventListener('click', loadPharmacies);
+        document.getElementById('addPharmacyBtn').addEventListener('click', addNewPharmacy);
+        document.getElementById('pharmaciesImportBtn').addEventListener('click', importPharmacies);
+        document.getElementById('exportPharmaciesBtn').addEventListener('click', () => downloadCollection('pharmacies', 'الصيدليات'));
+        document.getElementById('exportRepsBtn').addEventListener('click', () => downloadCollection('reps', 'المناديب'));
+        document.getElementById('exportProductsBtn').addEventListener('click', () => exportProductsEditable('exportStatus'));
+        document.getElementById('oldOrdersImportBtn').addEventListener('click', importOldOrders);
+        document.getElementById('oldReturnsImportBtn').addEventListener('click', importOldReturns);
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadProducts();
+            await loadRepsForSettings();
+        });
+    </script>
+</body>
+</html>

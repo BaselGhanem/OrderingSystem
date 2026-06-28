@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <link rel="icon" href="favicon.ico?v=20260628_table_pagination_fix1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>تدقيق مناطق الصيدليات | DAR ALDAWAA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="style.css?v=20260628_table_pagination_fix1">
+    <style>
+        :root {
+            --area-accent: #099999;
+            --area-accent-dark: #077979;
+            --area-primary: #0f3b5c;
+            --area-muted: #64748b;
+            --area-border: rgba(15, 59, 92, 0.14);
+            --area-surface: rgba(255, 255, 255, 0.94);
+        }
+
+        body {
+            min-height: 100vh;
+            overflow-x: hidden;
+            font-family: 'Cairo', system-ui, sans-serif;
+        }
+
+        .area-shell {
+            width: min(1480px, calc(100% - clamp(18px, 3vw, 44px)));
+            margin: 22px auto;
+            display: grid;
+            gap: 18px;
+        }
+
+        .area-card {
+            background: var(--area-surface);
+            border: 1px solid var(--area-border);
+            border-radius: 22px;
+            box-shadow: 0 18px 50px rgba(15, 59, 92, 0.08);
+            padding: clamp(16px, 2vw, 26px);
+            backdrop-filter: blur(14px);
+        }
+
+        .area-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .area-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .area-title img {
+            width: 54px;
+            height: 54px;
+            object-fit: contain;
+            background: #fff;
+            border-radius: 16px;
+            padding: 6px;
+            box-shadow: 0 8px 22px rgba(15, 59, 92, 0.08);
+        }
+
+        .area-title h1 {
+            margin: 0;
+            color: var(--area-primary);
+            font-size: clamp(1.2rem, 3vw, 1.85rem);
+            line-height: 1.2;
+            font-weight: 800;
+        }
+
+        .area-title p {
+            margin: 5px 0 0;
+            color: var(--area-muted);
+            font-weight: 700;
+            font-size: clamp(0.84rem, 2vw, 0.96rem);
+        }
+
+        .area-actions,
+        .tool-actions,
+        .file-row,
+        .filter-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-area {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 42px;
+            padding: 10px 16px;
+            border-radius: 14px;
+            border: 1px solid transparent;
+            font-family: 'Cairo', system-ui, sans-serif;
+            font-weight: 800;
+            text-decoration: none;
+            cursor: pointer;
+            transition: 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn-area:disabled {
+            opacity: 0.56;
+            cursor: not-allowed;
+        }
+
+        .btn-teal {
+            color: #fff;
+            background: linear-gradient(135deg, var(--area-accent), var(--area-accent-dark));
+            box-shadow: 0 12px 24px rgba(9, 153, 153, 0.18);
+        }
+
+        .btn-blue {
+            color: #fff;
+            background: linear-gradient(135deg, #0f3b5c, #1d5f8a);
+        }
+
+        .btn-green {
+            color: #fff;
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+
+        .btn-orange {
+            color: #fff;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .btn-gray {
+            color: #0f172a;
+            background: #f8fafc;
+            border-color: #e2e8f0;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 12px;
+        }
+
+        .summary-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(15, 59, 92, 0.06);
+        }
+
+        .summary-card span {
+            display: block;
+            color: var(--area-muted);
+            font-weight: 800;
+            font-size: 0.86rem;
+        }
+
+        .summary-card strong {
+            display: block;
+            margin-top: 6px;
+            color: var(--area-primary);
+            font-size: clamp(1.35rem, 3vw, 2rem);
+            line-height: 1;
+        }
+
+        .panel-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .panel-heading h2 {
+            margin: 0;
+            color: var(--area-primary);
+            font-size: clamp(1.05rem, 2.5vw, 1.35rem);
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-heading p {
+            margin: 5px 0 0;
+            color: var(--area-muted);
+            font-weight: 700;
+        }
+
+        .status-box-local {
+            display: none;
+            border-radius: 16px;
+            padding: 12px 14px;
+            font-weight: 800;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            line-height: 1.7;
+        }
+
+        .status-box-local.show {
+            display: block;
+        }
+
+        .warning-panel-local,
+        .info-panel-local,
+        .success-panel-local,
+        .danger-panel-local {
+            border-radius: 16px;
+            padding: 13px 14px;
+            font-weight: 800;
+            line-height: 1.7;
+        }
+
+        .warning-panel-local {
+            background: #fffbeb;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+
+        .info-panel-local {
+            background: #f0fdfa;
+            color: #0f766e;
+            border: 1px solid #99f6e4;
+        }
+
+        .success-panel-local {
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+        }
+
+        .danger-panel-local {
+            background: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+
+        .input-local,
+        .select-local,
+        .file-local {
+            min-height: 42px;
+            border: 1.5px solid #dbe5ef;
+            border-radius: 14px;
+            padding: 10px 12px;
+            font-family: 'Cairo', system-ui, sans-serif;
+            font-weight: 700;
+            background: #fff;
+            color: #0f172a;
+            outline: none;
+        }
+
+        .input-local:focus,
+        .select-local:focus,
+        .file-local:focus {
+            border-color: var(--area-accent);
+            box-shadow: 0 0 0 4px rgba(9, 153, 153, 0.12);
+        }
+
+        .input-local {
+            min-width: min(360px, 100%);
+        }
+
+        .file-local {
+            width: min(460px, 100%);
+        }
+
+        .table-wrap-local {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 18px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .area-table {
+            width: 100%;
+            min-width: 860px;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .area-table th,
+        .area-table td {
+            padding: 11px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: right;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        .area-table th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: #f8fafc;
+            color: #0f3b5c;
+            font-size: 0.85rem;
+            font-weight: 800;
+        }
+
+        .area-table td {
+            color: #0f172a;
+            font-weight: 700;
+            font-size: 0.88rem;
+        }
+
+        .area-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 28px;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-weight: 800;
+            font-size: 0.78rem;
+        }
+
+        .badge-missing {
+            color: #b91c1c;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+        }
+
+        .badge-ok {
+            color: #047857;
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+        }
+
+        .ltr-code {
+            direction: ltr;
+            unicode-bidi: embed;
+            font-family: Consolas, monospace;
+            color: #334155;
+        }
+
+        .editable-area {
+            width: min(260px, 100%);
+            min-height: 36px;
+            border-radius: 11px;
+            border: 1px solid #dbe5ef;
+            padding: 7px 9px;
+            font-family: 'Cairo', system-ui, sans-serif;
+            font-weight: 800;
+        }
+
+        .modal-overlay-local {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            background: rgba(15, 23, 42, 0.56);
+        }
+
+        .modal-card-local {
+            width: min(860px, 100%);
+            max-height: min(720px, calc(100vh - 32px));
+            overflow: auto;
+            background: #fff;
+            border-radius: 22px;
+            padding: 18px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.22);
+        }
+
+        .mini-table {
+            width: 100%;
+            min-width: 640px;
+            border-collapse: collapse;
+        }
+
+        .mini-table th,
+        .mini-table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 10px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .modal-footer-local {
+            margin-top: 14px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 700px) {
+            .area-shell {
+                width: calc(100% - 18px);
+                margin: 9px auto;
+            }
+
+            .area-header,
+            .panel-heading {
+                align-items: stretch;
+            }
+
+            .area-actions,
+            .tool-actions,
+            .file-row,
+            .filter-row {
+                width: 100%;
+                align-items: stretch;
+            }
+
+            .btn-area,
+            .input-local,
+            .select-local,
+            .file-local {
+                width: 100%;
+            }
+
+            .area-title img {
+                width: 46px;
+                height: 46px;
+            }
+
+            .modal-overlay-local {
+                align-items: stretch;
+                padding: 8px;
+            }
+
+            .modal-card-local {
+                max-height: calc(100vh - 16px);
+                border-radius: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="area-shell">
+        <header class="area-card area-header">
+            <div class="area-title">
+                <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="Dar Al Dawaa Logo">
+                <div>
+                    <h1>تدقيق مناطق الصيدليات</h1>
+                    <p>تصدير كود الصيدلية واسمها ومندوبها والمنطقة الحالية، ثم رفع الملف بعد تعديل المناطق.</p>
+                </div>
+            </div>
+            <div class="area-actions">
+                <a href="setting.html" class="btn-area btn-gray"><i class="ph ph-gear-six"></i> الإعدادات</a>
+                <a href="reports.html?v=20260628_table_pagination_fix1" class="btn-area btn-gray"><i class="ph ph-chart-bar"></i> التقارير</a>
+                <button type="button" id="reloadBtn" class="btn-area btn-blue"><i class="ph ph-arrows-clockwise"></i> تحديث البيانات</button>
+            </div>
+        </header>
+
+        <section class="summary-grid">
+            <div class="summary-card"><span>إجمالي الصيدليات</span><strong id="totalCount">0</strong></div>
+            <div class="summary-card"><span>صيدليات بلا منطقة</span><strong id="missingCount">0</strong></div>
+            <div class="summary-card"><span>صيدليات بمنطقة</span><strong id="filledCount">0</strong></div>
+            <div class="summary-card"><span>أكواد مكررة</span><strong id="duplicateCount">0</strong></div>
+        </section>
+
+        <section class="area-card">
+            <div class="panel-heading">
+                <div>
+                    <h2><i class="ph ph-download-simple"></i> التصدير والتحديث</h2>
+                    <p>الرفع يحدّث حقل المنطقة فقط داخل مجموعة الصيدليات، ولا يحذف أي سجل.</p>
+                </div>
+                <div class="tool-actions">
+                    <button type="button" id="exportAllBtn" class="btn-area btn-green"><i class="ph ph-microsoft-excel-logo"></i> Export الكل</button>
+                    <button type="button" id="exportMissingBtn" class="btn-area btn-orange"><i class="ph ph-warning-circle"></i> Export الناقص فقط</button>
+                </div>
+            </div>
+
+            <div class="warning-panel-local">
+                عدّل فقط عمود <strong>المنطقة الحالية</strong> داخل Excel. يفضل عدم تغيير كود الصيدلية أو الاسم أو المندوب حتى تتم المطابقة بدون أخطاء.
+            </div>
+
+            <div class="file-row" style="margin-top:14px;">
+                <input type="file" id="areaExcelFile" class="file-local" accept=".xlsx,.xls">
+                <button type="button" id="importAreasBtn" class="btn-area btn-teal"><i class="ph ph-upload-simple"></i> رفع وتحديث المناطق</button>
+            </div>
+
+            <div id="mainStatus" class="status-box-local" style="margin-top:14px;"></div>
+        </section>
+
+        <section class="area-card">
+            <div class="panel-heading">
+                <div>
+                    <h2><i class="ph ph-storefront"></i> جدول التدقيق</h2>
+                    <p>راجع الصيدليات التي لا تحتوي منطقة قبل التصدير.</p>
+                </div>
+                <div class="filter-row">
+                    <input type="search" id="searchInput" class="input-local" placeholder="بحث بالكود أو الاسم أو المندوب أو المنطقة...">
+                    <select id="areaFilter" class="select-local">
+                        <option value="all">كل الصيدليات</option>
+                        <option value="missing">بلا منطقة فقط</option>
+                        <option value="filled">لها منطقة فقط</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-wrap-local">
+                <table class="area-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>كود الصيدلية</th>
+                            <th>اسم الصيدلية</th>
+                            <th>المندوب</th>
+                            <th>المنطقة الحالية</th>
+                            <th>الحالة</th>
+                            <th>حفظ سريع</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pharmaciesTableBody">
+                        <tr><td colspan="7" style="text-align:center;color:#64748b;">جاري تحميل البيانات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script type="module">
+        import { db, collection, getDocs, doc, updateDoc } from './js/firebase.js';
+
+        const state = {
+            rows: [],
+            reps: new Map()
+        };
+
+        const $ = (id) => document.getElementById(id);
+
+        const escapeHtml = (value = '') => String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+
+        const normalizeText = (value = '') => String(value)
+            .replace(/[\u064B-\u065F\u0670]/g, '')
+            .replace(/[أإآ]/g, 'ا')
+            .replace(/ة/g, 'ه')
+            .replace(/ى/g, 'ي')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+
+        const normalizeKey = (value = '') => String(value).trim().toLowerCase();
+
+        const isAreaMissing = (area = '') => {
+            const value = normalizeText(area);
+            return !value || value === '-' || value === 'na' || value === 'n/a' || value === 'null' || value === 'undefined' || value === 'غير محدد' || value === 'بدون' || value === 'لا يوجد';
+        };
+
+        const rowValue = (row, aliases, fallback = '') => {
+            const entries = Object.entries(row || {});
+            for (const alias of aliases) {
+                const wanted = normalizeText(alias);
+                const match = entries.find(([key]) => normalizeText(key) === wanted);
+                if (match && match[1] !== undefined && match[1] !== null && String(match[1]).trim() !== '') return match[1];
+            }
+            return fallback;
+        };
+
+        const setStatus = (message, color = '#0f766e', isHtml = false) => {
+            const box = $('mainStatus');
+            if (!box) return;
+            box.classList.add('show');
+            box.style.color = color;
+            if (isHtml) box.innerHTML = message;
+            else box.textContent = message;
+        };
+
+        const clearStatus = () => {
+            const box = $('mainStatus');
+            if (!box) return;
+            box.classList.remove('show');
+            box.textContent = '';
+        };
+
+        const invalidateOperationalCaches = () => {
+            const prefixes = ['dad_app_cache', 'dad_app_cache_time', 'dad_orders_', 'dad_products_'];
+            const removeMatching = (storage) => {
+                try {
+                    Object.keys(storage).forEach(key => {
+                        if (prefixes.some(prefix => key.startsWith(prefix))) storage.removeItem(key);
+                    });
+                    storage.setItem('dad_cache_invalidated_at', new Date().toISOString());
+                    storage.setItem('dad_cache_invalidated_scope', 'pharmacy-areas');
+                } catch (_) {}
+            };
+            removeMatching(localStorage);
+            removeMatching(sessionStorage);
+        };
+
+        const readExcelFile = (file, options = {}) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    resolve(XLSX.utils.sheet_to_json(firstSheet, options));
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        });
+
+        const getPharmacyCode = (data = {}) => String(data.pharmacyCode || data.pharmacy_code || data.customerCode || '').trim();
+        const getPharmacyName = (data = {}) => String(data.name || data.pharmacyName || '').trim();
+        const getArea = (data = {}) => String(data.area || data.Area || data.region || data.Region || '').trim();
+        const getRepId = (data = {}) => String(data.rep_id || data.repId || '').trim();
+        const getRepName = (data = {}) => String(data.repName || data.rep_name || data.rep || '').trim();
+
+        async function loadReps() {
+            state.reps = new Map();
+            try {
+                const snap = await getDocs(collection(db, 'reps'));
+                snap.forEach(item => {
+                    const data = item.data() || {};
+                    state.reps.set(item.id, String(data.name || item.id).trim());
+                });
+            } catch (error) {
+                console.warn('Unable to load reps. Pharmacy repName fields will be used where available.', error);
+            }
+        }
+
+        async function loadPharmacies() {
+            setStatus('جاري تحميل الصيدليات...', '#f59e0b');
+            try {
+                await loadReps();
+                const snap = await getDocs(collection(db, 'pharmacies'));
+                const rows = snap.docs.map((item) => {
+                    const data = item.data() || {};
+                    const repId = getRepId(data);
+                    const repName = getRepName(data) || state.reps.get(repId) || repId || '-';
+                    return {
+                        id: item.id,
+                        code: getPharmacyCode(data),
+                        name: getPharmacyName(data),
+                        repId,
+                        repName,
+                        area: getArea(data),
+                        raw: data
+                    };
+                });
+                rows.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+                state.rows = rows;
+                renderSummary();
+                renderTable();
+                setStatus(`تم تحميل ${rows.length} صيدلية.`, '#10b981');
+            } catch (error) {
+                console.error('Error loading pharmacies:', error);
+                $('pharmaciesTableBody').innerHTML = `<tr><td colspan="7" style="text-align:center;color:#dc2626;">حدث خطأ أثناء تحميل الصيدليات.</td></tr>`;
+                setStatus('حدث خطأ أثناء تحميل الصيدليات. تأكد من صلاحيات Firestore.', '#dc2626');
+            }
+        }
+
+        function renderSummary() {
+            const total = state.rows.length;
+            const missing = state.rows.filter(row => isAreaMissing(row.area)).length;
+            const filled = total - missing;
+            const codeCounts = new Map();
+            state.rows.forEach(row => {
+                const code = normalizeKey(row.code);
+                if (code) codeCounts.set(code, (codeCounts.get(code) || 0) + 1);
+            });
+            const duplicateCodes = Array.from(codeCounts.values()).filter(count => count > 1).length;
+
+            $('totalCount').textContent = total;
+            $('missingCount').textContent = missing;
+            $('filledCount').textContent = filled;
+            $('duplicateCount').textContent = duplicateCodes;
+        }
+
+        function getVisibleRows() {
+            const search = normalizeText($('searchInput')?.value || '');
+            const filter = $('areaFilter')?.value || 'all';
+            return state.rows.filter(row => {
+                const missing = isAreaMissing(row.area);
+                if (filter === 'missing' && !missing) return false;
+                if (filter === 'filled' && missing) return false;
+                if (!search) return true;
+                const haystack = normalizeText(`${row.code} ${row.name} ${row.repName} ${row.repId} ${row.area}`);
+                return haystack.includes(search);
+            });
+        }
+
+        function renderTable() {
+            const tbody = $('pharmaciesTableBody');
+            const rows = getVisibleRows();
+            if (!rows.length) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b;">لا توجد نتائج مطابقة.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = rows.map((row, index) => {
+                const missing = isAreaMissing(row.area);
+                return `
+                    <tr data-id="${escapeHtml(row.id)}">
+                        <td>${index + 1}</td>
+                        <td class="ltr-code">${escapeHtml(row.code || '-')}</td>
+                        <td>${escapeHtml(row.name || '-')}</td>
+                        <td>${escapeHtml(row.repName || '-')}</td>
+                        <td><input type="text" class="editable-area" value="${escapeHtml(missing ? '' : row.area)}" placeholder="اكتب المنطقة"></td>
+                        <td>${missing ? '<span class="badge badge-missing">بلا منطقة</span>' : '<span class="badge badge-ok">مكتملة</span>'}</td>
+                        <td><button type="button" class="btn-area btn-green save-row-btn" data-id="${escapeHtml(row.id)}" style="min-height:36px;padding:7px 12px;">حفظ</button></td>
+                    </tr>
+                `;
+            }).join('');
+
+            tbody.querySelectorAll('.save-row-btn').forEach(button => {
+                button.addEventListener('click', () => saveSingleArea(button));
+            });
+        }
+
+        async function saveSingleArea(button) {
+            const id = button.dataset.id;
+            const rowElement = button.closest('tr');
+            const areaValue = rowElement.querySelector('.editable-area')?.value.trim() || '';
+            const row = state.rows.find(item => item.id === id);
+            if (!row) return;
+
+            const originalText = button.textContent;
+            button.textContent = 'جاري...';
+            button.disabled = true;
+            try {
+                await updateDoc(doc(db, 'pharmacies', id), { area: areaValue || '-' });
+                row.area = areaValue || '-';
+                invalidateOperationalCaches();
+                renderSummary();
+                renderTable();
+                setStatus(`تم حفظ منطقة الصيدلية: ${row.name || id}`, '#10b981');
+            } catch (error) {
+                console.error('Error saving area:', error);
+                button.textContent = originalText;
+                button.disabled = false;
+                setStatus('حدث خطأ أثناء حفظ المنطقة.', '#dc2626');
+            }
+        }
+
+        function rowsForExcel(rows) {
+            return rows.map(row => ({
+                'Document_ID': row.id,
+                'كود الصيدلية': row.code || '',
+                'اسم الصيدلية': row.name || '',
+                'المندوب': row.repName || '',
+                'المنطقة الحالية': isAreaMissing(row.area) ? '' : row.area
+            }));
+        }
+
+        function exportRows(rows, filePrefix) {
+            if (!rows.length) {
+                setStatus('لا توجد بيانات للتصدير.', '#dc2626');
+                return;
+            }
+            const worksheet = XLSX.utils.json_to_sheet(rowsForExcel(rows));
+            worksheet['!cols'] = [
+                { wch: 24 },
+                { wch: 18 },
+                { wch: 38 },
+                { wch: 24 },
+                { wch: 24 }
+            ];
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Pharmacy Areas');
+            XLSX.writeFile(workbook, `${filePrefix}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            setStatus(`تم تصدير ${rows.length} صيدلية.`, '#10b981');
+        }
+
+        function buildLookupMaps() {
+            const byId = new Map();
+            const byCode = new Map();
+            const byNameRep = new Map();
+            state.rows.forEach(row => {
+                byId.set(row.id, row);
+                const codeKey = normalizeKey(row.code);
+                if (codeKey) {
+                    if (!byCode.has(codeKey)) byCode.set(codeKey, []);
+                    byCode.get(codeKey).push(row);
+                }
+                const nameRepKey = `${normalizeText(row.name)}|${normalizeText(row.repName)}`;
+                if (row.name && row.repName) {
+                    if (!byNameRep.has(nameRepKey)) byNameRep.set(nameRepKey, []);
+                    byNameRep.get(nameRepKey).push(row);
+                }
+            });
+            return { byId, byCode, byNameRep };
+        }
+
+        function mapImportRows(excelRows) {
+            const { byId, byCode, byNameRep } = buildLookupMaps();
+            const mapped = [];
+            const errors = [];
+            const warnings = [];
+            const seenIds = new Set();
+
+            excelRows.forEach((inputRow, index) => {
+                const documentId = String(rowValue(inputRow, ['Document_ID', 'Document ID', 'id', 'ID', 'معرف السجل'])).trim();
+                const code = String(rowValue(inputRow, ['كود الصيدلية', 'Pharmacy Code', 'pharmacyCode', 'pharmacy_code', 'code'])).trim();
+                const name = String(rowValue(inputRow, ['اسم الصيدلية', 'Name', 'name', 'الصيدلية', 'Pharmacy Name'])).trim();
+                const repName = String(rowValue(inputRow, ['المندوب', 'repName', 'Rep Name', 'rep', 'Representative'])).trim();
+                const area = String(rowValue(inputRow, ['المنطقة الحالية', 'المنطقة', 'Area', 'area', 'Region', 'region'])).trim();
+                const rowNumber = index + 2;
+
+                let target = null;
+                if (documentId && byId.has(documentId)) target = byId.get(documentId);
+                else if (code) {
+                    const matches = byCode.get(normalizeKey(code)) || [];
+                    if (matches.length === 1) target = matches[0];
+                    else if (matches.length > 1) errors.push(`السطر ${rowNumber}: كود الصيدلية مكرر في قاعدة البيانات (${code}). استخدم Document_ID من ملف التصدير.`);
+                }
+
+                if (!target && name && repName) {
+                    const matches = byNameRep.get(`${normalizeText(name)}|${normalizeText(repName)}`) || [];
+                    if (matches.length === 1) target = matches[0];
+                    else if (matches.length > 1) errors.push(`السطر ${rowNumber}: الاسم والمندوب مكرران في قاعدة البيانات (${name}).`);
+                }
+
+                if (!target) {
+                    errors.push(`السطر ${rowNumber}: لم يتم العثور على الصيدلية في Firebase.`);
+                    return;
+                }
+
+                if (seenIds.has(target.id)) {
+                    errors.push(`السطر ${rowNumber}: الصيدلية مكررة داخل ملف الرفع (${target.name}).`);
+                    return;
+                }
+                seenIds.add(target.id);
+
+                if (!area) warnings.push(`السطر ${rowNumber}: المنطقة فارغة، سيتم حفظها كقيمة فارغة/ناقصة.`);
+
+                mapped.push({
+                    id: target.id,
+                    code: target.code,
+                    name: target.name,
+                    repName: target.repName,
+                    oldArea: target.area || '',
+                    newArea: area || '-',
+                    changed: String(target.area || '-').trim() !== String(area || '-').trim()
+                });
+            });
+
+            return { mapped, errors, warnings };
+        }
+
+        function showImportPreview({ mapped, errors, warnings }) {
+            return new Promise(resolve => {
+                const changedRows = mapped.filter(row => row.changed);
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay-local';
+                const previewRows = changedRows.slice(0, 12).map(row => `
+                    <tr>
+                        <td class="ltr-code">${escapeHtml(row.code || '-')}</td>
+                        <td>${escapeHtml(row.name || '-')}</td>
+                        <td>${escapeHtml(row.repName || '-')}</td>
+                        <td>${escapeHtml(row.oldArea || '-')}</td>
+                        <td>${escapeHtml(row.newArea || '-')}</td>
+                    </tr>
+                `).join('');
+                overlay.innerHTML = `
+                    <div class="modal-card-local">
+                        <div class="panel-heading">
+                            <div>
+                                <h2><i class="ph ph-clipboard-text"></i> معاينة تحديث المناطق</h2>
+                                <p>لا يتم تعديل Firebase قبل تأكيد التنفيذ.</p>
+                            </div>
+                            <button type="button" class="btn-area btn-gray cancel-preview"><i class="ph ph-x"></i> إغلاق</button>
+                        </div>
+                        <div class="summary-grid" style="margin-bottom:12px;">
+                            <div class="summary-card"><span>صفوف مطابقة</span><strong>${mapped.length}</strong></div>
+                            <div class="summary-card"><span>تغييرات فعلية</span><strong>${changedRows.length}</strong></div>
+                            <div class="summary-card"><span>أخطاء</span><strong>${errors.length}</strong></div>
+                            <div class="summary-card"><span>تنبيهات</span><strong>${warnings.length}</strong></div>
+                        </div>
+                        ${errors.length ? `<div class="danger-panel-local" style="margin-bottom:12px;"><strong>أخطاء تمنع التنفيذ:</strong><br>${errors.slice(0, 20).map(escapeHtml).join('<br>')}${errors.length > 20 ? '<br>...' : ''}</div>` : ''}
+                        ${warnings.length ? `<div class="warning-panel-local" style="margin-bottom:12px;"><strong>تنبيهات:</strong><br>${warnings.slice(0, 15).map(escapeHtml).join('<br>')}${warnings.length > 15 ? '<br>...' : ''}</div>` : ''}
+                        ${changedRows.length ? `
+                            <div class="table-wrap-local">
+                                <table class="mini-table">
+                                    <thead><tr><th>الكود</th><th>الصيدلية</th><th>المندوب</th><th>المنطقة القديمة</th><th>المنطقة الجديدة</th></tr></thead>
+                                    <tbody>${previewRows}</tbody>
+                                </table>
+                            </div>
+                            ${changedRows.length > 12 ? `<div class="info-panel-local" style="margin-top:10px;">تم عرض أول 12 تغيير من أصل ${changedRows.length}.</div>` : ''}
+                        ` : '<div class="info-panel-local">لا توجد تغييرات فعلية على المناطق.</div>'}
+                        <div class="modal-footer-local">
+                            <strong>${errors.length ? 'صحح الأخطاء داخل Excel ثم أعد الرفع.' : 'سيتم تحديث حقل area فقط.'}</strong>
+                            <div class="tool-actions">
+                                <button type="button" class="btn-area btn-gray cancel-preview">إلغاء</button>
+                                <button type="button" class="btn-area btn-green confirm-preview" ${errors.length || !changedRows.length ? 'disabled' : ''}>تنفيذ التحديث</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+                overlay.querySelectorAll('.cancel-preview').forEach(button => button.addEventListener('click', () => { overlay.remove(); resolve(false); }));
+                overlay.querySelector('.confirm-preview')?.addEventListener('click', () => { overlay.remove(); resolve(true); });
+            });
+        }
+
+        async function importAreas() {
+            const fileInput = $('areaExcelFile');
+            const file = fileInput.files[0];
+            if (!file) {
+                setStatus('اختر ملف Excel أولاً.', '#dc2626');
+                return;
+            }
+
+            const button = $('importAreasBtn');
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="ph ph-spinner-gap"></i> جاري الفحص...';
+
+            try {
+                if (!state.rows.length) await loadPharmacies();
+                const excelRows = await readExcelFile(file, { defval: '' });
+                if (!excelRows.length) {
+                    setStatus('الملف فارغ أو لا يمكن قراءته.', '#dc2626');
+                    return;
+                }
+
+                const normalizedRows = excelRows.map(row => Object.keys(row).reduce((acc, key) => {
+                    acc[String(key).trim()] = row[key];
+                    return acc;
+                }, {}));
+                const result = mapImportRows(normalizedRows);
+                const confirmed = await showImportPreview(result);
+                if (!confirmed) return;
+
+                const changedRows = result.mapped.filter(row => row.changed);
+                button.innerHTML = '<i class="ph ph-spinner-gap"></i> جاري التحديث...';
+                let completed = 0;
+                for (let index = 0; index < changedRows.length; index += 80) {
+                    const chunk = changedRows.slice(index, index + 80);
+                    await Promise.all(chunk.map(row => updateDoc(doc(db, 'pharmacies', row.id), { area: row.newArea || '-' })));
+                    completed += chunk.length;
+                    setStatus(`تم تحديث ${completed} / ${changedRows.length} صيدلية...`, '#f59e0b');
+                }
+
+                invalidateOperationalCaches();
+                fileInput.value = '';
+                setStatus(`تم تحديث مناطق ${changedRows.length} صيدلية بنجاح.`, '#10b981');
+                await loadPharmacies();
+            } catch (error) {
+                console.error('Error importing areas:', error);
+                setStatus('حدث خطأ أثناء رفع ملف المناطق. تأكد من صيغة الملف وصلاحيات Firebase.', '#dc2626');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        }
+
+        $('reloadBtn').addEventListener('click', loadPharmacies);
+        $('exportAllBtn').addEventListener('click', () => exportRows(state.rows, 'pharmacy_areas_all'));
+        $('exportMissingBtn').addEventListener('click', () => exportRows(state.rows.filter(row => isAreaMissing(row.area)), 'pharmacy_areas_missing'));
+        $('importAreasBtn').addEventListener('click', importAreas);
+        $('searchInput').addEventListener('input', renderTable);
+        $('areaFilter').addEventListener('change', renderTable);
+
+        clearStatus();
+        loadPharmacies();
+    </script>
+</body>
+</html>

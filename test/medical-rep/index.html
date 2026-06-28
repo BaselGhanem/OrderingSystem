@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بوابة الدعاية الطبية</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="icon" href="../favicon.ico?v=20260624_medrep_v8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900;1000&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="css/medrep.css?v=20260624_medrep_v8">
+</head>
+<body class="portal-page">
+    <main class="portal-shell">
+        <section id="portalEntry" class="portal-entry">
+            <div class="portal-brand">
+                <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="DAD Logo">
+                <div>
+                    <h1>بوابة الدعاية الطبية</h1>
+                    <span>اختر نوع الدخول</span>
+                </div>
+            </div>
+
+            <section class="access-grid" aria-label="خيارات الدخول">
+                <a class="access-card admin-access" href="admin.html">
+                    <i class="ph ph-shield-check"></i>
+                    <strong>Admin</strong>
+                    <span>إدارة البوابة</span>
+                </a>
+                <a class="access-card leader-access" href="index.html?role=team">
+                    <i class="ph ph-users-three"></i>
+                    <strong>Team Leader</strong>
+                    <span>لوحة الفريق</span>
+                </a>
+                <a class="access-card rep-access" href="index.html?role=rep">
+                    <i class="ph ph-stethoscope"></i>
+                    <strong>Medical Rep</strong>
+                    <span>لوحة المندوب</span>
+                </a>
+            </section>
+
+            <section class="demo-launch-strip" aria-label="الديمو التفاعلي">
+                <div>
+                    <span><i class="ph ph-sparkle"></i> جديد</span>
+                    <strong>جرّب جولة تفاعلية قبل الدخول</strong>
+                    <small>شرح سريع لمسار Medical Rep وTeam Leader بدون تغيير أي بيانات.</small>
+                </div>
+                <a class="btn btn-primary" href="demo.html"><i class="ph ph-play-circle"></i> ابدأ الديمو</a>
+            </section>
+        </section>
+
+        <section id="repLoginPanel" class="auth-card role-login-card" hidden>
+            <button class="back-to-entry" type="button" data-back-entry><i class="ph ph-arrow-right"></i> رجوع</button>
+            <div class="login-icon"><i class="ph ph-stethoscope"></i></div>
+            <h2>Medical Rep</h2>
+            <p>ادخل رقمك الوظيفي وتاريخ ميلادك فقط</p>
+            <div class="field-group">
+                <label for="employeeNo">الرقم الوظيفي</label>
+                <input id="employeeNo" class="input-control" type="text" inputmode="numeric" autocomplete="username" placeholder="الرقم الوظيفي">
+            </div>
+            <div class="field-group">
+                <label for="birthDate">تاريخ الميلاد</label>
+                <input id="birthDate" class="input-control" type="date" autocomplete="bday">
+            </div>
+            <label class="checkbox-line"><input id="rememberMe" type="checkbox"> تذكرني</label>
+            <button id="loginBtn" class="btn btn-primary btn-full" type="button"><i class="ph ph-sign-in"></i> دخول</button>
+        </section>
+
+        <section id="teamLoginPanel" class="auth-card role-login-card" hidden>
+            <button class="back-to-entry" type="button" data-back-entry><i class="ph ph-arrow-right"></i> رجوع</button>
+            <div class="login-icon"><i class="ph ph-users-three"></i></div>
+            <h2>Team Leader</h2>
+            <p>ادخل اسم الفريق وكلمة المرور</p>
+            <div class="field-group">
+                <label for="teamNameInput">اسم الفريق</label>
+                <input id="teamNameInput" class="input-control" type="text" autocomplete="username" placeholder="مثال: Matador">
+            </div>
+            <div class="field-group">
+                <label for="teamPassword">كلمة المرور</label>
+                <input id="teamPassword" class="input-control" type="password" autocomplete="current-password" placeholder="كلمة المرور">
+            </div>
+            <label class="checkbox-line"><input id="rememberTeam" type="checkbox"> تذكرني</label>
+            <button id="teamLoginBtn" class="btn btn-primary btn-full" type="button"><i class="ph ph-sign-in"></i> دخول</button>
+        </section>
+    </main>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="js/medrep-common.js?v=20260624_medrep_v8"></script>
+    <script type="module" src="js/login.js?v=20260624_medrep_v8"></script>
+</body>
+</html>

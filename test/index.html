@@ -1,1 +1,62 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الطلبيات</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <script>
+        (function () {
+            const ADMIN_SESSION_KEY = 'dad_admin_session_v2';
+            const LEGACY_ADMIN_KEYS = ['managerName', 'adminType', 'authToken', 'adminPassword'];
+            const SWITCH_PARAMS = ['switch', 'logout', 'reset', 'forceLogin'];
+            function safeJson(value) {
+                try { return value ? JSON.parse(value) : null; } catch (e) { return null; }
+            }
+            function hasSwitchParam() {
+                const params = new URLSearchParams(window.location.search);
+                return SWITCH_PARAMS.some(key => params.has(key));
+            }
+            function clearRoutingSessions() {
+                localStorage.removeItem(ADMIN_SESSION_KEY);
+                sessionStorage.removeItem(ADMIN_SESSION_KEY);
+                LEGACY_ADMIN_KEYS.forEach(key => {
+                    localStorage.removeItem(key);
+                    sessionStorage.removeItem(key);
+                });
+                sessionStorage.removeItem('activeOrderContext');
+                sessionStorage.removeItem('adminOrderMode');
+                sessionStorage.removeItem('repId');
+                sessionStorage.removeItem('repName');
+            }
 
+            if (hasSwitchParam()) {
+                clearRoutingSessions();
+                window.location.replace('login.html?switch=1');
+                return;
+            }
+
+            const orderContext = sessionStorage.getItem('activeOrderContext');
+            if (orderContext) {
+                window.location.replace('order.html');
+                return;
+            }
+            const adminSession = safeJson(localStorage.getItem(ADMIN_SESSION_KEY)) || safeJson(sessionStorage.getItem(ADMIN_SESSION_KEY));
+            if (adminSession && adminSession.type === 'manager') {
+                window.location.replace('supervisor.html?v=20260628_table_pagination_fix1');
+                return;
+            }
+            if (adminSession && adminSession.type === 'reports') {
+                window.location.replace('reports.html?v=20260628_table_pagination_fix1');
+                return;
+            }
+            window.location.replace('login.html');
+        })();
+    </script>
+</head>
+<body>
+    <a href="login.html?switch=1">الدخول إلى نظام الطلبيات</a>
+</body>
+</html>

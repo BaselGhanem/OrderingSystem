@@ -1,0 +1,2430 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <link rel="icon" href="./favicon.ico?v=20260628_table_pagination_fix1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Control Center | نظام الطلبيات</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --teal: #099999;
+      --teal-bright: #12c7c7;
+      --teal-deep: #057979;
+      --navy: #07111f;
+      --navy-2: #102033;
+      --ink: #0b1220;
+      --muted: #66758a;
+      --muted-2: #8a98aa;
+      --gold: #c7922b;
+      --success: #0f8a62;
+      --warning: #b7791f;
+      --danger: #b42318;
+      --surface: rgba(255, 255, 255, .78);
+      --surface-strong: rgba(255, 255, 255, .94);
+      --dark-surface: rgba(7, 17, 31, .86);
+      --border: rgba(148, 163, 184, .22);
+      --border-strong: rgba(148, 163, 184, .36);
+      --shadow-sm: 0 10px 28px rgba(15, 23, 42, .08);
+      --shadow-md: 0 24px 70px rgba(15, 23, 42, .13);
+      --shadow-lg: 0 34px 100px rgba(15, 23, 42, .22);
+      --radius-xl: 34px;
+      --radius-lg: 24px;
+      --radius-md: 18px;
+      --font-ar: "Almarai", system-ui, sans-serif;
+      --font-num: "Inter", "Segoe UI", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-ar);
+      color: var(--ink);
+      overflow-x: hidden;
+      background:
+        radial-gradient(circle at 88% 7%, rgba(9, 153, 153, .24), transparent 30%),
+        radial-gradient(circle at 9% 17%, rgba(199, 146, 43, .18), transparent 26%),
+        radial-gradient(circle at 52% 2%, rgba(79, 70, 229, .13), transparent 31%),
+        linear-gradient(135deg, #f8fbfb 0%, #eef8f8 42%, #f7fafc 100%);
+      padding: clamp(10px, 2vw, 26px);
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: clamp(260px, 32vw, 520px);
+      height: clamp(260px, 32vw, 520px);
+      border-radius: 999px;
+      pointer-events: none;
+      z-index: -2;
+      filter: blur(18px);
+      animation: orbit 13s ease-in-out infinite alternate;
+    }
+
+    body::before {
+      top: -180px;
+      inset-inline-end: -130px;
+      background: rgba(9, 153, 153, .34);
+    }
+
+    body::after {
+      bottom: -190px;
+      inset-inline-start: -130px;
+      background: rgba(15, 23, 42, .18);
+      animation-delay: -5s;
+    }
+
+    @keyframes orbit {
+      from { transform: translate3d(0, 0, 0) scale(1); }
+      to { transform: translate3d(32px, 36px, 0) scale(1.08); }
+    }
+
+    .app-shell {
+      width: min(1680px, 100%);
+      margin: 0 auto;
+      animation: pageIn .55s cubic-bezier(.2, .8, .2, 1) both;
+    }
+
+    @keyframes pageIn {
+      from { opacity: 0; transform: translateY(18px) scale(.992); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .glass {
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, .82);
+      box-shadow: var(--shadow-md);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-xl);
+      min-height: 250px;
+      padding: clamp(18px, 3vw, 34px);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: clamp(14px, 2vw, 24px);
+      align-items: stretch;
+      margin-bottom: 16px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.84), rgba(255,255,255,.58)),
+        radial-gradient(circle at 22% 10%, rgba(9,153,153,.16), transparent 28%);
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      background:
+        linear-gradient(110deg, transparent 0%, rgba(255,255,255,.85) 38%, transparent 54%),
+        radial-gradient(circle at 84% 30%, rgba(9,153,153,.22), transparent 24%);
+      transform: translateX(58%);
+      opacity: .66;
+      animation: sheen 8s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes sheen {
+      0%, 42% { transform: translateX(58%); }
+      72%, 100% { transform: translateX(-58%); }
+    }
+
+    .hero-content { position: relative; z-index: 1; display: grid; align-content: center; }
+
+    .eyebrow {
+      width: fit-content;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      border-radius: 999px;
+      background: rgba(9, 153, 153, .11);
+      border: 1px solid rgba(9, 153, 153, .20);
+      color: var(--teal-deep);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .pulse-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--teal);
+      box-shadow: 0 0 0 0 rgba(9, 153, 153, .45);
+      animation: pulse 1.9s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(9,153,153,.48); }
+      70% { box-shadow: 0 0 0 12px rgba(9,153,153,0); }
+      100% { box-shadow: 0 0 0 0 rgba(9,153,153,0); }
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--navy);
+      font-size: clamp(30px, 4vw, 58px);
+      line-height: 1.12;
+      letter-spacing: -.9px;
+      font-weight: 900;
+    }
+
+    .accent { color: var(--teal); }
+
+    .hero-copy {
+      max-width: 920px;
+      margin: 14px 0 0;
+      color: var(--muted);
+      line-height: 1.9;
+      font-size: clamp(13px, 1.2vw, 15px);
+      font-weight: 700;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .hero-side {
+      position: relative;
+      z-index: 1;
+      min-width: min(360px, 38vw);
+      display: grid;
+      grid-template-rows: auto auto;
+      gap: 12px;
+    }
+
+    .royal-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 30px;
+      min-height: 134px;
+      padding: 20px;
+      color: #fff;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(18,199,199,.34), transparent 32%),
+        linear-gradient(145deg, #07111f, #0b2a38 52%, #057979);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .royal-card::after {
+      content: "";
+      position: absolute;
+      width: 180px;
+      height: 180px;
+      border-radius: 999px;
+      inset-inline-start: -78px;
+      top: -74px;
+      background: rgba(255,255,255,.10);
+    }
+
+    .royal-card small,
+    .live-card span { color: rgba(255,255,255,.68); font-weight: 800; }
+
+    .royal-card strong {
+      display: block;
+      margin-top: 12px;
+      font-family: var(--font-num);
+      font-size: clamp(26px, 3vw, 40px);
+      letter-spacing: -.5px;
+    }
+
+    .royal-card p { margin: 5px 0 0; color: rgba(255,255,255,.78); font-weight: 700; }
+
+    .live-card {
+      border-radius: 24px;
+      padding: 16px;
+      display: grid;
+      gap: 8px;
+      background: rgba(7,17,31,.84);
+      color: #fff;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .live-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(9,153,153,.18), transparent 55%);
+      pointer-events: none;
+    }
+
+    .live-value { font-family: var(--font-num); font-size: 17px; font-weight: 900; position: relative; z-index: 1; }
+
+    .btn {
+      min-height: 44px;
+      border: 0;
+      border-radius: 16px;
+      padding: 10px 14px;
+      font-family: var(--font-ar);
+      font-weight: 900;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      color: #fff;
+      background: linear-gradient(135deg, var(--navy), var(--teal));
+      box-shadow: 0 14px 32px rgba(9, 153, 153, .18);
+      transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 18px 44px rgba(9,153,153,.24); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { cursor: not-allowed; opacity: .45; transform: none; }
+
+    .btn.secondary {
+      background: rgba(255,255,255,.92);
+      color: var(--navy);
+      border: 1px solid var(--border-strong);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn.ghost {
+      background: rgba(9,153,153,.09);
+      color: var(--teal-deep);
+      border: 1px solid rgba(9,153,153,.18);
+      box-shadow: none;
+    }
+
+    .btn.danger { background: linear-gradient(135deg, #7f1d1d, #b42318); }
+    .btn.gold { background: linear-gradient(135deg, #7c5515, #c7922b); }
+
+    .nav-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .nav-pill {
+      border: 1px solid rgba(255,255,255,.72);
+      border-radius: 22px;
+      min-height: 74px;
+      padding: 14px;
+      background: rgba(255,255,255,.72);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--navy);
+      font-family: var(--font-ar);
+      font-weight: 900;
+      transition: transform .18s ease, background .18s ease, border-color .18s ease;
+    }
+
+    .nav-pill i {
+      width: 42px;
+      height: 42px;
+      border-radius: 15px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--teal-deep);
+      background: rgba(9,153,153,.10);
+      font-size: 21px;
+    }
+
+    .nav-pill:hover,
+    .nav-pill.active {
+      transform: translateY(-2px);
+      background: rgba(255,255,255,.96);
+      border-color: rgba(9,153,153,.35);
+    }
+
+    .section { margin-bottom: 16px; }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin: 4px 2px 12px;
+    }
+
+    .section-title { display: grid; gap: 4px; }
+    .section-title h2 { margin: 0; color: var(--navy); font-size: clamp(20px, 2.2vw, 30px); }
+    .section-title p { margin: 0; color: var(--muted); font-weight: 700; line-height: 1.7; }
+
+    .filters {
+      border-radius: var(--radius-xl);
+      padding: clamp(14px, 2vw, 20px);
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .field { display: grid; gap: 7px; min-width: 0; }
+
+    .field label {
+      color: var(--navy);
+      font-weight: 900;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      min-height: 45px;
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,.34);
+      background: rgba(255,255,255,.92);
+      color: var(--ink);
+      padding: 9px 12px;
+      font-family: var(--font-ar);
+      font-weight: 800;
+      outline: none;
+      transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+
+    .field textarea { min-height: 90px; resize: vertical; line-height: 1.8; }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: rgba(9,153,153,.64);
+      box-shadow: 0 0 0 4px rgba(9,153,153,.10);
+      transform: translateY(-1px);
+    }
+
+    .wide-2 { grid-column: span 2; }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .kpi-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 26px;
+      padding: 17px;
+      min-height: 132px;
+      background: var(--surface-strong);
+      border: 1px solid rgba(255,255,255,.86);
+      box-shadow: var(--shadow-sm);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+
+    .kpi-card::after {
+      content: "";
+      position: absolute;
+      inset-inline-start: -70px;
+      top: -70px;
+      width: 150px;
+      height: 150px;
+      border-radius: 999px;
+      background: rgba(9,153,153,.08);
+    }
+
+    .kpi-card .icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(9,153,153,.10);
+      color: var(--teal-deep);
+      font-size: 22px;
+      margin-bottom: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .kpi-card span {
+      position: relative;
+      z-index: 1;
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .kpi-card strong {
+      position: relative;
+      z-index: 1;
+      display: block;
+      margin-top: 8px;
+      font-family: var(--font-num);
+      color: var(--navy);
+      font-size: clamp(22px, 2.8vw, 34px);
+      font-weight: 900;
+      letter-spacing: -.4px;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.12fr) minmax(360px, .88fr);
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .panel {
+      border-radius: var(--radius-xl);
+      padding: clamp(14px, 2vw, 20px);
+      overflow: hidden;
+    }
+
+    .flow-board {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .queue-card,
+    .status-card {
+      position: relative;
+      border-radius: 22px;
+      padding: 15px;
+      background: rgba(255,255,255,.76);
+      border: 1px solid rgba(148,163,184,.23);
+      min-height: 104px;
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .queue-card:hover,
+    .status-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(9,153,153,.38);
+      background: rgba(255,255,255,.95);
+    }
+
+    .queue-card span,
+    .status-card span { display: block; color: var(--muted); font-size: 12px; font-weight: 900; }
+    .queue-card strong,
+    .status-card strong { display: block; margin-top: 10px; color: var(--navy); font-family: var(--font-num); font-size: 30px; font-weight: 900; }
+    .queue-card small,
+    .status-card small { display: block; margin-top: 7px; color: var(--muted-2); font-weight: 800; line-height: 1.5; }
+
+    .queue-card::before,
+    .status-card::before {
+      content: "";
+      position: absolute;
+      inset-inline-end: -32px;
+      bottom: -42px;
+      width: 110px;
+      height: 110px;
+      border-radius: 999px;
+      background: rgba(9,153,153,.07);
+    }
+
+    .status-cloud {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      max-height: 406px;
+      overflow: auto;
+      padding-inline-end: 3px;
+    }
+
+    .command-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 14px;
+      border-radius: 24px;
+      margin-bottom: 12px;
+      background: rgba(7,17,31,.88);
+      color: #fff;
+      box-shadow: var(--shadow-md);
+    }
+
+    .command-meta { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; color: rgba(255,255,255,.76); font-weight: 800; }
+
+    .badge {
+      min-height: 30px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 900;
+      background: rgba(9,153,153,.10);
+      border: 1px solid rgba(9,153,153,.18);
+      color: var(--teal-deep);
+      white-space: nowrap;
+    }
+
+    .badge.dark { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.16); color: #fff; }
+    .badge.warn { color: #92400e; background: #fffbeb; border-color: #fde68a; }
+    .badge.danger { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+    .badge.success { color: #047857; background: #ecfdf5; border-color: #a7f3d0; }
+    .badge.neutral { color: #334155; background: #f8fafc; border-color: #e2e8f0; }
+
+    .table-card { border-radius: var(--radius-xl); overflow: hidden; }
+
+    .table-scroll {
+      width: 100%;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      max-height: calc(100dvh - 326px);
+      min-height: 420px;
+      background: rgba(255,255,255,.64);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .orders-table { min-width: 1320px; }
+
+    th,
+    td {
+      text-align: right;
+      padding: 12px 11px;
+      border-bottom: 1px solid rgba(226,232,240,.92);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: rgba(248,250,252,.96);
+      color: var(--navy);
+      font-size: 12px;
+      font-weight: 900;
+      backdrop-filter: blur(12px);
+    }
+
+    tbody tr { transition: background .16s ease, transform .16s ease; }
+    tbody tr:hover { background: rgba(9,153,153,.052); }
+
+    .check-cell { width: 42px; text-align: center; }
+    .order-check { width: 18px; height: 18px; accent-color: var(--teal); }
+
+    .order-id {
+      direction: ltr;
+      display: inline-flex;
+      font-family: var(--font-num);
+      font-weight: 900;
+      color: var(--navy);
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 5px 8px;
+    }
+
+    .pharmacy-cell { display: grid; gap: 4px; min-width: 260px; }
+    .pharmacy-cell strong { color: var(--navy); font-weight: 900; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+    .pharmacy-cell small { color: var(--muted); font-weight: 800; }
+
+    .money { direction: ltr; font-family: var(--font-num); font-weight: 900; color: var(--navy); }
+    .muted { color: var(--muted); font-weight: 800; }
+
+    .row-actions { display: inline-flex; gap: 7px; }
+
+    .mini-btn {
+      min-height: 34px;
+      border: 0;
+      border-radius: 12px;
+      padding: 7px 10px;
+      font-family: var(--font-ar);
+      font-weight: 900;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--teal-deep);
+      background: rgba(9,153,153,.09);
+      border: 1px solid rgba(9,153,153,.16);
+      transition: transform .16s ease, background .16s ease;
+      white-space: nowrap;
+    }
+
+    .mini-btn:hover { transform: translateY(-1px); background: rgba(9,153,153,.14); }
+    .mini-btn.dark { color: #fff; background: linear-gradient(135deg, var(--navy), var(--teal)); }
+    .mini-btn.gold { color: #6b460d; background: #fffbeb; border-color: #fde68a; }
+
+    .empty-state {
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      font-weight: 900;
+      line-height: 1.8;
+    }
+
+    .skeleton {
+      display: inline-block;
+      height: 16px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #eef2f7, #fff, #eef2f7);
+      background-size: 220% 100%;
+      animation: shimmer 1.2s linear infinite;
+    }
+
+    @keyframes shimmer {
+      from { background-position: 220% 0; }
+      to { background-position: -220% 0; }
+    }
+
+    .drawer-overlay,
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      background: rgba(7, 17, 31, .58);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: none;
+      align-items: stretch;
+      justify-content: flex-start;
+      padding: clamp(8px, 2vw, 22px);
+    }
+
+    .drawer-overlay.open,
+    .modal-overlay.open { display: flex; }
+
+    .drawer {
+      width: min(980px, 100%);
+      margin-inline-start: auto;
+      border-radius: 32px;
+      background: rgba(255,255,255,.96);
+      border: 1px solid rgba(255,255,255,.86);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      animation: drawerIn .28s cubic-bezier(.2,.8,.2,1) both;
+    }
+
+    @keyframes drawerIn {
+      from { opacity: 0; transform: translateX(-28px) scale(.99); }
+      to { opacity: 1; transform: translateX(0) scale(1); }
+    }
+
+    .drawer-head {
+      padding: 18px;
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+      background:
+        radial-gradient(circle at 92% 5%, rgba(9,153,153,.14), transparent 25%),
+        linear-gradient(135deg, #ffffff, #f8fafc);
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .drawer-title { display: grid; gap: 5px; }
+    .drawer-title h2 { margin: 0; color: var(--navy); font-size: clamp(20px, 2.5vw, 32px); }
+    .drawer-title p { margin: 0; color: var(--muted); font-weight: 800; line-height: 1.7; }
+
+    .drawer-body {
+      overflow: auto;
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .close-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      color: var(--navy);
+      cursor: pointer;
+      font-size: 22px;
+      display: grid;
+      place-items: center;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .info-box {
+      min-height: 92px;
+      padding: 14px;
+      border-radius: 20px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, .05);
+      display: grid;
+      align-content: center;
+      gap: 7px;
+    }
+
+    .info-box span { color: var(--muted); font-size: 12px; font-weight: 900; }
+    .info-box strong { color: var(--navy); font-size: 15px; line-height: 1.65; overflow-wrap: anywhere; }
+
+    .history-card {
+      border-radius: 24px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+      overflow: hidden;
+    }
+
+    .history-card h3 {
+      margin: 0;
+      padding: 14px 16px;
+      color: var(--navy);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+      font-size: 16px;
+    }
+
+    .history-content { padding: 14px; }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .step {
+      position: relative;
+      min-height: 92px;
+      border-radius: 18px;
+      padding: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+    }
+
+    .step.done { background: #ecfdf5; border-color: #a7f3d0; }
+    .step.current { background: #effafa; border-color: rgba(9,153,153,.35); box-shadow: 0 0 0 4px rgba(9,153,153,.08); }
+    .step.rejected { background: #fef2f2; border-color: #fecaca; }
+    .step.deleted { background: #f1f5f9; border-color: #cbd5e1; }
+    .step span { display: block; color: var(--muted); font-size: 11px; font-weight: 900; }
+    .step strong { display: block; margin-top: 8px; color: var(--navy); font-size: 13px; line-height: 1.6; }
+
+    .audit-list { display: grid; gap: 10px; }
+
+    .audit-entry {
+      border-radius: 18px;
+      padding: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .audit-entry-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--navy);
+      font-weight: 900;
+    }
+
+    .audit-entry p { margin: 0; color: var(--muted); font-weight: 800; line-height: 1.8; }
+
+    .mini-table-wrap { overflow: auto; }
+    .mini-table { min-width: 780px; }
+    .mini-table th, .mini-table td { padding: 10px; }
+
+    .modal-overlay { justify-content: center; align-items: center; }
+
+    .modal-box {
+      width: min(680px, 100%);
+      max-height: calc(100dvh - 24px);
+      overflow: auto;
+      border-radius: 30px;
+      background: rgba(255,255,255,.97);
+      box-shadow: var(--shadow-lg);
+      padding: clamp(16px, 2vw, 24px);
+      animation: modalIn .22s cubic-bezier(.2,.8,.2,1) both;
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(16px) scale(.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .modal-head h2 { margin: 0; color: var(--navy); font-size: 22px; }
+    .modal-head p { margin: 5px 0 0; color: var(--muted); font-weight: 800; line-height: 1.7; }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .toast-stack {
+      position: fixed;
+      inset-inline-start: 18px;
+      bottom: 18px;
+      z-index: 120;
+      display: grid;
+      gap: 10px;
+      width: min(420px, calc(100vw - 36px));
+    }
+
+    .toast {
+      border-radius: 18px;
+      padding: 13px 14px;
+      background: rgba(7,17,31,.94);
+      color: #fff;
+      box-shadow: var(--shadow-md);
+      border: 1px solid rgba(255,255,255,.10);
+      font-weight: 900;
+      line-height: 1.7;
+      animation: toastIn .22s ease both;
+    }
+
+    .toast.success { background: rgba(6, 95, 70, .96); }
+    .toast.warning { background: rgba(146, 64, 14, .96); }
+    .toast.error { background: rgba(127, 29, 29, .96); }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .offline-banner {
+      position: fixed;
+      top: 12px;
+      inset-inline-start: 50%;
+      transform: translateX(-50%) translateY(-120%);
+      z-index: 140;
+      background: #7f1d1d;
+      color: #fff;
+      border-radius: 999px;
+      padding: 10px 14px;
+      box-shadow: var(--shadow-md);
+      font-weight: 900;
+      transition: transform .2s ease;
+    }
+
+    .offline-banner.show { transform: translateX(-50%) translateY(0); }
+
+    .mobile-cards { display: none; }
+
+    @media (max-width: 1180px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-side { min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .flow-board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .status-cloud { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: none; }
+      .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 10px; }
+      .hero { border-radius: 26px; min-height: auto; }
+      .hero-side { grid-template-columns: 1fr; }
+      .nav-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .nav-pill { min-height: 64px; padding: 12px; }
+      .filters { grid-template-columns: 1fr; }
+      .wide-2 { grid-column: auto; }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .flow-board,
+      .status-cloud,
+      .timeline { grid-template-columns: 1fr; }
+      .command-bar { align-items: stretch; }
+      .command-meta, .command-actions { width: 100%; }
+      .command-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+      .table-scroll { display: none; }
+      .mobile-cards { display: grid; gap: 10px; }
+      .mobile-order-card {
+        border-radius: 22px;
+        padding: 14px;
+        background: rgba(255,255,255,.92);
+        border: 1px solid rgba(148,163,184,.24);
+        box-shadow: var(--shadow-sm);
+        display: grid;
+        gap: 10px;
+      }
+      .mobile-order-card .top { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+      .mobile-order-card h3 { margin: 0; color: var(--navy); font-size: 15px; line-height: 1.6; }
+      .mobile-order-card p { margin: 0; color: var(--muted); font-weight: 800; line-height: 1.7; }
+      .drawer-overlay { padding: 0; }
+      .drawer { width: 100%; border-radius: 0; min-height: 100dvh; }
+      .drawer-head { border-radius: 0; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .modal-overlay { padding: 8px; }
+      .modal-box { border-radius: 24px; }
+    }
+
+    @media (max-width: 430px) {
+      .kpi-grid { grid-template-columns: 1fr; }
+      .nav-strip { grid-template-columns: 1fr; }
+      .hero-actions .btn, .btn { width: 100%; }
+      .row-actions { display: grid; grid-template-columns: 1fr; width: 100%; }
+      .mini-btn { justify-content: center; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    }
+
+    .control-pager {
+      display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;
+      margin:14px 0 6px; padding:10px; color:#475569; font-weight:900; direction:ltr;
+    }
+    .control-pager button {
+      border:1px solid rgba(9,153,153,.24); background:#fff; color:#0f172a; border-radius:12px;
+      min-width:38px; height:38px; padding:0 12px; font-weight:900; cursor:pointer;
+      transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .control-pager button:hover { transform:translateY(-1px); box-shadow:0 8px 20px rgba(15,23,42,.10); }
+    .control-pager button.active { background:#099999; color:#fff; border-color:#099999; }
+    .control-pager button:disabled { opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
+    .control-pager .pager-label { min-width:110px; text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="offline-banner" id="offlineBanner"><i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال</div>
+
+  <main class="app-shell">
+    <section class="hero glass" id="top">
+      <div class="hero-content">
+        <div class="eyebrow"><span class="pulse-dot"></span> Control Center — Basel + Audit Experience</div>
+        <h1>غرفة تحكم <span class="accent">ملكية</span> لنظام الطلبيات</h1>
+        <p class="hero-copy">ملف واحد يجمع إدارة الحالات، مراقبة مسار الطلبية، قراءة سجلات التدقيق والتصدير والطباعة، التصفية الذكية، والتصدير إلى Excel بتجربة مصممة لتكون سريعة، واضحة، وفخمة.</p>
+        <div class="hero-actions">
+          <button class="btn" type="button" id="refreshTopBtn"><i class="ph ph-arrow-clockwise"></i> تحديث البيانات</button>
+          <button class="btn secondary" type="button" id="exportTopBtn"><i class="ph ph-file-xls"></i> تصدير المعروض</button>
+          <a class="btn ghost" href="basel.html?v=20260628_table_pagination_fix1"><i class="ph ph-sliders-horizontal"></i> Basel.html</a>
+          <a class="btn ghost" href="audit.html"><i class="ph ph-shield-check"></i> Audit.html</a>
+        </div>
+      </div>
+      <aside class="hero-side">
+        <div class="royal-card">
+          <small>قيمة المعروض الآن</small>
+          <strong id="heroValue">0.00</strong>
+          <p>دينار أردني حسب الفلاتر النشطة.</p>
+        </div>
+        <div class="live-card">
+          <span>آخر تحميل</span>
+          <div class="live-value" id="lastLoadedAt">لم يتم التحميل بعد</div>
+          <span id="connectionHint">متصل بـ Firebase مباشرة</span>
+        </div>
+      </aside>
+    </section>
+
+    <nav class="nav-strip" aria-label="Quick navigation">
+      <button class="nav-pill active" type="button" data-scroll-target="dashboardSection"><i class="ph ph-gauge"></i><span>لوحة القيادة</span></button>
+      <button class="nav-pill" type="button" data-scroll-target="ordersSection"><i class="ph ph-table"></i><span>الطلبيات</span></button>
+      <button class="nav-pill" type="button" data-scroll-target="flowSection"><i class="ph ph-git-branch"></i><span>المسارات</span></button>
+      <button class="nav-pill" type="button" data-scroll-target="ordersSection"><i class="ph ph-magic-wand"></i><span>الأوامر</span></button>
+    </nav>
+
+    <section class="filters glass" aria-label="Filters">
+      <div class="field">
+        <label for="dateFrom"><i class="ph ph-calendar"></i> من تاريخ</label>
+        <input id="dateFrom" type="date" />
+      </div>
+      <div class="field">
+        <label for="dateTo"><i class="ph ph-calendar-check"></i> إلى تاريخ</label>
+        <input id="dateTo" type="date" />
+      </div>
+      <div class="field wide-2">
+        <label for="searchBox"><i class="ph ph-magnifying-glass"></i> بحث ذكي</label>
+        <input id="searchBox" type="search" placeholder="رقم الطلبية / الصيدلية / كود الصيدلية / المندوب / الملاحظة" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="statusFilter"><i class="ph ph-seal-check"></i> الحالة</label>
+        <select id="statusFilter"><option value="">كل الحالات</option></select>
+      </div>
+      <div class="field">
+        <label for="ownerFilter"><i class="ph ph-user-focus"></i> المطلوب من</label>
+        <select id="ownerFilter">
+          <option value="">كل الجهات</option>
+          <option value="representative">المندوب</option>
+          <option value="supervisor">المشرف</option>
+          <option value="market_manager">مدير السوق</option>
+          <option value="finance">المالية</option>
+          <option value="orders_staff">قسم الطلبيات</option>
+          <option value="none">مغلق / لا يوجد</option>
+        </select>
+      </div>
+      <div class="field wide-2">
+        <label for="pharmacySearch"><i class="ph ph-storefront"></i> الصيدلية</label>
+        <input id="pharmacySearch" type="search" placeholder="اكتب اسم الصيدلية أو الكود — الكتابة تكفي" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="historyFilter"><i class="ph ph-clock-counter-clockwise"></i> السجلات</label>
+        <select id="historyFilter">
+          <option value="">كل السجلات</option>
+          <option value="audit">لديها سجل تدقيق</option>
+          <option value="export">لديها سجل تصدير</option>
+          <option value="print">لديها سجل طباعة</option>
+          <option value="no_audit">بدون سجل تدقيق</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sortMode"><i class="ph ph-sort-descending"></i> الترتيب</label>
+        <select id="sortMode">
+          <option value="date_desc">الأحدث أولاً</option>
+          <option value="date_asc">الأقدم أولاً</option>
+          <option value="value_desc">الأعلى قيمة</option>
+          <option value="value_asc">الأقل قيمة</option>
+          <option value="status">حسب الحالة</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn secondary" type="button" id="resetFiltersBtn"><i class="ph ph-funnel-x"></i> إعادة ضبط</button>
+      </div>
+    </section>
+
+    <section class="section" id="dashboardSection">
+      <div class="section-head">
+        <div class="section-title">
+          <h2>لوحة القيادة التنفيذية</h2>
+          <p>قراءة فورية لأثر الفلاتر على عدد الطلبيات، القيمة، السجلات، وجهات المتابعة.</p>
+        </div>
+        <span class="badge" id="visibleSummary">0 طلبية ظاهرة</span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="icon"><i class="ph ph-package"></i></div><span>إجمالي الطلبيات</span><strong id="kpiOrders">0</strong></div>
+        <div class="kpi-card"><div class="icon"><i class="ph ph-coins"></i></div><span>إجمالي القيمة</span><strong id="kpiValue">0.00</strong></div>
+        <div class="kpi-card"><div class="icon"><i class="ph ph-chart-line-up"></i></div><span>متوسط الطلبية</span><strong id="kpiAvg">0.00</strong></div>
+        <div class="kpi-card"><div class="icon"><i class="ph ph-clock-counter-clockwise"></i></div><span>حركات التدقيق</span><strong id="kpiAudit">0</strong></div>
+        <div class="kpi-card"><div class="icon"><i class="ph ph-file-arrow-down"></i></div><span>سجلات التصدير</span><strong id="kpiExport">0</strong></div>
+        <div class="kpi-card"><div class="icon"><i class="ph ph-printer"></i></div><span>سجلات الطباعة</span><strong id="kpiPrint">0</strong></div>
+      </div>
+    </section>
+
+    <section class="dashboard-grid section" id="flowSection">
+      <div class="panel glass">
+        <div class="section-head">
+          <div class="section-title">
+            <h2>خريطة المطلوب منه الآن</h2>
+            <p>اضغط على أي بطاقة لتطبيق فلتر الجهة مباشرة.</p>
+          </div>
+        </div>
+        <div class="flow-board" id="ownerBoard"></div>
+      </div>
+      <div class="panel glass">
+        <div class="section-head">
+          <div class="section-title">
+            <h2>الحالات الحية</h2>
+            <p>تجميع حسب آخر حالة فعلية لكل طلبية.</p>
+          </div>
+        </div>
+        <div class="status-cloud" id="statusCloud"></div>
+      </div>
+    </section>
+
+    <section class="section" id="ordersSection">
+      <div class="command-bar">
+        <div class="command-meta">
+          <span class="badge dark"><i class="ph ph-check-square"></i> المحدد: <b id="selectedCount">0</b></span>
+          <span class="badge dark"><i class="ph ph-database"></i> إجمالي قاعدة البيانات: <b id="databaseCount">0</b></span>
+          <span class="badge dark" id="loadingState"><i class="ph ph-circle-notch"></i> جاهز</span>
+        </div>
+        <div class="command-actions">
+          <button class="btn gold" type="button" id="bulkStatusBtn" disabled><i class="ph ph-git-branch"></i> تغيير حالة المحدد</button>
+          <button class="btn secondary" type="button" id="exportBtn"><i class="ph ph-file-xls"></i> Excel</button>
+          <button class="btn secondary" type="button" id="refreshBtn"><i class="ph ph-arrow-clockwise"></i> تحديث</button>
+        </div>
+      </div>
+
+      <div class="table-card glass">
+        <div class="table-scroll">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th class="check-cell"><input class="order-check" id="selectAllVisible" type="checkbox" aria-label="تحديد كل المعروض" /></th>
+                <th>رقم الطلبية</th>
+                <th>التاريخ</th>
+                <th>الوقت</th>
+                <th>الصيدلية</th>
+                <th>المندوب</th>
+                <th>القيمة</th>
+                <th>الحالة</th>
+                <th>المطلوب من</th>
+                <th>السجلات</th>
+                <th>إجراء</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody">
+              <tr><td colspan="11"><div class="empty-state"><span class="skeleton" style="width: 70%;"></span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="controlOrdersPager" class="control-pager"></div>
+        <div class="mobile-cards" id="mobileCards"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="drawer-overlay" id="detailsOverlay" aria-hidden="true">
+    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="detailsTitle">
+      <header class="drawer-head">
+        <div class="drawer-title">
+          <h2 id="detailsTitle">تفاصيل الطلبية</h2>
+          <p id="detailsSubtitle">—</p>
+          <div class="hero-actions" id="drawerActions"></div>
+        </div>
+        <button class="close-btn" type="button" id="closeDetailsBtn" aria-label="إغلاق"><i class="ph ph-x"></i></button>
+      </header>
+      <div class="drawer-body" id="detailsBody"></div>
+    </aside>
+  </div>
+
+  <div class="modal-overlay" id="statusModal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="statusModalTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="statusModalTitle">تغيير حالة الطلبية</h2>
+          <p id="statusModalSubtitle">اختر الحالة الجديدة واكتب ملاحظة واضحة. الملاحظة إجبارية لحماية سجل التدقيق.</p>
+        </div>
+        <button class="close-btn" type="button" id="closeStatusModalBtn" aria-label="إغلاق"><i class="ph ph-x"></i></button>
+      </div>
+      <div class="field">
+        <label for="targetStatus"><i class="ph ph-git-branch"></i> الحالة الجديدة</label>
+        <select id="targetStatus"></select>
+      </div>
+      <div class="field" style="margin-top: 12px;">
+        <label for="statusNote"><i class="ph ph-note-pencil"></i> ملاحظة إجبارية</label>
+        <textarea id="statusNote" placeholder="اكتب سبب التغيير بوضوح"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn secondary" type="button" id="cancelStatusBtn">إلغاء</button>
+        <button class="btn" type="button" id="confirmStatusBtn"><i class="ph ph-check-circle"></i> تأكيد التغيير</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      getDocs,
+      query,
+      where,
+      orderBy,
+      doc,
+      writeBatch,
+      serverTimestamp,
+      arrayUnion
+    } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-lite.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
+      authDomain: "dad-ordering-system.firebaseapp.com",
+      projectId: "dad-ordering-system",
+      storageBucket: "dad-ordering-system.firebasestorage.app",
+      messagingSenderId: "43886677849",
+      appId: "1:43886677849:web:de5f80c06e1b743c948648"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const ACTION_BY = `Control Center`;
+    const CONTROL_VERSION = `20260628_monthly_report_cache_fix1`;
+    const ORDERS_CACHE_PREFIX = `dad_control_orders_cache_`;
+    const ORDERS_CACHE_TTL_MS = 10 * 60 * 1000;
+    const HISTORICAL_ORDERS_CACHE_TTL_MS = 365 * 24 * 60 * 60 * 1000;
+    const CONTROL_PAGE_SIZE = 50;
+
+    const $ = id => document.getElementById(id);
+
+    const state = {
+      orders: [],
+      visible: [],
+      selected: new Set(),
+      activeOrderId: null,
+      statusTargets: [],
+      loading: false,
+      loadingPromise: null,
+      loadedRangeKey: ``,
+      currentPage: 1,
+      pageRows: []
+    };
+
+    const STATUS_LABELS = {
+      pending: `قيد موافقة المشرف`,
+      pending_supervisor_approval: `قيد موافقة المشرف`,
+      supervisor_approved: `معتمد من المشرف`,
+      market_manager_pending: `بانتظار مدير السوق`,
+      market_manager_approved: `معتمد من مدير السوق`,
+      market_manager_rejected: `مرفوض من مدير السوق`,
+      finance_pending: `بانتظار المالية`,
+      finance_approved: `معتمد مالياً`,
+      finance_rejected: `مرفوض مالياً`,
+      orders_staff_pending: `جاهز لقسم الطلبيات`,
+      orders_staff_exported: `تم تصديره`,
+      orders_staff_hidden: `تمت الفوترة`,
+      orders_staff_invoiced_and_hidden_after_export: `تمت الفوترة`,
+      orders_staff_edited_returned_to_finance: `تم تعديله وإرجاعه للمالية`,
+      returned_to_rep: `مرجعة للمندوب`,
+      returned_to_supervisor: `مرجعة للمشرف`,
+      returned_to_market_manager: `مرجعة لمدير السوق`,
+      returned_to_finance: `مرجعة للمالية`,
+      returned: `مرتجع`,
+      approved: `موافق عليه`,
+      rejected: `مرفوض`,
+      deleted: `محذوف`,
+      deleted_by_supervisor: `محذوف من المشرف`,
+      deleted_by_market_manager: `محذوف من مدير السوق`,
+      deleted_by_orders_staff: `محذوف من قسم الطلبيات`,
+      deleted_by_reports: `محذوف من التقارير`,
+      representative: `المندوب`,
+      supervisor: `المشرف`,
+      market_manager: `مدير السوق`,
+      finance_controller: `المالية`,
+      finance: `المالية`,
+      orders_staff: `قسم الطلبيات`,
+      none: `مغلق / لا يوجد`
+    };
+
+    const WORKFLOW_STATUSES = [
+      `pending_supervisor_approval`,
+      `pending`,
+      `supervisor_approved`,
+      `market_manager_pending`,
+      `market_manager_approved`,
+      `market_manager_rejected`,
+      `finance_pending`,
+      `finance_approved`,
+      `finance_rejected`,
+      `orders_staff_pending`,
+      `orders_staff_exported`,
+      `orders_staff_hidden`,
+      `orders_staff_invoiced_and_hidden_after_export`,
+      `returned_to_rep`,
+      `returned_to_supervisor`,
+      `returned_to_market_manager`,
+      `returned_to_finance`,
+      `approved`,
+      `returned`,
+      `rejected`,
+      `deleted_by_supervisor`,
+      `deleted_by_market_manager`,
+      `deleted_by_orders_staff`,
+      `deleted_by_reports`
+    ];
+
+    const OWNER_LABELS = {
+      representative: `المندوب`,
+      supervisor: `المشرف`,
+      market_manager: `مدير السوق`,
+      finance: `المالية`,
+      orders_staff: `قسم الطلبيات`,
+      none: `مغلق / لا يوجد`
+    };
+
+    const OWNER_ICONS = {
+      representative: `ph-user`,
+      supervisor: `ph-user-circle-gear`,
+      market_manager: `ph-chart-pie-slice`,
+      finance: `ph-bank`,
+      orders_staff: `ph-package`,
+      none: `ph-lock-key`
+    };
+
+    function escapeHtml(value) {
+      return String(value ?? ``)
+        .replace(/&/g, `&amp;`)
+        .replace(/</g, `&lt;`)
+        .replace(/>/g, `&gt;`)
+        .replace(/"/g, `&quot;`)
+        .replace(/'/g, `&#039;`);
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/`/g, `&#096;`);
+    }
+
+    function parseNumber(value) {
+      const normalized = String(value ?? `0`)
+        .replace(/,/g, ``)
+        .replace(/[٠-٩]/g, d => String(`٠١٢٣٤٥٦٧٨٩`.indexOf(d)))
+        .replace(/[^0-9.\-]/g, ``)
+        .trim();
+      const n = Number(normalized);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function formatMoney(value) {
+      return parseNumber(value).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatCount(value) {
+      return Number(value || 0).toLocaleString(`en-US`);
+    }
+
+    function normalizeDate(value) {
+      if (!value) return null;
+      if (value.toDate && typeof value.toDate === `function`) return value.toDate();
+      if (typeof value === `object` && typeof value.seconds === `number`) {
+        return new Date(value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1000000));
+      }
+      if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+      if (typeof value === `string`) {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        const slash = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(.+))?$/);
+        if (slash) {
+          const parsedSlash = new Date(`${slash[3]}-${String(slash[2]).padStart(2, `0`)}-${String(slash[1]).padStart(2, `0`)}${slash[4] ? ` ${slash[4]}` : ``}`);
+          if (!Number.isNaN(parsedSlash.getTime())) return parsedSlash;
+        }
+        const parsed = new Date(trimmed);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      }
+      return null;
+    }
+
+    function toDateInputValue(date = new Date()) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, `0`);
+      const d = String(date.getDate()).padStart(2, `0`);
+      return `${y}-${m}-${d}`;
+    }
+
+    function dateValue(order = {}) {
+      return normalizeDate(order.createdAt || order.date || order.orderDate || order.timestamp || order.created_at || order.updatedAt || order.changedAt);
+    }
+
+    function dateOnly(order = {}) {
+      const d = dateValue(order);
+      return d ? d.toLocaleDateString(`en-GB`) : `-`;
+    }
+
+    function timeOnly(order = {}) {
+      const d = dateValue(order);
+      return d ? d.toLocaleTimeString(`en-GB`, { hour: `2-digit`, minute: `2-digit` }) : `-`;
+    }
+
+    function dateTimeText(value) {
+      const d = normalizeDate(value);
+      return d ? d.toLocaleString(`en-GB`) : `-`;
+    }
+
+    function normalizeSearch(value) {
+      return String(value || ``)
+        .toLowerCase()
+        .normalize(`NFD`)
+        .replace(/[ً-ٰٟـ]/g, ``)
+        .replace(/[̀-ͯ]/g, ``)
+        .replace(/[^\p{L}\p{N}]+/gu, ` `)
+        .trim()
+        .replace(/\s+/g, ` `);
+    }
+
+    function searchWords(value) {
+      return normalizeSearch(value).split(` `).filter(Boolean);
+    }
+
+    function getPharmacyCode(order = {}) {
+      return order.pharmacyCode || order.pharmacy_code || order.customerCode || order.customer_code || ``;
+    }
+
+    function getPharmacyName(order = {}) {
+      return order.pharmacyName || order.customerName || order.clientName || order.pharmacy || `-`;
+    }
+
+    function getRepName(order = {}) {
+      return order.repName || order.representativeName || order.medicalRep || order.rep || order.createdByName || order.userName || `-`;
+    }
+
+    function getOrderNote(order = {}) {
+      return order.orderNote || order.note || order.notes || order.repNote || order.representativeNote || order.order_note || ``;
+    }
+
+    function getOrderItems(order = {}) {
+      if (Array.isArray(order.items)) return order.items;
+      if (Array.isArray(order.orderItems)) return order.orderItems;
+      if (Array.isArray(order.products)) return order.products;
+      return [];
+    }
+
+    function getItemQty(item = {}) {
+      return parseNumber(item.qty ?? item.quantity ?? item.qnt ?? 0);
+    }
+
+    function getItemBonus(item = {}) {
+      return parseNumber(item.bonus ?? item.free ?? 0);
+    }
+
+    function getItemPrice(item = {}) {
+      return parseNumber(item.price ?? item.unitPrice ?? item.publicPrice ?? item.finalPrice ?? 0);
+    }
+
+    function getItemTotal(item = {}) {
+      const qty = getItemQty(item);
+      const price = getItemPrice(item);
+      return parseNumber(item.total ?? item.totalValue ?? item.lineTotal ?? item.value ?? (qty * price));
+    }
+
+    function getOrderTotal(order = {}) {
+      const direct = parseNumber(order.grandTotal ?? order.total ?? order.totalValue ?? order.netTotal ?? order.orderTotal ?? order.value ?? 0);
+      if (direct) return direct;
+      return getOrderItems(order).reduce((sum, item) => sum + getItemTotal(item), 0);
+    }
+
+    function statusLabel(status) {
+      return STATUS_LABELS[status] || status || `بدون حالة`;
+    }
+
+    function extractStatusFromLogEntry(entry = {}) {
+      const actionStatus = WORKFLOW_STATUSES.includes(String(entry.action || ``).trim()) ? String(entry.action).trim() : ``;
+      const direct = entry.to || entry.newStatus || entry.targetStatus || entry.status || entry.value || ``;
+      const nested = entry.newValue?.status || entry.after?.status || entry.data?.status || ``;
+      const status = String(nested || direct || actionStatus || ``).trim();
+      return status && WORKFLOW_STATUSES.includes(status) ? status : ``;
+    }
+
+    function logEntryDate(entry = {}) {
+      return normalizeDate(entry.at || entry.timestamp || entry.createdAt || entry.date || entry.time || entry.changedAt || entry.updatedAt);
+    }
+
+    function latestStatusFromLogs(order = {}) {
+      const collections = [order.auditTrail, order.auditLog, order.workflowLog, order.statusLog, order.statusHistory, order.history, order.logs].filter(Array.isArray);
+      let latest = { status: ``, time: 0 };
+      collections.flat().forEach(entry => {
+        const status = extractStatusFromLogEntry(entry);
+        if (!status) return;
+        const time = logEntryDate(entry)?.getTime() || 0;
+        if (time >= latest.time) latest = { status, time };
+      });
+      return latest.status;
+    }
+
+    function primaryStatus(order = {}) {
+      const rawStatus = String(order.status || order.orderStatus || order.workflowStatus || ``).trim();
+      const terminalOrReturned = rawStatus.startsWith(`deleted_`) || [`returned_to_rep`, `returned_to_supervisor`, `returned_to_market_manager`, `returned_to_finance`, `market_manager_rejected`, `finance_rejected`, `rejected`].includes(rawStatus);
+      if (terminalOrReturned || order.workflowStage === `deleted`) return rawStatus || `deleted`;
+      if (rawStatus === `orders_staff_hidden` || rawStatus === `orders_staff_invoiced_and_hidden_after_export` || order.orderStaffStatus === `orders_staff_hidden` || order.orderStaffStatus === `orders_staff_invoiced_and_hidden_after_export` || order.hiddenByOrderStaff === true || order.isInvoiced === true) return `orders_staff_hidden`;
+      if (rawStatus === `orders_staff_exported` || order.orderStaffStatus === `orders_staff_exported` || order.orderStaffExported === true || !!order.exportedAt) return `orders_staff_exported`;
+      if (rawStatus) return rawStatus;
+      const stage = String(order.workflowStage || order.currentStep || ``).trim();
+      if (stage === `orders_staff`) return order.orderStaffStatus || (order.financeStatus === `finance_approved` ? `orders_staff_pending` : ``);
+      if (stage === `finance`) return order.financeStatus || `finance_pending`;
+      if (stage === `market_manager`) return order.marketManagerStatus || `market_manager_pending`;
+      if (stage === `supervisor`) return order.supervisorStatus || `pending_supervisor_approval`;
+      if (stage === `representative`) return `returned_to_rep`;
+      return order.orderStaffStatus || order.financeStatus || order.marketManagerStatus || order.supervisorStatus || latestStatusFromLogs(order) || ``;
+    }
+
+    function getWorkflowFollowUp(order = {}) {
+      const status = primaryStatus(order);
+      if (String(status).startsWith(`deleted_`) || order.workflowStage === `deleted`) return { ownerKey: `none`, owner: OWNER_LABELS.none, detail: `طلبية محذوفة` };
+      if ([`rejected`, `market_manager_rejected`, `finance_rejected`].includes(status)) return { ownerKey: `none`, owner: OWNER_LABELS.none, detail: `طلبية مرفوضة` };
+      if (status === `orders_staff_hidden`) return { ownerKey: `none`, owner: OWNER_LABELS.none, detail: `تمت الفوترة` };
+      if ([`returned`, `approved`].includes(status)) return { ownerKey: `none`, owner: OWNER_LABELS.none, detail: `حالة قديمة / Legacy` };
+      if (status === `returned_to_rep`) return { ownerKey: `representative`, owner: OWNER_LABELS.representative, detail: `مرجعة للمندوب للتعديل` };
+      if (status === `returned_to_supervisor`) return { ownerKey: `supervisor`, owner: OWNER_LABELS.supervisor, detail: `مرجعة للمشرف` };
+      if (status === `returned_to_market_manager`) return { ownerKey: `market_manager`, owner: OWNER_LABELS.market_manager, detail: `مرجعة لمدير السوق` };
+      if (status === `returned_to_finance`) return { ownerKey: `finance`, owner: OWNER_LABELS.finance, detail: `مرجعة للمالية` };
+      if ([`orders_staff_pending`, `orders_staff_exported`, `finance_approved`].includes(status)) return { ownerKey: `orders_staff`, owner: OWNER_LABELS.orders_staff, detail: `بانتظار قسم الطلبيات` };
+      if ([`finance_pending`, `market_manager_approved`].includes(status)) return { ownerKey: `finance`, owner: OWNER_LABELS.finance, detail: `بانتظار المالية` };
+      if ([`market_manager_pending`, `supervisor_approved`].includes(status)) return { ownerKey: `market_manager`, owner: OWNER_LABELS.market_manager, detail: `بانتظار مدير السوق` };
+      if ([`pending`, `pending_supervisor_approval`].includes(status)) return { ownerKey: `supervisor`, owner: OWNER_LABELS.supervisor, detail: `بانتظار المشرف` };
+      const stage = String(order.workflowStage || ``).trim();
+      if (OWNER_LABELS[stage]) return { ownerKey: stage, owner: OWNER_LABELS[stage], detail: `حسب مرحلة workflowStage` };
+      return { ownerKey: `none`, owner: OWNER_LABELS.none, detail: `غير محدد` };
+    }
+
+    function arrayCount(value) {
+      return Array.isArray(value) ? value.length : 0;
+    }
+
+    function exportCount(order = {}) {
+      return arrayCount(order.exportHistory) + (order.exportedAt ? 1 : 0);
+    }
+
+    function printCount(order = {}) {
+      return arrayCount(order.printHistory) + (order.lastPrintedAt ? 1 : 0);
+    }
+
+    function statusBadgeClass(status = ``) {
+      if (String(status).startsWith(`deleted_`)) return `danger`;
+      if ([`rejected`, `market_manager_rejected`, `finance_rejected`].includes(status)) return `danger`;
+      if ([`returned_to_rep`, `returned_to_supervisor`, `returned_to_market_manager`, `returned_to_finance`, `returned`].includes(status)) return `warn`;
+      if ([`orders_staff_hidden`, `approved`].includes(status)) return `success`;
+      return `neutral`;
+    }
+
+    function workflowStepState(order = {}, stepKey = ``) {
+      const status = primaryStatus(order);
+      if (String(status).startsWith(`deleted_`)) return `deleted`;
+      if ([`rejected`, `market_manager_rejected`, `finance_rejected`].includes(status)) return `rejected`;
+      const completed = {
+        representative: true,
+        supervisor: [`supervisor_approved`, `market_manager_pending`, `market_manager_approved`, `finance_pending`, `finance_approved`, `orders_staff_pending`, `orders_staff_exported`, `orders_staff_hidden`, `approved`].includes(status),
+        market_manager: [`market_manager_approved`, `finance_pending`, `finance_approved`, `orders_staff_pending`, `orders_staff_exported`, `orders_staff_hidden`, `approved`].includes(status),
+        finance: [`finance_approved`, `orders_staff_pending`, `orders_staff_exported`, `orders_staff_hidden`, `approved`].includes(status),
+        orders_staff: [`orders_staff_hidden`, `approved`].includes(status)
+      };
+      const follow = getWorkflowFollowUp(order);
+      if (follow.ownerKey === stepKey) return `current`;
+      return completed[stepKey] ? `done` : `pending`;
+    }
+
+    function timelineHtml(order = {}) {
+      const steps = [
+        { key: `representative`, title: `المندوب`, detail: `إنشاء الطلبية` },
+        { key: `supervisor`, title: `المشرف`, detail: order.supervisorStatus || `—` },
+        { key: `market_manager`, title: `مدير السوق`, detail: order.marketManagerStatus || `—` },
+        { key: `finance`, title: `المالية`, detail: order.financeStatus || `—` },
+        { key: `orders_staff`, title: `قسم الطلبيات`, detail: order.orderStaffStatus || `—` }
+      ];
+      return `<div class="timeline">${steps.map(step => {
+        const stateName = workflowStepState(order, step.key);
+        return `<div class="step ${stateName}"><span>${escapeHtml(step.title)}</span><strong>${escapeHtml(statusLabel(step.detail))}</strong></div>`;
+      }).join(``)}</div>`;
+    }
+
+    function serializeForPre(value) {
+      try {
+        return JSON.stringify(value, (key, val) => {
+          if (val && typeof val.toDate === `function`) return val.toDate().toISOString();
+          return val;
+        }, 2);
+      } catch (error) {
+        return String(value ?? ``);
+      }
+    }
+
+    function historyDate(value) {
+      return dateTimeText(value);
+    }
+
+    function auditListHtml(order = {}) {
+      const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+      if (!trail.length) return `<div class="empty-state">لا يوجد سجل تدقيق لهذه الطلبية.</div>`;
+      const sorted = [...trail].sort((a, b) => (logEntryDate(b)?.getTime() || 0) - (logEntryDate(a)?.getTime() || 0));
+      return `<div class="audit-list">${sorted.map(entry => {
+        const action = entry.action || entry.type || `إجراء`;
+        const user = entry.user || entry.actor || entry.changedBy || entry.by || `System`;
+        const role = entry.role || entry.changedByRole || `-`;
+        const ts = entry.timestamp || entry.at || entry.changedAt || entry.createdAt;
+        const notes = entry.notes || entry.note || entry.reason || ``;
+        return `
+          <div class="audit-entry">
+            <div class="audit-entry-head"><span>${escapeHtml(statusLabel(action))}</span><span>${escapeHtml(historyDate(ts))}</span></div>
+            <p>${escapeHtml(user)} / ${escapeHtml(role)}</p>
+            ${notes ? `<p>${escapeHtml(notes)}</p>` : ``}
+          </div>
+        `;
+      }).join(``)}</div>`;
+    }
+
+    function exportListHtml(order = {}) {
+      const history = Array.isArray(order.exportHistory) ? order.exportHistory : [];
+      const rows = history.length ? history : (order.exportedAt ? [{ exportedAt: order.exportedAt, exportedBy: order.exportedBy || `-`, source: `legacy_export`, fileName: order.exportFileName || `` }] : []);
+      if (!rows.length) return `<div class="empty-state">لا يوجد سجل تصدير لهذه الطلبية.</div>`;
+      return `<div class="audit-list">${rows.map(entry => `
+        <div class="audit-entry">
+          <div class="audit-entry-head"><span>${escapeHtml(entry.fileName || entry.source || `تصدير`)}</span><span>${escapeHtml(historyDate(entry.exportedAt || entry.timestamp || entry.at))}</span></div>
+          <p>${escapeHtml(entry.exportedBy || entry.user || `-`)}</p>
+          ${entry.hideAfterExport || entry.invoiced ? `<p>تمت الفوترة / إخفاء بعد التصدير</p>` : ``}
+        </div>
+      `).join(``)}</div>`;
+    }
+
+    function printListHtml(order = {}) {
+      const history = Array.isArray(order.printHistory) ? order.printHistory : [];
+      const rows = history.length ? history : (order.lastPrintedAt ? [{ printedAt: order.lastPrintedAt, printedBy: order.lastPrintedBy || `-`, source: `legacy_print` }] : []);
+      if (!rows.length) return `<div class="empty-state">لا يوجد سجل طباعة لهذه الطلبية.</div>`;
+      return `<div class="audit-list">${rows.map(entry => `
+        <div class="audit-entry">
+          <div class="audit-entry-head"><span>${escapeHtml(entry.source || `طباعة`)}</span><span>${escapeHtml(historyDate(entry.printedAt || entry.timestamp || entry.at))}</span></div>
+          <p>${escapeHtml(entry.printedBy || entry.user || `-`)}</p>
+        </div>
+      `).join(``)}</div>`;
+    }
+
+    function itemsTableHtml(order = {}) {
+      const items = getOrderItems(order);
+      if (!items.length) return `<div class="empty-state">لا توجد أصناف مسجلة.</div>`;
+      return `
+        <div class="mini-table-wrap">
+          <table class="mini-table">
+            <thead><tr><th>#</th><th>كود الصنف</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>القيمة</th><th>ملاحظة</th></tr></thead>
+            <tbody>${items.map((item, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${escapeHtml(item.code || item.itemCode || item.productCode || item.sapCode || `-`)}</td>
+                <td>${escapeHtml(item.name || item.itemName || item.productName || item.product || `-`)}</td>
+                <td class="money">${formatCount(getItemQty(item))}</td>
+                <td class="money">${formatCount(getItemBonus(item))}</td>
+                <td class="money">${formatMoney(getItemPrice(item))}</td>
+                <td class="money">${formatMoney(getItemTotal(item))}</td>
+                <td>${escapeHtml(item.note || item.notes || `-`)}</td>
+              </tr>
+            `).join(``)}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function enrichOrder(order = {}) {
+      const status = primaryStatus(order);
+      const follow = getWorkflowFollowUp(order);
+      const date = dateValue(order);
+      const pharmacyName = getPharmacyName(order);
+      const pharmacyCode = getPharmacyCode(order);
+      const repName = getRepName(order);
+      const note = getOrderNote(order);
+      const total = getOrderTotal(order);
+      return {
+        ...order,
+        __status: status,
+        __statusLabel: statusLabel(status),
+        __ownerKey: follow.ownerKey,
+        __owner: follow.owner,
+        __ownerDetail: follow.detail,
+        __date: date,
+        __dateTs: date?.getTime() || 0,
+        __pharmacyName: pharmacyName,
+        __pharmacyCode: pharmacyCode,
+        __repName: repName,
+        __note: note,
+        __total: total,
+        __search: normalizeSearch(`${order.id || ``} ${pharmacyCode} ${pharmacyName} ${repName} ${note} ${status} ${statusLabel(status)}`),
+        __pharmacySearch: normalizeSearch(`${pharmacyCode} ${pharmacyName}`)
+      };
+    }
+
+    function setDefaultDates() {
+      const today = new Date();
+      const first = new Date(today.getFullYear(), today.getMonth(), 1);
+      $(`dateFrom`).value = toDateInputValue(first);
+      $(`dateTo`).value = toDateInputValue(today);
+    }
+
+    function inDateRange(order = {}) {
+      const ts = order.__dateTs || 0;
+      if (!ts) return true;
+      const from = $(`dateFrom`).value ? new Date(`${$(`dateFrom`).value}T00:00:00`).getTime() : null;
+      const to = $(`dateTo`).value ? new Date(`${$(`dateTo`).value}T23:59:59`).getTime() : null;
+      if (from && ts < from) return false;
+      if (to && ts > to) return false;
+      return true;
+    }
+
+    function historyMatches(order = {}) {
+      const mode = $(`historyFilter`).value || ``;
+      if (!mode) return true;
+      if (mode === `audit`) return arrayCount(order.auditTrail) > 0;
+      if (mode === `export`) return exportCount(order) > 0;
+      if (mode === `print`) return printCount(order) > 0;
+      if (mode === `no_audit`) return arrayCount(order.auditTrail) === 0;
+      return true;
+    }
+
+    function applyFilters() {
+      const words = searchWords($(`searchBox`).value);
+      const pharmacyWords = searchWords($(`pharmacySearch`).value);
+      const status = $(`statusFilter`).value || ``;
+      const owner = $(`ownerFilter`).value || ``;
+      const sortMode = $(`sortMode`).value || `date_desc`;
+
+      state.visible = state.orders.filter(order => {
+        const textMatch = !words.length || words.every(word => order.__search.includes(word));
+        const pharmacyMatch = !pharmacyWords.length || pharmacyWords.every(word => order.__pharmacySearch.includes(word));
+        const statusMatch = !status || order.__status === status;
+        const ownerMatch = !owner || order.__ownerKey === owner;
+        return textMatch && pharmacyMatch && statusMatch && ownerMatch && inDateRange(order) && historyMatches(order);
+      });
+
+      state.visible.sort((a, b) => {
+        if (sortMode === `date_asc`) return a.__dateTs - b.__dateTs;
+        if (sortMode === `value_desc`) return b.__total - a.__total;
+        if (sortMode === `value_asc`) return a.__total - b.__total;
+        if (sortMode === `status`) return a.__statusLabel.localeCompare(b.__statusLabel, `ar`) || b.__dateTs - a.__dateTs;
+        return b.__dateTs - a.__dateTs;
+      });
+
+      state.currentPage = 1;
+      pruneSelection();
+      renderAll();
+    }
+
+    function buildStatusOptions() {
+      const counts = new Map();
+      state.orders.forEach(order => counts.set(order.__status, (counts.get(order.__status) || 0) + 1));
+      const options = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || statusLabel(a[0]).localeCompare(statusLabel(b[0]), `ar`));
+      const current = $(`statusFilter`).value;
+      $(`statusFilter`).innerHTML = `<option value="">كل الحالات</option>${options.map(([status, count]) => `<option value="${escapeAttr(status)}">${escapeHtml(statusLabel(status))} — ${escapeHtml(status)} (${formatCount(count)})</option>`).join(``)}`;
+      if (current && options.some(([status]) => status === current)) $(`statusFilter`).value = current;
+
+      state.statusTargets = WORKFLOW_STATUSES.map(status => ({ status, label: statusLabel(status) }));
+      $(`targetStatus`).innerHTML = state.statusTargets.map(item => `<option value="${escapeAttr(item.status)}">${escapeHtml(item.label)} — ${escapeHtml(item.status)}</option>`).join(``);
+    }
+
+    function renderKpis() {
+      const count = state.visible.length;
+      const total = state.visible.reduce((sum, order) => sum + order.__total, 0);
+      const audit = state.visible.reduce((sum, order) => sum + arrayCount(order.auditTrail), 0);
+      const exports = state.visible.reduce((sum, order) => sum + exportCount(order), 0);
+      const prints = state.visible.reduce((sum, order) => sum + printCount(order), 0);
+      $(`kpiOrders`).textContent = formatCount(count);
+      $(`kpiValue`).textContent = formatMoney(total);
+      $(`heroValue`).textContent = formatMoney(total);
+      $(`kpiAvg`).textContent = formatMoney(count ? total / count : 0);
+      $(`kpiAudit`).textContent = formatCount(audit);
+      $(`kpiExport`).textContent = formatCount(exports);
+      $(`kpiPrint`).textContent = formatCount(prints);
+      $(`visibleSummary`).textContent = `${formatCount(count)} طلبية ظاهرة`;
+      $(`databaseCount`).textContent = formatCount(state.orders.length);
+      $(`selectedCount`).textContent = formatCount(state.selected.size);
+      $(`bulkStatusBtn`).disabled = !state.selected.size;
+      const selectableRows = state.pageRows.length ? state.pageRows : state.visible;
+      $(`selectAllVisible`).checked = selectableRows.length > 0 && selectableRows.every(order => state.selected.has(order.id));
+      $(`selectAllVisible`).indeterminate = selectableRows.some(order => state.selected.has(order.id)) && !$(`selectAllVisible`).checked;
+    }
+
+    function renderOwnerBoard() {
+      const counts = {
+        representative: 0,
+        supervisor: 0,
+        market_manager: 0,
+        finance: 0,
+        orders_staff: 0,
+        none: 0
+      };
+      const values = { representative: 0, supervisor: 0, market_manager: 0, finance: 0, orders_staff: 0, none: 0 };
+      state.visible.forEach(order => {
+        const key = counts[order.__ownerKey] === undefined ? `none` : order.__ownerKey;
+        counts[key] += 1;
+        values[key] += order.__total;
+      });
+      $(`ownerBoard`).innerHTML = Object.keys(counts).map(key => `
+        <button class="queue-card" type="button" data-owner-card="${escapeAttr(key)}">
+          <span><i class="ph ${OWNER_ICONS[key] || `ph-user`}"></i> ${escapeHtml(OWNER_LABELS[key])}</span>
+          <strong>${formatCount(counts[key])}</strong>
+          <small>${formatMoney(values[key])} د.أ</small>
+        </button>
+      `).join(``);
+    }
+
+    function renderStatusCloud() {
+      const counts = new Map();
+      state.visible.forEach(order => counts.set(order.__status, (counts.get(order.__status) || 0) + 1));
+      const cards = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || statusLabel(a[0]).localeCompare(statusLabel(b[0]), `ar`));
+      $(`statusCloud`).innerHTML = cards.length ? cards.map(([status, count]) => `
+        <button class="status-card" type="button" data-status-card="${escapeAttr(status)}">
+          <span>${escapeHtml(statusLabel(status))}</span>
+          <strong>${formatCount(count)}</strong>
+          <small>${escapeHtml(status)}</small>
+        </button>
+      `).join(``) : `<div class="empty-state">لا توجد حالات ضمن الفلاتر الحالية.</div>`;
+    }
+
+    function rowHtml(order = {}) {
+      const statusClass = statusBadgeClass(order.__status);
+      return `
+        <tr>
+          <td class="check-cell"><input class="order-check row-check" type="checkbox" data-select-id="${escapeAttr(order.id)}" ${state.selected.has(order.id) ? `checked` : ``} /></td>
+          <td><span class="order-id">${escapeHtml(String(order.id || ``).slice(0, 12).toUpperCase())}</span></td>
+          <td>${escapeHtml(dateOnly(order))}</td>
+          <td>${escapeHtml(timeOnly(order))}</td>
+          <td><div class="pharmacy-cell"><strong title="${escapeAttr(order.__pharmacyName)}">${escapeHtml(order.__pharmacyName)}</strong><small>${escapeHtml(order.__pharmacyCode || `بدون كود`)}</small></div></td>
+          <td>${escapeHtml(order.__repName)}</td>
+          <td class="money">${formatMoney(order.__total)}</td>
+          <td><span class="badge ${statusClass}">${escapeHtml(order.__statusLabel)}</span><div class="muted">${escapeHtml(order.__status || `-`)}</div></td>
+          <td><span class="badge ${order.__ownerKey === `none` ? `neutral` : `warn`}">${escapeHtml(order.__owner)}</span><div class="muted">${escapeHtml(order.__ownerDetail)}</div></td>
+          <td><span class="badge neutral">A ${formatCount(arrayCount(order.auditTrail))}</span> <span class="badge neutral">E ${formatCount(exportCount(order))}</span> <span class="badge neutral">P ${formatCount(printCount(order))}</span></td>
+          <td><div class="row-actions"><button class="mini-btn dark" type="button" data-open-id="${escapeAttr(order.id)}"><i class="ph ph-eye"></i> التفاصيل</button><button class="mini-btn gold" type="button" data-status-id="${escapeAttr(order.id)}"><i class="ph ph-git-branch"></i> الحالة</button></div></td>
+        </tr>
+      `;
+    }
+
+    function mobileCardHtml(order = {}) {
+      return `
+        <article class="mobile-order-card">
+          <div class="top">
+            <div>
+              <h3>${escapeHtml(order.__pharmacyName)}</h3>
+              <p>${escapeHtml(order.__pharmacyCode || `بدون كود`)} / ${escapeHtml(order.__repName)}</p>
+            </div>
+            <input class="order-check row-check" type="checkbox" data-select-id="${escapeAttr(order.id)}" ${state.selected.has(order.id) ? `checked` : ``} />
+          </div>
+          <div><span class="badge ${statusBadgeClass(order.__status)}">${escapeHtml(order.__statusLabel)}</span> <span class="badge neutral">${escapeHtml(dateOnly(order))}</span></div>
+          <p>المطلوب من: <b>${escapeHtml(order.__owner)}</b> — ${escapeHtml(order.__ownerDetail)}</p>
+          <p class="money">${formatMoney(order.__total)} د.أ</p>
+          <div class="row-actions"><button class="mini-btn dark" type="button" data-open-id="${escapeAttr(order.id)}"><i class="ph ph-eye"></i> التفاصيل</button><button class="mini-btn gold" type="button" data-status-id="${escapeAttr(order.id)}"><i class="ph ph-git-branch"></i> الحالة</button></div>
+        </article>
+      `;
+    }
+
+
+    function renderControlPager() {
+      const pager = $(`controlOrdersPager`);
+      if (!pager) return 1;
+      const totalRows = state.visible.length;
+      const totalPages = Math.max(1, Math.ceil(totalRows / CONTROL_PAGE_SIZE));
+      state.currentPage = Math.min(Math.max(Number(state.currentPage || 1), 1), totalPages);
+      if (totalRows <= CONTROL_PAGE_SIZE) {
+        pager.innerHTML = totalRows ? `<span class="pager-label">Page 1 of 1</span>` : ``;
+        return state.currentPage;
+      }
+      const btn = (label, page, disabled = false, active = false) => `<button type="button" class="${active ? `active` : ``}" data-page="${page}" ${disabled ? `disabled` : ``}>${label}</button>`;
+      const pages = new Set([1, totalPages, state.currentPage - 1, state.currentPage, state.currentPage + 1].filter(page => page >= 1 && page <= totalPages));
+      pager.innerHTML = `${btn(`‹`, state.currentPage - 1, state.currentPage === 1)}<span class="pager-label">Page ${state.currentPage} of ${totalPages}</span>${[...pages].sort((a, b) => a - b).map(page => btn(page, page, false, page === state.currentPage)).join(``)}${btn(`›`, state.currentPage + 1, state.currentPage === totalPages)}`;
+      pager.querySelectorAll(`[data-page]`).forEach(button => button.addEventListener(`click`, () => {
+        const next = Number(button.dataset.page);
+        if (!Number.isFinite(next) || next < 1 || next > totalPages || next === state.currentPage) return;
+        state.currentPage = next;
+        renderTable();
+        renderKpis();
+      }));
+      return state.currentPage;
+    }
+
+    function getControlPageRows() {
+      const page = renderControlPager();
+      const start = (page - 1) * CONTROL_PAGE_SIZE;
+      state.pageRows = state.visible.slice(start, start + CONTROL_PAGE_SIZE);
+      return state.pageRows;
+    }
+
+    function renderTable() {
+      if (state.loading) {
+        $(`ordersBody`).innerHTML = `<tr><td colspan="11"><div class="empty-state"><span class="skeleton" style="width: 76%;"></span></div></td></tr>`;
+        $(`mobileCards`).innerHTML = `<div class="empty-state"><span class="skeleton" style="width: 76%;"></span></div>`;
+        return;
+      }
+      if (!state.visible.length) {
+        const empty = `<div class="empty-state">لا توجد طلبيات مطابقة للفلاتر الحالية.</div>`;
+        $(`ordersBody`).innerHTML = `<tr><td colspan="11">${empty}</td></tr>`;
+        $(`mobileCards`).innerHTML = empty;
+        state.pageRows = [];
+        if ($(`controlOrdersPager`)) $(`controlOrdersPager`).innerHTML = ``;
+        return;
+      }
+      const pageRows = getControlPageRows();
+      $(`ordersBody`).innerHTML = pageRows.map(rowHtml).join(``);
+      $(`mobileCards`).innerHTML = pageRows.map(mobileCardHtml).join(``);
+    }
+
+    function renderAll() {
+      renderTable();
+      renderKpis();
+      renderOwnerBoard();
+      renderStatusCloud();
+    }
+
+    function openDetails(orderId) {
+      const order = state.orders.find(item => item.id === orderId);
+      if (!order) return;
+      state.activeOrderId = orderId;
+      $(`detailsTitle`).textContent = `طلبية ${String(order.id || ``).slice(0, 12).toUpperCase()}`;
+      $(`detailsSubtitle`).textContent = `${order.__pharmacyName} / ${order.__repName} / ${order.__statusLabel}`;
+      $(`drawerActions`).innerHTML = `
+        <button class="btn gold" type="button" id="drawerStatusBtn"><i class="ph ph-git-branch"></i> تغيير الحالة</button>
+        <button class="btn secondary" type="button" id="copyOrderIdBtn"><i class="ph ph-copy"></i> نسخ رقم الطلبية</button>
+      `;
+      $(`detailsBody`).innerHTML = `
+        <div class="detail-grid">
+          <div class="info-box"><span>تاريخ الطلبية</span><strong>${escapeHtml(dateTimeText(order.createdAt || order.date || order.timestamp))}</strong></div>
+          <div class="info-box"><span>آخر تحديث</span><strong>${escapeHtml(dateTimeText(order.updatedAt || order.changedAt || order.modifiedAt))}</strong></div>
+          <div class="info-box"><span>الصيدلية</span><strong>${escapeHtml(order.__pharmacyName)}</strong></div>
+          <div class="info-box"><span>كود الصيدلية</span><strong>${escapeHtml(order.__pharmacyCode || `-`)}</strong></div>
+          <div class="info-box"><span>المندوب</span><strong>${escapeHtml(order.__repName)}</strong></div>
+          <div class="info-box"><span>قيمة الطلبية</span><strong class="money">${formatMoney(order.__total)} د.أ</strong></div>
+          <div class="info-box"><span>الحالة الحالية</span><strong>${escapeHtml(order.__statusLabel)}<br>${escapeHtml(order.__status || `-`)}</strong></div>
+          <div class="info-box"><span>المطلوب من</span><strong>${escapeHtml(order.__owner)}<br>${escapeHtml(order.__ownerDetail)}</strong></div>
+        </div>
+        <div class="history-card"><h3><i class="ph ph-note"></i> ملاحظة الطلبية</h3><div class="history-content"><p class="muted">${escapeHtml(order.__note || `لا توجد ملاحظات.`)}</p></div></div>
+        <div class="history-card"><h3><i class="ph ph-list-bullets"></i> الأصناف</h3><div class="history-content">${itemsTableHtml(order)}</div></div>
+        <div class="history-card"><h3><i class="ph ph-git-branch"></i> مسار الطلبية</h3><div class="history-content">${timelineHtml(order)}</div></div>
+        <div class="history-card"><h3><i class="ph ph-clock-counter-clockwise"></i> سجل التدقيق</h3><div class="history-content">${auditListHtml(order)}</div></div>
+        <div class="history-card"><h3><i class="ph ph-file-arrow-down"></i> سجل التصدير</h3><div class="history-content">${exportListHtml(order)}</div></div>
+        <div class="history-card"><h3><i class="ph ph-printer"></i> سجل الطباعة</h3><div class="history-content">${printListHtml(order)}</div></div>
+      `;
+      $(`detailsOverlay`).classList.add(`open`);
+      $(`detailsOverlay`).setAttribute(`aria-hidden`, `false`);
+    }
+
+    function closeDetails() {
+      $(`detailsOverlay`).classList.remove(`open`);
+      $(`detailsOverlay`).setAttribute(`aria-hidden`, `true`);
+      state.activeOrderId = null;
+    }
+
+    function buildWorkflowPatch(targetStatus) {
+      const nowServer = serverTimestamp();
+      const base = {
+        status: targetStatus,
+        updatedAt: nowServer,
+        lastManualStatusChangeAt: nowServer,
+        lastManualStatusChangeBy: ACTION_BY,
+        lastManualStatusChangeValue: targetStatus
+      };
+      const patches = {
+        pending: { status: `pending`, workflowStage: `supervisor`, supervisorStatus: `pending_supervisor_approval`, marketManagerStatus: ``, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        pending_supervisor_approval: { status: `pending_supervisor_approval`, workflowStage: `supervisor`, supervisorStatus: `pending_supervisor_approval`, marketManagerStatus: ``, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        supervisor_approved: { status: `market_manager_pending`, workflowStage: `market_manager`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_pending`, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        market_manager_pending: { status: `market_manager_pending`, workflowStage: `market_manager`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_pending`, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        market_manager_approved: { status: `finance_pending`, workflowStage: `finance`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_pending`, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        finance_pending: { status: `finance_pending`, workflowStage: `finance`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_pending`, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        finance_approved: { status: `orders_staff_pending`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_pending`, hiddenByOrderStaff: false, isInvoiced: false },
+        orders_staff_pending: { status: `orders_staff_pending`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_pending`, hiddenByOrderStaff: false, isInvoiced: false },
+        orders_staff_exported: { status: `orders_staff_exported`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_exported`, hiddenByOrderStaff: false, isInvoiced: false },
+        orders_staff_hidden: { status: `orders_staff_hidden`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_hidden`, hiddenByOrderStaff: true, isInvoiced: true, invoicedAt: nowServer },
+        orders_staff_invoiced_and_hidden_after_export: { status: `orders_staff_hidden`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_hidden`, hiddenByOrderStaff: true, isInvoiced: true, invoicedAt: nowServer },
+        market_manager_rejected: { status: `market_manager_rejected`, workflowStage: `market_manager`, marketManagerStatus: `market_manager_rejected`, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        finance_rejected: { status: `finance_rejected`, workflowStage: `finance`, financeStatus: `finance_rejected`, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_rep: { status: `returned_to_rep`, workflowStage: `representative`, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_supervisor: { status: `returned_to_supervisor`, workflowStage: `supervisor`, supervisorStatus: `pending_supervisor_approval`, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_market_manager: { status: `returned_to_market_manager`, workflowStage: `market_manager`, marketManagerStatus: `market_manager_pending`, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_finance: { status: `returned_to_finance`, workflowStage: `finance`, financeStatus: `returned_to_finance`, orderStaffStatus: `orders_staff_edited_returned_to_finance`, hiddenByOrderStaff: false, isInvoiced: false },
+        approved: { status: `approved`, workflowStage: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        returned: { status: `returned`, workflowStage: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        rejected: { status: `rejected`, workflowStage: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        deleted_by_supervisor: { status: `deleted_by_supervisor`, workflowStage: `deleted`, supervisorStatus: `deleted_by_supervisor` },
+        deleted_by_market_manager: { status: `deleted_by_market_manager`, workflowStage: `deleted`, marketManagerStatus: `deleted_by_market_manager` },
+        deleted_by_orders_staff: { status: `deleted_by_orders_staff`, workflowStage: `deleted`, orderStaffStatus: `deleted_by_orders_staff` },
+        deleted_by_reports: { status: `deleted_by_reports`, workflowStage: `deleted` }
+      };
+      return { ...base, ...(patches[targetStatus] || { status: targetStatus }) };
+    }
+
+    function buildStatusAuditRecord(order, orderId, targetStatus, patch, note, actionName) {
+      return {
+        action: actionName,
+        by: ACTION_BY,
+        user: ACTION_BY,
+        role: `control_admin`,
+        timestamp: new Date().toISOString(),
+        orderId,
+        oldValue: {
+          status: order.status || ``,
+          workflowStage: order.workflowStage || ``,
+          supervisorStatus: order.supervisorStatus || ``,
+          marketManagerStatus: order.marketManagerStatus || ``,
+          financeStatus: order.financeStatus || ``,
+          orderStaffStatus: order.orderStaffStatus || ``
+        },
+        newValue: {
+          status: patch.status,
+          workflowStage: patch.workflowStage || ``,
+          supervisorStatus: patch.supervisorStatus ?? order.supervisorStatus ?? ``,
+          marketManagerStatus: patch.marketManagerStatus ?? order.marketManagerStatus ?? ``,
+          financeStatus: patch.financeStatus ?? order.financeStatus ?? ``,
+          orderStaffStatus: patch.orderStaffStatus ?? order.orderStaffStatus ?? ``
+        },
+        notes: note
+      };
+    }
+
+    async function applyStatusPatch(orderIds, targetStatus, note) {
+      const ids = Array.from(new Set(orderIds)).filter(Boolean);
+      if (!ids.length) return;
+      const chunks = [];
+      for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));
+      for (const chunk of chunks) {
+        const batch = writeBatch(db);
+        chunk.forEach(orderId => {
+          const order = state.orders.find(item => item.id === orderId);
+          if (!order) return;
+          const patch = buildWorkflowPatch(targetStatus);
+          patch.lastManualStatusChangeNote = note;
+          patch.auditTrail = arrayUnion(buildStatusAuditRecord(order, orderId, targetStatus, patch, note, ids.length > 1 ? `control_bulk_workflow_status_change` : `control_manual_workflow_status_change`));
+          batch.update(doc(db, `orders`, orderId), patch);
+        });
+        await batch.commit();
+      }
+    }
+
+    function openStatusModal(orderIds) {
+      const ids = Array.from(new Set(orderIds)).filter(Boolean);
+      if (!ids.length) return toast(`حدد طلبية واحدة على الأقل.`, `warning`);
+      state.pendingStatusIds = ids;
+      $(`statusModalTitle`).textContent = ids.length > 1 ? `تغيير حالة ${formatCount(ids.length)} طلبية` : `تغيير حالة الطلبية`;
+      $(`statusModalSubtitle`).textContent = ids.length > 1 ? `سيتم تطبيق التغيير على كل الطلبيات المحددة وتسجيل الحركة في Audit Trail.` : `سيتم تحديث حقول workflow الأساسية وتسجيل الحركة في Audit Trail.`;
+      const first = state.orders.find(order => order.id === ids[0]);
+      if (first && WORKFLOW_STATUSES.includes(first.__status)) $(`targetStatus`).value = first.__status;
+      $(`statusNote`).value = ``;
+      $(`statusModal`).classList.add(`open`);
+      $(`statusModal`).setAttribute(`aria-hidden`, `false`);
+    }
+
+    function closeStatusModal() {
+      $(`statusModal`).classList.remove(`open`);
+      $(`statusModal`).setAttribute(`aria-hidden`, `true`);
+      state.pendingStatusIds = [];
+    }
+
+    async function confirmStatusChange() {
+      const ids = Array.isArray(state.pendingStatusIds) ? state.pendingStatusIds : [];
+      const targetStatus = $(`targetStatus`).value;
+      const note = $(`statusNote`).value.trim();
+      if (!ids.length) return toast(`لا توجد طلبيات محددة.`, `warning`);
+      if (!targetStatus) return toast(`اختر الحالة الجديدة.`, `warning`);
+      if (!note) return toast(`الملاحظة إجبارية.`, `warning`);
+      const message = `هل أنت متأكد من تغيير حالة ${formatCount(ids.length)} طلبية إلى: ${statusLabel(targetStatus)}؟`;
+      if (!confirm(message)) return;
+      try {
+        setBusy(true, `جاري تغيير الحالة...`);
+        await applyStatusPatch(ids, targetStatus, note);
+        closeStatusModal();
+        closeDetails();
+        state.selected.clear();
+        toast(`تم تغيير الحالة وتسجيل الحركة بنجاح.`, `success`);
+        await loadOrders(true, true);
+      } catch (error) {
+        console.error(error);
+        toast(`فشل تغيير الحالة: ${error.message}`, `error`);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function setBusy(isBusy, label = `جاري التحميل...`) {
+      state.loading = isBusy;
+      $(`loadingState`).innerHTML = isBusy ? `<i class="ph ph-circle-notch"></i> ${escapeHtml(label)}` : `<i class="ph ph-check-circle"></i> جاهز`;
+      renderTable();
+    }
+
+    function selectedOrdersRange() {
+      const today = new Date();
+      let fromValue = $(`dateFrom`).value;
+      let toValue = $(`dateTo`).value;
+      if (!fromValue && !toValue) {
+        const first = new Date(today.getFullYear(), today.getMonth(), 1);
+        fromValue = toDateInputValue(first);
+        toValue = toDateInputValue(today);
+        $(`dateFrom`).value = fromValue;
+        $(`dateTo`).value = toValue;
+      }
+      if (!fromValue) fromValue = `2000-01-01`;
+      if (!toValue) toValue = toDateInputValue(today);
+      const fromDate = new Date(`${fromValue}T00:00:00`);
+      const toDate = new Date(`${toValue}T23:59:59`);
+      return {
+        fromValue,
+        toValue,
+        fromDate,
+        toDate,
+        key: `${CONTROL_VERSION}_${fromValue}_${toValue}`
+      };
+    }
+
+    function ordersCacheKey(range) {
+      return `${ORDERS_CACHE_PREFIX}${range.key}`;
+    }
+    function isHistoricalOrdersRange(range) {
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      return range.toDate.getTime() < currentMonthStart.getTime();
+    }
+
+    function ordersCacheTtl(range) {
+      return isHistoricalOrdersRange(range) ? HISTORICAL_ORDERS_CACHE_TTL_MS : ORDERS_CACHE_TTL_MS;
+    }
+
+
+    function readOrdersCache(range, allowExpired = false) {
+      try {
+        const raw = localStorage.getItem(ordersCacheKey(range));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.orders)) return null;
+        const age = Date.now() - Number(parsed.savedAt || 0);
+        if (!allowExpired && age > ordersCacheTtl(range)) return null;
+        return parsed.orders;
+      } catch (error) {
+        console.warn(`Control cache read failed`, error);
+        return null;
+      }
+    }
+
+    function writeOrdersCache(range, orders) {
+      try {
+        localStorage.setItem(ordersCacheKey(range), JSON.stringify({
+          savedAt: Date.now(),
+          orders
+        }));
+      } catch (error) {
+        console.warn(`Control cache write failed`, error);
+      }
+    }
+
+    function hydrateOrders(rawOrders = []) {
+      state.orders = rawOrders.map(order => enrichOrder(order));
+      state.orders.sort((a, b) => b.__dateTs - a.__dateTs);
+      buildStatusOptions();
+      applyFilters();
+    }
+
+    function buildOrdersQuery(range) {
+      return query(
+        collection(db, `orders`),
+        where(`createdAt`, `>=`, range.fromDate),
+        where(`createdAt`, `<=`, range.toDate),
+        orderBy(`createdAt`, `desc`)
+      );
+    }
+
+    async function loadOrders(quiet = false, forceRemote = false) {
+      if (state.loadingPromise) return state.loadingPromise;
+      const range = selectedOrdersRange();
+      const cachedOrders = readOrdersCache(range, false);
+      if (cachedOrders && !forceRemote) {
+        hydrateOrders(cachedOrders);
+        state.loadedRangeKey = range.key;
+        $(`lastLoadedAt`).textContent = new Date().toLocaleString(`en-GB`);
+        $(`connectionHint`).textContent = `تم عرض ${formatCount(state.orders.length)} طلبية من الكاش المحلي${isHistoricalOrdersRange(range) ? ' طويل المدى' : ''}`;
+        if (!quiet) toast(`تم عرض البيانات من الكاش المحلي.`, `success`);
+        return;
+      }
+
+      state.loadingPromise = (async () => {
+        try {
+          if (!quiet) setBusy(true, `جاري تحميل Firebase حسب التاريخ...`);
+          const snap = await getDocs(buildOrdersQuery(range));
+          const rawOrders = snap.docs.map(item => ({ id: item.id, ...item.data() }));
+          writeOrdersCache(range, rawOrders);
+          hydrateOrders(rawOrders);
+          state.loadedRangeKey = range.key;
+          $(`lastLoadedAt`).textContent = new Date().toLocaleString(`en-GB`);
+          $(`connectionHint`).textContent = `تم تحميل ${formatCount(state.orders.length)} طلبية من ${range.fromValue} إلى ${range.toValue}`;
+          toast(`تم تحديث البيانات.`, `success`);
+        } catch (error) {
+          console.error(error);
+          const fallbackOrders = readOrdersCache(range, true);
+          if (fallbackOrders) {
+            hydrateOrders(fallbackOrders);
+            state.loadedRangeKey = range.key;
+            $(`connectionHint`).textContent = `تعذر التحديث بسبب كوتا Firebase؛ تم عرض آخر نسخة محفوظة`;
+            toast(`تم عرض آخر نسخة محفوظة لأن كوتا Firebase ممتلئة.`, `warning`);
+            return;
+          }
+          toast(`تعذر تحميل البيانات: كوتا Firebase ممتلئة أو الاتصال غير متاح.`, `error`);
+          $(`ordersBody`).innerHTML = `<tr><td colspan="11"><div class="empty-state">تعذر تحميل البيانات من Firebase. قلل مدى التاريخ أو انتظر تجدد الكوتا.</div></td></tr>`;
+        } finally {
+          state.loadingPromise = null;
+          setBusy(false);
+        }
+      })();
+      return state.loadingPromise;
+    }
+
+    function pruneSelection() {
+      const visibleIds = new Set(state.visible.map(order => order.id));
+      Array.from(state.selected).forEach(id => {
+        if (!visibleIds.has(id)) state.selected.delete(id);
+      });
+    }
+
+    function toggleSelection(orderId, checked) {
+      if (!orderId) return;
+      if (checked) state.selected.add(orderId);
+      else state.selected.delete(orderId);
+      renderKpis();
+      document.querySelectorAll(`[data-select-id="${CSS.escape(orderId)}"]`).forEach(input => { input.checked = checked; });
+    }
+
+    function toggleSelectAll(checked) {
+      const selectableRows = state.pageRows.length ? state.pageRows : state.visible;
+      selectableRows.forEach(order => {
+        if (checked) state.selected.add(order.id);
+        else state.selected.delete(order.id);
+      });
+      renderAll();
+    }
+
+    function exportVisibleExcel() {
+      if (!state.visible.length) return toast(`لا توجد بيانات ظاهرة للتصدير.`, `warning`);
+      if (typeof XLSX === `undefined`) return toast(`مكتبة Excel غير محملة.`, `error`);
+      const rows = [];
+      state.visible.forEach(order => {
+        const base = {
+          'رقم الطلبية': order.id || ``,
+          'تاريخ الطلبية': dateOnly(order),
+          'وقت الطلبية': timeOnly(order),
+          'كود الصيدلية': order.__pharmacyCode || ``,
+          'اسم الصيدلية': order.__pharmacyName || ``,
+          'المندوب': order.__repName || ``,
+          'الحالة': order.__statusLabel || ``,
+          'كود الحالة': order.__status || ``,
+          'المطلوب من': order.__owner || ``,
+          'تفصيل المطلوب': order.__ownerDetail || ``,
+          'قيمة الطلبية': order.__total,
+          'عدد الأصناف': getOrderItems(order).length,
+          'حركات التدقيق': arrayCount(order.auditTrail),
+          'سجلات التصدير': exportCount(order),
+          'سجلات الطباعة': printCount(order),
+          'ملاحظة الطلبية': order.__note || ``
+        };
+        rows.push({ ...base, 'نوع السجل': 'Order Summary', 'الإجراء': '', 'المستخدم': '', 'وقت الحركة': '', 'ملاحظة الحركة': '', 'Old Value': '', 'New Value': '' });
+        const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+        trail.forEach(entry => rows.push({
+          ...base,
+          'نوع السجل': 'Audit',
+          'الإجراء': statusLabel(entry.action || entry.type || ``),
+          'المستخدم': entry.user || entry.actor || entry.changedBy || entry.by || ``,
+          'وقت الحركة': historyDate(entry.timestamp || entry.at || entry.changedAt || entry.createdAt),
+          'ملاحظة الحركة': entry.notes || entry.note || entry.reason || ``,
+          'Old Value': serializeForPre(entry.oldValue || entry.previousValue || entry.from || ``),
+          'New Value': serializeForPre(entry.newValue || entry.to || ``)
+        }));
+      });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws[`!cols`] = [
+        { wch: 28 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 34 }, { wch: 24 },
+        { wch: 22 }, { wch: 26 }, { wch: 18 }, { wch: 36 }, { wch: 14 }, { wch: 12 },
+        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 42 }, { wch: 14 }, { wch: 28 },
+        { wch: 24 }, { wch: 22 }, { wch: 42 }, { wch: 42 }, { wch: 42 }
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, `Control`);
+      XLSX.writeFile(wb, `orders_control_${toDateInputValue(new Date())}.xlsx`);
+      toast(`تم تصدير Excel بنجاح.`, `success`);
+    }
+
+    function resetFilters() {
+      setDefaultDates();
+      $(`searchBox`).value = ``;
+      $(`pharmacySearch`).value = ``;
+      $(`statusFilter`).value = ``;
+      $(`ownerFilter`).value = ``;
+      $(`historyFilter`).value = ``;
+      $(`sortMode`).value = `date_desc`;
+      loadOrders(false, false);
+    }
+
+    function toast(message, type = `info`) {
+      const el = document.createElement(`div`);
+      el.className = `toast ${type}`;
+      el.textContent = message;
+      $(`toastStack`).appendChild(el);
+      setTimeout(() => el.remove(), 3600);
+    }
+
+    const debounce = (fn, delay = 130) => {
+      let timer = null;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+      };
+    };
+
+    function bindEvents() {
+      const debouncedDateLoad = debounce(() => loadOrders(false, false), 250);
+      [`statusFilter`, `ownerFilter`, `historyFilter`, `sortMode`].forEach(id => $(id).addEventListener(`change`, applyFilters));
+      [`dateFrom`, `dateTo`].forEach(id => $(id).addEventListener(`change`, debouncedDateLoad));
+      [`searchBox`, `pharmacySearch`].forEach(id => $(id).addEventListener(`input`, debounce(applyFilters, 120)));
+      $(`resetFiltersBtn`).addEventListener(`click`, resetFilters);
+      $(`refreshBtn`).addEventListener(`click`, () => loadOrders(false, true));
+      $(`refreshTopBtn`).addEventListener(`click`, () => loadOrders(false, true));
+      $(`exportBtn`).addEventListener(`click`, exportVisibleExcel);
+      $(`exportTopBtn`).addEventListener(`click`, exportVisibleExcel);
+      $(`bulkStatusBtn`).addEventListener(`click`, () => openStatusModal(Array.from(state.selected)));
+      $(`selectAllVisible`).addEventListener(`change`, event => toggleSelectAll(event.target.checked));
+      $(`closeDetailsBtn`).addEventListener(`click`, closeDetails);
+      $(`detailsOverlay`).addEventListener(`click`, event => { if (event.target.id === `detailsOverlay`) closeDetails(); });
+      $(`closeStatusModalBtn`).addEventListener(`click`, closeStatusModal);
+      $(`cancelStatusBtn`).addEventListener(`click`, closeStatusModal);
+      $(`statusModal`).addEventListener(`click`, event => { if (event.target.id === `statusModal`) closeStatusModal(); });
+      $(`confirmStatusBtn`).addEventListener(`click`, confirmStatusChange);
+
+      document.addEventListener(`click`, event => {
+        const scrollButton = event.target.closest(`[data-scroll-target]`);
+        if (scrollButton) {
+          document.querySelectorAll(`.nav-pill`).forEach(btn => btn.classList.remove(`active`));
+          scrollButton.classList.add(`active`);
+          $(scrollButton.dataset.scrollTarget)?.scrollIntoView({ behavior: `smooth`, block: `start` });
+        }
+        const openButton = event.target.closest(`[data-open-id]`);
+        if (openButton) openDetails(openButton.dataset.openId);
+        const statusButton = event.target.closest(`[data-status-id]`);
+        if (statusButton) openStatusModal([statusButton.dataset.statusId]);
+        const ownerCard = event.target.closest(`[data-owner-card]`);
+        if (ownerCard) {
+          $(`ownerFilter`).value = ownerCard.dataset.ownerCard;
+          applyFilters();
+          $(`ordersSection`).scrollIntoView({ behavior: `smooth`, block: `start` });
+        }
+        const statusCard = event.target.closest(`[data-status-card]`);
+        if (statusCard) {
+          $(`statusFilter`).value = statusCard.dataset.statusCard;
+          applyFilters();
+          $(`ordersSection`).scrollIntoView({ behavior: `smooth`, block: `start` });
+        }
+        if (event.target.closest(`#drawerStatusBtn`) && state.activeOrderId) openStatusModal([state.activeOrderId]);
+        if (event.target.closest(`#copyOrderIdBtn`) && state.activeOrderId) {
+          navigator.clipboard?.writeText(state.activeOrderId);
+          toast(`تم نسخ رقم الطلبية.`, `success`);
+        }
+      });
+
+      document.addEventListener(`change`, event => {
+        const check = event.target.closest(`[data-select-id]`);
+        if (check) toggleSelection(check.dataset.selectId, check.checked);
+      });
+
+      window.addEventListener(`online`, () => {
+        $(`offlineBanner`).classList.remove(`show`);
+        $(`connectionHint`).textContent = `متصل بـ Firebase مباشرة`;
+      });
+      window.addEventListener(`offline`, () => {
+        $(`offlineBanner`).classList.add(`show`);
+        $(`connectionHint`).textContent = `وضع عدم الاتصال`;
+      });
+      if (!navigator.onLine) $(`offlineBanner`).classList.add(`show`);
+    }
+
+    bindEvents();
+    setDefaultDates();
+    loadOrders(false);
+  </script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة بوابة الدعاية الطبية</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="icon" href="../favicon.ico?v=20260623_medrep_v3">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900;1000&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/medrep.css?v=20260624_medrep_v10">
+</head>
+<body>
+    <main class="app-shell admin-shell">
+        <section id="adminLoginPanel" class="login-shell" style="min-height: calc(100vh - 56px); align-items:center;">
+            <div class="hero-panel" style="min-height: 520px;">
+                <div class="brand-lockup">
+                    <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="DAD Logo">
+                    <div><strong>Medical Promotion Admin</strong><span>إدارة البوابة</span></div>
+                </div>
+                <div class="hero-content">
+                    <span class="eyebrow"><i class="ph ph-database"></i> إعدادات مستقلة</span>
+                    <h1>رفع وتعديل بيانات بوابة الدعاية الطبية.</h1>
+                    <p>إدارة البيانات والصلاحيات.</p>
+                </div>
+            </div>
+            <div class="auth-card">
+                <h2>دخول الأدمن</h2>
+                <p>أدخل كلمة مرور الأدمن.</p>
+                <div class="field-group">
+                    <label for="adminPassword">كلمة المرور</label>
+                    <input id="adminPassword" class="input-control" type="password" autocomplete="current-password" placeholder="أدخل كلمة المرور">
+                </div>
+                <label class="checkbox-line"><input id="rememberAdmin" type="checkbox"> تذكرني</label>
+                <button id="adminLoginBtn" class="btn btn-primary btn-full" type="button"><i class="ph ph-lock-key-open"></i> دخول</button>
+                <a class="admin-link" href="index.html"><i class="ph ph-arrow-right"></i> رجوع</a>
+            </div>
+        </section>
+
+        <section id="adminApp" hidden>
+            <header class="topbar">
+                <div class="page-title">
+                    <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="DAD Logo">
+                    <div>
+                        <h1>إدارة بوابة الدعاية الطبية</h1>
+                        <p>إدارة الدخول، الربط، النسب، والأهداف.</p>
+                    </div>
+                </div>
+                <div class="top-actions">
+                    <button id="refreshBtn" class="btn btn-light" type="button"><i class="ph ph-arrows-clockwise"></i> تحديث</button>
+                    <a href="team_leader.html" class="btn btn-light"><i class="ph ph-users-three"></i> Team Leader</a>
+                    <a href="dashboard.html" class="btn btn-light"><i class="ph ph-chart-line"></i> لوحة المندوب</a>
+                    <button id="adminLogoutBtn" class="btn btn-dark" type="button"><i class="ph ph-sign-out"></i> خروج</button>
+                </div>
+            </header>
+
+            <section class="admin-summary admin-summary-pro">
+                <div class="summary-card"><i class="ph ph-user-circle"></i><span>مندوبون طبيون</span><strong id="repsCount">0</strong></div>
+                <div class="summary-card"><i class="ph ph-map-pin-line"></i><span>ربط مناطق/أصناف</span><strong id="areaRulesCount">0</strong></div>
+                <div class="summary-card"><i class="ph ph-percent"></i><span>نسب اخرين</span><strong id="otherSharesCount">0</strong></div>
+                <div class="summary-card"><i class="ph ph-target"></i><span>Targets</span><strong id="targetsCount">0</strong></div>
+            </section>
+
+            <div id="importWarnings" class="warning-box"></div>
+
+            <nav class="tabs admin-tabs" aria-label="Medical rep admin tabs">
+                <button class="tab-btn active" data-tab="tabReps" type="button">المندوبون</button>
+                <button class="tab-btn" data-tab="tabTeamAccess" type="button">Team Leader</button>
+                <button class="tab-btn" data-tab="tabAreaRules" type="button">ربط المناطق</button>
+                <button class="tab-btn" data-tab="tabOtherShares" type="button">نسب اخرين</button>
+                <button class="tab-btn" data-tab="tabTargets" type="button">Targets</button>
+            </nav>
+
+            <section id="tabReps" class="tab-panel active">
+                <div class="upload-grid">
+                    <div class="upload-box">
+                        <h3>رفع بيانات المندوبين الطبيين</h3>
+                        <p class="form-note">Employee No, Birth Date, Medrep, Team, Active</p>
+                        <div class="field-group"><label for="repsFile">ملف Excel</label><input id="repsFile" class="file-control" type="file" accept=".xlsx,.xls"></div>
+                        <div class="upload-actions">
+                            <button class="btn btn-light" type="button" data-template="reps"><i class="ph ph-download-simple"></i> تنزيل Template</button>
+                            <button id="importRepsBtn" class="btn btn-primary" type="button"><i class="ph ph-upload-simple"></i> رفع / تحديث</button>
+                            <button class="btn btn-light" type="button" data-export="reps"><i class="ph ph-file-xls"></i> Export الحالي</button>
+                        </div>
+                    </div>
+                    <div class="table-card">
+                        <div class="card-head admin-card-head">
+                            <div>
+                                <h2>المندوبون الطبيون</h2>
+                                <p class="form-note">تعديل الرقم الوظيفي وتاريخ الميلاد يدويًا أو عبر Excel.</p>
+                            </div>
+                            <div class="admin-inline-search">
+                                <input id="repAdminSearch" class="input-control" type="search" placeholder="بحث عن مندوب أو فريق...">
+                            </div>
+                        </div>
+                        <div id="repsPreview"></div>
+                        <div id="repPager" class="pager"></div>
+                    </div>
+                </div>
+            </section>
+
+
+            <section id="tabTeamAccess" class="tab-panel">
+                <div class="table-card full-width-card">
+                    <div class="card-head admin-card-head">
+                        <div>
+                            <h2>صلاحيات Team Leader</h2>
+                            <p class="form-note">اسم المستخدم هو اسم الفريق. أدخل كلمة مرور جديدة عند الحاجة فقط.</p>
+                        </div>
+                        <div class="admin-inline-search">
+                            <input id="teamAccessSearch" class="input-control" type="search" placeholder="بحث عن فريق...">
+                        </div>
+                    </div>
+                    <div id="teamAccessPreview"></div>
+                </div>
+            </section>
+
+            <section id="tabAreaRules" class="tab-panel">
+                <div class="upload-grid">
+                    <div class="upload-box">
+                        <h3>رفع ربط المنطقة بالصنف والمندوب</h3>
+                        <p class="form-note">Team, Medrep, Item Name, Area</p>
+                        <div class="field-group"><label for="areaRulesFile">ملف Excel</label><input id="areaRulesFile" class="file-control" type="file" accept=".xlsx,.xls"></div>
+                        <div class="upload-actions">
+                            <button class="btn btn-light" type="button" data-template="areaRules"><i class="ph ph-download-simple"></i> تنزيل Template</button>
+                            <button id="importAreaRulesBtn" class="btn btn-primary" type="button"><i class="ph ph-upload-simple"></i> رفع / تحديث</button>
+                            <button class="btn btn-light" type="button" data-export="areaRules"><i class="ph ph-file-xls"></i> Export الحالي</button>
+                        </div>
+                    </div>
+                    <div class="table-card">
+                        <h2>معاينة ربط المناطق</h2>
+                        <div id="areaRulesPreview"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tabOtherShares" class="tab-panel">
+                <div class="upload-grid">
+                    <div class="upload-box">
+                        <h3>رفع نسب منطقة اخرين</h3>
+                        <p class="form-note">Team, Item Name, Medrep, Percentage from others. يقبل 0–1 أو 20%.</p>
+                        <div class="field-group"><label for="otherSharesFile">ملف Excel</label><input id="otherSharesFile" class="file-control" type="file" accept=".xlsx,.xls"></div>
+                        <div class="upload-actions">
+                            <button class="btn btn-light" type="button" data-template="otherShares"><i class="ph ph-download-simple"></i> تنزيل Template</button>
+                            <button id="importOtherSharesBtn" class="btn btn-primary" type="button"><i class="ph ph-upload-simple"></i> رفع / تحديث</button>
+                            <button class="btn btn-light" type="button" data-export="otherShares"><i class="ph ph-file-xls"></i> Export الحالي</button>
+                        </div>
+                    </div>
+                    <div class="table-card">
+                        <h2>معاينة نسب اخرين</h2>
+                        <div id="otherSharesPreview"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tabTargets" class="tab-panel">
+                <div class="upload-grid">
+                    <div class="upload-box">
+                        <h3>رفع Targets لاحقًا</h3>
+                        <p class="form-note">Year, Month, Team, Medrep, Item Name, Target Value, Target Qty</p>
+                        <div class="field-group"><label for="targetsFile">ملف Excel</label><input id="targetsFile" class="file-control" type="file" accept=".xlsx,.xls"></div>
+                        <div class="upload-actions">
+                            <button class="btn btn-light" type="button" data-template="targets"><i class="ph ph-download-simple"></i> تنزيل Template</button>
+                            <button id="importTargetsBtn" class="btn btn-primary" type="button"><i class="ph ph-upload-simple"></i> رفع / تحديث</button>
+                            <button class="btn btn-light" type="button" data-export="targets"><i class="ph ph-file-xls"></i> Export الحالي</button>
+                        </div>
+                    </div>
+                    <div class="table-card">
+                        <h2>معاينة Targets</h2>
+                        <div id="targetsPreview"></div>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </main>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="js/medrep-common.js?v=20260624_medrep_v10"></script>
+    <script type="module" src="js/admin.js?v=20260624_medrep_v10"></script>
+</body>
+</html>

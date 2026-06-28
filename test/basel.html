@@ -1,0 +1,2623 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <link rel="icon" href="./favicon.ico?v=20260628_table_pagination_fix1" />
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Basel | إدارة حالات الطلبيات</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --teal: #099999;
+      --teal-2: #0fb6b6;
+      --teal-dark: #066f70;
+      --ink: #08111f;
+      --ink-2: #172033;
+      --muted: #6b7a90;
+      --line: rgba(148, 163, 184, .22);
+      --line-strong: rgba(148, 163, 184, .36);
+      --soft: #f7fbfb;
+      --paper: rgba(255, 255, 255, .82);
+      --white: #ffffff;
+      --danger: #b42318;
+      --danger-soft: #fff1f0;
+      --warning: #b45309;
+      --success: #087f5b;
+      --shadow-sm: 0 8px 20px rgba(15, 23, 42, .08);
+      --shadow-md: 0 18px 55px rgba(15, 23, 42, .12);
+      --shadow-lg: 0 30px 90px rgba(15, 23, 42, .20);
+      --radius-xl: 30px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --font-ar: "Almarai", Arial, sans-serif;
+      --font-num: "Inter", "Segoe UI", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-ar);
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 94% 4%, rgba(9, 153, 153, .20), transparent 29%),
+        radial-gradient(circle at 7% 18%, rgba(15, 182, 182, .13), transparent 25%),
+        linear-gradient(135deg, #f8fbfd 0%, #edf7f7 45%, #f7fafc 100%);
+      padding: clamp(12px, 2vw, 28px);
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 380px;
+      height: 380px;
+      border-radius: 999px;
+      pointer-events: none;
+      z-index: -1;
+      filter: blur(18px);
+      opacity: .28;
+      animation: orbFloat 10s ease-in-out infinite alternate;
+    }
+
+    body::before {
+      background: rgba(9, 153, 153, .40);
+      top: -150px;
+      inset-inline-end: -120px;
+    }
+
+    body::after {
+      background: rgba(99, 102, 241, .22);
+      bottom: -180px;
+      inset-inline-start: -130px;
+      animation-delay: -3s;
+    }
+
+    @keyframes orbFloat {
+      0% { transform: translate3d(0, 0, 0) scale(1); }
+      100% { transform: translate3d(26px, 34px, 0) scale(1.08); }
+    }
+
+    .shell {
+      width: min(1600px, 100%);
+      margin: 0 auto;
+      animation: pageIn .45s cubic-bezier(.2, .8, .2, 1) both;
+    }
+
+    @keyframes pageIn {
+      from { opacity: 0; transform: translateY(18px) scale(.992); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 16px;
+    }
+
+    .hero-card,
+    .panel,
+    .metric,
+    .modal-box {
+      background: var(--paper);
+      border: 1px solid rgba(255, 255, 255, .80);
+      box-shadow: var(--shadow-md);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .hero-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-xl);
+      padding: clamp(18px, 2vw, 28px);
+      min-height: 154px;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(9, 153, 153, .13), transparent 45%),
+        radial-gradient(circle at 18% 20%, rgba(255, 255, 255, .82), transparent 20%);
+      pointer-events: none;
+    }
+
+    .hero-content { position: relative; z-index: 1; }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(9, 153, 153, .10);
+      border: 1px solid rgba(9, 153, 153, .18);
+      color: var(--teal-dark);
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 14px;
+    }
+
+    .pulse-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 0 0 rgba(9, 153, 153, .45);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(9, 153, 153, .45); }
+      70% { box-shadow: 0 0 0 11px rgba(9, 153, 153, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(9, 153, 153, 0); }
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(25px, 3.2vw, 44px);
+      line-height: 1.18;
+      letter-spacing: -.6px;
+      color: var(--ink);
+    }
+
+    .accent { color: var(--teal); }
+
+    .subtitle {
+      max-width: 940px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.9;
+    }
+
+    .hero-side {
+      min-width: 268px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .system-chip {
+      display: grid;
+      align-content: center;
+      border-radius: var(--radius-xl);
+      padding: 18px;
+      background: linear-gradient(145deg, rgba(8, 17, 31, .96), rgba(6, 111, 112, .92));
+      color: #fff;
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .system-chip::after {
+      content: "";
+      position: absolute;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, .10);
+      inset-inline-start: -70px;
+      top: -60px;
+    }
+
+    .system-chip small {
+      color: rgba(255, 255, 255, .68);
+      font-weight: 700;
+    }
+
+    .system-chip strong {
+      display: block;
+      margin-top: 8px;
+      font-family: var(--font-num);
+      font-size: 20px;
+      letter-spacing: .3px;
+      direction: ltr;
+      text-align: right;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 16px;
+      padding: 12px 16px;
+      font-family: var(--font-ar);
+      font-weight: 800;
+      cursor: pointer;
+      background: var(--teal);
+      color: #fff;
+      white-space: normal;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease, opacity .18s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+    }
+
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(9, 153, 153, .20); background: var(--teal-dark); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn.dark { background: var(--ink); }
+    .btn.dark:hover { background: #0f172a; box-shadow: 0 14px 30px rgba(15, 23, 42, .20); }
+    .btn.soft { background: rgba(9, 153, 153, .10); color: var(--teal-dark); box-shadow: none; border: 1px solid rgba(9, 153, 153, .18); }
+    .btn.soft:hover { background: rgba(9, 153, 153, .16); box-shadow: none; }
+    .btn.ghost { background: #eef4f5; color: var(--ink); box-shadow: none; }
+    .btn.ghost:hover { background: #e5eef0; box-shadow: none; }
+    .btn.danger { background: var(--danger); }
+    .btn.danger:hover { background: #8f1d15; box-shadow: 0 14px 30px rgba(180, 35, 24, .20); }
+
+    .panel {
+      border-radius: var(--radius-xl);
+      padding: clamp(14px, 1.6vw, 20px);
+      margin-bottom: 16px;
+    }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.22fr) minmax(230px, .95fr) repeat(2, minmax(155px, .58fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    .field { min-width: 0; }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      color: #405168;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .hint-mini {
+      color: #8a99ac;
+      font-family: var(--font-num);
+      font-size: 11px;
+      font-weight: 700;
+      direction: ltr;
+    }
+
+    select,
+    input,
+    textarea {
+      width: 100%;
+      min-height: 46px;
+      padding: 12px 13px;
+      border: 1px solid var(--line-strong);
+      border-radius: 16px;
+      font-family: var(--font-ar);
+      font-size: 14px;
+      background: rgba(255, 255, 255, .90);
+      color: var(--ink);
+      outline: none;
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+
+    input[type="date"],
+    input[type="datetime-local"],
+    .num,
+    .money,
+    .code {
+      font-family: var(--font-num);
+      direction: ltr;
+      text-align: right;
+    }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+      line-height: 1.7;
+    }
+
+    select:focus,
+    input:focus,
+    textarea:focus {
+      border-color: rgba(9, 153, 153, .65);
+      box-shadow: 0 0 0 4px rgba(9, 153, 153, .12);
+      background: #fff;
+    }
+
+
+    .shell > .panel {
+      position: relative;
+      z-index: 90;
+      overflow: visible;
+      isolation: isolate;
+    }
+
+    .metrics {
+      position: relative;
+      z-index: 10;
+    }
+
+    .table-panel {
+      position: relative;
+      z-index: 5;
+    }
+
+    .filters-grid,
+    .field {
+      overflow: visible;
+    }
+
+    .pharmacy-field { position: relative; z-index: 110; }
+
+    .pharmacy-combo {
+      position: relative;
+    }
+
+    .pharmacy-combo input {
+      padding-inline-end: 42px;
+      font-weight: 700;
+    }
+
+    .pharmacy-clear {
+      position: absolute;
+      top: 50%;
+      inset-inline-end: 8px;
+      width: 30px;
+      height: 30px;
+      min-height: 30px;
+      padding: 0;
+      transform: translateY(-50%);
+      border-radius: 999px;
+      background: #eef4f5;
+      color: #526276;
+      box-shadow: none;
+      z-index: 4;
+      font-family: var(--font-num);
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .pharmacy-clear:hover {
+      background: rgba(9, 153, 153, .12);
+      color: var(--teal-dark);
+      box-shadow: none;
+      transform: translateY(-50%);
+    }
+
+    .pharmacy-dropdown {
+      position: absolute;
+      inset-inline: 0;
+      top: calc(100% + 8px);
+      z-index: 9999;
+      display: none;
+      max-height: min(360px, 52vh);
+      overflow: auto;
+      padding: 10px;
+      border: 1px solid rgba(9, 153, 153, .24);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, .99);
+      box-shadow: 0 28px 70px rgba(15, 23, 42, .26);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      animation: dropdownIn .16s cubic-bezier(.2,.8,.2,1) both;
+    }
+
+    .pharmacy-dropdown.open { display: grid; gap: 6px; }
+
+    @keyframes dropdownIn {
+      from { opacity: 0; transform: translateY(8px) scale(.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .pharmacy-option {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 10px;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      color: var(--ink);
+      box-shadow: none;
+      text-align: right;
+      cursor: pointer;
+      transition: background .14s ease, transform .14s ease;
+    }
+
+    .pharmacy-option:hover {
+      background: rgba(9, 153, 153, .075);
+      box-shadow: none;
+      transform: translateY(-1px);
+    }
+
+    .pharmacy-option .p-code {
+      direction: ltr;
+      font-family: var(--font-num);
+      font-weight: 900;
+      color: var(--teal-dark);
+      background: rgba(9, 153, 153, .10);
+      border: 1px solid rgba(9, 153, 153, .14);
+      border-radius: 999px;
+      padding: 4px 8px;
+      min-width: 54px;
+      text-align: center;
+    }
+
+    .pharmacy-option .p-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 800;
+    }
+
+    .pharmacy-option .p-count {
+      color: var(--muted);
+      font-family: var(--font-num);
+      font-size: 11px;
+      font-weight: 800;
+      direction: ltr;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .metric {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      min-height: 118px;
+      animation: metricIn .38s cubic-bezier(.2, .8, .2, 1) both;
+    }
+
+    .metric:nth-child(2) { animation-delay: .06s; }
+    .metric:nth-child(3) { animation-delay: .12s; }
+    .metric:nth-child(4) { animation-delay: .18s; }
+
+    @keyframes metricIn {
+      from { opacity: 0; transform: translateY(12px) scale(.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .metric::before {
+      content: "";
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      background: rgba(9, 153, 153, .10);
+      inset-inline-end: -48px;
+      bottom: -62px;
+    }
+
+    .metric-title {
+      position: relative;
+      z-index: 1;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .metric-value {
+      position: relative;
+      z-index: 1;
+      font-family: var(--font-num);
+      font-size: clamp(23px, 2.35vw, 36px);
+      font-weight: 900;
+      line-height: 1.1;
+      direction: ltr;
+      text-align: right;
+      color: var(--ink);
+    }
+
+    .metric-note {
+      position: relative;
+      z-index: 1;
+      margin-top: 9px;
+      color: #8a99ac;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .table-panel {
+      overflow: hidden;
+      border-radius: var(--radius-xl);
+      background: rgba(255, 255, 255, .88);
+      border: 1px solid rgba(255, 255, 255, .85);
+      box-shadow: var(--shadow-md);
+      backdrop-filter: blur(18px);
+    }
+
+    .table-headline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255, 255, 255, .92), rgba(248, 250, 252, .78));
+    }
+
+    .table-title {
+      font-weight: 900;
+      color: var(--ink);
+    }
+
+    .table-subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status-line {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+      text-align: left;
+      direction: rtl;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: calc(100vh - 430px);
+      min-height: 280px;
+      scrollbar-gutter: stable;
+    }
+
+    .bulk-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 18px 14px;
+      padding: 12px 14px;
+      border: 1px solid rgba(9, 153, 153, .18);
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(9, 153, 153, .10), rgba(255, 255, 255, .82));
+      box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
+      animation: toolbarIn .28s cubic-bezier(.2, .8, .2, 1) both;
+    }
+
+    @keyframes toolbarIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .bulk-summary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--ink);
+      font-weight: 900;
+      line-height: 1.5;
+    }
+
+    .bulk-summary .badge {
+      min-width: 34px;
+      height: 34px;
+      padding: 0 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--teal);
+      color: #fff;
+      font-family: var(--font-num);
+      box-shadow: 0 12px 26px rgba(9, 153, 153, .22);
+    }
+
+    .bulk-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .select-cell,
+    .select-head {
+      width: 46px;
+      text-align: center;
+    }
+
+    .order-check {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--teal);
+      cursor: pointer;
+    }
+
+    tr.selected-row {
+      background: rgba(9, 153, 153, .075);
+      box-shadow: inset 4px 0 0 rgba(9, 153, 153, .85);
+    }
+
+
+    table {
+      width: 100%;
+      min-width: 0;
+      table-layout: fixed;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: transparent;
+    }
+
+    .orders-table .col-select { width: 40px; }
+    .orders-table .col-index { width: 44px; }
+    .orders-table .col-date { width: 82px; }
+    .orders-table .col-time { width: 58px; }
+    .orders-table .col-rep { width: 12%; }
+    .orders-table .col-pharmacy { width: 18%; }
+    .orders-table .col-total { width: 88px; }
+    .orders-table .col-source { width: 86px; }
+    .orders-table .col-status { width: 130px; }
+    .orders-table .col-actions { width: 130px; }
+
+    th,
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+      vertical-align: middle;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: rgba(248, 250, 252, .96);
+      backdrop-filter: blur(12px);
+      color: #344256;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    tbody tr {
+      transition: background .16s ease, transform .16s ease;
+      animation: rowIn .28s cubic-bezier(.2, .8, .2, 1) both;
+    }
+
+    tbody tr:hover { background: rgba(9, 153, 153, .045); }
+
+    @keyframes rowIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .status-pill {
+      display: inline-grid;
+      gap: 4px;
+      padding: 8px 10px;
+      min-width: 156px;
+      border-radius: 14px;
+      background: rgba(9, 153, 153, .08);
+      border: 1px solid rgba(9, 153, 153, .14);
+      color: var(--teal-dark);
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .status-pill .raw {
+      font-family: var(--font-num);
+      font-size: 11px;
+      direction: ltr;
+      text-align: right;
+      color: rgba(6, 111, 112, .78);
+    }
+
+    .order-id {
+      font-family: var(--font-num);
+      direction: ltr;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .actions {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: nowrap;
+    }
+
+
+    .date-cell,
+    .time-cell,
+    .money,
+    .actions-cell,
+    .select-cell,
+    .select-head {
+      white-space: nowrap;
+    }
+
+    .actions-cell,
+    .select-cell,
+    .select-head { overflow: visible; }
+
+    .pharmacy-cell {
+      white-space: nowrap;
+    }
+
+    .pharmacy-display {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .pharmacy-code-badge {
+      flex: 0 0 auto;
+      direction: ltr;
+      font-family: var(--font-num);
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--teal-dark);
+      background: rgba(9, 153, 153, .10);
+      border: 1px solid rgba(9, 153, 153, .14);
+      border-radius: 999px;
+      padding: 3px 7px;
+    }
+
+    .pharmacy-name-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+
+    .icon-btn {
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(9, 153, 153, .16);
+      border-radius: 15px;
+      background: rgba(9, 153, 153, .08);
+      color: var(--teal-dark);
+      display: inline-grid;
+      place-items: center;
+      cursor: pointer;
+      transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+
+    .icon-btn:hover {
+      transform: translateY(-2px) scale(1.02);
+      background: rgba(9, 153, 153, .15);
+      box-shadow: 0 12px 24px rgba(9, 153, 153, .12);
+    }
+
+    .icon-btn.danger {
+      color: var(--danger);
+      background: rgba(180, 35, 24, .08);
+      border-color: rgba(180, 35, 24, .14);
+    }
+
+    .empty-state {
+      display: grid;
+      place-items: center;
+      padding: 56px 18px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    .loader-row {
+      padding: 28px;
+    }
+
+    .skeleton {
+      display: block;
+      height: 14px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #edf2f7, #f8fafc, #edf2f7);
+      background-size: 200% 100%;
+      animation: shimmer 1.15s linear infinite;
+    }
+
+    @keyframes shimmer {
+      from { background-position: 200% 0; }
+      to { background-position: -200% 0; }
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(10px, 2vw, 22px);
+      background: rgba(6, 12, 23, .60);
+      backdrop-filter: blur(10px);
+    }
+
+    .modal.open { display: flex; animation: overlayIn .18s ease both; }
+
+    @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .modal-box {
+      width: min(1280px, 100%);
+      max-height: 92vh;
+      overflow: auto;
+      border-radius: 30px;
+      padding: 0;
+      animation: modalIn .28s cubic-bezier(.2, .8, .2, 1) both;
+    }
+
+    .modal-box.compact { width: min(760px, 100%); }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(18px) scale(.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .94);
+      backdrop-filter: blur(14px);
+    }
+
+    .modal-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 20px;
+      font-weight: 900;
+    }
+
+    .modal-body { padding: 18px 20px 20px; }
+
+    .modal-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .modal-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 18px 0 10px;
+      color: var(--ink);
+      font-weight: 900;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-family: var(--font-num);
+      font-size: 12px;
+      font-weight: 800;
+      direction: ltr;
+    }
+
+    .edit-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #fff;
+    }
+
+    .edit-table {
+      min-width: 1120px;
+    }
+
+    .edit-table input,
+    .edit-table textarea {
+      min-height: 40px;
+      padding: 9px 10px;
+      border-radius: 12px;
+      font-size: 13px;
+    }
+
+    .edit-table textarea { min-height: 40px; resize: vertical; }
+
+    .modal-actions {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, .94);
+      backdrop-filter: blur(14px);
+    }
+
+    .modal-actions .group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .toast {
+      position: fixed;
+      inset-inline-start: 50%;
+      bottom: 24px;
+      z-index: 10000;
+      transform: translateX(-50%) translateY(18px);
+      opacity: 0;
+      pointer-events: none;
+      max-width: min(560px, calc(100% - 28px));
+      padding: 13px 16px;
+      border-radius: 18px;
+      box-shadow: var(--shadow-lg);
+      background: var(--ink);
+      color: #fff;
+      font-weight: 800;
+      line-height: 1.7;
+      transition: opacity .22s ease, transform .22s ease;
+    }
+
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+    .toast.warning { background: var(--warning); }
+
+    .danger-zone {
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px solid rgba(180, 35, 24, .18);
+      background: var(--danger-soft);
+      border-radius: 18px;
+      color: #7a271a;
+      line-height: 1.8;
+    }
+
+    .quick-filter-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .quick-filter-row button {
+      min-height: 36px;
+      padding: 8px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+
+    @media (max-width: 1160px) {
+      .hero,
+      .filters-grid,
+      .metrics,
+      .modal-grid,
+      .modal-grid.two { grid-template-columns: 1fr 1fr; }
+      .hero-side { min-width: 0; }
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 10px; }
+      .hero,
+      .filters-grid,
+      .metrics,
+      .modal-grid,
+      .modal-grid.two { grid-template-columns: 1fr; }
+      .hero-side { grid-template-columns: 1fr; }
+      .table-headline { align-items: flex-start; flex-direction: column; }
+      .table-wrap { max-height: none; overflow-x: auto; }
+      table { min-width: 980px; }
+      .modal { padding: 0; }
+      .modal-box { width: 100%; height: 100vh; max-height: 100vh; border-radius: 0; }
+      .modal-top, .modal-actions { padding: 14px; }
+      .modal-body { padding: 14px; }
+      .modal-actions { flex-direction: column; }
+      .modal-actions .group, .modal-actions .btn { width: 100%; }
+      .actions { flex-wrap: wrap; }
+      .bulk-toolbar { margin: 0 12px 12px; align-items: stretch; flex-direction: column; }
+      .bulk-actions, .bulk-actions .btn { width: 100%; }
+    }
+
+    .basel-pager {
+      display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;
+      margin:14px 0 6px; padding:10px; color:#475569; font-weight:900; direction:ltr;
+    }
+    .basel-pager button {
+      border:1px solid rgba(9,153,153,.24); background:#fff; color:#0f172a; border-radius:12px;
+      min-width:38px; height:38px; padding:0 12px; font-weight:900; cursor:pointer;
+      transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .basel-pager button:hover { transform:translateY(-1px); box-shadow:0 8px 20px rgba(15,23,42,.10); }
+    .basel-pager button.active { background:#099999; color:#fff; border-color:#099999; }
+    .basel-pager button:disabled { opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
+    .basel-pager .pager-label { min-width:110px; text-align:center; }
+  </style>
+</head>
+
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-card">
+        <div class="hero-content">
+          <div class="eyebrow"><span class="pulse-dot"></span> Basel Control Console</div>
+          <h1>إدارة ذكية لحالات <span class="accent">الطلبيات</span></h1>
+          <p class="subtitle">
+            فلترة مترابطة حسب التاريخ والحالة والصيدلية، عرض تفاصيل الطلبية، تعديل كامل البيانات والأصناف، ونقل الحالة مع تسجيل الإجراء باسم Basel.
+          </p>
+          <div class="quick-filter-row">
+            <button type="button" class="btn soft" onclick="resetFiltersToCurrentMonth()">الشهر الحالي</button>
+            <button type="button" class="btn soft" onclick="clearStatusAndPharmacy()">مسح الحالة والصيدلية</button>
+            <button type="button" class="btn soft" onclick="exportCurrentViewCsv()">تصدير CSV للمعروض</button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="hero-side">
+        <div class="system-chip">
+          <small>آخر قراءة من Firebase</small>
+          <strong id="lastLoadedAt">--:--</strong>
+        </div>
+        <button type="button" class="btn dark" onclick="loadOrders()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          تحديث البيانات
+        </button>
+      </aside>
+    </section>
+
+    <section class="panel">
+      <div class="filters-grid">
+        <div class="field">
+          <label for="statusFilter">فلترة حسب آخر حالة فعلية للطلبية <span class="hint-mini" id="statusOptionsCount">0</span></label>
+          <select id="statusFilter"></select>
+        </div>
+
+        <div class="field pharmacy-field">
+          <label for="pharmacyFilter">فلتر الصيدلية <span class="hint-mini" id="pharmacyOptionsCount">0</span></label>
+          <div class="pharmacy-combo" id="pharmacyCombo">
+            <input id="pharmacyFilter" placeholder="اكتب كود أو اسم الصيدلية — الكتابة تكفي للتصفية" autocomplete="off" inputmode="search" />
+            <button type="button" class="pharmacy-clear" onclick="clearPharmacyFilterOnly()" title="مسح فلتر الصيدلية" aria-label="مسح فلتر الصيدلية">×</button>
+            <div id="pharmacyDropdown" class="pharmacy-dropdown" role="listbox"></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="fromDate">من تاريخ</label>
+          <input id="fromDate" type="date" />
+        </div>
+
+        <div class="field">
+          <label for="toDate">إلى تاريخ</label>
+          <input id="toDate" type="date" />
+        </div>
+      </div>
+    </section>
+
+    <section class="metrics">
+      <div class="metric">
+        <div class="metric-title">عدد الطلبيات</div>
+        <div id="kpiOrdersCount" class="metric-value">0</div>
+        <div class="metric-note">حسب الفلاتر الحالية</div>
+      </div>
+      <div class="metric">
+        <div class="metric-title">إجمالي قيمة الطلبيات</div>
+        <div id="kpiOrdersValue" class="metric-value">0.00</div>
+        <div class="metric-note">د.أ</div>
+      </div>
+      <div class="metric">
+        <div class="metric-title">متوسط قيمة الطلبية</div>
+        <div id="kpiAverageValue" class="metric-value">0.00</div>
+        <div class="metric-note">د.أ / طلبية</div>
+      </div>
+      <div class="metric">
+        <div class="metric-title">الحالات المتاحة</div>
+        <div id="kpiStatusesCount" class="metric-value">0</div>
+        <div class="metric-note">آخر الحالات فقط</div>
+      </div>
+    </section>
+
+    <section class="table-panel">
+      <div class="table-headline">
+        <div>
+          <div class="table-title">الطلبيات المعروضة</div>
+          <div class="table-subtitle">كل تغيير في الفلاتر يعيد حساب الجدول والبطاقات فورًا حسب آخر حالة فعلية فقط.</div>
+        </div>
+        <div id="loading" class="status-line">جاري قراءة الطلبيات...</div>
+      </div>
+      <div id="errorBox" class="danger-zone" style="display:none"></div>
+      <div class="bulk-toolbar">
+        <div class="bulk-summary">
+          <span id="selectedOrdersCount" class="badge">0</span>
+          <span>طلبيات محددة للتغيير الدفعي</span>
+        </div>
+        <div class="bulk-actions">
+          <button type="button" class="btn soft" onclick="selectAllVisibleOrders()">تحديد كل المعروض</button>
+          <button type="button" class="btn ghost" onclick="clearSelectedOrders()">إلغاء التحديد</button>
+          <button type="button" id="bulkMoveButton" class="btn" onclick="openBulkMoveModal()" disabled>تغيير الحالة دفعة واحدة</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="orders-table">
+          <colgroup>
+            <col class="col-select" />
+            <col class="col-index" />
+            <col class="col-date" />
+            <col class="col-time" />
+            <col class="col-rep" />
+            <col class="col-pharmacy" />
+            <col class="col-total" />
+            <col class="col-source" />
+            <col class="col-status" />
+            <col class="col-actions" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="select-head"><input id="selectAllCurrentPage" class="order-check" type="checkbox" aria-label="تحديد كل المعروض" onchange="toggleSelectAllVisible(this.checked)" /></th>
+              <th>تسلسل</th>
+              <th>التاريخ</th>
+              <th>الوقت</th>
+              <th>المندوب</th>
+              <th>الصيدلية</th>
+              <th>قيمة الطلبية</th>
+              <th>مرجع الحالة</th>
+              <th>الحالة الحالية</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="ordersBody"></tbody>
+        </table>
+      </div>
+      <div id="baselOrdersPager" class="basel-pager"></div>
+    </section>
+  </main>
+
+  <div id="detailsModal" class="modal">
+    <div class="modal-box">
+      <div class="modal-top">
+        <div>
+          <h2 class="modal-title">مشاهدة وتعديل الطلبية</h2>
+          <div class="table-subtitle" id="detailsSubtitle"></div>
+        </div>
+        <button type="button" class="btn ghost" onclick="closeModal('detailsModal')">إغلاق</button>
+      </div>
+      <div id="detailsContent" class="modal-body"></div>
+      <div class="modal-actions">
+        <div class="group">
+          <button type="button" class="btn" onclick="saveOrderDetails()">حفظ كافة التعديلات</button>
+          <button type="button" class="btn soft" onclick="addEditableItemRow()">إضافة صنف</button>
+        </div>
+        <div class="group">
+          <button type="button" class="btn danger" onclick="hardDeleteSelectedOrder()">حذف نهائي من Firebase</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="moveModal" class="modal">
+    <div class="modal-box compact">
+      <div class="modal-top">
+        <h2 class="modal-title" id="moveModalTitle">نقل الطلبية إلى حالة أخرى</h2>
+        <button type="button" class="btn ghost" onclick="closeModal('moveModal')">إغلاق</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-grid two">
+          <div class="field">
+            <label for="moveStatusSelect">الحالة الجديدة</label>
+            <select id="moveStatusSelect"></select>
+          </div>
+          <div class="field">
+            <label for="moveNote">ملاحظة إجبارية</label>
+            <input id="moveNote" placeholder="اكتب سبب تغيير الحالة" />
+          </div>
+        </div>
+        <div id="moveModalHint" class="danger-zone" style="background:#f8fafc;border-color:var(--line);color:var(--muted)">
+          تغيير الحالة هنا يحدّث الحقول الأساسية المرتبطة بالـ Workflow وليس الحقل المعروض فقط، حتى ينعكس التغيير في باقي صفحات الموقع.
+        </div>
+      </div>
+      <div class="modal-actions">
+        <div class="group">
+          <button type="button" id="confirmMoveButton" class="btn" onclick="confirmMoveOrder()">تأكيد النقل</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      getDocs,
+      query,
+      where,
+      orderBy,
+      doc,
+      getDoc,
+      updateDoc,
+      deleteDoc,
+      addDoc,
+      writeBatch,
+      serverTimestamp,
+      arrayUnion
+    } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-lite.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
+      authDomain: "dad-ordering-system.firebaseapp.com",
+      projectId: "dad-ordering-system",
+      storageBucket: "dad-ordering-system.firebasestorage.app",
+      messagingSenderId: "43886677849",
+      appId: "1:43886677849:web:de5f80c06e1b743c948648"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const ACTION_BY = `Basel`;
+
+    const STATUS_FIELDS = {
+      status: `الحالة الرئيسية`,
+      orderStatus: `حالة الطلبية`,
+      workflowStatus: `حالة مسار العمل`,
+      workflowStage: `مرحلة مسار العمل`,
+      supervisorStatus: `حالة المشرف`,
+      marketManagerStatus: `حالة مدير السوق`,
+      financeStatus: `حالة المالية`,
+      orderStaffStatus: `حالة قسم الطلبيات`,
+      requiredOwner: `المطلوب من`,
+      currentOwner: `المالك الحالي`,
+      nextOwner: `الجهة التالية`,
+      currentStep: `الخطوة الحالية`
+    };
+
+    const STATUS_LABELS = {
+      pending: `قيد موافقة المشرف`,
+      pending_supervisor_approval: `قيد موافقة المشرف`,
+      supervisor_approved: `معتمد من المشرف`,
+      market_manager_pending: `بانتظار مدير السوق`,
+      market_manager_approved: `معتمد من مدير السوق`,
+      market_manager_rejected: `مرفوض من مدير السوق`,
+      finance_pending: `بانتظار المالية`,
+      finance_approved: `معتمد مالياً`,
+      finance_rejected: `مرفوض مالياً`,
+      orders_staff_pending: `جاهز للمعالجة`,
+      orders_staff_exported: `تم تصديره`,
+      orders_staff_hidden: `تمت الفوترة`,
+      orders_staff_invoiced_and_hidden_after_export: `تمت الفوترة`,
+      orders_staff_edited_returned_to_finance: `تم تعديله وإرجاعه للمالية`,
+      returned_to_rep: `مرجعة للمندوب`,
+      returned_to_supervisor: `مرجعة للمشرف`,
+      returned_to_market_manager: `مرجعة لمدير السوق`,
+      returned_to_finance: `مرجعة للمالية`,
+      returned: `مرتجع`,
+      approved: `موافق عليه`,
+      rejected: `مرفوض`,
+      deleted: `محذوف`,
+      deleted_by_supervisor: `محذوف من المشرف`,
+      deleted_by_market_manager: `محذوف من مدير السوق`,
+      deleted_by_orders_staff: `محذوف من قسم الطلبيات`,
+      deleted_by_reports: `محذوف من التقارير`,
+      representative: `المندوب`,
+      supervisor: `المشرف`,
+      market_manager: `مدير السوق`,
+      finance_controller: `المالية`,
+      finance: `المالية`,
+      orders_staff: `قسم الطلبيات`,
+      none: `لا يوجد`
+    };
+
+    const KNOWN_WORKFLOW_STATUSES = [
+      `pending_supervisor_approval`,
+      `pending`,
+      `supervisor_approved`,
+      `market_manager_pending`,
+      `market_manager_approved`,
+      `market_manager_rejected`,
+      `finance_pending`,
+      `finance_approved`,
+      `finance_rejected`,
+      `orders_staff_pending`,
+      `orders_staff_exported`,
+      `orders_staff_hidden`,
+      `orders_staff_invoiced_and_hidden_after_export`,
+      `returned_to_rep`,
+      `returned_to_supervisor`,
+      `returned_to_market_manager`,
+      `returned_to_finance`,
+      `approved`,
+      `returned`,
+      `rejected`,
+      `deleted_by_supervisor`,
+      `deleted_by_market_manager`,
+      `deleted_by_orders_staff`,
+      `deleted_by_reports`
+    ];
+
+    let allOrders = [];
+    let currentFilteredOrders = [];
+    let currentPageOrders = [];
+    let baselCurrentPage = 1;
+    const BASEL_PAGE_SIZE = 50;
+    let selectedOrderIdForMove = null;
+    let selectedOrderIdForDetails = null;
+    let selectedOrderIds = new Set();
+    let moveMode = `single`;
+    let filterSyncing = false;
+    let cacheRenderDone = false;
+    let allOrdersVersion = 0;
+    let currentPharmacyOptions = [];
+    let currentPharmacyOptionsByKey = new Map();
+    let optionMemo = new Map();
+
+    const BASEL_CACHE_VERSION = `20260628_monthly_report_cache_fix1`;
+    const BASEL_ORDERS_CACHE_PREFIX = `basel_orders_cache_${BASEL_CACHE_VERSION}`;
+    const BASEL_FILTER_CACHE_KEY = `basel_filter_state_v2`;
+    const BASEL_CACHE_TTL_MS = 10 * 60 * 1000;
+    const BASEL_HISTORICAL_CACHE_TTL_MS = 365 * 24 * 60 * 60 * 1000;
+    const MAX_PHARMACY_DROPDOWN_ROWS = 28;
+    const MIN_PHARMACY_DROPDOWN_CHARS = 2;
+
+    const loading = document.getElementById(`loading`);
+    const errorBox = document.getElementById(`errorBox`);
+    const statusFilter = document.getElementById(`statusFilter`);
+    const pharmacyFilter = document.getElementById(`pharmacyFilter`);
+    const pharmacyDropdown = document.getElementById(`pharmacyDropdown`);
+    const fromDate = document.getElementById(`fromDate`);
+    const toDate = document.getElementById(`toDate`);
+    const ordersBody = document.getElementById(`ordersBody`);
+    const baselOrdersPager = document.getElementById(`baselOrdersPager`);
+    const detailsContent = document.getElementById(`detailsContent`);
+    const detailsSubtitle = document.getElementById(`detailsSubtitle`);
+    const moveStatusSelect = document.getElementById(`moveStatusSelect`);
+    const moveNote = document.getElementById(`moveNote`);
+    const kpiOrdersCount = document.getElementById(`kpiOrdersCount`);
+    const kpiOrdersValue = document.getElementById(`kpiOrdersValue`);
+    const kpiAverageValue = document.getElementById(`kpiAverageValue`);
+    const kpiStatusesCount = document.getElementById(`kpiStatusesCount`);
+    const statusOptionsCount = document.getElementById(`statusOptionsCount`);
+    const pharmacyOptionsCount = document.getElementById(`pharmacyOptionsCount`);
+    const lastLoadedAt = document.getElementById(`lastLoadedAt`);
+    const toast = document.getElementById(`toast`);
+    const selectedOrdersCount = document.getElementById(`selectedOrdersCount`);
+    const bulkMoveButton = document.getElementById(`bulkMoveButton`);
+    const selectAllCurrentPage = document.getElementById(`selectAllCurrentPage`);
+    const moveModalTitle = document.getElementById(`moveModalTitle`);
+    const moveModalHint = document.getElementById(`moveModalHint`);
+    const confirmMoveButton = document.getElementById(`confirmMoveButton`);
+
+    function escapeHtml(value) {
+      return String(value ?? ``)
+        .replace(/&/g, `&amp;`)
+        .replace(/</g, `&lt;`)
+        .replace(/>/g, `&gt;`)
+        .replace(/"/g, `&quot;`)
+        .replace(/'/g, `&#039;`);
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/`/g, `&#096;`);
+    }
+
+    function parseNumber(value) {
+      const normalized = String(value ?? `0`)
+        .replace(/,/g, ``)
+        .replace(/[٠-٩]/g, d => String(`٠١٢٣٤٥٦٧٨٩`.indexOf(d)))
+        .replace(/[^0-9.\-]/g, ``)
+        .trim();
+      const n = Number(normalized);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function formatMoney(value) {
+      return parseNumber(value).toLocaleString(`en-US`, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function formatCount(value) {
+      return Number(value || 0).toLocaleString(`en-US`);
+    }
+
+    function showToast(message, type = `success`) {
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      toast.classList.add(`show`);
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove(`show`), 3200);
+    }
+
+
+    function safeJsonClone(value) {
+      return JSON.parse(JSON.stringify(value, (key, val) => {
+        if (val && typeof val.toDate === `function`) {
+          const date = val.toDate();
+          return { __type: `firestoreTimestamp`, seconds: Math.floor(date.getTime() / 1000), nanoseconds: (date.getTime() % 1000) * 1000000 };
+        }
+        if (val instanceof Date) return { __type: `date`, value: val.toISOString() };
+        return val;
+      }));
+    }
+
+    function selectedOrdersRange() {
+      let fromValue = fromDate?.value || ``;
+      let toValue = toDate?.value || ``;
+      const today = new Date();
+      if (!fromValue) fromValue = toDateInputValue(new Date(today.getFullYear(), today.getMonth(), 1));
+      if (!toValue) toValue = toDateInputValue(today);
+      const from = new Date(`${fromValue}T00:00:00`);
+      const to = new Date(`${toValue}T23:59:59.999`);
+      return { fromValue, toValue, from, to, key: `${fromValue}_${toValue}` };
+    }
+
+    function baselOrdersCacheKey(range) {
+      return `${BASEL_ORDERS_CACHE_PREFIX}_${range.key}`;
+    }
+
+    function isHistoricalBaselRange(range) {
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      return range.to.getTime() < currentMonthStart.getTime();
+    }
+
+    function baselCacheTtl(range) {
+      return isHistoricalBaselRange(range) ? BASEL_HISTORICAL_CACHE_TTL_MS : BASEL_CACHE_TTL_MS;
+    }
+
+    function saveOrdersCache(range = selectedOrdersRange()) {
+      try {
+        const payload = {
+          savedAt: Date.now(),
+          range: range.key,
+          historical: isHistoricalBaselRange(range),
+          orders: safeJsonClone(allOrders)
+        };
+        localStorage.setItem(baselOrdersCacheKey(range), JSON.stringify(payload));
+      } catch (error) {
+        console.warn(`Basel cache save skipped`, error);
+      }
+    }
+
+    function loadOrdersCache(range = selectedOrdersRange(), allowExpired = false) {
+      try {
+        const raw = localStorage.getItem(baselOrdersCacheKey(range));
+        if (!raw) return false;
+        const payload = JSON.parse(raw);
+        if (!payload?.orders?.length) return false;
+        const age = Date.now() - Number(payload.savedAt || 0);
+        if (!allowExpired && age > baselCacheTtl(range)) return false;
+        allOrders = payload.orders;
+        hydrateOrdersForFastFiltering();
+        allOrdersVersion += 1;
+        optionMemo.clear();
+        cacheRenderDone = true;
+        renderMoveStatusOptions();
+        syncFilterOptionsAndRender();
+        lastLoadedAt.textContent = `محفوظ محليًا${isHistoricalBaselRange(range) ? ` طويل المدى` : ``}`;
+        loading.innerHTML = `تم عرض نسخة محفوظة داخليًا للفترة ${range.fromValue} إلى ${range.toValue}.`;
+        return true;
+      } catch (error) {
+        console.warn(`Basel cache load skipped`, error);
+        return false;
+      }
+    }
+
+    function saveFilterState() {
+      try {
+        localStorage.setItem(BASEL_FILTER_CACHE_KEY, JSON.stringify({
+          fromDate: fromDate.value || ``,
+          toDate: toDate.value || ``,
+          status: statusFilter.value || ``,
+          pharmacy: pharmacyFilter.value || ``
+        }));
+      } catch (error) {
+        console.warn(`Basel filter cache skipped`, error);
+      }
+    }
+
+    function restoreFilterState() {
+      try {
+        const raw = localStorage.getItem(BASEL_FILTER_CACHE_KEY);
+        if (!raw) return;
+        const state = JSON.parse(raw);
+        if (state.fromDate) fromDate.value = state.fromDate;
+        if (state.toDate) toDate.value = state.toDate;
+        if (state.pharmacy) pharmacyFilter.value = state.pharmacy;
+      } catch (error) {
+        console.warn(`Basel filter restore skipped`, error);
+      }
+    }
+
+    function hydrateOrdersForFastFiltering() {
+      allOrders = allOrders.map(order => {
+        const date = normalizeDate(order.createdAt || order.date || order.orderDate || order.timestamp || order.created_at || order.updatedAt || order.changedAt);
+        const dateTs = date ? date.getTime() : 0;
+        const pharmacyName = order.pharmacyName || order.customerName || order.clientName || order.pharmacy || `-`;
+        const pharmacyCode = order.pharmacyCode || order.pharmacy_code || order.customerCode || order.customer_code || ``;
+        const pharmacyLabel = pharmacyCode ? `${pharmacyCode} — ${pharmacyName}` : pharmacyName;
+        const repName = order.repName || order.representativeName || order.medicalRep || order.rep || order.createdByName || order.userName || `-`;
+        const items = Array.isArray(order.items) ? order.items : Array.isArray(order.orderItems) ? order.orderItems : Array.isArray(order.products) ? order.products : [];
+        const directTotal = parseNumber(order.total || order.totalValue || order.netTotal || order.orderTotal || order.grandTotal || order.value || 0);
+        const itemsTotal = directTotal ? directTotal : items.reduce((sum, item) => {
+          const qty = parseNumber(item.qty || item.quantity || item.qnt || 0);
+          const price = parseNumber(item.price || item.unitPrice || item.publicPrice || item.finalPrice || 0);
+          return sum + parseNumber(item.total || item.totalValue || item.lineTotal || item.value || (qty * price) || 0);
+        }, 0);
+
+        order.__baselDateTs = dateTs;
+        order.__baselDateOnly = date ? date.toLocaleDateString(`en-GB`) : (order.date || order.orderDate || `-`);
+        order.__baselTimeOnly = date ? date.toLocaleTimeString(`en-GB`, { hour: `2-digit`, minute: `2-digit` }) : `-`;
+        order.__baselRepName = repName;
+        order.__baselPharmacyName = pharmacyName;
+        order.__baselPharmacyCode = pharmacyCode;
+        order.__baselPharmacyLabel = pharmacyLabel;
+        order.__baselPharmacySearch = normalizeSearch(`${pharmacyCode} ${pharmacyName} ${pharmacyLabel}`);
+        order.__baselTotal = itemsTotal;
+        order.__baselLatestStatus = getPrimaryStatus(order) || getLatestStatusFromLogs(order) || `بدون حالة`;
+        order.__baselLatestStatusArabic = STATUS_LABELS[order.__baselLatestStatus] || order.__baselLatestStatus;
+        return order;
+      });
+    }
+
+    function normalizeSearch(value) {
+      return String(value || ``)
+        .toLowerCase()
+        .normalize(`NFD`)
+        .replace(/[ً-ٰٟـ]/g, ``)
+        .replace(/[̀-ͯ]/g, ``)
+        .replace(/[^\p{L}\p{N}]+/gu, ` `)
+        .trim()
+        .replace(/\s+/g, ` `);
+    }
+
+    function getSearchWords(value) {
+      return normalizeSearch(value).split(` `).filter(Boolean);
+    }
+
+    function toDateInputValue(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, `0`);
+      const day = String(date.getDate()).padStart(2, `0`);
+      return `${year}-${month}-${day}`;
+    }
+
+    function toDateTimeLocalValue(date) {
+      if (!date) return ``;
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, `0`);
+      const day = String(date.getDate()).padStart(2, `0`);
+      const hours = String(date.getHours()).padStart(2, `0`);
+      const minutes = String(date.getMinutes()).padStart(2, `0`);
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    function setDefaultDates() {
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      fromDate.value = toDateInputValue(firstDay);
+      toDate.value = toDateInputValue(today);
+    }
+
+    function normalizeDate(value) {
+      if (!value) return null;
+      if (value.toDate && typeof value.toDate === `function`) return value.toDate();
+      if (typeof value === `object` && typeof value.seconds === `number`) {
+        return new Date(value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1000000));
+      }
+      if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+      if (typeof value === `string`) {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        const parts = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(.+))?$/);
+        if (parts) {
+          const d = new Date(`${parts[3]}-${String(parts[2]).padStart(2, `0`)}-${String(parts[1]).padStart(2, `0`)}${parts[4] ? ` ${parts[4]}` : ``}`);
+          if (!Number.isNaN(d.getTime())) return d;
+        }
+        const parsed = new Date(trimmed);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      }
+      return null;
+    }
+
+    function parseOrderDate(order) {
+      if (typeof order.__baselDateTs === `number`) return order.__baselDateTs ? new Date(order.__baselDateTs) : null;
+      return normalizeDate(order.createdAt || order.date || order.orderDate || order.timestamp || order.created_at || order.updatedAt || order.changedAt);
+    }
+
+    function getOrderDate(order) {
+      if (order.__baselDateOnly && order.__baselTimeOnly) return `${order.__baselDateOnly}, ${order.__baselTimeOnly}`;
+      const parsed = parseOrderDate(order);
+      return parsed ? parsed.toLocaleString(`en-GB`) : (order.date || order.orderDate || `-`);
+    }
+
+    function getOrderDateOnly(order) {
+      if (order.__baselDateOnly) return order.__baselDateOnly;
+      const parsed = parseOrderDate(order);
+      return parsed ? parsed.toLocaleDateString(`en-GB`) : (order.date || order.orderDate || `-`);
+    }
+
+    function getOrderTimeOnly(order) {
+      if (order.__baselTimeOnly) return order.__baselTimeOnly;
+      const parsed = parseOrderDate(order);
+      return parsed ? parsed.toLocaleTimeString(`en-GB`, { hour: `2-digit`, minute: `2-digit` }) : `-`;
+    }
+
+    function getArabicStatusName(value) {
+      if (!value) return `-`;
+      return STATUS_LABELS[value] || value;
+    }
+
+    function getRepName(order) {
+      return order.__baselRepName || order.repName || order.representativeName || order.medicalRep || order.rep || order.createdByName || order.userName || `-`;
+    }
+
+    function getPharmacyName(order) {
+      return order.__baselPharmacyName || order.pharmacyName || order.customerName || order.clientName || order.pharmacy || `-`;
+    }
+
+    function getPharmacyCode(order) {
+      return order.__baselPharmacyCode || order.pharmacyCode || order.pharmacy_code || order.customerCode || order.customer_code || ``;
+    }
+
+    function getPharmacyLabel(order) {
+      if (order.__baselPharmacyLabel) return order.__baselPharmacyLabel;
+      const name = getPharmacyName(order);
+      const code = getPharmacyCode(order);
+      return code ? `${code} — ${name}` : name;
+    }
+
+    function getPharmacySearchText(order) {
+      return order.__baselPharmacySearch || normalizeSearch(`${getPharmacyCode(order)} ${getPharmacyName(order)} ${getPharmacyLabel(order)}`);
+    }
+
+    function pharmacyDisplayHtml(order) {
+      const name = getPharmacyName(order);
+      const code = getPharmacyCode(order);
+      return `
+        <span class="pharmacy-display">
+          ${code ? `<span class="pharmacy-code-badge">${escapeHtml(code)}</span>` : ``}
+          <span class="pharmacy-name-text">${escapeHtml(name)}</span>
+        </span>
+      `;
+    }
+
+    function getOrderItems(order) {
+      if (Array.isArray(order.items)) return order.items;
+      if (Array.isArray(order.orderItems)) return order.orderItems;
+      if (Array.isArray(order.products)) return order.products;
+      return [];
+    }
+
+    function getItemName(item) {
+      return item.name || item.itemName || item.productName || item.product || ``;
+    }
+
+    function getItemCode(item) {
+      return item.code || item.itemCode || item.productCode || item.product_code || item.sapCode || ``;
+    }
+
+    function getItemQty(item) {
+      return parseNumber(item.qty ?? item.quantity ?? item.qnt ?? 0);
+    }
+
+    function getItemBonus(item) {
+      return parseNumber(item.bonus ?? item.free ?? 0);
+    }
+
+    function getItemPrice(item) {
+      return parseNumber(item.price ?? item.unitPrice ?? item.publicPrice ?? item.finalPrice ?? 0);
+    }
+
+    function getItemTotal(item) {
+      const qty = getItemQty(item);
+      const price = getItemPrice(item);
+      return parseNumber(item.total ?? item.totalValue ?? item.lineTotal ?? item.value ?? (qty * price));
+    }
+
+    function getOrderTotal(order) {
+      const directValue = parseNumber(order.grandTotal ?? order.total ?? order.totalValue ?? order.netTotal ?? order.orderTotal ?? order.value ?? 0);
+      if (directValue) return directValue;
+      return getOrderItems(order).reduce((sum, item) => sum + getItemTotal(item), 0);
+    }
+
+    function getOrderNote(order) {
+      return order.orderNote || order.note || order.notes || order.repNote || order.representativeNote || order.order_note || ``;
+    }
+
+    function buildStatusKey(fieldName, value) {
+      return `${fieldName}|||${value}`;
+    }
+
+    function parseStatusKey(key) {
+      const parts = String(key || ``).split(`|||`);
+      return { fieldName: parts[0] || ``, value: parts.slice(1).join(`|||`) };
+    }
+
+    function extractStatusFromLogEntry(entry = {}) {
+      const actionStatus = KNOWN_WORKFLOW_STATUSES.includes(String(entry.action || ``).trim()) ? String(entry.action).trim() : ``;
+      const direct = entry.to || entry.newStatus || entry.targetStatus || entry.status || entry.value || ``;
+      const nested = entry.newValue?.status || entry.after?.status || entry.data?.status || ``;
+      const status = String(nested || direct || actionStatus || ``).trim();
+      return status && KNOWN_WORKFLOW_STATUSES.includes(status) ? status : ``;
+    }
+
+    function getLogEntryDate(entry = {}) {
+      return normalizeDate(entry.at || entry.timestamp || entry.createdAt || entry.date || entry.time || entry.changedAt || entry.updatedAt);
+    }
+
+    function getLatestStatusFromLogs(order = {}) {
+      const logCollections = [
+        order.auditTrail,
+        order.auditLog,
+        order.workflowLog,
+        order.statusLog,
+        order.statusHistory,
+        order.history,
+        order.logs
+      ].filter(Array.isArray);
+
+      let latest = { status: ``, time: 0 };
+
+      logCollections.flat().forEach(entry => {
+        const status = extractStatusFromLogEntry(entry);
+        if (!status) return;
+        const time = getLogEntryDate(entry)?.getTime() || 0;
+        if (time >= latest.time) latest = { status, time };
+      });
+
+      return latest.status;
+    }
+
+    function getPrimaryStatus(order = {}) {
+      const rawStatus = String(order.status || order.orderStatus || order.workflowStatus || ``).trim();
+      const terminalOrReturned = rawStatus.startsWith(`deleted_`) || [`returned_to_rep`, `returned_to_supervisor`, `returned_to_market_manager`, `returned_to_finance`, `market_manager_rejected`, `finance_rejected`, `rejected`].includes(rawStatus);
+
+      if (terminalOrReturned || order.workflowStage === `deleted`) return rawStatus || `deleted`;
+      if (rawStatus === `orders_staff_hidden` || rawStatus === `orders_staff_invoiced_and_hidden_after_export` || order.orderStaffStatus === `orders_staff_hidden` || order.orderStaffStatus === `orders_staff_invoiced_and_hidden_after_export` || order.hiddenByOrderStaff === true || order.isInvoiced === true) return `orders_staff_hidden`;
+      if (rawStatus === `orders_staff_exported` || order.orderStaffStatus === `orders_staff_exported` || order.orderStaffExported === true || !!order.exportedAt) return `orders_staff_exported`;
+      if (rawStatus) return rawStatus;
+
+      const stage = String(order.workflowStage || order.currentStep || ``).trim();
+
+      if (stage === `orders_staff`) return order.orderStaffStatus || (order.financeStatus === `finance_approved` ? `orders_staff_pending` : ``);
+      if (stage === `finance`) return order.financeStatus || `finance_pending`;
+      if (stage === `market_manager`) return order.marketManagerStatus || `market_manager_pending`;
+      if (stage === `supervisor`) return order.supervisorStatus || `pending_supervisor_approval`;
+      if (stage === `representative`) return `returned_to_rep`;
+
+      return order.orderStaffStatus || order.financeStatus || order.marketManagerStatus || order.supervisorStatus || getLatestStatusFromLogs(order) || ``;
+    }
+
+    function getLatestWorkflowStatus(order = {}) {
+      return order.__baselLatestStatus || getPrimaryStatus(order) || getLatestStatusFromLogs(order) || `بدون حالة`;
+    }
+
+    function orderMatchesDate(order) {
+      const ts = typeof order.__baselDateTs === `number` ? order.__baselDateTs : (parseOrderDate(order)?.getTime() || 0);
+      if (!ts) return true;
+      const start = fromDate.value ? new Date(`${fromDate.value}T00:00:00`).getTime() : null;
+      const end = toDate.value ? new Date(`${toDate.value}T23:59:59`).getTime() : null;
+      if (start && ts < start) return false;
+      if (end && ts > end) return false;
+      return true;
+    }
+
+    function orderMatchesPharmacy(order, value = pharmacyFilter.value) {
+      const words = getSearchWords(value);
+      if (!words.length) return true;
+      const haystack = getPharmacySearchText(order);
+      return words.every(word => haystack.includes(word));
+    }
+
+    function orderMatchesStatus(order, statusKey = statusFilter.value) {
+      if (!statusKey) return true;
+      const selected = parseStatusKey(statusKey);
+      return getLatestWorkflowStatus(order) === selected.value;
+    }
+
+    function baseOrdersForStatusOptions() {
+      return allOrders.filter(order => orderMatchesDate(order) && orderMatchesPharmacy(order));
+    }
+
+    function baseOrdersForPharmacyOptions() {
+      return allOrders.filter(order => orderMatchesDate(order) && orderMatchesStatus(order));
+    }
+
+    function discoverStatuses(orders) {
+      const map = new Map();
+
+      orders.forEach(order => {
+        const value = getLatestWorkflowStatus(order);
+        if (!value) return;
+
+        const fieldName = `latestWorkflowStatus`;
+        const key = buildStatusKey(fieldName, value);
+
+        if (!map.has(key)) {
+          map.set(key, {
+            key,
+            fieldName,
+            fieldArabicName: `آخر حالة فعلية للطلبية`,
+            value,
+            arabicStatusName: getArabicStatusName(value),
+            count: 0
+          });
+        }
+
+        map.get(key).count += 1;
+      });
+
+      return Array.from(map.values()).sort((a, b) => b.count - a.count || a.arabicStatusName.localeCompare(b.arabicStatusName, `ar`));
+    }
+
+    function discoverPharmacies(orders) {
+      const map = new Map();
+      orders.forEach(order => {
+        const name = getPharmacyName(order);
+        const code = getPharmacyCode(order);
+        if (!name || name === `-`) return;
+        const label = code ? `${code} — ${name}` : name;
+        const search = normalizeSearch(`${code} ${name} ${label}`);
+        const key = search || normalizeSearch(label);
+        if (!map.has(key)) map.set(key, { key, label, name, code, search, count: 0 });
+        map.get(key).count += 1;
+      });
+      return Array.from(map.values()).sort((a, b) => {
+        const codeCompare = String(a.code || ``).localeCompare(String(b.code || ``), `en`, { numeric: true });
+        return codeCompare || a.name.localeCompare(b.name, `ar`);
+      });
+    }
+
+    function renderStatusOptions(options) {
+      const previous = statusFilter.value;
+      const exists = !previous || options.some(item => item.key === previous);
+      const valueToSet = exists ? previous : ``;
+      statusFilter.innerHTML = `
+        <option value="">كل آخر الحالات الفعلية</option>
+        ${options.map(status => `
+          <option value="${escapeAttr(status.key)}">
+            ${escapeHtml(status.arabicStatusName)} — ${escapeHtml(status.value)} (${status.count})
+          </option>
+        `).join(``)}
+      `;
+      statusFilter.value = valueToSet;
+      statusOptionsCount.textContent = `${options.length}`;
+      kpiStatusesCount.textContent = formatCount(options.length);
+    }
+
+    function renderPharmacyOptions(options) {
+      currentPharmacyOptions = options;
+      currentPharmacyOptionsByKey = new Map(options.map(item => [item.key, item]));
+      pharmacyOptionsCount.textContent = `${options.length}`;
+      renderPharmacyDropdown();
+    }
+
+    function getVisiblePharmacyOptions() {
+      const normalizedTerm = normalizeSearch(pharmacyFilter.value);
+      const words = getSearchWords(pharmacyFilter.value);
+      if (!words.length || normalizedTerm.length < MIN_PHARMACY_DROPDOWN_CHARS) return [];
+      const ranked = currentPharmacyOptions.filter(item => words.every(word => item.search.includes(word)));
+      return ranked.slice(0, MAX_PHARMACY_DROPDOWN_ROWS);
+    }
+
+    function renderPharmacyDropdown(forceOpen = false) {
+      if (!pharmacyDropdown) return;
+      const normalizedTerm = normalizeSearch(pharmacyFilter.value);
+      const words = getSearchWords(pharmacyFilter.value);
+      const matchingOptionsCount = words.length
+        ? currentPharmacyOptions.filter(item => words.every(word => item.search.includes(word))).length
+        : currentPharmacyOptions.length;
+      pharmacyOptionsCount.textContent = `${matchingOptionsCount}`;
+
+      const visible = getVisiblePharmacyOptions();
+
+      if (normalizedTerm.length < MIN_PHARMACY_DROPDOWN_CHARS) {
+        pharmacyDropdown.classList.remove(`open`);
+        pharmacyDropdown.innerHTML = ``;
+        return;
+      }
+
+      if (!visible.length) {
+        pharmacyDropdown.innerHTML = `<div class="empty-state" style="padding:18px">لا توجد صيدليات مطابقة، لكن الجدول يتفلتر حسب النص المكتوب.</div>`;
+      } else {
+        pharmacyDropdown.innerHTML = visible.map(item => `
+          <button type="button" class="pharmacy-option" onclick="selectPharmacyFromDropdown('${escapeAttr(item.key)}')" title="${escapeAttr(item.label)}">
+            <span class="p-code">${escapeHtml(item.code || `--`)}</span>
+            <span class="p-name">${escapeHtml(item.name)}</span>
+            <span class="p-count">${formatCount(item.count)}</span>
+          </button>
+        `).join(``);
+      }
+
+      const shouldOpen = (forceOpen || document.activeElement === pharmacyFilter) && normalizedTerm.length >= MIN_PHARMACY_DROPDOWN_CHARS;
+      pharmacyDropdown.classList.toggle(`open`, shouldOpen);
+    }
+
+    function selectPharmacyFromDropdown(key) {
+      const item = currentPharmacyOptionsByKey.get(key);
+      if (!item) return;
+      pharmacyFilter.value = item.label;
+      pharmacyDropdown.classList.remove(`open`);
+      syncFilterOptionsAndRender();
+    }
+
+    function clearPharmacyFilterOnly() {
+      pharmacyFilter.value = ``;
+      renderPharmacyDropdown(false);
+      syncFilterOptionsAndRender();
+      pharmacyFilter.focus();
+    }
+
+    function renderMoveStatusOptions() {
+      const values = new Map();
+      KNOWN_WORKFLOW_STATUSES.forEach(value => values.set(value, { value, label: getArabicStatusName(value), source: `Workflow` }));
+      discoverStatuses(allOrders).forEach(status => {
+        if (!values.has(status.value)) values.set(status.value, { value: status.value, label: getArabicStatusName(status.value), source: STATUS_FIELDS[status.fieldName] || status.fieldName });
+      });
+      moveStatusSelect.innerHTML = Array.from(values.values()).map(item => `
+        <option value="${escapeAttr(item.value)}">${escapeHtml(item.label)} — ${escapeHtml(item.value)}</option>
+      `).join(``);
+    }
+
+    function getFilteredOrders() {
+      return allOrders.filter(order => orderMatchesDate(order) && orderMatchesPharmacy(order) && orderMatchesStatus(order));
+    }
+
+    function updateKpis(filteredOrders) {
+      const count = filteredOrders.length;
+      const total = filteredOrders.reduce((sum, order) => sum + getOrderTotal(order), 0);
+      const average = count ? total / count : 0;
+      kpiOrdersCount.textContent = formatCount(count);
+      kpiOrdersValue.textContent = formatMoney(total);
+      kpiAverageValue.textContent = formatMoney(average);
+    }
+
+    function updateSelectionUi() {
+      const visibleIds = (currentPageOrders.length ? currentPageOrders : currentFilteredOrders).map(order => order.id).filter(Boolean);
+      const visibleSelectedCount = visibleIds.filter(id => selectedOrderIds.has(id)).length;
+      selectedOrdersCount.textContent = formatCount(selectedOrderIds.size);
+      bulkMoveButton.disabled = selectedOrderIds.size === 0;
+      if (selectAllCurrentPage) {
+        selectAllCurrentPage.checked = visibleIds.length > 0 && visibleSelectedCount === visibleIds.length;
+        selectAllCurrentPage.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < visibleIds.length;
+      }
+      document.querySelectorAll(`input[data-order-select]`).forEach(input => {
+        input.checked = selectedOrderIds.has(input.value);
+        const row = input.closest(`tr`);
+        if (row) row.classList.toggle(`selected-row`, input.checked);
+      });
+    }
+
+    function pruneSelectionToCurrentFilter() {
+      const visibleIds = new Set(currentFilteredOrders.map(order => order.id).filter(Boolean));
+      selectedOrderIds = new Set(Array.from(selectedOrderIds).filter(id => visibleIds.has(id)));
+    }
+
+    function toggleOrderSelection(orderId, checked) {
+      if (!orderId) return;
+      if (checked) selectedOrderIds.add(orderId);
+      else selectedOrderIds.delete(orderId);
+      updateSelectionUi();
+    }
+
+    function toggleSelectAllVisible(checked) {
+      (currentPageOrders.length ? currentPageOrders : currentFilteredOrders).forEach(order => {
+        if (!order.id) return;
+        if (checked) selectedOrderIds.add(order.id);
+        else selectedOrderIds.delete(order.id);
+      });
+      updateSelectionUi();
+    }
+
+    function selectAllVisibleOrders() {
+      toggleSelectAllVisible(true);
+    }
+
+    function clearSelectedOrders() {
+      selectedOrderIds.clear();
+      updateSelectionUi();
+    }
+
+    function openBulkMoveModal() {
+      pruneSelectionToCurrentFilter();
+      updateSelectionUi();
+      if (!selectedOrderIds.size) return showToast(`حدد طلبية واحدة على الأقل.`, `warning`);
+      selectedOrderIdForMove = null;
+      moveMode = `bulk`;
+      moveNote.value = ``;
+      moveModalTitle.textContent = `تغيير حالة ${formatCount(selectedOrderIds.size)} طلبية دفعة واحدة`;
+      moveModalHint.innerHTML = `سيتم تحديث الحقول الأساسية المرتبطة بالـ Workflow لكل الطلبيات المحددة، وتسجيل الإجراء باسم <strong>Basel</strong> داخل سجل كل طلبية.`;
+      confirmMoveButton.textContent = `تأكيد النقل الدفعي`;
+      openModal(`moveModal`);
+    }
+
+
+    function ordersMemoKey(type) {
+      const pharmacyPart = type === `pharmacy` ? `` : normalizeSearch(pharmacyFilter.value || ``);
+      return [type, allOrdersVersion, fromDate.value || ``, toDate.value || ``, statusFilter.value || ``, pharmacyPart].join(`|`);
+    }
+
+    function getMemoizedStatusOptions() {
+      const key = ordersMemoKey(`status`);
+      if (!optionMemo.has(key)) optionMemo.set(key, discoverStatuses(baseOrdersForStatusOptions()));
+      return optionMemo.get(key);
+    }
+
+    function getMemoizedPharmacyOptions() {
+      const key = ordersMemoKey(`pharmacy`);
+      if (!optionMemo.has(key)) optionMemo.set(key, discoverPharmacies(baseOrdersForPharmacyOptions()));
+      return optionMemo.get(key);
+    }
+
+    function compareOrdersByDateTimeDesc(a, b) {
+      const at = typeof a.__baselDateTs === `number` ? a.__baselDateTs : (parseOrderDate(a)?.getTime() || 0);
+      const bt = typeof b.__baselDateTs === `number` ? b.__baselDateTs : (parseOrderDate(b)?.getTime() || 0);
+      if (bt !== at) return bt - at;
+      return String(b.id || ``).localeCompare(String(a.id || ``));
+    }
+
+
+
+
+    function renderBaselPager() {
+      const totalRows = currentFilteredOrders.length;
+      if (!baselOrdersPager) return 1;
+      const totalPages = Math.max(1, Math.ceil(totalRows / BASEL_PAGE_SIZE));
+      baselCurrentPage = Math.min(Math.max(baselCurrentPage, 1), totalPages);
+      if (totalRows <= BASEL_PAGE_SIZE) {
+        baselOrdersPager.innerHTML = totalRows ? `<span class="pager-label">Page 1 of 1</span>` : ``;
+        return baselCurrentPage;
+      }
+      const btn = (label, page, disabled = false, active = false) => `<button type="button" class="${active ? `active` : ``}" data-page="${page}" ${disabled ? `disabled` : ``}>${label}</button>`;
+      const pages = new Set([1, totalPages, baselCurrentPage - 1, baselCurrentPage, baselCurrentPage + 1].filter(page => page >= 1 && page <= totalPages));
+      baselOrdersPager.innerHTML = `${btn(`‹`, baselCurrentPage - 1, baselCurrentPage === 1)}<span class="pager-label">Page ${baselCurrentPage} of ${totalPages}</span>${[...pages].sort((a, b) => a - b).map(page => btn(page, page, false, page === baselCurrentPage)).join(``)}${btn(`›`, baselCurrentPage + 1, baselCurrentPage === totalPages)}`;
+      baselOrdersPager.querySelectorAll(`[data-page]`).forEach(button => button.addEventListener(`click`, () => {
+        const next = Number(button.dataset.page);
+        if (!Number.isFinite(next) || next < 1 || next > totalPages || next === baselCurrentPage) return;
+        baselCurrentPage = next;
+        renderOrdersTable();
+      }));
+      return baselCurrentPage;
+    }
+
+    function syncFilterOptionsAndRender() {
+      if (filterSyncing) return;
+      filterSyncing = true;
+      const statusOptions = getMemoizedStatusOptions();
+      renderStatusOptions(statusOptions);
+      const pharmacyOptionRows = getMemoizedPharmacyOptions();
+      renderPharmacyOptions(pharmacyOptionRows);
+      currentFilteredOrders = getFilteredOrders().sort(compareOrdersByDateTimeDesc);
+      baselCurrentPage = 1;
+      saveFilterState();
+      pruneSelectionToCurrentFilter();
+      updateKpis(currentFilteredOrders);
+      renderOrdersTable();
+      loading.innerHTML = `المعروض الآن: <strong>${formatCount(currentFilteredOrders.length)}</strong> من أصل <strong>${formatCount(allOrders.length)}</strong> طلبية.`;
+      filterSyncing = false;
+    }
+
+    function renderOrdersTable() {
+      if (!currentFilteredOrders.length) {
+        ordersBody.innerHTML = `<tr><td colspan="10"><div class="empty-state">لا توجد طلبيات ضمن الفلاتر الحالية.<br>غيّر التاريخ أو الحالة أو الصيدلية.</div></td></tr>`;
+        currentPageOrders = [];
+        if (baselOrdersPager) baselOrdersPager.innerHTML = ``;
+        updateSelectionUi();
+        return;
+      }
+
+      const page = renderBaselPager();
+      currentPageOrders = currentFilteredOrders.slice((page - 1) * BASEL_PAGE_SIZE, page * BASEL_PAGE_SIZE);
+      const selected = statusFilter.value ? parseStatusKey(statusFilter.value) : null;
+      ordersBody.innerHTML = currentPageOrders.map((order, index) => {
+        const fieldLabel = `آخر حالة فعلية`;
+        const statusValue = getLatestWorkflowStatus(order);
+        return `
+          <tr class="${selectedOrderIds.has(order.id) ? `selected-row` : ``}" style="animation-delay:${Math.min(index * 16, 220)}ms">
+            <td class="select-cell"><input class="order-check" type="checkbox" data-order-select value="${escapeAttr(order.id)}" ${selectedOrderIds.has(order.id) ? `checked` : ``} onchange="toggleOrderSelection('${escapeAttr(order.id)}', this.checked)" aria-label="تحديد الطلبية" /></td>
+            <td class="num">${((baselCurrentPage - 1) * BASEL_PAGE_SIZE) + index + 1}</td>
+            <td class="num date-cell">${escapeHtml(getOrderDateOnly(order))}</td>
+            <td class="num time-cell">${escapeHtml(getOrderTimeOnly(order))}</td>
+            <td title="${escapeAttr(getRepName(order))}">${escapeHtml(getRepName(order))}</td>
+            <td class="pharmacy-cell" title="${escapeAttr(getPharmacyLabel(order))}">${pharmacyDisplayHtml(order)}</td>
+            <td class="money">${formatMoney(getOrderTotal(order))}</td>
+            <td title="${escapeAttr(fieldLabel)}">${escapeHtml(fieldLabel)}</td>
+            <td><span class="status-pill"><span>${escapeHtml(getArabicStatusName(statusValue))}</span><span class="raw">${escapeHtml(statusValue)}</span></span></td>
+            <td class="actions-cell">
+              <div class="actions">
+                <button type="button" class="icon-btn" title="مشاهدة وتعديل" onclick="showDetails('${escapeAttr(order.id)}')">
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button type="button" class="btn soft" onclick="openMoveModal('${escapeAttr(order.id)}')">نقل الحالة</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join(``);
+      updateSelectionUi();
+    }
+
+    function itemRowHtml(item = {}, index = 0) {
+      const qty = getItemQty(item);
+      const price = getItemPrice(item);
+      const total = getItemTotal(item) || qty * price;
+      return `
+        <tr data-edit-row>
+          <td class="num">${index + 1}</td>
+          <td><input data-item-field="code" value="${escapeAttr(getItemCode(item))}" placeholder="كود" /></td>
+          <td><input data-item-field="name" value="${escapeAttr(getItemName(item))}" placeholder="اسم الصنف" /></td>
+          <td><input class="num" data-item-field="qty" type="number" step="1" value="${escapeAttr(qty)}" oninput="recalculateEditedOrder()" /></td>
+          <td><input class="num" data-item-field="bonus" type="number" step="1" value="${escapeAttr(getItemBonus(item))}" /></td>
+          <td><input class="num" data-item-field="price" type="number" step="0.001" value="${escapeAttr(price)}" oninput="recalculateEditedOrder()" /></td>
+          <td><input class="num" data-item-field="total" type="number" step="0.001" value="${escapeAttr(total.toFixed(3))}" oninput="recalculateGrandFromManualTotals()" /></td>
+          <td><input data-item-field="note" value="${escapeAttr(item.note || item.notes || ``)}" placeholder="ملاحظة" /></td>
+          <td><button type="button" class="icon-btn danger" onclick="removeEditableItemRow(this)" title="حذف الصنف"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2m-9 0 1 15h8l1-15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></td>
+        </tr>
+      `;
+    }
+
+    function showDetails(orderId) {
+      const order = allOrders.find(item => item.id === orderId);
+      if (!order) return;
+      selectedOrderIdForDetails = orderId;
+      const items = getOrderItems(order);
+      detailsSubtitle.textContent = `رقم الطلبية: ${(order.id || ``).slice(0, 12).toUpperCase()} — ${getPharmacyName(order)}`;
+      detailsContent.innerHTML = `
+        <div class="modal-grid">
+          <div class="field"><label>تاريخ الطلبية</label><input id="editCreatedAt" type="datetime-local" value="${escapeAttr(toDateTimeLocalValue(parseOrderDate(order)))}" /></div>
+          <div class="field"><label>اسم المندوب</label><input id="editRepName" value="${escapeAttr(getRepName(order) === `-` ? `` : getRepName(order))}" /></div>
+          <div class="field"><label>رقم / ID المندوب</label><input id="editRepId" value="${escapeAttr(order.repId || ``)}" /></div>
+          <div class="field"><label>مدير / مشرف المندوب</label><input id="editManagerName" value="${escapeAttr(order.managerName || ``)}" /></div>
+          <div class="field"><label>اسم الصيدلية</label><input id="editPharmacyName" value="${escapeAttr(getPharmacyName(order) === `-` ? `` : getPharmacyName(order))}" /></div>
+          <div class="field"><label>كود الصيدلية</label><input id="editPharmacyCode" value="${escapeAttr(getPharmacyCode(order))}" /></div>
+          <div class="field"><label>إجمالي الطلبية</label><input id="editGrandTotal" class="num" type="number" step="0.001" value="${escapeAttr(getOrderTotal(order).toFixed(3))}" /></div>
+          <div class="field"><label>الحالة الحالية</label><input readonly value="${escapeAttr(getArabicStatusName(getLatestWorkflowStatus(order)))} — ${escapeAttr(getLatestWorkflowStatus(order) || ``)}" /></div>
+        </div>
+        <div class="field"><label>ملاحظة الطلبية</label><textarea id="editOrderNote" placeholder="ملاحظة الطلبية">${escapeHtml(getOrderNote(order))}</textarea></div>
+        <div class="section-title">الأصناف <span id="editItemsCount">${items.length}</span></div>
+        <div class="edit-table-wrap">
+          <table class="edit-table">
+            <thead>
+              <tr>
+                <th>#</th><th>كود الصنف</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>القيمة</th><th>ملاحظة</th><th>حذف</th>
+              </tr>
+            </thead>
+            <tbody id="editItemsBody">${items.map((item, index) => itemRowHtml(item, index)).join(``) || itemRowHtml({}, 0)}</tbody>
+          </table>
+        </div>
+        <div class="field" style="margin-top:14px"><label>ملاحظة تعديل إجبارية عند الحفظ</label><input id="editSaveNote" placeholder="اكتب سبب تعديل تفاصيل الطلبية" /></div>
+      `;
+      recalculateEditedOrder(false);
+      openModal(`detailsModal`);
+    }
+
+    function renumberEditRows() {
+      document.querySelectorAll(`#editItemsBody tr`).forEach((row, index) => {
+        const cell = row.querySelector(`td:first-child`);
+        if (cell) cell.textContent = index + 1;
+      });
+      const count = document.getElementById(`editItemsCount`);
+      if (count) count.textContent = document.querySelectorAll(`#editItemsBody tr`).length;
+    }
+
+    function addEditableItemRow() {
+      const body = document.getElementById(`editItemsBody`);
+      if (!body) return;
+      body.insertAdjacentHTML(`beforeend`, itemRowHtml({}, body.querySelectorAll(`tr`).length));
+      renumberEditRows();
+      recalculateEditedOrder(false);
+    }
+
+    function removeEditableItemRow(button) {
+      const row = button.closest(`tr`);
+      if (row) row.remove();
+      if (!document.querySelector(`#editItemsBody tr`)) addEditableItemRow();
+      renumberEditRows();
+      recalculateEditedOrder(false);
+    }
+
+    function recalculateGrandFromManualTotals() {
+      const total = Array.from(document.querySelectorAll(`#editItemsBody [data-item-field="total"]`)).reduce((sum, input) => sum + parseNumber(input.value), 0);
+      const grand = document.getElementById(`editGrandTotal`);
+      if (grand) grand.value = total.toFixed(3);
+    }
+
+    function recalculateEditedOrder(updateLineTotals = true) {
+      document.querySelectorAll(`#editItemsBody tr`).forEach(row => {
+        const qty = parseNumber(row.querySelector(`[data-item-field="qty"]`)?.value);
+        const price = parseNumber(row.querySelector(`[data-item-field="price"]`)?.value);
+        const totalInput = row.querySelector(`[data-item-field="total"]`);
+        if (totalInput && updateLineTotals) totalInput.value = (qty * price).toFixed(3);
+      });
+      recalculateGrandFromManualTotals();
+    }
+
+    function collectEditedItems() {
+      return Array.from(document.querySelectorAll(`#editItemsBody tr`)).map(row => {
+        const get = field => row.querySelector(`[data-item-field="${field}"]`)?.value?.trim() || ``;
+        const name = get(`name`);
+        const qty = parseNumber(get(`qty`));
+        const bonus = parseNumber(get(`bonus`));
+        const price = parseNumber(get(`price`));
+        const total = parseNumber(get(`total`));
+        return {
+          code: get(`code`),
+          itemCode: get(`code`),
+          name,
+          qty,
+          bonus,
+          price,
+          total,
+          note: get(`note`)
+        };
+      }).filter(item => item.name || item.code || item.qty || item.price || item.total);
+    }
+
+    async function saveOrderDetails() {
+      if (!selectedOrderIdForDetails) return;
+      const order = allOrders.find(item => item.id === selectedOrderIdForDetails);
+      if (!order) return showToast(`لم يتم العثور على الطلبية.`, `error`);
+      const note = document.getElementById(`editSaveNote`)?.value.trim() || ``;
+      if (!note) return showToast(`ملاحظة تعديل تفاصيل الطلبية إجبارية.`, `warning`);
+      const items = collectEditedItems();
+      if (!items.length) return showToast(`لا يمكن حفظ طلبية بدون أصناف.`, `warning`);
+      const createdAtInput = document.getElementById(`editCreatedAt`)?.value || ``;
+      const updates = {
+        repName: document.getElementById(`editRepName`)?.value.trim() || ``,
+        repId: document.getElementById(`editRepId`)?.value.trim() || ``,
+        managerName: document.getElementById(`editManagerName`)?.value.trim() || ``,
+        pharmacyName: document.getElementById(`editPharmacyName`)?.value.trim() || ``,
+        pharmacyCode: document.getElementById(`editPharmacyCode`)?.value.trim() || ``,
+        orderNote: document.getElementById(`editOrderNote`)?.value.trim() || ``,
+        items,
+        grandTotal: parseNumber(document.getElementById(`editGrandTotal`)?.value),
+        updatedAt: serverTimestamp(),
+        lastManualEditAt: serverTimestamp(),
+        lastManualEditBy: ACTION_BY,
+        lastManualEditNote: note,
+        auditTrail: arrayUnion({
+          action: `manual_order_details_edit`,
+          by: ACTION_BY,
+          user: ACTION_BY,
+          role: `audit_admin`,
+          timestamp: new Date().toISOString(),
+          orderId: selectedOrderIdForDetails,
+          oldValue: {
+            repName: order.repName || ``,
+            pharmacyName: order.pharmacyName || ``,
+            pharmacyCode: getPharmacyCode(order),
+            grandTotal: getOrderTotal(order),
+            itemsCount: getOrderItems(order).length
+          },
+          newValue: {
+            repName: document.getElementById(`editRepName`)?.value.trim() || ``,
+            pharmacyName: document.getElementById(`editPharmacyName`)?.value.trim() || ``,
+            pharmacyCode: document.getElementById(`editPharmacyCode`)?.value.trim() || ``,
+            grandTotal: parseNumber(document.getElementById(`editGrandTotal`)?.value),
+            itemsCount: items.length
+          },
+          notes: note
+        })
+      };
+      if (createdAtInput) updates.createdAt = new Date(createdAtInput);
+      await updateDoc(doc(db, `orders`, selectedOrderIdForDetails), updates);
+      closeModal(`detailsModal`);
+      showToast(`تم حفظ كافة تعديلات الطلبية باسم Basel.`, `success`);
+      await loadOrders(true);
+    }
+
+    function buildWorkflowPatch(targetStatus) {
+      const nowServer = serverTimestamp();
+      const base = {
+        status: targetStatus,
+        updatedAt: nowServer,
+        lastManualStatusChangeAt: nowServer,
+        lastManualStatusChangeBy: ACTION_BY,
+        lastManualStatusChangeValue: targetStatus
+      };
+
+      const patches = {
+        pending: { status: `pending`, workflowStage: `supervisor`, supervisorStatus: `pending_supervisor_approval`, marketManagerStatus: ``, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        pending_supervisor_approval: { status: `pending_supervisor_approval`, workflowStage: `supervisor`, supervisorStatus: `pending_supervisor_approval`, marketManagerStatus: ``, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        supervisor_approved: { status: `market_manager_pending`, workflowStage: `market_manager`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_pending`, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        market_manager_pending: { status: `market_manager_pending`, workflowStage: `market_manager`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_pending`, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        market_manager_approved: { status: `finance_pending`, workflowStage: `finance`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_pending`, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        finance_pending: { status: `finance_pending`, workflowStage: `finance`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_pending`, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        finance_approved: { status: `orders_staff_pending`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_pending`, hiddenByOrderStaff: false, isInvoiced: false },
+        orders_staff_pending: { status: `orders_staff_pending`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_pending`, hiddenByOrderStaff: false, isInvoiced: false },
+        orders_staff_exported: { status: `orders_staff_exported`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_exported`, hiddenByOrderStaff: false, isInvoiced: false },
+        orders_staff_hidden: { status: `orders_staff_hidden`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_hidden`, hiddenByOrderStaff: true, isInvoiced: true, invoicedAt: nowServer },
+        orders_staff_invoiced_and_hidden_after_export: { status: `orders_staff_hidden`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_hidden`, hiddenByOrderStaff: true, isInvoiced: true, invoicedAt: nowServer },
+        market_manager_rejected: { status: `market_manager_rejected`, workflowStage: `market_manager`, marketManagerStatus: `market_manager_rejected`, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        finance_rejected: { status: `finance_rejected`, workflowStage: `finance`, financeStatus: `finance_rejected`, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_rep: { status: `returned_to_rep`, workflowStage: `representative`, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_supervisor: { status: `returned_to_supervisor`, workflowStage: `supervisor`, supervisorStatus: `pending_supervisor_approval`, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_market_manager: { status: `returned_to_market_manager`, workflowStage: `market_manager`, marketManagerStatus: `market_manager_pending`, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_finance: { status: `returned_to_finance`, workflowStage: `finance`, financeStatus: `returned_to_finance`, orderStaffStatus: `orders_staff_edited_returned_to_finance`, hiddenByOrderStaff: false, isInvoiced: false },
+        approved: { status: `approved`, workflowStage: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        returned: { status: `returned`, workflowStage: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        rejected: { status: `rejected`, workflowStage: ``, hiddenByOrderStaff: false, isInvoiced: false },
+        deleted_by_supervisor: { status: `deleted_by_supervisor`, workflowStage: `deleted`, supervisorStatus: `deleted_by_supervisor` },
+        deleted_by_market_manager: { status: `deleted_by_market_manager`, workflowStage: `deleted`, marketManagerStatus: `deleted_by_market_manager` },
+        deleted_by_orders_staff: { status: `deleted_by_orders_staff`, workflowStage: `deleted`, orderStaffStatus: `deleted_by_orders_staff` },
+        deleted_by_reports: { status: `deleted_by_reports`, workflowStage: `deleted` }
+      };
+      return { ...base, ...(patches[targetStatus] || { status: targetStatus }) };
+    }
+
+    function openMoveModal(orderId) {
+      const order = allOrders.find(item => item.id === orderId);
+      if (!order) return;
+      moveMode = `single`;
+      selectedOrderIdForMove = orderId;
+      moveNote.value = ``;
+      moveModalTitle.textContent = `نقل الطلبية إلى حالة أخرى`;
+      moveModalHint.textContent = `تغيير الحالة هنا يحدّث الحقول الأساسية المرتبطة بالـ Workflow وليس الحقل المعروض فقط، حتى ينعكس التغيير في باقي صفحات الموقع.`;
+      confirmMoveButton.textContent = `تأكيد النقل`;
+      const current = getLatestWorkflowStatus(order);
+      if (current && Array.from(moveStatusSelect.options).some(option => option.value === current)) moveStatusSelect.value = current;
+      openModal(`moveModal`);
+    }
+
+    function buildStatusAuditRecord(order, orderId, targetStatus, patch, note, actionName) {
+      return {
+        action: actionName,
+        by: ACTION_BY,
+        user: ACTION_BY,
+        role: `audit_admin`,
+        timestamp: new Date().toISOString(),
+        orderId,
+        oldValue: {
+          status: order.status || ``,
+          workflowStage: order.workflowStage || ``,
+          supervisorStatus: order.supervisorStatus || ``,
+          marketManagerStatus: order.marketManagerStatus || ``,
+          financeStatus: order.financeStatus || ``,
+          orderStaffStatus: order.orderStaffStatus || ``
+        },
+        newValue: {
+          status: patch.status,
+          workflowStage: patch.workflowStage || ``,
+          supervisorStatus: patch.supervisorStatus ?? order.supervisorStatus ?? ``,
+          marketManagerStatus: patch.marketManagerStatus ?? order.marketManagerStatus ?? ``,
+          financeStatus: patch.financeStatus ?? order.financeStatus ?? ``,
+          orderStaffStatus: patch.orderStaffStatus ?? order.orderStaffStatus ?? ``
+        },
+        notes: note
+      };
+    }
+
+    async function applyStatusPatchToOrders(orderIds, targetStatus, note, actionName) {
+      const cleanIds = Array.from(new Set(orderIds)).filter(Boolean);
+      const chunks = [];
+      for (let i = 0; i < cleanIds.length; i += 400) chunks.push(cleanIds.slice(i, i + 400));
+
+      for (const chunk of chunks) {
+        const batch = writeBatch(db);
+        chunk.forEach(orderId => {
+          const order = allOrders.find(item => item.id === orderId);
+          if (!order) return;
+          const patch = buildWorkflowPatch(targetStatus);
+          patch.lastManualStatusChangeNote = note;
+          patch.auditTrail = arrayUnion(buildStatusAuditRecord(order, orderId, targetStatus, patch, note, actionName));
+          batch.update(doc(db, `orders`, orderId), patch);
+        });
+        await batch.commit();
+      }
+    }
+
+    async function confirmMoveOrder() {
+      const targetStatus = moveStatusSelect.value;
+      const note = moveNote.value.trim();
+      if (!targetStatus) return showToast(`اختر الحالة الجديدة.`, `warning`);
+      if (!note) return showToast(`الملاحظة إجبارية.`, `warning`);
+
+      if (moveMode === `bulk`) {
+        pruneSelectionToCurrentFilter();
+        const selectedIds = Array.from(selectedOrderIds);
+        if (!selectedIds.length) return showToast(`حدد طلبية واحدة على الأقل.`, `warning`);
+        const message = `هل أنت متأكد من نقل ${formatCount(selectedIds.length)} طلبية إلى:\n${getArabicStatusName(targetStatus)}؟`;
+        if (!confirm(message)) return;
+        await applyStatusPatchToOrders(selectedIds, targetStatus, note, `bulk_manual_workflow_status_change`);
+        selectedOrderIds.clear();
+        closeModal(`moveModal`);
+        showToast(`تم تغيير حالة ${formatCount(selectedIds.length)} طلبية وتسجيل الإجراء باسم Basel.`, `success`);
+        await loadOrders(true);
+        return;
+      }
+
+      if (!selectedOrderIdForMove) return;
+      const order = allOrders.find(item => item.id === selectedOrderIdForMove);
+      if (!order) return showToast(`لم يتم العثور على الطلبية.`, `error`);
+      const previousStatus = getLatestWorkflowStatus(order) || order.status || ``;
+      const message = `هل أنت متأكد من نقل الطلبية من:\n${getArabicStatusName(previousStatus)}\nإلى:\n${getArabicStatusName(targetStatus)}؟`;
+      if (!confirm(message)) return;
+      await applyStatusPatchToOrders([selectedOrderIdForMove], targetStatus, note, `manual_workflow_status_change`);
+      closeModal(`moveModal`);
+      showToast(`تم نقل الحالة وتسجيل الإجراء باسم Basel.`, `success`);
+      await loadOrders(true);
+    }
+
+    async function hardDeleteSelectedOrder() {
+      if (!selectedOrderIdForDetails) return;
+      const order = allOrders.find(item => item.id === selectedOrderIdForDetails);
+      if (!order) return;
+      const confirmText = window.prompt(`هذا حذف نهائي من Firebase. اكتب DELETE للتأكيد:`);
+      if (confirmText !== `DELETE`) return;
+      const reason = window.prompt(`اكتب سبب الحذف النهائي:`) || ``;
+      if (!reason.trim()) return showToast(`سبب الحذف النهائي إجباري.`, `warning`);
+      try {
+        await addDoc(collection(db, `auditLogs`), {
+          action: `hard_delete_order`,
+          by: ACTION_BY,
+          role: `audit_admin`,
+          orderId: selectedOrderIdForDetails,
+          reason: reason.trim(),
+          timestamp: new Date().toISOString(),
+          at: serverTimestamp(),
+          orderSnapshot: {
+            status: order.status || ``,
+            workflowStage: order.workflowStage || ``,
+            repName: getRepName(order),
+            pharmacyName: getPharmacyName(order),
+            pharmacyCode: getPharmacyCode(order),
+            grandTotal: getOrderTotal(order),
+            itemsCount: getOrderItems(order).length,
+            createdAt: parseOrderDate(order)?.toISOString() || ``
+          }
+        });
+      } catch (error) {
+        console.warn(`auditLogs write failed`, error);
+      }
+      await deleteDoc(doc(db, `orders`, selectedOrderIdForDetails));
+      closeModal(`detailsModal`);
+      showToast(`تم حذف الطلبية نهائياً من Firebase.`, `success`);
+      selectedOrderIdForDetails = null;
+      await loadOrders(true);
+    }
+
+    async function loadOrders(quiet = false, forceRemote = quiet) {
+      const range = selectedOrdersRange();
+      try {
+        if (!quiet) {
+          loading.innerHTML = `جاري قراءة الطلبيات للفترة ${range.fromValue} إلى ${range.toValue}...`;
+          ordersBody.innerHTML = `<tr><td colspan="10" class="loader-row"><span class="skeleton" style="width:90%;height:18px"></span><br><span class="skeleton" style="width:70%;height:18px"></span></td></tr>`;
+        }
+        errorBox.style.display = `none`;
+        if (!forceRemote && loadOrdersCache(range, false)) return;
+        const ordersQuery = query(
+          collection(db, `orders`),
+          where(`createdAt`, `>=`, range.from),
+          where(`createdAt`, `<=`, range.to),
+          orderBy(`createdAt`, `desc`)
+        );
+        const snap = await getDocs(ordersQuery);
+        allOrders = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        hydrateOrdersForFastFiltering();
+        allOrdersVersion += 1;
+        optionMemo.clear();
+        saveOrdersCache(range);
+        renderMoveStatusOptions();
+        syncFilterOptionsAndRender();
+        lastLoadedAt.textContent = new Date().toLocaleTimeString(`en-GB`, { hour: `2-digit`, minute: `2-digit`, second: `2-digit` });
+      } catch (error) {
+        console.error(error);
+        if (loadOrdersCache(range, true)) {
+          showToast(`تم عرض آخر نسخة محفوظة لأن Firebase غير متاح أو الكوتا ممتلئة.`, `warning`);
+          return;
+        }
+        errorBox.style.display = `block`;
+        errorBox.textContent = `حدث خطأ أثناء قراءة Firebase: ${error.message}`;
+        if (!cacheRenderDone) loading.textContent = `فشل تحميل البيانات.`;
+      }
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.add(`open`);
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove(`open`);
+    }
+
+    function resetFiltersToCurrentMonth() {
+      setDefaultDates();
+      syncFilterOptionsAndRender();
+    }
+
+    function clearStatusAndPharmacy() {
+      statusFilter.value = ``;
+      pharmacyFilter.value = ``;
+      if (pharmacyDropdown) pharmacyDropdown.classList.remove(`open`);
+      syncFilterOptionsAndRender();
+    }
+
+    function exportCurrentViewCsv() {
+      if (!currentFilteredOrders.length) return showToast(`لا توجد بيانات لتصديرها.`, `warning`);
+      const rows = [[`Order ID`, `Date`, `Time`, `Rep`, `Pharmacy`, `Pharmacy Code`, `Total`, `Status`, `Status Arabic`]];
+      currentFilteredOrders.forEach(order => {
+        const status = getPrimaryStatus(order) || order.status || ``;
+        rows.push([order.id || ``, getOrderDateOnly(order), getOrderTimeOnly(order), getRepName(order), getPharmacyName(order), getPharmacyCode(order), getOrderTotal(order), status, getArabicStatusName(status)]);
+      });
+      const csv = rows.map(row => row.map(value => `"${String(value ?? ``).replace(/"/g, `""`)}"`).join(`,`)).join(`\n`);
+      const blob = new Blob([`\uFEFF${csv}`], { type: `text/csv;charset=utf-8;` });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement(`a`);
+      a.href = url;
+      a.download = `basel_orders_view_${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    const debouncedSync = (() => {
+      let timer = null;
+      return () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          syncFilterOptionsAndRender();
+        }, 110);
+      };
+    })();
+
+    statusFilter.addEventListener(`change`, syncFilterOptionsAndRender);
+    pharmacyFilter.addEventListener(`input`, debouncedSync);
+    pharmacyFilter.addEventListener(`focus`, () => renderPharmacyDropdown(true));
+    pharmacyFilter.addEventListener(`keydown`, event => {
+      if (event.key === `Escape`) pharmacyDropdown.classList.remove(`open`);
+    });
+    document.addEventListener(`click`, event => {
+      if (!event.target.closest(`#pharmacyCombo`)) pharmacyDropdown.classList.remove(`open`);
+    });
+    fromDate.addEventListener(`change`, () => loadOrders(false, false));
+    toDate.addEventListener(`change`, () => loadOrders(false, false));
+
+    window.loadOrders = loadOrders;
+    window.showDetails = showDetails;
+    window.openMoveModal = openMoveModal;
+    window.confirmMoveOrder = confirmMoveOrder;
+    window.toggleOrderSelection = toggleOrderSelection;
+    window.toggleSelectAllVisible = toggleSelectAllVisible;
+    window.selectAllVisibleOrders = selectAllVisibleOrders;
+    window.clearSelectedOrders = clearSelectedOrders;
+    window.openBulkMoveModal = openBulkMoveModal;
+    window.closeModal = closeModal;
+    window.addEditableItemRow = addEditableItemRow;
+    window.removeEditableItemRow = removeEditableItemRow;
+    window.recalculateEditedOrder = recalculateEditedOrder;
+    window.recalculateGrandFromManualTotals = recalculateGrandFromManualTotals;
+    window.saveOrderDetails = saveOrderDetails;
+    window.hardDeleteSelectedOrder = hardDeleteSelectedOrder;
+    window.resetFiltersToCurrentMonth = resetFiltersToCurrentMonth;
+    window.clearStatusAndPharmacy = clearStatusAndPharmacy;
+    window.selectPharmacyFromDropdown = selectPharmacyFromDropdown;
+    window.clearPharmacyFilterOnly = clearPharmacyFilterOnly;
+    window.exportCurrentViewCsv = exportCurrentViewCsv;
+
+    setDefaultDates();
+    restoreFilterState();
+    loadOrders();
+  </script>
+</body>
+</html>

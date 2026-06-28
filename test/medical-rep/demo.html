@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الديمو التفاعلي - بوابة الدعاية الطبية</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="icon" href="../favicon.ico?v=20260624_demo_v1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900;1000&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="css/medrep.css?v=20260624_medrep_v8">
+    <link rel="stylesheet" href="css/demo.css?v=20260624_demo_v1">
+</head>
+<body class="demo-page">
+    <main class="app-shell demo-shell">
+        <header class="topbar premium-topbar demo-topbar">
+            <div class="page-title">
+                <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="DAD Logo">
+                <div>
+                    <h1>الديمو التفاعلي</h1>
+                    <p>جولة سريعة لفهم لوحة المبيعات قبل الإطلاق</p>
+                </div>
+            </div>
+            <div class="top-actions">
+                <a class="btn btn-light" href="index.html"><i class="ph ph-arrow-right"></i> العودة للدخول</a>
+                <button id="topRestartBtn" class="btn btn-dark" type="button"><i class="ph ph-arrow-counter-clockwise"></i> إعادة الديمو</button>
+            </div>
+        </header>
+
+        <section id="welcomeScreen" class="demo-welcome" aria-labelledby="demoWelcomeTitle">
+            <div class="demo-welcome-copy">
+                <span class="eyebrow"><i class="ph ph-sparkle"></i> Product Tour</span>
+                <h2 id="demoWelcomeTitle">شاهد النظام كأنه جاهز بين يديك.</h2>
+                <p>ديمو تفاعلي يشرح أين ترى المبيعات، كيف تستخدم الفلاتر، وكيف تتحول الأرقام إلى متابعة واضحة بدون الرجوع لملفات متعددة أو أسئلة متكررة.</p>
+                <div class="demo-promise-grid" aria-label="قيمة الديمو">
+                    <div><i class="ph ph-chart-line-up"></i><strong>رؤية أوضح</strong><span>الأرقام الرئيسية أمامك مباشرة.</span></div>
+                    <div><i class="ph ph-funnel"></i><strong>وصول أسرع</strong><span>فلترة حسب التاريخ والصنف والمنطقة.</span></div>
+                    <div><i class="ph ph-device-mobile"></i><strong>جاهز للموبايل</strong><span>تجربة مفهومة على كل شاشة.</span></div>
+                </div>
+            </div>
+
+            <div class="demo-role-panel">
+                <div class="demo-mode-badge"><i class="ph ph-play-circle"></i> Demo Mode</div>
+                <h3>اختر مسار الديمو</h3>
+                <p>كل مسار يشرح فقط ما يهم المستخدم حسب دوره.</p>
+                <div class="demo-role-grid">
+                    <button class="demo-role-card" type="button" data-start-role="rep">
+                        <i class="ph ph-stethoscope"></i>
+                        <strong>Medical Rep Demo</strong>
+                        <span>تابع مبيعاتك بوضوح من مكان واحد.</span>
+                    </button>
+                    <button class="demo-role-card leader" type="button" data-start-role="team">
+                        <i class="ph ph-users-three"></i>
+                        <strong>Team Leader Demo</strong>
+                        <span>شاهد أداء الفريق واتخذ قرار أسرع.</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="demoExperience" class="demo-experience" hidden>
+            <div class="demo-progress-card">
+                <div>
+                    <span id="demoRoleLabel">-</span>
+                    <strong id="demoPromiseText">-</strong>
+                </div>
+                <div class="demo-progress-track" aria-label="مؤشر التقدم">
+                    <span id="demoProgressFill"></span>
+                </div>
+                <small id="demoStepCounter">-</small>
+            </div>
+
+            <div class="demo-workspace">
+                <aside class="demo-narration" aria-live="polite">
+                    <div class="demo-mini-badge"><i class="ph ph-cursor-click"></i> خطوة تفاعلية</div>
+                    <h2 id="stepTitle">-</h2>
+                    <p id="stepBody">-</p>
+                    <div id="stepBullets" class="step-bullets"></div>
+                    <div class="demo-controls">
+                        <button id="prevStepBtn" class="btn btn-light" type="button"><i class="ph ph-caret-right"></i> السابق</button>
+                        <button id="nextStepBtn" class="btn btn-primary" type="button">التالي <i class="ph ph-caret-left"></i></button>
+                        <button id="skipDemoBtn" class="btn btn-light" type="button"><i class="ph ph-x"></i> تخطي</button>
+                        <button id="restartDemoBtn" class="btn btn-dark" type="button"><i class="ph ph-arrow-counter-clockwise"></i> إعادة</button>
+                    </div>
+                    <div id="demoDots" class="demo-dots" aria-label="خطوات الديمو"></div>
+                </aside>
+
+                <section id="demoScreen" class="demo-screen" aria-label="واجهة تجريبية للنظام">
+                    <div class="demo-screen-glow"></div>
+                    <div class="demo-system-frame">
+                        <section class="demo-login-scene" data-demo-target="login">
+                            <div class="demo-login-card">
+                                <i id="demoLoginIcon" class="ph ph-stethoscope"></i>
+                                <h3 id="demoLoginTitle">Medical Rep</h3>
+                                <p id="demoLoginText">ادخل رقمك الوظيفي وتاريخ ميلادك فقط.</p>
+                                <div class="demo-field-line"></div>
+                                <div class="demo-field-line short"></div>
+                                <button class="btn btn-primary btn-full" type="button">دخول تجريبي</button>
+                            </div>
+                            <div class="demo-login-message">
+                                <span>قبل الدخول</span>
+                                <strong id="demoBeforeAfter">بدل ما تسأل عن مبيعاتك، شوفها مباشرة.</strong>
+                                <small>الديمو لا يغيّر أي بيانات ولا يحتاج Firebase.</small>
+                            </div>
+                        </section>
+
+                        <header class="topbar premium-topbar demo-mock-topbar" data-demo-target="header">
+                            <div class="page-title">
+                                <div class="demo-logo-mark"><i class="ph ph-chart-line-up"></i></div>
+                                <div>
+                                    <h1 id="mockTitle">لوحة مبيعات الدعاية الطبية</h1>
+                                    <p id="mockSubtitle">لوحة الأداء والتحليل</p>
+                                </div>
+                            </div>
+                            <div class="top-actions demo-mock-actions">
+                                <button class="btn btn-light" type="button"><i class="ph ph-arrows-clockwise"></i> تحديث</button>
+                                <button class="btn btn-primary" type="button"><i class="ph ph-file-xls"></i> Excel</button>
+                            </div>
+                        </header>
+
+                        <section class="analytics-hero demo-hero" data-demo-target="kpis">
+                            <div class="hero-metric identity-main">
+                                <span id="identityLabel">المندوب الطبي</span>
+                                <strong id="identityValue">أحمد خالد</strong>
+                                <small id="identityMeta">Team Matador</small>
+                            </div>
+                            <div class="hero-metric">
+                                <span id="valueLabel">قيمة المبيعات</span>
+                                <strong id="valueMetric">48,320</strong>
+                                <small>د.أ محتسبة</small>
+                            </div>
+                            <div class="hero-metric accent">
+                                <span id="qtyLabel">الكمية</span>
+                                <strong id="qtyMetric">1,246</strong>
+                                <small>كميات محتسبة</small>
+                            </div>
+                            <div class="hero-metric soft">
+                                <span>آخر تحديث</span>
+                                <strong>اليوم</strong>
+                                <small>بيانات جاهزة للمتابعة</small>
+                            </div>
+                        </section>
+
+                        <section class="filter-panel sticky-filters demo-filter-panel" data-demo-target="filters">
+                            <div id="mockFilters" class="filter-grid dashboard-filter-grid"></div>
+                        </section>
+
+                        <section class="cards-grid performance-cards demo-cards" data-demo-target="cards">
+                            <div class="stat-card"><i class="ph ph-currency-circle-dollar"></i><span id="totalCardLabel">إجمالي القيمة</span><strong id="totalCardValue">48,320 د.أ</strong><em id="avgCardText">متوسط السعر: 38.78</em></div>
+                            <div class="stat-card qty-card"><i class="ph ph-package"></i><span>إجمالي الكمية</span><strong id="qtyCardValue">1,246</strong><em id="linesCardText">186 سطر</em></div>
+                            <div class="stat-card"><i class="ph ph-storefront"></i><span id="pharmacyCardLabel">صيدليات فعالة</span><strong id="pharmacyCardValue">42</strong><em>ضمن الفلاتر</em></div>
+                            <div class="stat-card other-card"><i class="ph ph-percent"></i><span id="otherCardLabel">اخرين محتسبة</span><strong id="otherCardValue">3,780 د.أ</strong><em id="otherCardText">7.8%</em></div>
+                        </section>
+
+                        <section class="chart-grid demo-chart-grid" data-demo-target="areaChart">
+                            <div class="chart-card table-card">
+                                <div class="card-head">
+                                    <div>
+                                        <h2 id="areaChartTitle">المبيعات حسب المنطقة</h2>
+                                        <p class="form-note" id="areaChartNote">أعلى المناطق تظهر أولاً.</p>
+                                    </div>
+                                </div>
+                                <div id="demoAreaChart" class="bar-chart"></div>
+                            </div>
+                        </section>
+
+                        <section class="grid-two rich-grid demo-rich-grid">
+                            <div class="table-card" data-demo-target="items">
+                                <div class="card-head"><div><h2 id="itemsTitle">تحليل الأصناف</h2><p class="form-note" id="itemsNote">الكميات والقيم لكل صنف.</p></div></div>
+                                <div class="table-scroll">
+                                    <table class="data-table compact-table">
+                                        <thead id="itemsHead"></thead>
+                                        <tbody id="itemsBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="table-card" data-demo-target="activity">
+                                <div class="card-head"><div><h2 id="activityTitle">آخر النشاط</h2><p class="form-note" id="activityNote">آخر الحركات التي تساعدك تتابع بسرعة.</p></div></div>
+                                <div id="activityList" class="demo-activity-list"></div>
+                            </div>
+                        </section>
+
+                        <section class="demo-privacy-grid">
+                            <div class="table-card" data-demo-target="privacy">
+                                <div class="card-head"><div><h2>ما الذي يظهر لك؟</h2><p class="form-note">وضوح بدون كشف بيانات غير لازمة.</p></div></div>
+                                <div id="visibilityList" class="demo-check-list"></div>
+                            </div>
+                            <div class="table-card demo-phone-card" data-demo-target="mobile">
+                                <div class="card-head"><div><h2>نفس الفكرة على الموبايل</h2><p class="form-note">الأرقام والفلاتر تبقى واضحة.</p></div></div>
+                                <div class="demo-phone-frame">
+                                    <div class="demo-phone-top"></div>
+                                    <div class="demo-phone-kpi"><span id="phoneRoleLabel">مبيعاتك</span><strong id="phoneValue">48,320</strong></div>
+                                    <div class="demo-phone-tabs"><span></span><span></span><span></span><span></span></div>
+                                    <div class="demo-phone-list"><i></i><i></i><i></i></div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="demo-final-summary" data-demo-target="final">
+                            <span class="eyebrow"><i class="ph ph-check-circle"></i> جاهز للاستخدام</span>
+                            <h2 id="finalTitle">صار عندك وضوح يومي على المبيعات.</h2>
+                            <div id="finalCards" class="demo-final-cards"></div>
+                            <a id="startUsingLink" class="btn btn-primary" href="index.html?role=rep"><i class="ph ph-sign-in"></i> ابدأ باستخدام النظام</a>
+                        </section>
+                    </div>
+                    <div id="demoSpotlight" class="demo-spotlight" aria-hidden="true"></div>
+                    <div id="demoPointer" class="demo-pointer" aria-hidden="true"><i class="ph ph-cursor-click"></i></div>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="js/medrep-common.js?v=20260624_medrep_v8"></script>
+    <script src="js/demo.js?v=20260624_demo_v1"></script>
+</body>
+</html>
