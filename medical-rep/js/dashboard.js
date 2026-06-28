@@ -113,12 +113,14 @@ function applyFilters() {
         if (!showOther && row.channel === `others`) return false;
         if (channel !== `all` && row.channel !== channel) return false;
         if (search) {
-            const haystack = C.normalizeArabic(`${row.pharmacyName} ${row.pharmacyCode} ${row.itemName} ${row.area} ${row.salesRepName} ${row.orderShort}`);
+            const haystack = row.channel === `others`
+                ? C.normalizeArabic(`${row.itemName} اخرين مبيعات محتسبة`)
+                : C.normalizeArabic(`${row.pharmacyName} ${row.pharmacyCode} ${row.itemName} ${row.area} ${row.salesRepName} ${row.orderShort}`);
             if (!haystack.includes(search)) return false;
         }
         return true;
     });
-    state.orderGroups = buildOrderGroups(state.filtered);
+    state.orderGroups = buildOrderGroups(directDetailRows(state.filtered));
     renderDashboard(showOther);
 }
 
@@ -157,10 +159,29 @@ function aggregateBy(rows = [], keyFactory, seedFactory, reducer) {
     return [...map.values()];
 }
 
+function directDetailRows(rows = state.filtered) {
+    return rows.filter(row => row.channel !== `others`);
+}
+
+function otherOnlyRows(rows = state.filtered) {
+    return rows.filter(row => row.channel === `others`);
+}
+
+function otherItemSummaryRows(rows = state.filtered) {
+    return aggregateBy(otherOnlyRows(rows), row => row.itemKey, row => ({
+        itemName: row.itemName,
+        qty: 0,
+        value: 0
+    }), (acc, row) => {
+        acc.qty += C.parseNumber(row.allocatedQty);
+        acc.value += C.parseNumber(row.allocatedValue);
+    }).sort((a, b) => b.value - a.value);
+}
+
 function renderDashboard(showOtherFromFilters = false) {
     const totalValue = C.sumRows(state.filtered, `allocatedValue`);
-    const directRows = state.filtered.filter(row => row.channel === `direct`);
-    const otherRows = state.filtered.filter(row => row.channel === `others`);
+    const directRows = directDetailRows(state.filtered);
+    const otherRows = otherOnlyRows(state.filtered);
     const directValue = C.sumRows(directRows, `allocatedValue`);
     const otherValue = C.sumRows(otherRows, `allocatedValue`);
     const totalQty = C.sumRows(state.filtered, `allocatedQty`);
@@ -181,7 +202,7 @@ function renderDashboard(showOtherFromFilters = false) {
     const targetQty = C.parseNumber(target.qty);
     const achValue = targetValue ? (totalValue / targetValue) * 100 : null;
     const achQty = targetQty ? (totalQty / targetQty) * 100 : null;
-    const activePharmacies = new Set(state.filtered.map(row => row.pharmacyCode || row.pharmacyName).filter(Boolean)).size;
+    const activePharmacies = new Set(directRows.map(row => row.pharmacyCode || row.pharmacyName).filter(Boolean)).size;
     const activeItems = new Set(state.filtered.map(row => row.itemKey).filter(Boolean)).size;
     const avgPrice = totalQty ? totalValue / totalQty : 0;
 
@@ -190,7 +211,7 @@ function renderDashboard(showOtherFromFilters = false) {
     C.$(`cardTotalValue`).textContent = `${C.formatMoney(totalValue)} د.أ`;
     C.$(`cardAvgPrice`).textContent = `متوسط السعر: ${C.formatMoney(avgPrice)}`;
     C.$(`cardQty`).textContent = C.formatQty(totalQty);
-    C.$(`cardLines`).textContent = `${state.filtered.length.toLocaleString(`en-US`)} سطر`;
+    C.$(`cardLines`).textContent = `تفاصيل مباشرة: ${directRows.length.toLocaleString(`en-US`)} سطر`;
     C.$(`cardDirectValue`).textContent = `${C.formatMoney(directValue)} د.أ`;
     C.$(`cardDirectQty`).textContent = `${C.formatQty(directQty)} كمية`;
     C.$(`cardOtherValue`).textContent = `${C.formatMoney(otherValue)} د.أ`;
@@ -219,7 +240,7 @@ function renderAreaChart() {
     const target = C.$(`areaChart`);
     const meta = C.$(`areaChartMeta`);
     if (!target) return;
-    const rows = aggregateBy(state.filtered, row => row.areaKey || C.normalizeArabic(row.area), row => ({
+    const rows = aggregateBy(directDetailRows(state.filtered), row => row.areaKey || C.normalizeArabic(row.area), row => ({
         area: row.area || `-`,
         value: 0,
         qty: 0,
@@ -231,14 +252,14 @@ function renderAreaChart() {
     }).sort((a, b) => b.value - a.value).slice(0, 12);
 
     if (!rows.length) {
-        target.innerHTML = `<div class="empty-state compact"><i class="ph ph-chart-bar"></i><span>لا توجد بيانات مناطق.</span></div>`;
-        if (meta) meta.textContent = `-`;
+        target.innerHTML = `<div class="empty-state compact"><i class="ph ph-chart-bar"></i><span>لا توجد بيانات مباشرة حسب المنطقة. ملخص اخرين يظهر حسب الصنف فقط.</span></div>`;
+        if (meta) meta.textContent = `مباشر فقط`;
         return;
     }
 
     const maxValue = Math.max(...rows.map(row => C.parseNumber(row.value)), 1);
     const top = rows[0];
-    if (meta) meta.textContent = `${rows.length} منطقة • الأعلى: ${top.area} (${C.formatMoney(top.value)} د.أ)`;
+    if (meta) meta.textContent = `${rows.length} منطقة مباشرة • الأعلى: ${top.area} (${C.formatMoney(top.value)} د.أ)`;
     target.innerHTML = rows.map((row, index) => {
         const width = Math.max(4, (C.parseNumber(row.value) / maxValue) * 100);
         return `
@@ -260,7 +281,7 @@ function renderInsightCards() {
         acc.qty += C.parseNumber(row.allocatedQty);
     }).sort((a, b) => b.value - a.value);
     const byItemQty = [...byItem].sort((a, b) => b.qty - a.qty);
-    const byPharmacy = aggregateBy(state.filtered, row => row.pharmacyCode || row.pharmacyName, row => ({ pharmacyName: row.pharmacyName, value: 0, qty: 0 }), (acc, row) => {
+    const byPharmacy = aggregateBy(directDetailRows(state.filtered), row => row.pharmacyCode || row.pharmacyName, row => ({ pharmacyName: row.pharmacyName, value: 0, qty: 0 }), (acc, row) => {
         acc.value += C.parseNumber(row.allocatedValue);
         acc.qty += C.parseNumber(row.allocatedQty);
     }).sort((a, b) => b.value - a.value);
@@ -272,7 +293,7 @@ function renderInsightCards() {
     C.$(`bestItemByQty`).textContent = bestQty?.itemName || `-`;
     C.$(`bestItemByQtyMeta`).textContent = bestQty ? `${C.formatQty(bestQty.qty)} كمية / ${C.formatMoney(bestQty.value)} د.أ` : `-`;
     C.$(`bestPharmacy`).textContent = bestPharmacy?.pharmacyName || `-`;
-    C.$(`bestPharmacyMeta`).textContent = bestPharmacy ? `${C.formatMoney(bestPharmacy.value)} د.أ / ${C.formatQty(bestPharmacy.qty)} كمية` : `-`;
+    C.$(`bestPharmacyMeta`).textContent = bestPharmacy ? `${C.formatMoney(bestPharmacy.value)} د.أ / ${C.formatQty(bestPharmacy.qty)} كمية` : `مباشر فقط`;
 }
 
 function renderItemSummary(showOther) {
@@ -318,28 +339,22 @@ function renderItemSummary(showOther) {
 
 function renderOtherSummary(showOther) {
     const target = C.$(`otherSummaryBody`);
+    const head = C.$(`otherSummaryHead`);
+    if (head) head.innerHTML = `<tr><th>الصنف</th><th>كمية اخرين المحتسبة</th><th>قيمة اخرين المحتسبة</th></tr>`;
     if (!showOther) {
         target.innerHTML = ``;
         return;
     }
-    const rows = aggregateBy(state.filtered.filter(row => row.channel === `others`), row => `${row.itemKey}|${row.percentage}`, row => ({ itemName: row.itemName, percentage: row.percentage, sourceQty: 0, sourceValue: 0, allocatedQty: 0, allocatedValue: 0 }), (acc, row) => {
-        acc.sourceQty += C.parseNumber(row.sourceQty);
-        acc.sourceValue += C.parseNumber(row.sourceValue);
-        acc.allocatedQty += C.parseNumber(row.allocatedQty);
-        acc.allocatedValue += C.parseNumber(row.allocatedValue);
-    }).sort((a, b) => b.allocatedValue - a.allocatedValue);
+    const rows = otherItemSummaryRows(state.filtered);
     if (!rows.length) {
-        target.innerHTML = `<tr><td colspan="6"><div class="empty-state compact">لا توجد مبيعات اخرين ضمن الفلاتر.</div></td></tr>`;
+        target.innerHTML = `<tr><td colspan="3"><div class="empty-state compact">لا توجد مبيعات اخرين ضمن الفلاتر.</div></td></tr>`;
         return;
     }
     target.innerHTML = rows.map(row => `
         <tr class="row-other">
             <td class="item-name">${C.escapeHtml(row.itemName)}</td>
-            <td><span class="badge badge-other">${C.formatPercentageRatio(row.percentage)}</span></td>
-            <td>${C.formatQty(row.sourceQty)}</td>
-            <td>${C.formatMoney(row.sourceValue)}</td>
-            <td><strong>${C.formatQty(row.allocatedQty)}</strong></td>
-            <td><strong>${C.formatMoney(row.allocatedValue)}</strong></td>
+            <td><strong>${C.formatQty(row.qty)}</strong></td>
+            <td><strong>${C.formatMoney(row.value)}</strong></td>
         </tr>
     `).join(``);
 }
@@ -348,12 +363,10 @@ function renderOrdersTable(showOther) {
     const rows = state.orderGroups.slice(0, 120);
     const target = C.$(`ordersBody`);
     const head = C.$(`ordersHead`);
-    head.innerHTML = showOther
-        ? `<tr><th>التاريخ</th><th>الصيدلية</th><th>المنطقة</th><th>عدد الأصناف</th><th>الكمية</th><th>القيمة</th><th>اخرين</th><th>تفاصيل</th></tr>`
-        : `<tr><th>التاريخ</th><th>الصيدلية</th><th>المنطقة</th><th>عدد الأصناف</th><th>الكمية</th><th>القيمة</th><th>تفاصيل</th></tr>`;
+    head.innerHTML = `<tr><th>التاريخ</th><th>الصيدلية</th><th>المنطقة</th><th>عدد الأصناف</th><th>الكمية</th><th>القيمة</th><th>تفاصيل</th></tr>`;
 
     if (!rows.length) {
-        target.innerHTML = `<tr><td colspan="${showOther ? 8 : 7}"><div class="empty-state compact">لا توجد طلبيات ضمن الفلاتر.</div></td></tr>`;
+        target.innerHTML = `<tr><td colspan="7"><div class="empty-state compact">لا توجد طلبيات مباشرة ضمن الفلاتر. مبيعات اخرين تظهر كملخص أصناف فقط.</div></td></tr>`;
         return;
     }
     target.innerHTML = rows.map(order => `
@@ -364,7 +377,6 @@ function renderOrdersTable(showOther) {
             <td>${order.itemCount}</td>
             <td>${C.formatQty(order.qty)}</td>
             <td><strong>${C.formatMoney(order.value)}</strong></td>
-            ${showOther ? `<td>${order.otherValue ? `<span class="badge badge-other">${C.formatMoney(order.otherValue)}</span>` : `<span class="badge badge-direct">لا يوجد</span>`}</td>` : ``}
             <td><button class="btn btn-mini btn-light" type="button" data-order-id="${C.escapeHtml(order.orderId)}"><i class="ph ph-eye"></i> عرض</button></td>
         </tr>
     `).join(``);
@@ -372,59 +384,39 @@ function renderOrdersTable(showOther) {
 
 function renderMobileCards(showOther) {
     const target = C.$(`mobileCards`);
-    const rows = state.filtered.slice(0, 50);
+    const rows = directDetailRows(state.filtered).slice(0, 50);
     if (!rows.length) {
-        target.innerHTML = `<div class="empty-state compact">لا توجد بيانات.</div>`;
+        target.innerHTML = `<div class="empty-state compact">لا توجد تفاصيل مباشرة. مبيعات اخرين تظهر في ملخص الأصناف فقط.</div>`;
         return;
     }
-    target.innerHTML = rows.map(row => {
-        const isOther = showOther && row.channel === `others`;
-        return `
-            <article class="line-card ${isOther ? `is-other` : ``}">
-                <div class="line-card-top">
-                    <strong>${C.escapeHtml(row.itemName)}</strong>
-                    ${isOther ? `<span class="badge badge-other">اخرين ${C.formatPercentageRatio(row.percentage)}</span>` : `<span class="badge badge-direct">مباشر</span>`}
-                </div>
-                <div class="line-card-meta"><span>${C.escapeHtml(row.pharmacyName)}</span><span>${C.escapeHtml(row.area)}</span></div>
-                <div class="line-card-numbers ${isOther ? `` : `two-metrics`}">
-                    <div><span>كمية</span><strong>${C.formatQty(row.allocatedQty)}</strong></div>
-                    <div><span>قيمة</span><strong>${C.formatMoney(row.allocatedValue)}</strong></div>
-                    ${isOther ? `<div><span>أصلية</span><strong>${C.formatMoney(row.sourceValue)}</strong></div>` : ``}
-                </div>
-                <button class="line-card-action" type="button" data-order-id="${C.escapeHtml(row.orderId)}"><i class="ph ph-receipt"></i> تفاصيل الطلبية</button>
-            </article>
-        `;
-    }).join(``);
+    target.innerHTML = rows.map(row => `
+        <article class="line-card">
+            <div class="line-card-top">
+                <strong>${C.escapeHtml(row.itemName)}</strong>
+                <span class="badge badge-direct">مباشر</span>
+            </div>
+            <div class="line-card-meta"><span>${C.escapeHtml(row.pharmacyName)}</span><span>${C.escapeHtml(row.area)}</span></div>
+            <div class="line-card-numbers two-metrics">
+                <div><span>كمية</span><strong>${C.formatQty(row.allocatedQty)}</strong></div>
+                <div><span>قيمة</span><strong>${C.formatMoney(row.allocatedValue)}</strong></div>
+            </div>
+            <button class="line-card-action" type="button" data-order-id="${C.escapeHtml(row.orderId)}"><i class="ph ph-receipt"></i> تفاصيل الطلبية</button>
+        </article>
+    `).join(``);
 }
 
 function renderRowsTable(showOther) {
     const target = C.$(`salesRowsBody`);
     const head = C.$(`salesRowsHead`);
-    const rows = state.filtered.slice(0, 700);
-    head.innerHTML = showOther
-        ? `<tr><th>التاريخ</th><th>المنطقة</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الصنف</th><th>الكمية الأصلية</th><th>الكمية المحتسبة</th><th>قيمة السطر</th><th>القيمة المحتسبة</th><th>نسبتك</th><th>النوع</th><th>تفاصيل الطلب</th></tr>`
-        : `<tr><th>التاريخ</th><th>المنطقة</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الصنف</th><th>الكمية</th><th>القيمة</th><th>تفاصيل الطلب</th></tr>`;
-    C.$(`visibleRowsNote`).textContent = state.filtered.length > 700 ? `يتم عرض أول 700 سطر فقط. استخدم التصدير لرؤية كامل البيانات.` : ``;
+    const rows = directDetailRows(state.filtered).slice(0, 700);
+    head.innerHTML = `<tr><th>التاريخ</th><th>المنطقة</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الصنف</th><th>الكمية</th><th>القيمة</th><th>تفاصيل الطلب</th></tr>`;
+    const directCount = directDetailRows(state.filtered).length;
+    C.$(`visibleRowsNote`).textContent = directCount > 700 ? `يتم عرض أول 700 سطر مباشر فقط. استخدم التصدير لرؤية كامل التفاصيل المباشرة. مبيعات اخرين تبقى ملخص أصناف فقط.` : `مبيعات اخرين لا تعرض تفاصيل صيدلية أو طلبية أو مندوب؛ تظهر كقيمة وكمية حسب الصنف فقط.`;
     if (!rows.length) {
-        target.innerHTML = `<tr><td colspan="${showOther ? 12 : 8}"><div class="empty-state"><i class="ph ph-chart-line-down"></i><span>لا توجد مبيعات محتسبة لهذا المندوب ضمن الفلاتر الحالية.</span></div></td></tr>`;
+        target.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-chart-line-down"></i><span>لا توجد مبيعات مباشرة ضمن الفلاتر الحالية. راجع ملخص الأصناف لمبيعات اخرين.</span></div></td></tr>`;
         return;
     }
-    target.innerHTML = rows.map(row => showOther ? `
-        <tr class="${row.channel === `others` ? `row-other` : ``}">
-            <td>${C.escapeHtml(row.dateText)}</td>
-            <td>${C.escapeHtml(row.area)}</td>
-            <td class="item-name">${C.escapeHtml(row.pharmacyName)}</td>
-            <td>${C.escapeHtml(row.pharmacyCode || `-`)}</td>
-            <td class="item-name">${C.escapeHtml(row.itemName)}</td>
-            <td>${C.formatQty(row.sourceQty)}</td>
-            <td><strong>${C.formatQty(row.allocatedQty)}</strong></td>
-            <td>${C.formatMoney(row.sourceValue)}</td>
-            <td><strong>${C.formatMoney(row.allocatedValue)}</strong></td>
-            <td>${row.channel === `others` ? `${C.formatPercentageRatio(row.percentage)}` : `100%`}</td>
-            <td>${row.channel === `others` ? `<span class="badge badge-other">اخرين</span>` : `<span class="badge badge-direct">مباشر</span>`}</td>
-            <td><button class="btn btn-mini btn-light" type="button" data-order-id="${C.escapeHtml(row.orderId)}"><i class="ph ph-eye"></i></button></td>
-        </tr>
-    ` : `
+    target.innerHTML = rows.map(row => `
         <tr>
             <td>${C.escapeHtml(row.dateText)}</td>
             <td>${C.escapeHtml(row.area)}</td>
@@ -441,18 +433,7 @@ function renderRowsTable(showOther) {
 function openOrderModal(orderId) {
     const order = state.orderGroups.find(item => item.orderId === orderId);
     if (!order) return;
-    const showOtherInOrder = order.rows.some(row => row.channel === `others`);
-    const rowsHtml = order.rows.map(row => showOtherInOrder ? `
-        <tr class="${row.channel === `others` ? `row-other` : ``}">
-            <td class="item-name">${C.escapeHtml(row.itemName)}</td>
-            <td>${C.formatQty(row.sourceQty)}</td>
-            <td>${C.formatQty(row.allocatedQty)}</td>
-            <td>${C.formatMoney(row.sourceValue)}</td>
-            <td><strong>${C.formatMoney(row.allocatedValue)}</strong></td>
-            <td>${row.channel === `others` ? `${C.formatPercentageRatio(row.percentage)}` : `100%`}</td>
-            <td>${row.channel === `others` ? `اخرين` : `مباشر`}</td>
-        </tr>
-    ` : `
+    const rowsHtml = order.rows.map(row => `
         <tr>
             <td class="item-name">${C.escapeHtml(row.itemName)}</td>
             <td><strong>${C.formatQty(row.allocatedQty)}</strong></td>
@@ -462,20 +443,19 @@ function openOrderModal(orderId) {
     C.$(`orderModalContent`).innerHTML = `
         <div class="modal-head">
             <div>
-                <span class="eyebrow"><i class="ph ph-receipt"></i> طلبية مبيعات</span>
+                <span class="eyebrow"><i class="ph ph-receipt"></i> طلبية مباشرة</span>
                 <h2>${C.escapeHtml(order.pharmacyName)}</h2>
                 <p>${C.escapeHtml(order.area)} • ${C.escapeHtml(order.dateText)} • كود ${C.escapeHtml(order.pharmacyCode || `-`)} • طلب ${C.escapeHtml(order.orderShort)}</p>
             </div>
         </div>
-        <div class="modal-stats ${showOtherInOrder ? `` : `modal-stats-compact`}">
-            <div><span>قيمة محتسبة</span><strong>${C.formatMoney(order.value)} د.أ</strong></div>
-            <div><span>كمية محتسبة</span><strong>${C.formatQty(order.qty)}</strong></div>
+        <div class="modal-stats modal-stats-compact">
+            <div><span>قيمة مباشرة</span><strong>${C.formatMoney(order.value)} د.أ</strong></div>
+            <div><span>كمية مباشرة</span><strong>${C.formatQty(order.qty)}</strong></div>
             <div><span>أصناف</span><strong>${order.itemCount}</strong></div>
-            ${showOtherInOrder ? `<div><span>اخرين</span><strong>${C.formatMoney(order.otherValue)}</strong></div>` : ``}
         </div>
         <div class="table-scroll">
             <table class="data-table compact-table">
-                <thead>${showOtherInOrder ? `<tr><th>الصنف</th><th>الكمية الأصلية</th><th>الكمية المحتسبة</th><th>قيمة السطر</th><th>القيمة المحتسبة</th><th>النسبة</th><th>النوع</th></tr>` : `<tr><th>الصنف</th><th>الكمية</th><th>القيمة</th></tr>`}</thead>
+                <thead><tr><th>الصنف</th><th>الكمية</th><th>القيمة</th></tr></thead>
                 <tbody>${rowsHtml}</tbody>
             </table>
         </div>
@@ -522,30 +502,41 @@ async function loadDashboard(force = false) {
 
 function exportRows() {
     if (!state.filtered.length) return C.showToast(`لا توجد بيانات للتصدير.`, `warning`);
-    const showOther = state.ui.showOther;
-    const rows = state.filtered.map(row => {
-        const base = {
-            'Date': row.dateText,
-            'Team': row.team || state.session.team || ``,
+    const directRows = directDetailRows(state.filtered);
+    const otherRows = otherItemSummaryRows(state.filtered);
+    const rangeLabel = `${C.$(`dateFrom`)?.value || `بداية`} إلى ${C.$(`dateTo`)?.value || `اليوم`}`;
+    const rows = directRows.map(row => ({
+        'Type': `مباشر`,
+        'Date / Range': row.dateText,
+        'Team': row.team || state.session.team || ``,
+        'Medical Rep': state.session.name,
+        'Area': row.area,
+        'Pharmacy Code': row.pharmacyCode,
+        'Pharmacy': row.pharmacyName,
+        'Sales Rep': row.salesRepName,
+        'Item Name': row.itemName,
+        'Qty': row.allocatedQty,
+        'Value': row.allocatedValue,
+        'Order ID': row.orderId
+    }));
+
+    if (otherRows.length) {
+        otherRows.forEach(row => rows.push({
+            'Type': `اخرين - ملخص صنف`,
+            'Date / Range': rangeLabel,
+            'Team': state.session.team || ``,
             'Medical Rep': state.session.name,
-            'Area': row.area,
-            'Pharmacy Code': row.pharmacyCode,
-            'Pharmacy': row.pharmacyName,
-            'Sales Rep': row.salesRepName,
+            'Area': `اخرين`,
+            'Pharmacy Code': ``,
+            'Pharmacy': ``,
+            'Sales Rep': ``,
             'Item Name': row.itemName,
-            'Qty': row.allocatedQty,
-            'Value': row.allocatedValue,
-            'Order ID': row.orderId
-        };
-        if (!showOther) return base;
-        return {
-            ...base,
-            'Source Qty': row.sourceQty,
-            'Source Value': row.sourceValue,
-            'Channel': row.channel === `others` ? `Other Area` : `Direct Area`,
-            'My Other %': row.channel === `others` ? C.formatPercentageRatio(row.percentage) : `100%`
-        };
-    });
+            'Qty': row.qty,
+            'Value': row.value,
+            'Order ID': ``
+        }));
+    }
+
     C.downloadWorkbook(rows, `Medical Rep Sales`, `medical_rep_sales_${state.session.employeeNo}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
