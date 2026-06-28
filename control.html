@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <link rel="icon" href="./favicon.ico?v=20260628_control_quota_fix1">
+  <link rel="icon" href="./favicon.ico?v=20260628_monthly_report_cache_fix1">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -1026,7 +1026,7 @@
         <div class="hero-actions">
           <button class="btn" type="button" id="refreshTopBtn"><i class="ph ph-arrow-clockwise"></i> تحديث البيانات</button>
           <button class="btn secondary" type="button" id="exportTopBtn"><i class="ph ph-file-xls"></i> تصدير المعروض</button>
-          <a class="btn ghost" href="basel.html?v=20260628_control_quota_fix1"><i class="ph ph-sliders-horizontal"></i> Basel.html</a>
+          <a class="btn ghost" href="basel.html?v=20260628_monthly_report_cache_fix1"><i class="ph ph-sliders-horizontal"></i> Basel.html</a>
           <a class="btn ghost" href="audit.html"><i class="ph ph-shield-check"></i> Audit.html</a>
         </div>
       </div>
@@ -1258,9 +1258,10 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const ACTION_BY = `Control Center`;
-    const CONTROL_VERSION = `20260628_control_quota_fix1`;
+    const CONTROL_VERSION = `20260628_monthly_report_cache_fix1`;
     const ORDERS_CACHE_PREFIX = `dad_control_orders_cache_`;
     const ORDERS_CACHE_TTL_MS = 10 * 60 * 1000;
+    const HISTORICAL_ORDERS_CACHE_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
     const $ = id => document.getElementById(id);
 
@@ -2105,6 +2106,16 @@
     function ordersCacheKey(range) {
       return `${ORDERS_CACHE_PREFIX}${range.key}`;
     }
+    function isHistoricalOrdersRange(range) {
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      return range.toDate.getTime() < currentMonthStart.getTime();
+    }
+
+    function ordersCacheTtl(range) {
+      return isHistoricalOrdersRange(range) ? HISTORICAL_ORDERS_CACHE_TTL_MS : ORDERS_CACHE_TTL_MS;
+    }
+
 
     function readOrdersCache(range, allowExpired = false) {
       try {
@@ -2113,7 +2124,7 @@
         const parsed = JSON.parse(raw);
         if (!parsed || !Array.isArray(parsed.orders)) return null;
         const age = Date.now() - Number(parsed.savedAt || 0);
-        if (!allowExpired && age > ORDERS_CACHE_TTL_MS) return null;
+        if (!allowExpired && age > ordersCacheTtl(range)) return null;
         return parsed.orders;
       } catch (error) {
         console.warn(`Control cache read failed`, error);
@@ -2156,7 +2167,7 @@
         hydrateOrders(cachedOrders);
         state.loadedRangeKey = range.key;
         $(`lastLoadedAt`).textContent = new Date().toLocaleString(`en-GB`);
-        $(`connectionHint`).textContent = `تم عرض ${formatCount(state.orders.length)} طلبية من الكاش المحلي`;
+        $(`connectionHint`).textContent = `تم عرض ${formatCount(state.orders.length)} طلبية من الكاش المحلي${isHistoricalOrdersRange(range) ? ' طويل المدى' : ''}`;
         if (!quiet) toast(`تم عرض البيانات من الكاش المحلي.`, `success`);
         return;
       }
