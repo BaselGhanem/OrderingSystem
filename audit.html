@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <link rel="icon" href="favicon.ico?v=20260625_report_logic_cache_fix1">
+    <link rel="icon" href="favicon.ico?v=20260629_audit_dynamic_notes_fix1">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20260625_report_logic_cache_fix1">
+    <link rel="stylesheet" href="style.css?v=20260629_audit_dynamic_notes_fix1">
     <style>
         :root {
             --audit-teal: #099999;
@@ -409,6 +409,122 @@
             font-weight: 900;
             line-height: 1.7;
         }
+
+        .audit-panel-overlay.full-page-view {
+            align-items: stretch;
+            justify-content: center;
+            padding: clamp(6px, 1.4vw, 16px);
+        }
+        .audit-panel-overlay.full-page-view .audit-panel {
+            width: min(1560px, 100%);
+            height: calc(100dvh - clamp(12px, 2.8vw, 32px));
+            max-height: calc(100dvh - clamp(12px, 2.8vw, 32px));
+            margin: 0 auto;
+            border-radius: 26px;
+        }
+        .audit-panel-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(360px, .55fr);
+            gap: 14px;
+            align-items: start;
+        }
+        .audit-panel-main,
+        .audit-panel-side {
+            display: grid;
+            gap: 14px;
+            min-width: 0;
+        }
+        .audit-items-scroll {
+            width: 100%;
+            overflow: auto;
+            max-height: min(52dvh, 560px);
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+        }
+        .audit-items-table {
+            width: 100%;
+            min-width: 980px;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        .audit-items-table th,
+        .audit-items-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: right;
+            white-space: nowrap;
+            vertical-align: top;
+        }
+        .audit-items-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f8fafc;
+            color: var(--audit-navy);
+            font-weight: 900;
+        }
+        .audit-items-table .audit-item-name {
+            white-space: normal;
+            min-width: 260px;
+            font-weight: 900;
+            color: #0f172a;
+        }
+        .audit-note-list {
+            display: grid;
+            gap: 8px;
+        }
+        .audit-note-item {
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 10px;
+            color: #334155;
+            font-weight: 800;
+            line-height: 1.7;
+        }
+        .audit-note-item strong {
+            color: var(--audit-navy);
+            margin-left: 6px;
+        }
+        .audit-move-card {
+            border: 1px solid rgba(9,153,153,.22);
+            background: linear-gradient(180deg, rgba(9,153,153,.08), #fff);
+            border-radius: 20px;
+            padding: 14px;
+            display: grid;
+            gap: 10px;
+        }
+        .audit-move-card h3 {
+            margin: 0;
+            color: var(--audit-navy);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1rem;
+        }
+        .audit-move-card select,
+        .audit-move-card textarea {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            padding: 10px 12px;
+            font-family: 'Cairo', system-ui, sans-serif;
+            font-weight: 800;
+            outline: none;
+            background: #fff;
+        }
+        .audit-move-card textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+        .audit-move-card .audit-btn {
+            width: 100%;
+        }
+        @media (max-width: 1080px) {
+            .audit-panel-layout { grid-template-columns: 1fr; }
+            .audit-panel-overlay.full-page-view .audit-panel { height: 100dvh; max-height: 100dvh; border-radius: 0; }
+        }
+
         @media (max-width: 1180px) {
             .audit-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             .audit-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -543,7 +659,7 @@
         </section>
     </main>
 
-    <div class="audit-panel-overlay" id="auditPanelOverlay">
+    <div class="audit-panel-overlay full-page-view" id="auditPanelOverlay">
         <section class="audit-panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
             <div class="audit-panel-header">
                 <div>
@@ -559,7 +675,7 @@
     <div id="toast-container"></div>
 
     <script type="module">
-        import { db, collection, getDocs } from './js/firebase.js';
+        import { db, collection, getDocs, doc, updateDoc } from './js/firebase.js';
 
         const $ = id => document.getElementById(id);
         const state = {
@@ -611,6 +727,34 @@
             orders_staff_edit_returned_to_finance: 'تعديل وإرجاع للمالية'
         };
 
+
+        const WORKFLOW_STATUS_OPTIONS = [
+            ['pending_supervisor_approval', 'قيد موافقة المشرف'],
+            ['supervisor_approved', 'معتمد من المشرف / تحويل لمدير السوق'],
+            ['market_manager_pending', 'بانتظار مدير السوق'],
+            ['market_manager_approved', 'معتمد من مدير السوق / تحويل للمالية'],
+            ['finance_pending', 'بانتظار المالية'],
+            ['finance_approved', 'معتمد مالياً / تحويل لقسم الطلبيات'],
+            ['orders_staff_pending', 'جاهز للمعالجة'],
+            ['orders_staff_exported', 'تم تصديره'],
+            ['orders_staff_hidden', 'تمت الفوترة'],
+            ['returned_to_rep', 'مرجعة للمندوب'],
+            ['returned_to_supervisor', 'مرجعة للمشرف'],
+            ['returned_to_market_manager', 'مرجعة لمدير السوق'],
+            ['returned_to_finance', 'مرجعة للمالية'],
+            ['market_manager_rejected', 'مرفوض من مدير السوق'],
+            ['finance_rejected', 'مرفوض مالياً'],
+            ['deleted_by_supervisor', 'محذوف من المشرف'],
+            ['deleted_by_market_manager', 'محذوف من مدير السوق'],
+            ['deleted_by_orders_staff', 'محذوف من قسم الطلبيات'],
+            ['deleted_by_reports', 'محذوف من التقارير'],
+            ['approved', 'موافق عليه - قديم'],
+            ['returned', 'مرتجع - قديم'],
+            ['rejected', 'مرفوض - قديم']
+        ];
+
+        const WORKFLOW_STATUS_LABELS = Object.fromEntries(WORKFLOW_STATUS_OPTIONS);
+
         function escapeHtml(value) {
             return String(value ?? '')
                 .replace(/&/g, '&amp;')
@@ -652,7 +796,7 @@
         }
 
         function statusLabel(status) {
-            return STATUS_LABELS[status] || status || '-';
+            return WORKFLOW_STATUS_LABELS[status] || STATUS_LABELS[status] || status || '-';
         }
 
         function primaryStatus(order = {}) {
@@ -665,6 +809,101 @@
 
         function getOrderNote(order = {}) {
             return order.orderNote || order.note || order.notes || order.repNote || order.representativeNote || '';
+        }
+
+
+        function getItemProductCode(item = {}) {
+            return item.productCode || item.product_code || item.code || item.itemCode || item.sku || '';
+        }
+
+        function getItemQty(item = {}) {
+            return parseNumber(item.qty ?? item.quantity ?? item.orderQty ?? 0);
+        }
+
+        function getItemBonus(item = {}) {
+            return parseNumber(item.bonus ?? item.bonusQty ?? item.freeQty ?? 0);
+        }
+
+        function getItemPrice(item = {}) {
+            return parseNumber(item.price ?? item.unitPrice ?? item.value ?? 0);
+        }
+
+        function getItemTotal(item = {}) {
+            const stored = parseNumber(item.total ?? item.subtotal ?? item.lineTotal ?? 0);
+            if (stored) return stored;
+            return getItemQty(item) * getItemPrice(item);
+        }
+
+        function uniqueAuditNotes(rows = []) {
+            const seen = new Set();
+            return rows
+                .map(row => ({ label: String(row.label || '').trim(), value: String(row.value || '').trim() }))
+                .filter(row => {
+                    if (!row.value) return false;
+                    const key = `${row.label}::${row.value}`.toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+        }
+
+        function collectAllOrderNotes(order = {}) {
+            const rows = uniqueAuditNotes([
+                { label: 'ملاحظة الطلبية / المندوب', value: getOrderNote(order) },
+                { label: 'ملاحظة اعتماد المالية', value: order.financeApprovalNote },
+                { label: 'ملاحظة المالية الظاهرة', value: order.financeVisibleNote },
+                { label: 'سبب الرفض المالي', value: order.financeRejectionReason },
+                { label: 'سبب رفض مدير السوق', value: order.marketManagerRejectionReason },
+                { label: 'سبب رفض المشرف', value: order.supervisorRejectionReason },
+                { label: 'ملاحظة الإرجاع', value: order.returnReason || order.rejectionReason },
+                { label: 'ملاحظة آخر تعديل يدوي', value: order.lastManualEditNote },
+                { label: 'ملاحظة آخر تغيير حالة يدوي', value: order.lastManualStatusChangeNote }
+            ]);
+            (Array.isArray(order.auditTrail) ? order.auditTrail : []).forEach(entry => {
+                const note = entry?.notes || entry?.note || entry?.reason || '';
+                if (!String(note || '').trim()) return;
+                const action = statusLabel(entry?.action || entry?.type || 'حركة');
+                const user = entry?.user || entry?.by || entry?.actor || '';
+                rows.push({ label: `سجل التدقيق - ${action}${user ? ` / ${user}` : ''}`, value: note });
+            });
+            return uniqueAuditNotes(rows);
+        }
+
+        function notesHtml(order = {}) {
+            const rows = collectAllOrderNotes(order);
+            if (!rows.length) return `<div class="audit-empty">لا توجد ملاحظات محفوظة على هذه الطلبية.</div>`;
+            return `<div class="audit-note-list">${rows.map(row => `<div class="audit-note-item"><strong>${escapeHtml(row.label)}:</strong> ${escapeHtml(row.value)}</div>`).join('')}</div>`;
+        }
+
+        function itemsTableHtml(order = {}) {
+            const items = Array.isArray(order.items) ? order.items : [];
+            if (!items.length) return `<div class="audit-empty">لا توجد أصناف محفوظة داخل الطلبية.</div>`;
+            const rows = items.map((item, index) => {
+                const qty = getItemQty(item);
+                const bonus = getItemBonus(item);
+                const price = getItemPrice(item);
+                const total = getItemTotal(item);
+                const pct = qty > 0 && bonus > 0 ? ((bonus / qty) * 100).toFixed(2) : parseNumber(item.bonusPct || item.bonusPercentage || 0).toFixed(2);
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${escapeHtml(getItemProductCode(item) || '-')}</td>
+                        <td class="audit-item-name">${escapeHtml(item.name || item.productName || '-')}</td>
+                        <td>${qty.toLocaleString('en-US')}</td>
+                        <td>${bonus.toLocaleString('en-US')}</td>
+                        <td>${pct}%</td>
+                        <td>${formatMoney(price)}</td>
+                        <td>${formatMoney(total)}</td>
+                        <td>${escapeHtml(item.note || item.notes || '-')}</td>
+                    </tr>`;
+            }).join('');
+            return `
+                <div class="audit-items-scroll">
+                    <table class="audit-items-table">
+                        <thead><tr><th>#</th><th>كود الصنف</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>نسبة البونص</th><th>السعر</th><th>القيمة</th><th>ملاحظة الصنف</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
         }
 
         function arrayCount(value) {
@@ -851,7 +1090,178 @@
             $('statPrint').textContent = allPrint.toLocaleString('en-US');
         }
 
+
+        function normalizeFilterText(value = '') {
+            return String(value || '').toLowerCase().replace(/[\-–—|]+/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+
+        function rebuildAuditSelect(id, values = [], labels = {}, defaultText = 'الكل') {
+            const select = $(id);
+            if (!select) return false;
+            const current = select.value || '';
+            const unique = Array.from(new Set(values.map(value => String(value || '').trim()).filter(Boolean))).sort((a, b) => (labels[a] || statusLabel(a)).localeCompare(labels[b] || statusLabel(b), 'ar'));
+            const nextValue = !current || unique.includes(current) ? current : '';
+            select.innerHTML = `<option value="">${escapeHtml(defaultText)}</option>` + unique.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(labels[value] || statusLabel(value))}</option>`).join('');
+            select.value = nextValue;
+            return current !== nextValue;
+        }
+
+        function auditOrderMatchesFilters(order = {}, values = {}, ignore = '') {
+            const orderStatus = primaryStatus(order);
+            const follow = getWorkflowFollowUp(order);
+            const haystack = [
+                order.id,
+                order.orderNumber,
+                order.repName,
+                order.representativeName,
+                order.pharmacyName,
+                getPharmacyCode(order),
+                statusLabel(orderStatus),
+                getOrderNote(order)
+            ].join(' ').toLowerCase();
+            const auditCount = arrayCount(order.auditTrail);
+            const exportCount = arrayCount(order.exportHistory) + (order.exportedAt ? 1 : 0);
+            const printCount = arrayCount(order.printHistory) + (order.lastPrintedAt ? 1 : 0);
+            if (ignore !== 'search' && values.q && !haystack.includes(values.q)) return false;
+            if (ignore !== 'status' && values.status && orderStatus !== values.status) return false;
+            if (ignore !== 'owner' && values.owner && follow.ownerKey !== values.owner) return false;
+            if (ignore !== 'date' && !inDateRange(order, values.from, values.to)) return false;
+            if (ignore !== 'history') {
+                if (values.history === 'has_audit' && auditCount === 0) return false;
+                if (values.history === 'no_audit' && auditCount > 0) return false;
+                if (values.history === 'has_export' && exportCount === 0) return false;
+                if (values.history === 'has_print' && printCount === 0) return false;
+            }
+            return true;
+        }
+
+        function refreshAuditDynamicFilters() {
+            const values = {
+                q: ($('searchBox').value || '').trim().toLowerCase(),
+                status: $('statusFilter').value || '',
+                owner: $('ownerFilter').value || '',
+                history: $('historyFilter').value || '',
+                from: $('dateFrom').value || '',
+                to: $('dateTo').value || ''
+            };
+            const statuses = [];
+            const owners = [];
+            const historyValues = [];
+            state.orders.forEach(order => {
+                if (auditOrderMatchesFilters(order, values, 'status')) statuses.push(primaryStatus(order));
+                if (auditOrderMatchesFilters(order, values, 'owner')) owners.push(getWorkflowFollowUp(order).ownerKey || '');
+                if (auditOrderMatchesFilters(order, values, 'history')) {
+                    if (arrayCount(order.auditTrail)) historyValues.push('has_audit'); else historyValues.push('no_audit');
+                    if (arrayCount(order.exportHistory) + (order.exportedAt ? 1 : 0)) historyValues.push('has_export');
+                    if (arrayCount(order.printHistory) + (order.lastPrintedAt ? 1 : 0)) historyValues.push('has_print');
+                }
+            });
+            let changed = false;
+            changed = rebuildAuditSelect('statusFilter', statuses, WORKFLOW_STATUS_LABELS, 'كل الحالات') || changed;
+            changed = rebuildAuditSelect('ownerFilter', owners, { representative: 'المندوب', supervisor: 'المشرف', market_manager: 'مدير السوق', finance_controller: 'المالية', orders_staff: 'قسم الطلبيات', none: 'لا يوجد' }, 'الكل') || changed;
+            changed = rebuildAuditSelect('historyFilter', historyValues, { has_audit: 'يحتوي سجل تدقيق', no_audit: 'بدون سجل تدقيق', has_export: 'يحتوي سجل تصدير', has_print: 'يحتوي سجل طباعة' }, 'الكل') || changed;
+            return changed;
+        }
+
+        function buildWorkflowPatch(targetStatus) {
+            const now = new Date();
+            const base = {
+                status: targetStatus,
+                updatedAt: now,
+                changedAt: now,
+                lastManualStatusChangeAt: now,
+                lastManualStatusChangeBy: 'Audit Center',
+                lastManualStatusChangeValue: targetStatus
+            };
+            const patches = {
+                pending: { status: 'pending', workflowStage: 'supervisor', supervisorStatus: 'pending_supervisor_approval', marketManagerStatus: '', financeStatus: '', orderStaffStatus: '', hiddenByOrderStaff: false, isInvoiced: false },
+                pending_supervisor_approval: { status: 'pending_supervisor_approval', workflowStage: 'supervisor', supervisorStatus: 'pending_supervisor_approval', marketManagerStatus: '', financeStatus: '', orderStaffStatus: '', hiddenByOrderStaff: false, isInvoiced: false },
+                supervisor_approved: { status: 'market_manager_pending', workflowStage: 'market_manager', supervisorStatus: 'supervisor_approved', marketManagerStatus: 'market_manager_pending', financeStatus: '', orderStaffStatus: '', hiddenByOrderStaff: false, isInvoiced: false },
+                market_manager_pending: { status: 'market_manager_pending', workflowStage: 'market_manager', supervisorStatus: 'supervisor_approved', marketManagerStatus: 'market_manager_pending', financeStatus: '', orderStaffStatus: '', hiddenByOrderStaff: false, isInvoiced: false },
+                market_manager_approved: { status: 'finance_pending', workflowStage: 'finance', supervisorStatus: 'supervisor_approved', marketManagerStatus: 'market_manager_approved', financeStatus: 'finance_pending', orderStaffStatus: '', hiddenByOrderStaff: false, isInvoiced: false },
+                finance_pending: { status: 'finance_pending', workflowStage: 'finance', supervisorStatus: 'supervisor_approved', marketManagerStatus: 'market_manager_approved', financeStatus: 'finance_pending', orderStaffStatus: '', hiddenByOrderStaff: false, isInvoiced: false },
+                finance_approved: { status: 'orders_staff_pending', workflowStage: 'orders_staff', supervisorStatus: 'supervisor_approved', marketManagerStatus: 'market_manager_approved', financeStatus: 'finance_approved', orderStaffStatus: 'orders_staff_pending', hiddenByOrderStaff: false, isInvoiced: false },
+                orders_staff_pending: { status: 'orders_staff_pending', workflowStage: 'orders_staff', supervisorStatus: 'supervisor_approved', marketManagerStatus: 'market_manager_approved', financeStatus: 'finance_approved', orderStaffStatus: 'orders_staff_pending', hiddenByOrderStaff: false, isInvoiced: false },
+                orders_staff_exported: { status: 'orders_staff_exported', workflowStage: 'orders_staff', supervisorStatus: 'supervisor_approved', marketManagerStatus: 'market_manager_approved', financeStatus: 'finance_approved', orderStaffStatus: 'orders_staff_exported', hiddenByOrderStaff: false, isInvoiced: false, exportedAt: now },
+                orders_staff_hidden: { status: 'orders_staff_hidden', workflowStage: 'orders_staff', supervisorStatus: 'supervisor_approved', marketManagerStatus: 'market_manager_approved', financeStatus: 'finance_approved', orderStaffStatus: 'orders_staff_hidden', hiddenByOrderStaff: true, isInvoiced: true, invoicedAt: now, hiddenAt: now },
+                market_manager_rejected: { status: 'market_manager_rejected', workflowStage: 'market_manager', marketManagerStatus: 'market_manager_rejected', financeStatus: '', orderStaffStatus: '', hiddenByOrderStaff: false, isInvoiced: false },
+                finance_rejected: { status: 'finance_rejected', workflowStage: 'finance', financeStatus: 'finance_rejected', orderStaffStatus: '', hiddenByOrderStaff: false, isInvoiced: false },
+                returned_to_rep: { status: 'returned_to_rep', workflowStage: 'representative', returnTarget: 'representative', hiddenByOrderStaff: false, isInvoiced: false },
+                returned_to_supervisor: { status: 'returned_to_supervisor', workflowStage: 'supervisor', supervisorStatus: 'pending_supervisor_approval', returnTarget: 'supervisor', hiddenByOrderStaff: false, isInvoiced: false },
+                returned_to_market_manager: { status: 'returned_to_market_manager', workflowStage: 'market_manager', marketManagerStatus: 'market_manager_pending', returnTarget: 'market_manager', hiddenByOrderStaff: false, isInvoiced: false },
+                returned_to_finance: { status: 'returned_to_finance', workflowStage: 'finance', financeStatus: 'returned_to_finance', orderStaffStatus: 'orders_staff_edited_returned_to_finance', returnTarget: 'finance', hiddenByOrderStaff: false, isInvoiced: false },
+                approved: { status: 'approved', workflowStage: '', hiddenByOrderStaff: false, isInvoiced: false },
+                returned: { status: 'returned', workflowStage: '', hiddenByOrderStaff: false, isInvoiced: false },
+                rejected: { status: 'rejected', workflowStage: '', hiddenByOrderStaff: false, isInvoiced: false },
+                deleted_by_supervisor: { status: 'deleted_by_supervisor', workflowStage: 'deleted', supervisorStatus: 'deleted_by_supervisor' },
+                deleted_by_market_manager: { status: 'deleted_by_market_manager', workflowStage: 'deleted', marketManagerStatus: 'deleted_by_market_manager' },
+                deleted_by_orders_staff: { status: 'deleted_by_orders_staff', workflowStage: 'deleted', orderStaffStatus: 'deleted_by_orders_staff' },
+                deleted_by_reports: { status: 'deleted_by_reports', workflowStage: 'deleted' }
+            };
+            return { ...base, ...(patches[targetStatus] || { status: targetStatus }) };
+        }
+
+        function buildAuditStatusRecord(order, patch, note, targetStatus) {
+            return {
+                action: 'audit_manual_workflow_status_change',
+                user: 'Audit Center',
+                role: 'audit_admin',
+                timestamp: new Date().toISOString(),
+                orderId: order.id || '',
+                oldValue: {
+                    status: order.status || '',
+                    workflowStage: order.workflowStage || '',
+                    supervisorStatus: order.supervisorStatus || '',
+                    marketManagerStatus: order.marketManagerStatus || '',
+                    financeStatus: order.financeStatus || '',
+                    orderStaffStatus: order.orderStaffStatus || ''
+                },
+                newValue: {
+                    requestedStatus: targetStatus,
+                    status: patch.status || '',
+                    workflowStage: patch.workflowStage || '',
+                    supervisorStatus: patch.supervisorStatus ?? order.supervisorStatus ?? '',
+                    marketManagerStatus: patch.marketManagerStatus ?? order.marketManagerStatus ?? '',
+                    financeStatus: patch.financeStatus ?? order.financeStatus ?? '',
+                    orderStaffStatus: patch.orderStaffStatus ?? order.orderStaffStatus ?? ''
+                },
+                notes: note
+            };
+        }
+
+        async function moveSelectedOrderStatus() {
+            const order = state.selectedOrder;
+            if (!order?.id) return;
+            const targetStatus = $('auditMoveStatus')?.value || '';
+            const note = ($('auditMoveNote')?.value || '').trim();
+            if (!targetStatus) return setToast('اختر الحالة الجديدة.', 'warning');
+            if (!note) return setToast('الملاحظة إجبارية عند نقل الحالة.', 'warning');
+            if (!confirm(`تأكيد نقل الطلبية إلى: ${statusLabel(targetStatus)}؟`)) return;
+            const patch = buildWorkflowPatch(targetStatus);
+            patch.lastManualStatusChangeNote = note;
+            patch.returnReason = targetStatus.startsWith('returned_to_') ? note : (order.returnReason || '');
+            patch.returnedBy = targetStatus.startsWith('returned_to_') ? 'Audit Center' : (order.returnedBy || '');
+            patch.returnedByRole = targetStatus.startsWith('returned_to_') ? 'audit_admin' : (order.returnedByRole || '');
+            patch.returnedAt = targetStatus.startsWith('returned_to_') ? new Date() : (order.returnedAt || null);
+            const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+            patch.auditTrail = [...trail, buildAuditStatusRecord(order, patch, note, targetStatus)];
+            try {
+                await updateDoc(doc(db, 'orders', order.id), patch);
+                const index = state.orders.findIndex(item => item.id === order.id);
+                const updated = { ...order, ...patch };
+                if (index >= 0) state.orders[index] = updated;
+                state.selectedOrder = updated;
+                setToast('تم نقل حالة الطلبية وتسجيل الحركة في Audit Trail.', 'success');
+                applyFilters();
+                openPanel(order.id);
+            } catch (error) {
+                console.error(error);
+                setToast('تعذر نقل حالة الطلبية. تحقق من صلاحيات Firebase.', 'error');
+            }
+        }
+
         function applyFilters() {
+            if (refreshAuditDynamicFilters()) return applyFilters();
             const q = ($('searchBox').value || '').trim().toLowerCase();
             const status = $('statusFilter').value || '';
             const owner = $('ownerFilter').value || '';
@@ -930,34 +1340,58 @@
             $('panelTitle').textContent = `طلبية ${String(order.id || '').substring(0, 10).toUpperCase()}`;
             $('panelSubtitle').textContent = `${order.pharmacyName || '-'} / ${order.repName || order.representativeName || '-'} / ${statusLabel(status)}`;
             $('panelContent').innerHTML = `
-                <div class="audit-detail-grid">
-                    <div class="audit-info-box"><span>تاريخ الطلبية</span><strong>${escapeHtml(formatDateTime(order.createdAt || order.date || order.timestamp))}</strong></div>
-                    <div class="audit-info-box"><span>آخر تحديث</span><strong>${escapeHtml(formatDateTime(order.updatedAt || order.changedAt || order.modifiedAt))}</strong></div>
-                    <div class="audit-info-box"><span>الصيدلية</span><strong>${escapeHtml(order.pharmacyName || '-')}</strong></div>
-                    <div class="audit-info-box"><span>كود الصيدلية</span><strong>${escapeHtml(getPharmacyCode(order) || '-')}</strong></div>
-                    <div class="audit-info-box"><span>المندوب</span><strong>${escapeHtml(order.repName || order.representativeName || '-')}</strong></div>
-                    <div class="audit-info-box"><span>قيمة الطلبية</span><strong>${formatMoney(order.grandTotal || order.total || 0)} د.أ</strong></div>
-                    <div class="audit-info-box"><span>الحالة الحالية</span><strong>${escapeHtml(statusLabel(status))}</strong></div>
-                    <div class="audit-info-box"><span>المطلوب من</span><strong>${escapeHtml(follow.owner)} — ${escapeHtml(follow.detail)}</strong></div>
-                </div>
-                <div class="audit-info-box"><span>ملاحظة الطلبية</span><strong>${escapeHtml(getOrderNote(order) || 'لا توجد ملاحظات.')}</strong></div>
-                <div class="audit-history-card">
-                    <h3><i class="ph ph-git-branch"></i> مسار الطلبية</h3>
-                    ${timelineHtml(order)}
-                </div>
-                <div class="audit-history-card">
-                    <h3><i class="ph ph-clock-counter-clockwise"></i> سجل التدقيق</h3>
-                    ${auditListHtml(order)}
-                </div>
-                <div class="audit-history-card">
-                    <h3><i class="ph ph-file-arrow-down"></i> سجل التصدير</h3>
-                    ${exportListHtml(order)}
-                </div>
-                <div class="audit-history-card">
-                    <h3><i class="ph ph-printer"></i> سجل الطباعة</h3>
-                    ${printListHtml(order)}
+                <div class="audit-panel-layout">
+                    <div class="audit-panel-main">
+                        <div class="audit-detail-grid">
+                            <div class="audit-info-box"><span>تاريخ الطلبية</span><strong>${escapeHtml(formatDateTime(order.createdAt || order.date || order.timestamp))}</strong></div>
+                            <div class="audit-info-box"><span>آخر تحديث</span><strong>${escapeHtml(formatDateTime(order.updatedAt || order.changedAt || order.modifiedAt))}</strong></div>
+                            <div class="audit-info-box"><span>الصيدلية</span><strong>${escapeHtml(order.pharmacyName || '-')}</strong></div>
+                            <div class="audit-info-box"><span>كود الصيدلية</span><strong>${escapeHtml(getPharmacyCode(order) || '-')}</strong></div>
+                            <div class="audit-info-box"><span>المندوب</span><strong>${escapeHtml(order.repName || order.representativeName || '-')}</strong></div>
+                            <div class="audit-info-box"><span>قيمة الطلبية</span><strong>${formatMoney(order.grandTotal || order.total || 0)} د.أ</strong></div>
+                            <div class="audit-info-box"><span>الحالة الحالية</span><strong>${escapeHtml(statusLabel(status))}</strong></div>
+                            <div class="audit-info-box"><span>المطلوب من</span><strong>${escapeHtml(follow.owner)} — ${escapeHtml(follow.detail)}</strong></div>
+                        </div>
+                        <div class="audit-history-card">
+                            <h3><i class="ph ph-package"></i> أصناف الطلبية</h3>
+                            ${itemsTableHtml(order)}
+                        </div>
+                        <div class="audit-history-card">
+                            <h3><i class="ph ph-note"></i> كل الملاحظات</h3>
+                            ${notesHtml(order)}
+                        </div>
+                        <div class="audit-history-card">
+                            <h3><i class="ph ph-git-branch"></i> مسار الطلبية</h3>
+                            ${timelineHtml(order)}
+                        </div>
+                    </div>
+                    <aside class="audit-panel-side">
+                        <div class="audit-move-card">
+                            <h3><i class="ph ph-arrows-clockwise"></i> نقل الطلبية من حالة إلى حالة أخرى</h3>
+                            <select id="auditMoveStatus" aria-label="الحالة الجديدة">
+                                <option value="">اختر الحالة الجديدة</option>
+                                ${WORKFLOW_STATUS_OPTIONS.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('')}
+                            </select>
+                            <textarea id="auditMoveNote" placeholder="ملاحظة إجبارية توضح سبب نقل الحالة"></textarea>
+                            <button class="audit-btn" id="auditMoveStatusBtn" type="button"><i class="ph ph-check-circle"></i> تأكيد نقل الحالة</button>
+                        </div>
+                        <div class="audit-history-card">
+                            <h3><i class="ph ph-clock-counter-clockwise"></i> سجل التدقيق</h3>
+                            ${auditListHtml(order)}
+                        </div>
+                        <div class="audit-history-card">
+                            <h3><i class="ph ph-file-arrow-down"></i> سجل التصدير</h3>
+                            ${exportListHtml(order)}
+                        </div>
+                        <div class="audit-history-card">
+                            <h3><i class="ph ph-printer"></i> سجل الطباعة</h3>
+                            ${printListHtml(order)}
+                        </div>
+                    </aside>
                 </div>
             `;
+            if ($('auditMoveStatus')) $('auditMoveStatus').value = WORKFLOW_STATUS_OPTIONS.some(([value]) => value === status) ? status : '';
+            $('auditMoveStatusBtn')?.addEventListener('click', moveSelectedOrderStatus);
             $('auditPanelOverlay').style.display = 'flex';
         }
 

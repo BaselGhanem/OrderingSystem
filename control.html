@@ -1749,7 +1749,67 @@
       return true;
     }
 
+
+    function rebuildControlSelect(id, values = [], labels = {}, defaultText = `الكل`) {
+      const el = $(id);
+      if (!el) return false;
+      const current = el.value || ``;
+      const unique = Array.from(new Set(values.map(value => String(value || ``).trim()).filter(Boolean)))
+        .sort((a, b) => (labels[a] || statusLabel(a)).localeCompare(labels[b] || statusLabel(b), `ar`));
+      const nextValue = !current || unique.includes(current) ? current : ``;
+      el.innerHTML = `<option value="">${escapeHtml(defaultText)}</option>${unique.map(value => `<option value="${escapeAttr(value)}">${escapeHtml(labels[value] || statusLabel(value))}</option>`).join(``)}`;
+      el.value = nextValue;
+      return current !== nextValue;
+    }
+
+    function controlHistoryMatches(order = {}, mode = ``) {
+      if (!mode) return true;
+      if (mode === `audit`) return arrayCount(order.auditTrail) > 0;
+      if (mode === `export`) return exportCount(order) > 0;
+      if (mode === `print`) return printCount(order) > 0;
+      if (mode === `no_audit`) return arrayCount(order.auditTrail) === 0;
+      return true;
+    }
+
+    function controlOrderMatchesFilters(order = {}, values = {}, ignore = ``) {
+      const textMatch = ignore === `search` || !values.words.length || values.words.every(word => order.__search.includes(word));
+      const pharmacyMatch = ignore === `pharmacy` || !values.pharmacyWords.length || values.pharmacyWords.every(word => order.__pharmacySearch.includes(word));
+      const statusMatch = ignore === `status` || !values.status || order.__status === values.status;
+      const ownerMatch = ignore === `owner` || !values.owner || order.__ownerKey === values.owner;
+      const dateMatch = ignore === `date` || inDateRange(order);
+      const historyMatch = ignore === `history` || controlHistoryMatches(order, values.history);
+      return textMatch && pharmacyMatch && statusMatch && ownerMatch && dateMatch && historyMatch;
+    }
+
+    function refreshControlDynamicFilters() {
+      const values = {
+        words: searchWords($(`searchBox`).value),
+        pharmacyWords: searchWords($(`pharmacySearch`).value),
+        status: $(`statusFilter`).value || ``,
+        owner: $(`ownerFilter`).value || ``,
+        history: $(`historyFilter`).value || ``
+      };
+      const statuses = [];
+      const owners = [];
+      const histories = [];
+      state.orders.forEach(order => {
+        if (controlOrderMatchesFilters(order, values, `status`)) statuses.push(order.__status);
+        if (controlOrderMatchesFilters(order, values, `owner`)) owners.push(order.__ownerKey || `none`);
+        if (controlOrderMatchesFilters(order, values, `history`)) {
+          if (arrayCount(order.auditTrail) > 0) histories.push(`audit`); else histories.push(`no_audit`);
+          if (exportCount(order) > 0) histories.push(`export`);
+          if (printCount(order) > 0) histories.push(`print`);
+        }
+      });
+      let changed = false;
+      changed = rebuildControlSelect(`statusFilter`, statuses, {}, `كل الحالات`) || changed;
+      changed = rebuildControlSelect(`ownerFilter`, owners, { representative: `المندوب`, supervisor: `المشرف`, market_manager: `مدير السوق`, finance: `المالية`, finance_controller: `المالية`, orders_staff: `قسم الطلبيات`, none: `مغلق / لا يوجد` }, `كل الجهات`) || changed;
+      changed = rebuildControlSelect(`historyFilter`, histories, { audit: `لديها سجل تدقيق`, export: `لديها سجل تصدير`, print: `لديها سجل طباعة`, no_audit: `بدون سجل تدقيق` }, `كل السجلات`) || changed;
+      return changed;
+    }
+
     function applyFilters() {
+      if (refreshControlDynamicFilters()) return applyFilters();
       const words = searchWords($(`searchBox`).value);
       const pharmacyWords = searchWords($(`pharmacySearch`).value);
       const status = $(`statusFilter`).value || ``;
