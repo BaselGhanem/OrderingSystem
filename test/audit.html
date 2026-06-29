@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <link rel="icon" href="favicon.ico?v=20260628_quota_cooldown_fix1">
+    <link rel="icon" href="favicon.ico?v=20260628_smart_filters_all1">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20260628_quota_cooldown_fix1">
+    <link rel="stylesheet" href="style.css?v=20260628_smart_filters_all1">
     <style>
         :root {
             --audit-teal: #099999;
@@ -560,62 +560,13 @@
 
     <script type="module">
         import { db, collection, getDocs } from './js/firebase.js';
-        import { loadReportOrdersByDateRange, REPORT_CACHE_VERSION } from './js/report-cache.js';
 
         const $ = id => document.getElementById(id);
-        let auditLoadingRangeKey = '';
-
         const state = {
             orders: [],
             visible: [],
             selectedOrder: null
         };
-
-
-        const AUDIT_PAGE_SIZE = 50;
-        let auditCurrentPage = 1;
-
-        function auditOrderDateTs(order = {}) {
-            return normalizeDate(order.createdAt || order.orderDate || order.date || order.timestamp || order.updatedAt || order.changedAt)?.getTime() || 0;
-        }
-
-        function sortAuditOrdersDesc(orders = []) {
-            return [...orders].sort((a, b) => {
-                const diff = auditOrderDateTs(b) - auditOrderDateTs(a);
-                return diff || String(b.id || '').localeCompare(String(a.id || ''));
-            });
-        }
-
-        function ensureAuditPager() {
-            let pager = $('auditPager');
-            if (pager) return pager;
-            pager = document.createElement('div');
-            pager.id = 'auditPager';
-            pager.className = 'table-pager';
-            $('auditBody')?.closest('table')?.insertAdjacentElement('afterend', pager);
-            return pager;
-        }
-
-        function renderAuditPager(totalRows) {
-            const pager = ensureAuditPager();
-            if (!pager) return 1;
-            const totalPages = Math.max(1, Math.ceil(totalRows / AUDIT_PAGE_SIZE));
-            auditCurrentPage = Math.min(Math.max(auditCurrentPage, 1), totalPages);
-            if (totalRows <= AUDIT_PAGE_SIZE) {
-                pager.innerHTML = totalRows ? '<span class="pager-label">Page 1 of 1</span>' : '';
-                return auditCurrentPage;
-            }
-            const btn = (label, page, disabled = false, active = false) => `<button type="button" class="audit-page-btn ${active ? 'active' : ''}" data-page="${page}" ${disabled ? 'disabled' : ''}>${label}</button>`;
-            const pages = new Set([1, totalPages, auditCurrentPage - 1, auditCurrentPage, auditCurrentPage + 1].filter(page => page >= 1 && page <= totalPages));
-            pager.innerHTML = `${btn('‹', auditCurrentPage - 1, auditCurrentPage === 1)}<span class="pager-label">Page ${auditCurrentPage} of ${totalPages}</span>${[...pages].sort((a, b) => a - b).map(page => btn(page, page, false, page === auditCurrentPage)).join('')}${btn('›', auditCurrentPage + 1, auditCurrentPage === totalPages)}`;
-            pager.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => {
-                const next = Number(button.dataset.page);
-                if (!Number.isFinite(next) || next < 1 || next > totalPages || next === auditCurrentPage) return;
-                auditCurrentPage = next;
-                renderTable();
-            }));
-            return auditCurrentPage;
-        }
 
         const STATUS_LABELS = {
             pending: 'قيد موافقة المشرف',
@@ -900,42 +851,131 @@
             $('statPrint').textContent = allPrint.toLocaleString('en-US');
         }
 
-        function applyFilters() {
-            const q = ($('searchBox').value || '').trim().toLowerCase();
-            const status = $('statusFilter').value || '';
-            const owner = $('ownerFilter').value || '';
-            const history = $('historyFilter').value || '';
-            const from = $('dateFrom').value || '';
-            const to = $('dateTo').value || '';
 
-            state.visible = state.orders.filter(order => {
-                const orderStatus = primaryStatus(order);
-                const follow = getWorkflowFollowUp(order);
-                const haystack = [
-                    order.id,
-                    order.orderNumber,
-                    order.repName,
-                    order.representativeName,
-                    order.pharmacyName,
-                    getPharmacyCode(order),
-                    statusLabel(orderStatus),
-                    getOrderNote(order)
-                ].join(' ').toLowerCase();
-                const auditCount = arrayCount(order.auditTrail);
-                const exportCount = arrayCount(order.exportHistory) + (order.exportedAt ? 1 : 0);
-                const printCount = arrayCount(order.printHistory) + (order.lastPrintedAt ? 1 : 0);
-                if (q && !haystack.includes(q)) return false;
-                if (status && orderStatus !== status) return false;
-                if (owner && follow.ownerKey !== owner) return false;
-                if (!inDateRange(order, from, to)) return false;
-                if (history === 'has_audit' && auditCount === 0) return false;
-                if (history === 'no_audit' && auditCount > 0) return false;
-                if (history === 'has_export' && exportCount === 0) return false;
-                if (history === 'has_print' && printCount === 0) return false;
-                return true;
+        const AUDIT_FILTER_LABELS = {
+            owner: {
+                '': 'الكل',
+                representative: 'المندوب',
+                supervisor: 'المشرف',
+                market_manager: 'مدير السوق',
+                finance_controller: 'المالية',
+                orders_staff: 'قسم الطلبيات',
+                none: 'لا يوجد'
+            },
+            history: {
+                '': 'الكل',
+                has_audit: 'يحتوي سجل تدقيق',
+                no_audit: 'بدون سجل تدقيق',
+                has_export: 'يحتوي سجل تصدير',
+                has_print: 'يحتوي سجل طباعة'
+            }
+        };
+
+        function auditCounts(order = {}) {
+            return {
+                audit: arrayCount(order.auditTrail),
+                export: arrayCount(order.exportHistory) + (order.exportedAt ? 1 : 0),
+                print: arrayCount(order.printHistory) + (order.lastPrintedAt ? 1 : 0)
+            };
+        }
+
+        function auditHistoryMatches(order = {}, history = '') {
+            const counts = auditCounts(order);
+            if (!history) return true;
+            if (history === 'has_audit') return counts.audit > 0;
+            if (history === 'no_audit') return counts.audit === 0;
+            if (history === 'has_export') return counts.export > 0;
+            if (history === 'has_print') return counts.print > 0;
+            return true;
+        }
+
+        function auditTextMatches(order = {}, q = '') {
+            const orderStatus = primaryStatus(order);
+            const haystack = [
+                order.id,
+                order.orderNumber,
+                order.repName,
+                order.representativeName,
+                order.pharmacyName,
+                getPharmacyCode(order),
+                statusLabel(orderStatus),
+                getOrderNote(order)
+            ].join(' ').toLowerCase();
+            return !q || haystack.includes(q);
+        }
+
+        function auditOrderMatches(order = {}, overrides = {}) {
+            const q = overrides.q ?? (($('searchBox').value || '').trim().toLowerCase());
+            const status = overrides.status ?? ($('statusFilter').value || '');
+            const owner = overrides.owner ?? ($('ownerFilter').value || '');
+            const history = overrides.history ?? ($('historyFilter').value || '');
+            const from = overrides.from ?? ($('dateFrom').value || '');
+            const to = overrides.to ?? ($('dateTo').value || '');
+            const orderStatus = primaryStatus(order);
+            const follow = getWorkflowFollowUp(order);
+            return auditTextMatches(order, q) &&
+                (!status || orderStatus === status) &&
+                (!owner || follow.ownerKey === owner) &&
+                inDateRange(order, from, to) &&
+                auditHistoryMatches(order, history);
+        }
+
+        function replaceAuditSelectOptions(selectId, options = []) {
+            const select = $(selectId);
+            if (!select) return;
+            const current = select.value || '';
+            const hasCurrent = options.some(option => String(option.value) === String(current));
+            select.innerHTML = options.map(option => {
+                const countText = Number.isFinite(option.count) ? ` (${option.count.toLocaleString('en-US')})` : '';
+                return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}${countText}</option>`;
+            }).join('');
+            select.value = hasCurrent ? current : '';
+        }
+
+        function syncAuditSmartFilters() {
+            const statusCounts = new Map();
+            const ownerCounts = new Map();
+            const historyCounts = new Map();
+
+            state.orders.forEach(order => {
+                if (auditOrderMatches(order, { status: '' })) {
+                    const status = primaryStatus(order);
+                    if (status) statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
+                }
+                if (auditOrderMatches(order, { owner: '' })) {
+                    const owner = getWorkflowFollowUp(order).ownerKey || 'none';
+                    ownerCounts.set(owner, (ownerCounts.get(owner) || 0) + 1);
+                }
+                if (auditOrderMatches(order, { history: '' })) {
+                    const counts = auditCounts(order);
+                    if (counts.audit > 0) historyCounts.set('has_audit', (historyCounts.get('has_audit') || 0) + 1);
+                    if (counts.audit === 0) historyCounts.set('no_audit', (historyCounts.get('no_audit') || 0) + 1);
+                    if (counts.export > 0) historyCounts.set('has_export', (historyCounts.get('has_export') || 0) + 1);
+                    if (counts.print > 0) historyCounts.set('has_print', (historyCounts.get('has_print') || 0) + 1);
+                }
             });
-            state.visible = sortAuditOrdersDesc(state.visible);
-            auditCurrentPage = 1;
+
+            const statusOptions = [{ value: '', label: 'كل الحالات' }, ...Array.from(statusCounts.entries())
+                .filter(([status, count]) => status && count > 0)
+                .sort((a, b) => statusLabel(a[0]).localeCompare(statusLabel(b[0]), 'ar'))
+                .map(([status, count]) => ({ value: status, label: statusLabel(status), count }))];
+            const ownerOptions = [{ value: '', label: 'الكل' }, ...Array.from(ownerCounts.entries())
+                .filter(([owner, count]) => owner && count > 0)
+                .sort((a, b) => (AUDIT_FILTER_LABELS.owner[a[0]] || a[0]).localeCompare(AUDIT_FILTER_LABELS.owner[b[0]] || b[0], 'ar'))
+                .map(([owner, count]) => ({ value: owner, label: AUDIT_FILTER_LABELS.owner[owner] || owner, count }))];
+            const historyOrder = ['has_audit', 'no_audit', 'has_export', 'has_print'];
+            const historyOptions = [{ value: '', label: 'الكل' }, ...historyOrder
+                .filter(value => (historyCounts.get(value) || 0) > 0)
+                .map(value => ({ value, label: AUDIT_FILTER_LABELS.history[value], count: historyCounts.get(value) || 0 }))];
+
+            replaceAuditSelectOptions('statusFilter', statusOptions);
+            replaceAuditSelectOptions('ownerFilter', ownerOptions);
+            replaceAuditSelectOptions('historyFilter', historyOptions);
+        }
+
+        function applyFilters() {
+            syncAuditSmartFilters();
+            state.visible = state.orders.filter(order => auditOrderMatches(order));
             renderTable();
         }
 
@@ -944,13 +984,9 @@
             $('visibleCount').textContent = `${state.visible.length.toLocaleString('en-US')} سجل ظاهر`;
             if (!state.visible.length) {
                 body.innerHTML = `<tr><td colspan="10"><div class="audit-empty">لا توجد طلبيات مطابقة للفلاتر الحالية.</div></td></tr>`;
-                const pager = $('auditPager');
-                if (pager) pager.innerHTML = '';
                 return;
             }
-            const currentPage = renderAuditPager(state.visible.length);
-            const pageRows = state.visible.slice((currentPage - 1) * AUDIT_PAGE_SIZE, currentPage * AUDIT_PAGE_SIZE);
-            body.innerHTML = pageRows.map(order => {
+            body.innerHTML = state.visible.map(order => {
                 const status = primaryStatus(order);
                 const follow = getWorkflowFollowUp(order);
                 const auditCount = arrayCount(order.auditTrail);
@@ -1021,34 +1057,22 @@
             state.selectedOrder = null;
         }
 
-        async function loadOrders(forceRemote = false) {
-            const fromValue = $('dateFrom')?.value || '';
-            const toValue = $('dateTo')?.value || '';
-            const requestKey = `${fromValue}_${toValue}_${forceRemote ? 'force' : 'cache'}`;
-            if (auditLoadingRangeKey === requestKey) return;
-            auditLoadingRangeKey = requestKey;
+        async function loadOrders() {
             $('auditBody').innerHTML = `<tr><td colspan="10"><div class="audit-empty">جاري تحميل سجل التدقيق...</div></td></tr>`;
             try {
-                const result = await loadReportOrdersByDateRange({
-                    namespace: 'audit-page',
-                    fromValue,
-                    toValue,
-                    forceRemote
-                });
-                state.orders = result.orders.sort((a, b) => {
+                const snap = await getDocs(collection(db, 'orders'));
+                state.orders = snap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => {
                     const da = normalizeDate(a.createdAt || a.date || a.timestamp)?.getTime() || 0;
                     const dbt = normalizeDate(b.createdAt || b.date || b.timestamp)?.getTime() || 0;
                     return dbt - da;
                 });
                 updateStats();
-                $('lastLoadedAt').textContent = `آخر تحميل: ${new Date().toLocaleString('en-GB')} — ${result.fromCacheOnly ? 'كاش شهري' : 'Firebase/كاش'} — ${REPORT_CACHE_VERSION}`;
+                $('lastLoadedAt').textContent = `آخر تحميل: ${new Date().toLocaleString('en-GB')}`;
                 applyFilters();
             } catch (error) {
-                console.warn(error?.code || error?.message || error);
-                $('auditBody').innerHTML = `<tr><td colspan="10"><div class="audit-empty">تعذر تحميل البيانات. تحقق من صلاحيات Firebase أو الاتصال أو قلل مدى التاريخ.</div></td></tr>`;
+                console.error(error);
+                $('auditBody').innerHTML = `<tr><td colspan="10"><div class="audit-empty">تعذر تحميل البيانات. تحقق من صلاحيات Firebase أو الاتصال.</div></td></tr>`;
                 setToast('تعذر تحميل بيانات التدقيق.', 'error');
-            } finally {
-                auditLoadingRangeKey = '';
             }
         }
 
@@ -1121,13 +1145,10 @@
         }
 
         function bindEvents() {
-            ['searchBox', 'statusFilter', 'ownerFilter', 'historyFilter'].forEach(id => {
+            ['dateFrom', 'dateTo', 'searchBox', 'statusFilter', 'ownerFilter', 'historyFilter'].forEach(id => {
                 $(id).addEventListener(id === 'searchBox' ? 'input' : 'change', applyFilters);
             });
-            ['dateFrom', 'dateTo'].forEach(id => {
-                $(id).addEventListener('change', () => loadOrders(false));
-            });
-            $('refreshBtn').addEventListener('click', () => loadOrders(true));
+            $('refreshBtn').addEventListener('click', loadOrders);
             $('exportAuditBtn').addEventListener('click', exportVisibleAudit);
             $('closePanelBtn').addEventListener('click', closePanel);
             $('auditPanelOverlay').addEventListener('click', event => {

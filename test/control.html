@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <link rel="icon" href="./favicon.ico?v=20260628_quota_cooldown_fix1">
+  <link rel="icon" href="./favicon.ico?v=20260628_smart_filters_all1">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -1012,20 +1012,6 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
     }
-
-    .control-pager {
-      display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;
-      margin:14px 0 6px; padding:10px; color:#475569; font-weight:900; direction:ltr;
-    }
-    .control-pager button {
-      border:1px solid rgba(9,153,153,.24); background:#fff; color:#0f172a; border-radius:12px;
-      min-width:38px; height:38px; padding:0 12px; font-weight:900; cursor:pointer;
-      transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
-    }
-    .control-pager button:hover { transform:translateY(-1px); box-shadow:0 8px 20px rgba(15,23,42,.10); }
-    .control-pager button.active { background:#099999; color:#fff; border-color:#099999; }
-    .control-pager button:disabled { opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
-    .control-pager .pager-label { min-width:110px; text-align:center; }
   </style>
 </head>
 <body>
@@ -1040,7 +1026,7 @@
         <div class="hero-actions">
           <button class="btn" type="button" id="refreshTopBtn"><i class="ph ph-arrow-clockwise"></i> تحديث البيانات</button>
           <button class="btn secondary" type="button" id="exportTopBtn"><i class="ph ph-file-xls"></i> تصدير المعروض</button>
-          <a class="btn ghost" href="basel.html?v=20260628_quota_cooldown_fix1"><i class="ph ph-sliders-horizontal"></i> Basel.html</a>
+          <a class="btn ghost" href="basel.html?v=20260628_smart_filters_all1"><i class="ph ph-sliders-horizontal"></i> Basel.html</a>
           <a class="btn ghost" href="audit.html"><i class="ph ph-shield-check"></i> Audit.html</a>
         </div>
       </div>
@@ -1200,7 +1186,6 @@
             </tbody>
           </table>
         </div>
-        <div id="controlOrdersPager" class="control-pager"></div>
         <div class="mobile-cards" id="mobileCards"></div>
       </div>
     </section>
@@ -1273,46 +1258,10 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const ACTION_BY = `Control Center`;
-    const CONTROL_VERSION = `20260628_quota_cooldown_fix1`;
-    const CONTROL_DATA_CACHE_VERSION = `20260628_monthly_report_cache_fix1`;
+    const CONTROL_VERSION = `20260628_smart_filters_all1`;
     const ORDERS_CACHE_PREFIX = `dad_control_orders_cache_`;
-    const ORDERS_CACHE_TTL_MS = 60 * 60 * 1000;
+    const ORDERS_CACHE_TTL_MS = 10 * 60 * 1000;
     const HISTORICAL_ORDERS_CACHE_TTL_MS = 365 * 24 * 60 * 60 * 1000;
-    const CONTROL_PAGE_SIZE = 50;
-    const FIRESTORE_QUOTA_COOLDOWN_KEY = `dad_firestore_quota_cooldown_until`;
-    const FIRESTORE_QUOTA_COOLDOWN_MS = 60 * 60 * 1000;
-
-    function firestoreQuotaText(error) {
-      return `${error?.code || ``} ${error?.name || ``} ${error?.message || ``}`.toLowerCase();
-    }
-
-    function isFirestoreQuotaError(error) {
-      const text = firestoreQuotaText(error);
-      return text.includes(`resource-exhausted`) || text.includes(`quota`) || text.includes(`429`);
-    }
-
-    function quotaCooldownUntil() {
-      try {
-        return Number(localStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || sessionStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || 0);
-      } catch (_) {
-        return 0;
-      }
-    }
-
-    function isFirestoreQuotaCooldownActive() {
-      return Date.now() < quotaCooldownUntil();
-    }
-
-    function activateFirestoreQuotaCooldown(error) {
-      if (!isFirestoreQuotaError(error)) return;
-      const until = Date.now() + FIRESTORE_QUOTA_COOLDOWN_MS;
-      try { localStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
-      try { sessionStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
-    }
-
-    function quotaCooldownMinutes() {
-      return Math.max(1, Math.ceil((quotaCooldownUntil() - Date.now()) / 60000));
-    }
 
     const $ = id => document.getElementById(id);
 
@@ -1324,9 +1273,7 @@
       statusTargets: [],
       loading: false,
       loadingPromise: null,
-      loadedRangeKey: ``,
-      currentPage: 1,
-      pageRows: []
+      loadedRangeKey: ``
     };
 
     const STATUS_LABELS = {
@@ -1792,8 +1739,7 @@
       return true;
     }
 
-    function historyMatches(order = {}) {
-      const mode = $(`historyFilter`).value || ``;
+    function historyModeMatches(order = {}, mode = ``) {
       if (!mode) return true;
       if (mode === `audit`) return arrayCount(order.auditTrail) > 0;
       if (mode === `export`) return exportCount(order) > 0;
@@ -1802,20 +1748,75 @@
       return true;
     }
 
+    function historyMatches(order = {}) {
+      return historyModeMatches(order, $(`historyFilter`).value || ``);
+    }
+
+    function controlOrderMatches(order = {}, overrides = {}) {
+      const words = overrides.words ?? searchWords($(`searchBox`).value);
+      const pharmacyWords = overrides.pharmacyWords ?? searchWords($(`pharmacySearch`).value);
+      const status = overrides.status ?? ($(`statusFilter`).value || ``);
+      const owner = overrides.owner ?? ($(`ownerFilter`).value || ``);
+      const history = overrides.history ?? ($(`historyFilter`).value || ``);
+      const textMatch = !words.length || words.every(word => order.__search.includes(word));
+      const pharmacyMatch = !pharmacyWords.length || pharmacyWords.every(word => order.__pharmacySearch.includes(word));
+      const statusMatch = !status || order.__status === status;
+      const ownerMatch = !owner || order.__ownerKey === owner;
+      return textMatch && pharmacyMatch && statusMatch && ownerMatch && inDateRange(order) && historyModeMatches(order, history);
+    }
+
+    function replaceSmartSelect(selectId, options = []) {
+      const select = $(selectId);
+      if (!select) return;
+      const current = select.value || ``;
+      const hasCurrent = options.some(option => String(option.value) === String(current));
+      select.innerHTML = options.map(option => {
+        const countText = Number.isFinite(option.count) ? ` (${formatCount(option.count)})` : ``;
+        return `<option value="${escapeAttr(option.value)}">${escapeHtml(option.label)}${countText}</option>`;
+      }).join(``);
+      select.value = hasCurrent ? current : ``;
+    }
+
+    function syncSmartFilterOptions() {
+      const statusCounts = new Map();
+      const ownerCounts = new Map();
+      const historyCounts = new Map();
+      state.orders.forEach(order => {
+        if (controlOrderMatches(order, { status: `` })) {
+          if (order.__status) statusCounts.set(order.__status, (statusCounts.get(order.__status) || 0) + 1);
+        }
+        if (controlOrderMatches(order, { owner: `` })) {
+          const owner = order.__ownerKey || `none`;
+          ownerCounts.set(owner, (ownerCounts.get(owner) || 0) + 1);
+        }
+        if (controlOrderMatches(order, { history: `` })) {
+          if (arrayCount(order.auditTrail) > 0) historyCounts.set(`audit`, (historyCounts.get(`audit`) || 0) + 1);
+          if (exportCount(order) > 0) historyCounts.set(`export`, (historyCounts.get(`export`) || 0) + 1);
+          if (printCount(order) > 0) historyCounts.set(`print`, (historyCounts.get(`print`) || 0) + 1);
+          if (arrayCount(order.auditTrail) === 0) historyCounts.set(`no_audit`, (historyCounts.get(`no_audit`) || 0) + 1);
+        }
+      });
+      const statusOptions = [{ value: ``, label: `كل الحالات` }, ...Array.from(statusCounts.entries())
+        .filter(([status, count]) => status && count > 0)
+        .sort((a, b) => statusLabel(a[0]).localeCompare(statusLabel(b[0]), `ar`))
+        .map(([status, count]) => ({ value: status, label: `${statusLabel(status)} — ${status}`, count }))];
+      const ownerOptions = [{ value: ``, label: `كل الجهات` }, ...Object.keys(OWNER_LABELS)
+        .filter(owner => (ownerCounts.get(owner) || 0) > 0)
+        .map(owner => ({ value: owner, label: OWNER_LABELS[owner], count: ownerCounts.get(owner) || 0 }))];
+      const historyLabels = { audit: `لديها سجل تدقيق`, export: `لديها سجل تصدير`, print: `لديها سجل طباعة`, no_audit: `بدون سجل تدقيق` };
+      const historyOptions = [{ value: ``, label: `كل السجلات` }, ...[`audit`, `export`, `print`, `no_audit`]
+        .filter(mode => (historyCounts.get(mode) || 0) > 0)
+        .map(mode => ({ value: mode, label: historyLabels[mode], count: historyCounts.get(mode) || 0 }))];
+      replaceSmartSelect(`statusFilter`, statusOptions);
+      replaceSmartSelect(`ownerFilter`, ownerOptions);
+      replaceSmartSelect(`historyFilter`, historyOptions);
+    }
+
     function applyFilters() {
-      const words = searchWords($(`searchBox`).value);
-      const pharmacyWords = searchWords($(`pharmacySearch`).value);
-      const status = $(`statusFilter`).value || ``;
-      const owner = $(`ownerFilter`).value || ``;
+      syncSmartFilterOptions();
       const sortMode = $(`sortMode`).value || `date_desc`;
 
-      state.visible = state.orders.filter(order => {
-        const textMatch = !words.length || words.every(word => order.__search.includes(word));
-        const pharmacyMatch = !pharmacyWords.length || pharmacyWords.every(word => order.__pharmacySearch.includes(word));
-        const statusMatch = !status || order.__status === status;
-        const ownerMatch = !owner || order.__ownerKey === owner;
-        return textMatch && pharmacyMatch && statusMatch && ownerMatch && inDateRange(order) && historyMatches(order);
-      });
+      state.visible = state.orders.filter(order => controlOrderMatches(order));
 
       state.visible.sort((a, b) => {
         if (sortMode === `date_asc`) return a.__dateTs - b.__dateTs;
@@ -1825,21 +1826,14 @@
         return b.__dateTs - a.__dateTs;
       });
 
-      state.currentPage = 1;
       pruneSelection();
       renderAll();
     }
 
     function buildStatusOptions() {
-      const counts = new Map();
-      state.orders.forEach(order => counts.set(order.__status, (counts.get(order.__status) || 0) + 1));
-      const options = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || statusLabel(a[0]).localeCompare(statusLabel(b[0]), `ar`));
-      const current = $(`statusFilter`).value;
-      $(`statusFilter`).innerHTML = `<option value="">كل الحالات</option>${options.map(([status, count]) => `<option value="${escapeAttr(status)}">${escapeHtml(statusLabel(status))} — ${escapeHtml(status)} (${formatCount(count)})</option>`).join(``)}`;
-      if (current && options.some(([status]) => status === current)) $(`statusFilter`).value = current;
-
       state.statusTargets = WORKFLOW_STATUSES.map(status => ({ status, label: statusLabel(status) }));
       $(`targetStatus`).innerHTML = state.statusTargets.map(item => `<option value="${escapeAttr(item.status)}">${escapeHtml(item.label)} — ${escapeHtml(item.status)}</option>`).join(``);
+      syncSmartFilterOptions();
     }
 
     function renderKpis() {
@@ -1859,9 +1853,8 @@
       $(`databaseCount`).textContent = formatCount(state.orders.length);
       $(`selectedCount`).textContent = formatCount(state.selected.size);
       $(`bulkStatusBtn`).disabled = !state.selected.size;
-      const selectableRows = state.pageRows.length ? state.pageRows : state.visible;
-      $(`selectAllVisible`).checked = selectableRows.length > 0 && selectableRows.every(order => state.selected.has(order.id));
-      $(`selectAllVisible`).indeterminate = selectableRows.some(order => state.selected.has(order.id)) && !$(`selectAllVisible`).checked;
+      $(`selectAllVisible`).checked = state.visible.length > 0 && state.visible.every(order => state.selected.has(order.id));
+      $(`selectAllVisible`).indeterminate = state.visible.some(order => state.selected.has(order.id)) && !$(`selectAllVisible`).checked;
     }
 
     function renderOwnerBoard() {
@@ -1938,37 +1931,6 @@
       `;
     }
 
-
-    function renderControlPager() {
-      const pager = $(`controlOrdersPager`);
-      if (!pager) return 1;
-      const totalRows = state.visible.length;
-      const totalPages = Math.max(1, Math.ceil(totalRows / CONTROL_PAGE_SIZE));
-      state.currentPage = Math.min(Math.max(Number(state.currentPage || 1), 1), totalPages);
-      if (totalRows <= CONTROL_PAGE_SIZE) {
-        pager.innerHTML = totalRows ? `<span class="pager-label">Page 1 of 1</span>` : ``;
-        return state.currentPage;
-      }
-      const btn = (label, page, disabled = false, active = false) => `<button type="button" class="${active ? `active` : ``}" data-page="${page}" ${disabled ? `disabled` : ``}>${label}</button>`;
-      const pages = new Set([1, totalPages, state.currentPage - 1, state.currentPage, state.currentPage + 1].filter(page => page >= 1 && page <= totalPages));
-      pager.innerHTML = `${btn(`‹`, state.currentPage - 1, state.currentPage === 1)}<span class="pager-label">Page ${state.currentPage} of ${totalPages}</span>${[...pages].sort((a, b) => a - b).map(page => btn(page, page, false, page === state.currentPage)).join(``)}${btn(`›`, state.currentPage + 1, state.currentPage === totalPages)}`;
-      pager.querySelectorAll(`[data-page]`).forEach(button => button.addEventListener(`click`, () => {
-        const next = Number(button.dataset.page);
-        if (!Number.isFinite(next) || next < 1 || next > totalPages || next === state.currentPage) return;
-        state.currentPage = next;
-        renderTable();
-        renderKpis();
-      }));
-      return state.currentPage;
-    }
-
-    function getControlPageRows() {
-      const page = renderControlPager();
-      const start = (page - 1) * CONTROL_PAGE_SIZE;
-      state.pageRows = state.visible.slice(start, start + CONTROL_PAGE_SIZE);
-      return state.pageRows;
-    }
-
     function renderTable() {
       if (state.loading) {
         $(`ordersBody`).innerHTML = `<tr><td colspan="11"><div class="empty-state"><span class="skeleton" style="width: 76%;"></span></div></td></tr>`;
@@ -1979,20 +1941,17 @@
         const empty = `<div class="empty-state">لا توجد طلبيات مطابقة للفلاتر الحالية.</div>`;
         $(`ordersBody`).innerHTML = `<tr><td colspan="11">${empty}</td></tr>`;
         $(`mobileCards`).innerHTML = empty;
-        state.pageRows = [];
-        if ($(`controlOrdersPager`)) $(`controlOrdersPager`).innerHTML = ``;
         return;
       }
-      const pageRows = getControlPageRows();
-      $(`ordersBody`).innerHTML = pageRows.map(rowHtml).join(``);
-      $(`mobileCards`).innerHTML = pageRows.map(mobileCardHtml).join(``);
+      $(`ordersBody`).innerHTML = state.visible.map(rowHtml).join(``);
+      $(`mobileCards`).innerHTML = state.visible.slice(0, 80).map(mobileCardHtml).join(``) + (state.visible.length > 80 ? `<div class="empty-state">تم عرض أول 80 طلبية على الموبايل. استخدم البحث لتضييق النتائج.</div>` : ``);
     }
 
     function renderAll() {
-      renderTable();
       renderKpis();
       renderOwnerBoard();
       renderStatusCloud();
+      renderTable();
     }
 
     function openDetails(orderId) {
@@ -2188,7 +2147,7 @@
         toValue,
         fromDate,
         toDate,
-        key: `${CONTROL_DATA_CACHE_VERSION}_${fromValue}_${toValue}`
+        key: `${CONTROL_VERSION}_${fromValue}_${toValue}`
       };
     }
 
@@ -2263,19 +2222,6 @@
 
       state.loadingPromise = (async () => {
         try {
-          if (isFirestoreQuotaCooldownActive()) {
-            const staleOrders = readOrdersCache(range, true);
-            if (staleOrders) {
-              hydrateOrders(staleOrders);
-              state.loadedRangeKey = range.key;
-              $(`lastLoadedAt`).textContent = new Date().toLocaleString(`en-GB`);
-              $(`connectionHint`).textContent = `كوتا Firebase ممتلئة؛ تم عرض آخر نسخة محفوظة. إعادة المحاولة بعد ${quotaCooldownMinutes()} دقيقة تقريباً`;
-              if (!quiet) toast(`تم عرض آخر نسخة محفوظة بدون إعادة استهلاك الكوتا.`, `warning`);
-              return;
-            }
-            throw new Error(`Firebase quota cooldown active`);
-          }
-
           if (!quiet) setBusy(true, `جاري تحميل Firebase حسب التاريخ...`);
           const snap = await getDocs(buildOrdersQuery(range));
           const rawOrders = snap.docs.map(item => ({ id: item.id, ...item.data() }));
@@ -2286,20 +2232,17 @@
           $(`connectionHint`).textContent = `تم تحميل ${formatCount(state.orders.length)} طلبية من ${range.fromValue} إلى ${range.toValue}`;
           toast(`تم تحديث البيانات.`, `success`);
         } catch (error) {
-          activateFirestoreQuotaCooldown(error);
-          console.warn(`Control orders load skipped/failed`, error?.code || error?.message || error);
+          console.error(error);
           const fallbackOrders = readOrdersCache(range, true);
           if (fallbackOrders) {
             hydrateOrders(fallbackOrders);
             state.loadedRangeKey = range.key;
-            $(`connectionHint`).textContent = isFirestoreQuotaError(error)
-              ? `تعذر التحديث بسبب كوتا Firebase؛ تم عرض آخر نسخة محفوظة. إعادة المحاولة بعد ${quotaCooldownMinutes()} دقيقة تقريباً`
-              : `تعذر التحديث؛ تم عرض آخر نسخة محفوظة`;
-            toast(`تم عرض آخر نسخة محفوظة لأن Firebase غير متاح أو الكوتا ممتلئة.`, `warning`);
+            $(`connectionHint`).textContent = `تعذر التحديث بسبب كوتا Firebase؛ تم عرض آخر نسخة محفوظة`;
+            toast(`تم عرض آخر نسخة محفوظة لأن كوتا Firebase ممتلئة.`, `warning`);
             return;
           }
-          toast(`تعذر تحميل البيانات: كوتا Firebase ممتلئة أو لا توجد نسخة محفوظة لهذا المدى.`, `error`);
-          $(`ordersBody`).innerHTML = `<tr><td colspan="11"><div class="empty-state">تعذر تحميل البيانات من Firebase ولا توجد نسخة محفوظة لهذا المدى. افتح مدى تاريخ سبق تحميله أو انتظر تجدد الكوتا.</div></td></tr>`;
+          toast(`تعذر تحميل البيانات: كوتا Firebase ممتلئة أو الاتصال غير متاح.`, `error`);
+          $(`ordersBody`).innerHTML = `<tr><td colspan="11"><div class="empty-state">تعذر تحميل البيانات من Firebase. قلل مدى التاريخ أو انتظر تجدد الكوتا.</div></td></tr>`;
         } finally {
           state.loadingPromise = null;
           setBusy(false);
@@ -2324,8 +2267,7 @@
     }
 
     function toggleSelectAll(checked) {
-      const selectableRows = state.pageRows.length ? state.pageRows : state.visible;
-      selectableRows.forEach(order => {
+      state.visible.forEach(order => {
         if (checked) state.selected.add(order.id);
         else state.selected.delete(order.id);
       });

@@ -81,43 +81,85 @@ function updateConditionalUi(showOther, showTarget) {
 }
 
 function populateFilters() {
-    const itemSelect = C.$(`itemFilter`);
-    const areaSelect = C.$(`areaFilter`);
-    const items = [...new Set(state.rows.map(row => row.itemName).filter(Boolean))].sort((a, b) => a.localeCompare(b, `ar`));
-    const areas = [...new Set(state.rows.map(row => row.area).filter(Boolean))].sort((a, b) => a.localeCompare(b, `ar`));
-    const oldItem = itemSelect.value;
-    const oldArea = areaSelect.value;
-    itemSelect.innerHTML = `<option value="">كل الأصناف</option>${items.map(item => `<option value="${C.escapeHtml(item)}">${C.escapeHtml(item)}</option>`).join(``)}`;
-    areaSelect.innerHTML = `<option value="">كل المناطق</option>${areas.map(area => `<option value="${C.escapeHtml(area)}">${C.escapeHtml(area)}</option>`).join(``)}`;
-    if (oldItem) itemSelect.value = oldItem;
-    if (oldArea) areaSelect.value = oldArea;
+    syncSmartFilterOptions();
 }
 
-function applyFilters() {
-    const from = C.$(`dateFrom`)?.value || ``;
-    const to = C.$(`dateTo`)?.value || ``;
-    const item = C.$(`itemFilter`)?.value || ``;
-    const area = C.$(`areaFilter`)?.value || ``;
-    const showOther = hasConfiguredOtherShares();
+function selectedChannel(showOther) {
     let channel = C.$(`channelFilter`)?.value || `all`;
     if (!showOther && channel === `others`) {
         C.$(`channelFilter`).value = `all`;
         channel = `all`;
     }
-    const search = C.normalizeArabic(C.$(`searchInput`)?.value || ``);
+    return channel;
+}
 
-    state.filtered = state.rows.filter(row => {
-        if (!C.isWithinRange(row.date, from, to)) return false;
-        if (item && row.itemName !== item) return false;
-        if (area && row.area !== area) return false;
-        if (!showOther && row.channel === `others`) return false;
-        if (channel !== `all` && row.channel !== channel) return false;
-        if (search) {
-            const haystack = C.normalizeArabic(`${row.pharmacyName} ${row.pharmacyCode} ${row.itemName} ${row.area} ${row.salesRepName} ${row.orderShort}`);
-            if (!haystack.includes(search)) return false;
-        }
-        return true;
+function dashboardRowMatches(row = {}, overrides = {}, showOther = state.ui.showOther) {
+    const from = overrides.from ?? (C.$(`dateFrom`)?.value || ``);
+    const to = overrides.to ?? (C.$(`dateTo`)?.value || ``);
+    const item = overrides.item ?? (C.$(`itemFilter`)?.value || ``);
+    const area = overrides.area ?? (C.$(`areaFilter`)?.value || ``);
+    const channel = overrides.channel ?? selectedChannel(showOther);
+    const search = overrides.search ?? C.normalizeArabic(C.$(`searchInput`)?.value || ``);
+    if (!C.isWithinRange(row.date, from, to)) return false;
+    if (item && row.itemName !== item) return false;
+    if (area && row.area !== area) return false;
+    if (!showOther && row.channel === `others`) return false;
+    if (channel !== `all` && row.channel !== channel) return false;
+    if (search) {
+        const haystack = C.normalizeArabic(`${row.pharmacyName} ${row.pharmacyCode} ${row.itemName} ${row.area} ${row.salesRepName} ${row.orderShort}`);
+        if (!haystack.includes(search)) return false;
+    }
+    return true;
+}
+
+function replaceDashboardSelectOptions(selectId, baseLabel, values = []) {
+    const select = C.$(selectId);
+    if (!select) return;
+    const current = select.value || ``;
+    const options = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, `ar`));
+    select.innerHTML = `<option value="">${baseLabel}</option>${options.map(value => `<option value="${C.escapeHtml(value)}">${C.escapeHtml(value)}</option>`).join(``)}`;
+    select.value = current && options.includes(current) ? current : ``;
+}
+
+function syncChannelFilterOptions(showOther = hasConfiguredOtherShares()) {
+    const select = C.$(`channelFilter`);
+    if (!select) return;
+    const current = select.value || `all`;
+    const counts = { direct: 0, others: 0 };
+    state.rows.forEach(row => {
+        if (dashboardRowMatches(row, { channel: `all` }, showOther) && counts[row.channel] !== undefined) counts[row.channel] += 1;
     });
+    const options = [{ value: `all`, label: `الكل` }];
+    if (counts.direct > 0) options.push({ value: `direct`, label: `مباشر`, count: counts.direct });
+    if (showOther && counts.others > 0) options.push({ value: `others`, label: `اخرين فقط`, count: counts.others });
+    select.innerHTML = options.map(option => {
+        const countText = Number.isFinite(option.count) ? ` (${option.count.toLocaleString(`en-US`)})` : ``;
+        return `<option value="${option.value}">${option.label}${countText}</option>`;
+    }).join(``);
+    select.value = options.some(option => option.value === current) ? current : `all`;
+}
+
+function syncSmartFilterOptions(showOther = hasConfiguredOtherShares()) {
+    const itemValues = [];
+    const areaValues = [];
+    state.rows.forEach(row => {
+        if (dashboardRowMatches(row, { item: `` }, showOther)) itemValues.push(row.itemName);
+        if (dashboardRowMatches(row, { area: `` }, showOther)) areaValues.push(row.area);
+    });
+    replaceDashboardSelectOptions(`itemFilter`, `كل الأصناف`, itemValues);
+    replaceDashboardSelectOptions(`areaFilter`, `كل المناطق`, areaValues);
+    syncChannelFilterOptions(showOther);
+}
+
+function applyFilters() {
+    let showOther = hasConfiguredOtherShares();
+    selectedChannel(showOther);
+    syncSmartFilterOptions(showOther);
+    showOther = hasConfiguredOtherShares();
+    selectedChannel(showOther);
+    syncSmartFilterOptions(showOther);
+
+    state.filtered = state.rows.filter(row => dashboardRowMatches(row, {}, showOther));
     state.orderGroups = buildOrderGroups(state.filtered);
     renderDashboard(showOther);
 }

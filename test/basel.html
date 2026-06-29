@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <link rel="icon" href="./favicon.ico?v=20260628_quota_cooldown_fix1" />
+  <link rel="icon" href="./favicon.ico?v=20260628_smart_filters_all1" />
   <meta charset="UTF-8" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
@@ -1037,20 +1037,6 @@
       .bulk-toolbar { margin: 0 12px 12px; align-items: stretch; flex-direction: column; }
       .bulk-actions, .bulk-actions .btn { width: 100%; }
     }
-
-    .basel-pager {
-      display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;
-      margin:14px 0 6px; padding:10px; color:#475569; font-weight:900; direction:ltr;
-    }
-    .basel-pager button {
-      border:1px solid rgba(9,153,153,.24); background:#fff; color:#0f172a; border-radius:12px;
-      min-width:38px; height:38px; padding:0 12px; font-weight:900; cursor:pointer;
-      transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
-    }
-    .basel-pager button:hover { transform:translateY(-1px); box-shadow:0 8px 20px rgba(15,23,42,.10); }
-    .basel-pager button.active { background:#099999; color:#fff; border-color:#099999; }
-    .basel-pager button:disabled { opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
-    .basel-pager .pager-label { min-width:110px; text-align:center; }
   </style>
 </head>
 
@@ -1186,7 +1172,6 @@
           <tbody id="ordersBody"></tbody>
         </table>
       </div>
-      <div id="baselOrdersPager" class="basel-pager"></div>
     </section>
   </main>
 
@@ -1249,9 +1234,6 @@
       getFirestore,
       collection,
       getDocs,
-      query,
-      where,
-      orderBy,
       doc,
       getDoc,
       updateDoc,
@@ -1355,9 +1337,6 @@
 
     let allOrders = [];
     let currentFilteredOrders = [];
-    let currentPageOrders = [];
-    let baselCurrentPage = 1;
-    const BASEL_PAGE_SIZE = 50;
     let selectedOrderIdForMove = null;
     let selectedOrderIdForDetails = null;
     let selectedOrderIds = new Set();
@@ -1369,48 +1348,11 @@
     let currentPharmacyOptionsByKey = new Map();
     let optionMemo = new Map();
 
-    const BASEL_CACHE_VERSION = `20260628_quota_cooldown_fix1`;
-    const BASEL_DATA_CACHE_VERSION = `20260628_monthly_report_cache_fix1`;
-    const BASEL_ORDERS_CACHE_PREFIX = `basel_orders_cache_${BASEL_DATA_CACHE_VERSION}`;
+    const BASEL_ORDERS_CACHE_KEY = `basel_orders_cache_v5`;
     const BASEL_FILTER_CACHE_KEY = `basel_filter_state_v2`;
-    const BASEL_CACHE_TTL_MS = 60 * 60 * 1000;
-    const BASEL_HISTORICAL_CACHE_TTL_MS = 365 * 24 * 60 * 60 * 1000;
+    const BASEL_CACHE_TTL_MS = 10 * 60 * 1000;
     const MAX_PHARMACY_DROPDOWN_ROWS = 28;
     const MIN_PHARMACY_DROPDOWN_CHARS = 2;
-    const FIRESTORE_QUOTA_COOLDOWN_KEY = `dad_firestore_quota_cooldown_until`;
-    const FIRESTORE_QUOTA_COOLDOWN_MS = 60 * 60 * 1000;
-
-    function firestoreQuotaText(error) {
-      return `${error?.code || ``} ${error?.name || ``} ${error?.message || ``}`.toLowerCase();
-    }
-
-    function isFirestoreQuotaError(error) {
-      const text = firestoreQuotaText(error);
-      return text.includes(`resource-exhausted`) || text.includes(`quota`) || text.includes(`429`);
-    }
-
-    function quotaCooldownUntil() {
-      try {
-        return Number(localStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || sessionStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || 0);
-      } catch (_) {
-        return 0;
-      }
-    }
-
-    function isFirestoreQuotaCooldownActive() {
-      return Date.now() < quotaCooldownUntil();
-    }
-
-    function activateFirestoreQuotaCooldown(error) {
-      if (!isFirestoreQuotaError(error)) return;
-      const until = Date.now() + FIRESTORE_QUOTA_COOLDOWN_MS;
-      try { localStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
-      try { sessionStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
-    }
-
-    function quotaCooldownMinutes() {
-      return Math.max(1, Math.ceil((quotaCooldownUntil() - Date.now()) / 60000));
-    }
 
     const loading = document.getElementById(`loading`);
     const errorBox = document.getElementById(`errorBox`);
@@ -1420,7 +1362,6 @@
     const fromDate = document.getElementById(`fromDate`);
     const toDate = document.getElementById(`toDate`);
     const ordersBody = document.getElementById(`ordersBody`);
-    const baselOrdersPager = document.getElementById(`baselOrdersPager`);
     const detailsContent = document.getElementById(`detailsContent`);
     const detailsSubtitle = document.getElementById(`detailsSubtitle`);
     const moveStatusSelect = document.getElementById(`moveStatusSelect`);
@@ -1494,53 +1435,26 @@
       }));
     }
 
-    function selectedOrdersRange() {
-      let fromValue = fromDate?.value || ``;
-      let toValue = toDate?.value || ``;
-      const today = new Date();
-      if (!fromValue) fromValue = toDateInputValue(new Date(today.getFullYear(), today.getMonth(), 1));
-      if (!toValue) toValue = toDateInputValue(today);
-      const from = new Date(`${fromValue}T00:00:00`);
-      const to = new Date(`${toValue}T23:59:59.999`);
-      return { fromValue, toValue, from, to, key: `${fromValue}_${toValue}` };
-    }
-
-    function baselOrdersCacheKey(range) {
-      return `${BASEL_ORDERS_CACHE_PREFIX}_${range.key}`;
-    }
-
-    function isHistoricalBaselRange(range) {
-      const now = new Date();
-      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      return range.to.getTime() < currentMonthStart.getTime();
-    }
-
-    function baselCacheTtl(range) {
-      return isHistoricalBaselRange(range) ? BASEL_HISTORICAL_CACHE_TTL_MS : BASEL_CACHE_TTL_MS;
-    }
-
-    function saveOrdersCache(range = selectedOrdersRange()) {
+    function saveOrdersCache() {
       try {
         const payload = {
           savedAt: Date.now(),
-          range: range.key,
-          historical: isHistoricalBaselRange(range),
           orders: safeJsonClone(allOrders)
         };
-        localStorage.setItem(baselOrdersCacheKey(range), JSON.stringify(payload));
+        localStorage.setItem(BASEL_ORDERS_CACHE_KEY, JSON.stringify(payload));
       } catch (error) {
         console.warn(`Basel cache save skipped`, error);
       }
     }
 
-    function loadOrdersCache(range = selectedOrdersRange(), allowExpired = false) {
+    function loadOrdersCache() {
       try {
-        const raw = localStorage.getItem(baselOrdersCacheKey(range));
+        const raw = localStorage.getItem(BASEL_ORDERS_CACHE_KEY);
         if (!raw) return false;
         const payload = JSON.parse(raw);
         if (!payload?.orders?.length) return false;
         const age = Date.now() - Number(payload.savedAt || 0);
-        if (!allowExpired && age > baselCacheTtl(range)) return false;
+        if (age > BASEL_CACHE_TTL_MS) return false;
         allOrders = payload.orders;
         hydrateOrdersForFastFiltering();
         allOrdersVersion += 1;
@@ -1548,8 +1462,8 @@
         cacheRenderDone = true;
         renderMoveStatusOptions();
         syncFilterOptionsAndRender();
-        lastLoadedAt.textContent = `محفوظ محليًا${isHistoricalBaselRange(range) ? ` طويل المدى` : ``}`;
-        loading.innerHTML = `تم عرض نسخة محفوظة داخليًا للفترة ${range.fromValue} إلى ${range.toValue}.`;
+        lastLoadedAt.textContent = `محفوظ محليًا`;
+        loading.innerHTML = `تم عرض نسخة محفوظة داخليًا، ويتم تحديثها من Firebase عند الضغط على تحديث البيانات.`;
         return true;
       } catch (error) {
         console.warn(`Basel cache load skipped`, error);
@@ -2028,7 +1942,7 @@
     }
 
     function updateSelectionUi() {
-      const visibleIds = (currentPageOrders.length ? currentPageOrders : currentFilteredOrders).map(order => order.id).filter(Boolean);
+      const visibleIds = currentFilteredOrders.map(order => order.id).filter(Boolean);
       const visibleSelectedCount = visibleIds.filter(id => selectedOrderIds.has(id)).length;
       selectedOrdersCount.textContent = formatCount(selectedOrderIds.size);
       bulkMoveButton.disabled = selectedOrderIds.size === 0;
@@ -2056,7 +1970,7 @@
     }
 
     function toggleSelectAllVisible(checked) {
-      (currentPageOrders.length ? currentPageOrders : currentFilteredOrders).forEach(order => {
+      currentFilteredOrders.forEach(order => {
         if (!order.id) return;
         if (checked) selectedOrderIds.add(order.id);
         else selectedOrderIds.delete(order.id);
@@ -2112,29 +2026,6 @@
     }
 
 
-
-
-    function renderBaselPager() {
-      const totalRows = currentFilteredOrders.length;
-      if (!baselOrdersPager) return 1;
-      const totalPages = Math.max(1, Math.ceil(totalRows / BASEL_PAGE_SIZE));
-      baselCurrentPage = Math.min(Math.max(baselCurrentPage, 1), totalPages);
-      if (totalRows <= BASEL_PAGE_SIZE) {
-        baselOrdersPager.innerHTML = totalRows ? `<span class="pager-label">Page 1 of 1</span>` : ``;
-        return baselCurrentPage;
-      }
-      const btn = (label, page, disabled = false, active = false) => `<button type="button" class="${active ? `active` : ``}" data-page="${page}" ${disabled ? `disabled` : ``}>${label}</button>`;
-      const pages = new Set([1, totalPages, baselCurrentPage - 1, baselCurrentPage, baselCurrentPage + 1].filter(page => page >= 1 && page <= totalPages));
-      baselOrdersPager.innerHTML = `${btn(`‹`, baselCurrentPage - 1, baselCurrentPage === 1)}<span class="pager-label">Page ${baselCurrentPage} of ${totalPages}</span>${[...pages].sort((a, b) => a - b).map(page => btn(page, page, false, page === baselCurrentPage)).join(``)}${btn(`›`, baselCurrentPage + 1, baselCurrentPage === totalPages)}`;
-      baselOrdersPager.querySelectorAll(`[data-page]`).forEach(button => button.addEventListener(`click`, () => {
-        const next = Number(button.dataset.page);
-        if (!Number.isFinite(next) || next < 1 || next > totalPages || next === baselCurrentPage) return;
-        baselCurrentPage = next;
-        renderOrdersTable();
-      }));
-      return baselCurrentPage;
-    }
-
     function syncFilterOptionsAndRender() {
       if (filterSyncing) return;
       filterSyncing = true;
@@ -2143,7 +2034,6 @@
       const pharmacyOptionRows = getMemoizedPharmacyOptions();
       renderPharmacyOptions(pharmacyOptionRows);
       currentFilteredOrders = getFilteredOrders().sort(compareOrdersByDateTimeDesc);
-      baselCurrentPage = 1;
       saveFilterState();
       pruneSelectionToCurrentFilter();
       updateKpis(currentFilteredOrders);
@@ -2155,22 +2045,18 @@
     function renderOrdersTable() {
       if (!currentFilteredOrders.length) {
         ordersBody.innerHTML = `<tr><td colspan="10"><div class="empty-state">لا توجد طلبيات ضمن الفلاتر الحالية.<br>غيّر التاريخ أو الحالة أو الصيدلية.</div></td></tr>`;
-        currentPageOrders = [];
-        if (baselOrdersPager) baselOrdersPager.innerHTML = ``;
         updateSelectionUi();
         return;
       }
 
-      const page = renderBaselPager();
-      currentPageOrders = currentFilteredOrders.slice((page - 1) * BASEL_PAGE_SIZE, page * BASEL_PAGE_SIZE);
       const selected = statusFilter.value ? parseStatusKey(statusFilter.value) : null;
-      ordersBody.innerHTML = currentPageOrders.map((order, index) => {
+      ordersBody.innerHTML = currentFilteredOrders.map((order, index) => {
         const fieldLabel = `آخر حالة فعلية`;
         const statusValue = getLatestWorkflowStatus(order);
         return `
           <tr class="${selectedOrderIds.has(order.id) ? `selected-row` : ``}" style="animation-delay:${Math.min(index * 16, 220)}ms">
             <td class="select-cell"><input class="order-check" type="checkbox" data-order-select value="${escapeAttr(order.id)}" ${selectedOrderIds.has(order.id) ? `checked` : ``} onchange="toggleOrderSelection('${escapeAttr(order.id)}', this.checked)" aria-label="تحديد الطلبية" /></td>
-            <td class="num">${((baselCurrentPage - 1) * BASEL_PAGE_SIZE) + index + 1}</td>
+            <td class="num">${index + 1}</td>
             <td class="num date-cell">${escapeHtml(getOrderDateOnly(order))}</td>
             <td class="num time-cell">${escapeHtml(getOrderTimeOnly(order))}</td>
             <td title="${escapeAttr(getRepName(order))}">${escapeHtml(getRepName(order))}</td>
@@ -2531,49 +2417,27 @@
       await loadOrders(true);
     }
 
-    async function loadOrders(quiet = false, forceRemote = quiet) {
-      const range = selectedOrdersRange();
+    async function loadOrders(quiet = false) {
       try {
         if (!quiet) {
-          loading.innerHTML = `جاري قراءة الطلبيات للفترة ${range.fromValue} إلى ${range.toValue}...`;
+          loading.innerHTML = `جاري قراءة الطلبيات...`;
           ordersBody.innerHTML = `<tr><td colspan="10" class="loader-row"><span class="skeleton" style="width:90%;height:18px"></span><br><span class="skeleton" style="width:70%;height:18px"></span></td></tr>`;
+          loadOrdersCache();
         }
         errorBox.style.display = `none`;
-        if (!forceRemote && loadOrdersCache(range, false)) return;
-        if (isFirestoreQuotaCooldownActive()) {
-          if (loadOrdersCache(range, true)) {
-            showToast(`تم عرض آخر نسخة محفوظة بدون إعادة استهلاك الكوتا.`, `warning`);
-            lastLoadedAt.textContent = `كاش محفوظ / إعادة المحاولة بعد ${quotaCooldownMinutes()} دقيقة`;
-            return;
-          }
-          throw new Error(`Firebase quota cooldown active`);
-        }
-        const ordersQuery = query(
-          collection(db, `orders`),
-          where(`createdAt`, `>=`, range.from),
-          where(`createdAt`, `<=`, range.to),
-          orderBy(`createdAt`, `desc`)
-        );
-        const snap = await getDocs(ordersQuery);
+        const snap = await getDocs(collection(db, `orders`));
         allOrders = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
         hydrateOrdersForFastFiltering();
         allOrdersVersion += 1;
         optionMemo.clear();
-        saveOrdersCache(range);
+        saveOrdersCache();
         renderMoveStatusOptions();
         syncFilterOptionsAndRender();
         lastLoadedAt.textContent = new Date().toLocaleTimeString(`en-GB`, { hour: `2-digit`, minute: `2-digit`, second: `2-digit` });
       } catch (error) {
-        activateFirestoreQuotaCooldown(error);
-        console.warn(`Basel orders load skipped/failed`, error?.code || error?.message || error);
-        if (loadOrdersCache(range, true)) {
-          showToast(`تم عرض آخر نسخة محفوظة لأن Firebase غير متاح أو الكوتا ممتلئة.`, `warning`);
-          return;
-        }
+        console.error(error);
         errorBox.style.display = `block`;
-        errorBox.textContent = isFirestoreQuotaError(error)
-          ? `كوتا Firebase ممتلئة ولا توجد نسخة محفوظة لهذا المدى. انتظر تجدد الكوتا أو افتح مدى تاريخ سبق تحميله.`
-          : `حدث خطأ أثناء قراءة Firebase: ${error.message}`;
+        errorBox.textContent = `حدث خطأ أثناء قراءة Firebase: ${error.message}`;
         if (!cacheRenderDone) loading.textContent = `فشل تحميل البيانات.`;
       }
     }
@@ -2636,8 +2500,8 @@
     document.addEventListener(`click`, event => {
       if (!event.target.closest(`#pharmacyCombo`)) pharmacyDropdown.classList.remove(`open`);
     });
-    fromDate.addEventListener(`change`, () => loadOrders(false, false));
-    toDate.addEventListener(`change`, () => loadOrders(false, false));
+    fromDate.addEventListener(`change`, syncFilterOptionsAndRender);
+    toDate.addEventListener(`change`, syncFilterOptionsAndRender);
 
     window.loadOrders = loadOrders;
     window.showDetails = showDetails;

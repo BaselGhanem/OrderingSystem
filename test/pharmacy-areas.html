@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <link rel="icon" href="favicon.ico?v=20260628_quota_cooldown_fix1">
+    <link rel="icon" href="favicon.ico?v=20260628_smart_filters_all1">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>تدقيق مناطق الصيدليات | DAR ALDAWAA</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20260628_quota_cooldown_fix1">
+    <link rel="stylesheet" href="style.css?v=20260628_smart_filters_all1">
     <style>
         :root {
             --area-accent: #099999;
@@ -454,7 +454,7 @@
             </div>
             <div class="area-actions">
                 <a href="setting.html" class="btn-area btn-gray"><i class="ph ph-gear-six"></i> الإعدادات</a>
-                <a href="reports.html?v=20260628_quota_cooldown_fix1" class="btn-area btn-gray"><i class="ph ph-chart-bar"></i> التقارير</a>
+                <a href="reports.html" class="btn-area btn-gray"><i class="ph ph-chart-bar"></i> التقارير</a>
                 <button type="button" id="reloadBtn" class="btn-area btn-blue"><i class="ph ph-arrows-clockwise"></i> تحديث البيانات</button>
             </div>
         </header>
@@ -684,17 +684,36 @@
             $('duplicateCount').textContent = duplicateCodes;
         }
 
+        function pharmacyAreaRowMatches(row, filter = 'all', search = '') {
+            const missing = isAreaMissing(row.area);
+            if (filter === 'missing' && !missing) return false;
+            if (filter === 'filled' && missing) return false;
+            if (!search) return true;
+            const haystack = normalizeText(`${row.code} ${row.name} ${row.repName} ${row.repId} ${row.area}`);
+            return haystack.includes(search);
+        }
+
+        function syncAreaFilterOptions() {
+            const select = $('areaFilter');
+            if (!select) return;
+            const current = select.value || 'all';
+            const search = normalizeText($('searchInput')?.value || '');
+            const counts = {
+                all: state.rows.filter(row => pharmacyAreaRowMatches(row, 'all', search)).length,
+                missing: state.rows.filter(row => pharmacyAreaRowMatches(row, 'missing', search)).length,
+                filled: state.rows.filter(row => pharmacyAreaRowMatches(row, 'filled', search)).length
+            };
+            const labels = { all: 'كل الصيدليات', missing: 'بلا منطقة فقط', filled: 'لها منطقة فقط' };
+            const options = ['all', 'missing', 'filled'].filter(value => value === 'all' || counts[value] > 0);
+            select.innerHTML = options.map(value => `<option value="${value}">${labels[value]} (${counts[value].toLocaleString('en-US')})</option>`).join('');
+            select.value = options.includes(current) ? current : 'all';
+        }
+
         function getVisibleRows() {
+            syncAreaFilterOptions();
             const search = normalizeText($('searchInput')?.value || '');
             const filter = $('areaFilter')?.value || 'all';
-            return state.rows.filter(row => {
-                const missing = isAreaMissing(row.area);
-                if (filter === 'missing' && !missing) return false;
-                if (filter === 'filled' && missing) return false;
-                if (!search) return true;
-                const haystack = normalizeText(`${row.code} ${row.name} ${row.repName} ${row.repId} ${row.area}`);
-                return haystack.includes(search);
-            });
+            return state.rows.filter(row => pharmacyAreaRowMatches(row, filter, search));
         }
 
         function renderTable() {

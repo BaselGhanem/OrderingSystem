@@ -47,105 +47,10 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
-const WORKFLOW_CACHE_VERSION = '20260628_quota_cooldown_fix1';
-const WORKFLOW_DATA_CACHE_VERSION = '20260628_monthly_report_cache_fix1';
-const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
-const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_DATA_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
-const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_DATA_CACHE_VERSION}_orders_staff_all`;
-const FIRESTORE_QUOTA_COOLDOWN_KEY = 'dad_firestore_quota_cooldown_until';
-const FIRESTORE_QUOTA_COOLDOWN_MS = 1000 * 60 * 60;
-
-function firestoreQuotaText(error) {
-    return `${error?.code || ''} ${error?.name || ''} ${error?.message || ''}`.toLowerCase();
-}
-
-function isFirestoreQuotaError(error) {
-    const text = firestoreQuotaText(error);
-    return text.includes('resource-exhausted') || text.includes('quota') || text.includes('429');
-}
-
-function quotaCooldownUntil() {
-    try {
-        return Number(localStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || sessionStorage.getItem(FIRESTORE_QUOTA_COOLDOWN_KEY) || 0);
-    } catch (_) {
-        return 0;
-    }
-}
-
-function isFirestoreQuotaCooldownActive() {
-    return Date.now() < quotaCooldownUntil();
-}
-
-function activateFirestoreQuotaCooldown(error) {
-    if (!isFirestoreQuotaError(error)) return;
-    const until = Date.now() + FIRESTORE_QUOTA_COOLDOWN_MS;
-    try { localStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
-    try { sessionStorage.setItem(FIRESTORE_QUOTA_COOLDOWN_KEY, String(until)); } catch (_) {}
-}
-
-function quotaCooldownMinutes() {
-    return Math.max(1, Math.ceil((quotaCooldownUntil() - Date.now()) / 60000));
-}
-
-
-const WORKFLOW_TABLE_PAGE_SIZE = 50;
-const workflowTablePages = {};
-
-function workflowOrderDateTs(order = {}) {
-    return normalizeDate(order.createdAt || order.orderDate || order.date || order.updatedAt || order.changedAt)?.getTime() || 0;
-}
-
-function sortWorkflowOrdersDesc(orders = []) {
-    return [...orders].sort((a, b) => {
-        const diff = workflowOrderDateTs(b) - workflowOrderDateTs(a);
-        return diff || String(b.id || '').localeCompare(String(a.id || ''));
-    });
-}
-
-function ensureWorkflowPager(tbody, pagerId) {
-    let pager = document.getElementById(pagerId);
-    if (pager) return pager;
-    pager = document.createElement('div');
-    pager.id = pagerId;
-    pager.className = 'table-pager';
-    const table = tbody?.closest('table');
-    if (table) table.insertAdjacentElement('afterend', pager);
-    return pager;
-}
-
-function renderWorkflowPager(tbody, pagerId, pageKey, totalRows, renderAgain) {
-    const pager = ensureWorkflowPager(tbody, pagerId);
-    if (!pager) return 1;
-    const totalPages = Math.max(1, Math.ceil(totalRows / WORKFLOW_TABLE_PAGE_SIZE));
-    const current = Math.min(Math.max(Number(workflowTablePages[pageKey] || 1), 1), totalPages);
-    workflowTablePages[pageKey] = current;
-    if (totalRows <= WORKFLOW_TABLE_PAGE_SIZE) {
-        pager.innerHTML = totalRows > 0 ? `<span class="pager-label">Page 1 of 1</span>` : '';
-        return current;
-    }
-    const button = (label, page, disabled = false, active = false) => `<button type="button" class="${active ? 'active' : ''}" data-page="${page}" ${disabled ? 'disabled' : ''}>${label}</button>`;
-    const pages = new Set([1, totalPages, current - 1, current, current + 1].filter(page => page >= 1 && page <= totalPages));
-    pager.innerHTML = `${button('‹', current - 1, current === 1)}<span class="pager-label">Page ${current} of ${totalPages}</span>${[...pages].sort((a, b) => a - b).map(page => button(page, page, false, page === current)).join('')}${button('›', current + 1, current === totalPages)}`;
-    pager.querySelectorAll('[data-page]').forEach(btn => btn.addEventListener('click', () => {
-        const next = Number(btn.dataset.page);
-        if (!Number.isFinite(next) || next < 1 || next > totalPages || next === current) return;
-        workflowTablePages[pageKey] = next;
-        renderAgain();
-    }));
-    return current;
-}
-
-function getWorkflowPageRows(orders = [], tbody, pagerId, pageKey, renderAgain) {
-    const sorted = sortWorkflowOrdersDesc(orders);
-    const page = renderWorkflowPager(tbody, pagerId, pageKey, sorted.length, renderAgain);
-    const start = (page - 1) * WORKFLOW_TABLE_PAGE_SIZE;
-    return sorted.slice(start, start + WORKFLOW_TABLE_PAGE_SIZE);
-}
-
-function clearWorkflowPager(pagerId) {
-    const pager = document.getElementById(pagerId);
-    if (pager) pager.innerHTML = '';
-}
+const WORKFLOW_CACHE_VERSION = '20260628_smart_filters_all1';
+const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
+const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
+const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
 
 function debounce(fn, delay = 160) {
     let timer = null;
@@ -239,7 +144,7 @@ function writeCache(key, orders) {
 
 function readProductsCache() {
     try {
-        const raw = localStorage.getItem(`dad_products_${WORKFLOW_DATA_CACHE_VERSION}`) || sessionStorage.getItem(`dad_products_${WORKFLOW_DATA_CACHE_VERSION}`);
+        const raw = localStorage.getItem(`dad_products_${WORKFLOW_CACHE_VERSION}`) || sessionStorage.getItem(`dad_products_${WORKFLOW_CACHE_VERSION}`);
         if (!raw) return null;
         const payload = JSON.parse(raw);
         if (!payload || !Array.isArray(payload.products)) return null;
@@ -260,9 +165,9 @@ function writeProductsCache(products) {
         price: product.price ?? product.unitPrice ?? product.value ?? 0
     }));
     try {
-        localStorage.setItem(`dad_products_${WORKFLOW_DATA_CACHE_VERSION}`, JSON.stringify({ savedAt: Date.now(), products: compact }));
+        localStorage.setItem(`dad_products_${WORKFLOW_CACHE_VERSION}`, JSON.stringify({ savedAt: Date.now(), products: compact }));
     } catch (_) {
-        try { sessionStorage.setItem(`dad_products_${WORKFLOW_DATA_CACHE_VERSION}`, JSON.stringify({ savedAt: Date.now(), products: compact.slice(0, 1000) })); } catch (__) {}
+        try { sessionStorage.setItem(`dad_products_${WORKFLOW_CACHE_VERSION}`, JSON.stringify({ savedAt: Date.now(), products: compact.slice(0, 1000) })); } catch (__) {}
     }
 }
 
@@ -764,10 +669,6 @@ async function refreshOrdersFromFirebase(source = currentPageOrderSource(), cach
     const startedAt = Date.now();
     const loadToken = ++state.loadToken;
     try {
-        if (isFirestoreQuotaCooldownActive()) {
-            showDataModeNotice(`كوتا Firebase ممتلئة؛ تم إبقاء آخر نسخة محفوظة. إعادة المحاولة بعد ${quotaCooldownMinutes()} دقيقة تقريباً`);
-            return state.orders;
-        }
         const sources = Array.isArray(source) ? source : [source];
         const freshById = new Map();
         const results = await Promise.allSettled(sources.map(src => getDocs(src)));
@@ -790,9 +691,8 @@ async function refreshOrdersFromFirebase(source = currentPageOrderSource(), cach
         state.onOrdersChange?.();
         return state.orders;
     } catch (error) {
-        activateFirestoreQuotaCooldown(error);
-        console.warn('Workflow orders load skipped/failed', error?.code || error?.message || error);
-        showToast('فشل تحميل الطلبيات من Firebase. تم عرض آخر نسخة مخزنة إن وجدت.', isFirestoreQuotaError(error) ? 'warning' : 'error');
+        console.error('Workflow orders load failed', error);
+        showToast('فشل تحميل الطلبيات من Firebase. تم عرض آخر نسخة مخزنة إن وجدت.', 'error');
         return state.orders;
     } finally {
         console.debug(`workflow load ${WORKFLOW_PAGE}: ${Date.now() - startedAt}ms`);
@@ -808,10 +708,6 @@ async function refreshAllOrdersForStaffPaginated() {
     let allOrders = [];
 
     try {
-        if (isFirestoreQuotaCooldownActive()) {
-            showDataModeNotice(`كوتا Firebase ممتلئة؛ تم إبقاء آخر نسخة محفوظة للكل. إعادة المحاولة بعد ${quotaCooldownMinutes()} دقيقة تقريباً`);
-            return state.orders;
-        }
         for (let page = 0; page < maxPages; page++) {
             const pageQuery = lastDoc
                 ? query(ordersRef, orderBy(documentId()), startAfter(lastDoc), limit(pageSize))
@@ -835,9 +731,8 @@ async function refreshAllOrdersForStaffPaginated() {
         showDataModeNotice(`آخر تحديث للكل: ${new Date().toLocaleTimeString('en-GB')} — ${state.orders.length} طلبية`);
         return state.orders;
     } catch (error) {
-        activateFirestoreQuotaCooldown(error);
-        console.warn('Paginated all orders load skipped/failed', error?.code || error?.message || error);
-        showToast('فشل تحميل كل الطلبيات. تم إبقاء آخر بيانات ظاهرة بدون تعليق الصفحة.', isFirestoreQuotaError(error) ? 'warning' : 'error');
+        console.error('Paginated all orders load failed', error);
+        showToast('فشل تحميل كل الطلبيات. تم إبقاء آخر بيانات ظاهرة بدون تعليق الصفحة.', 'error');
         return state.orders;
     }
 }
@@ -900,6 +795,178 @@ function bindCommonFilters(applyFn) {
         $(id)?.addEventListener('input', debouncedApply);
         $(id)?.addEventListener('change', debouncedApply);
     });
+}
+
+
+const WORKFLOW_FILTER_LABELS = {
+    marketStatus: {
+        '': 'بانتظار مدير السوق فقط',
+        market_manager_pending: 'بانتظار مدير السوق',
+        supervisor_approved: 'معتمد من المشرف',
+        returned_to_market_manager: 'مرجعة لمدير السوق'
+    },
+    financeStatus: {
+        '': 'الكل',
+        finance_pending: 'بانتظار المالية',
+        finance_rejected: 'مرفوض مالياً',
+        returned_to_finance: 'مرجعة للمالية'
+    },
+    staffMode: {
+        active: 'جاهزة لقسم الطلبيات فقط',
+        followup: 'متابعة كل الطلبيات',
+        exported: 'المصدّرة فقط',
+        hidden: 'المفوترة والمخفية بعد التصدير'
+    },
+    owner: {
+        '': 'الكل',
+        supervisor: 'المشرف',
+        market_manager: 'مدير السوق',
+        finance_controller: 'المراقب المالي',
+        orders_staff: 'قسم الطلبيات',
+        representative: 'المندوب',
+        none: 'لا يوجد'
+    }
+};
+
+function replaceSelectOptions(selectId, options = [], fallbackLabel = 'الكل') {
+    const select = $(selectId);
+    if (!select) return false;
+    const current = select.value || '';
+    const hasCurrent = options.some(option => String(option.value) === String(current));
+    select.innerHTML = options.map(option => {
+        const countText = Number.isFinite(option.count) ? ` (${option.count.toLocaleString('en-US')})` : '';
+        return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label || fallbackLabel)}${countText}</option>`;
+    }).join('');
+    if (hasCurrent) {
+        select.value = current;
+        return false;
+    }
+    if (options.length) {
+        select.value = String(options[0].value ?? '');
+    }
+    return current !== (select.value || '');
+}
+
+function sortedCountOptions(counts, labels, firstOption = null) {
+    const options = Array.from(counts.entries())
+        .filter(([value, count]) => value && count > 0)
+        .sort((a, b) => String(labels[a[0]] || statusLabel(a[0]) || a[0]).localeCompare(String(labels[b[0]] || statusLabel(b[0]) || b[0]), 'ar'))
+        .map(([value, count]) => ({ value, label: labels[value] || statusLabel(value) || value, count }));
+    return firstOption ? [firstOption, ...options] : options;
+}
+
+function getStaffMode(order = {}) {
+    const status = getPrimaryStatus(order);
+    const staffState = order.orderStaffStatus || '';
+    const isHidden = status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order);
+    const isActive = (status === 'orders_staff_pending' || status === 'finance_approved' || staffState === 'orders_staff_pending' || order.financeStatus === 'finance_approved') && !isHidden && status !== 'orders_staff_exported';
+    const isExported = status === 'orders_staff_exported' || staffState === 'orders_staff_exported' || orderHasStaffExportEvidence(order);
+    if (isHidden) return 'hidden';
+    if (isExported) return 'exported';
+    if (isActive) return 'active';
+    return 'followup';
+}
+
+function marketOrderMatches(order = {}, overrides = {}) {
+    const rep = overrides.rep ?? (($('filterRepresentative')?.value || '').toLowerCase().trim());
+    const pharm = overrides.pharm ?? (($('filterPharmacy')?.value || '').toLowerCase().trim());
+    const status = overrides.status ?? ($('filterStatus')?.value || '');
+    const from = overrides.from ?? ($('filterDateFrom')?.value || '');
+    const to = overrides.to ?? ($('filterDateTo')?.value || '');
+    const orderStatus = order.status || '';
+    const eligible = ['market_manager_pending', 'supervisor_approved', 'returned_to_market_manager'].includes(orderStatus);
+    const statusMatch = status ? orderStatus === status : eligible;
+    return statusMatch &&
+        inDateRange(order, from, to) &&
+        (!rep || (order.repName || order.representativeName || '').toLowerCase().includes(rep)) &&
+        (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
+}
+
+function financeOrderMatches(order = {}, overrides = {}) {
+    const pharm = overrides.pharm ?? (($('filterPharmacy')?.value || '').toLowerCase().trim());
+    const status = overrides.status ?? ($('filterStatus')?.value || '');
+    const from = overrides.from ?? ($('filterDateFrom')?.value || '');
+    const to = overrides.to ?? ($('filterDateTo')?.value || '');
+    const financeState = order.financeStatus || (order.status === 'finance_pending' ? 'finance_pending' : '');
+    const isFinancePending = order.status === 'finance_pending' || (order.marketManagerStatus === 'market_manager_approved' && financeState === 'finance_pending');
+    const isFinanceRejected = order.status === 'finance_rejected' || financeState === 'finance_rejected';
+    const isReturnedToFinance = order.status === 'returned_to_finance' || financeState === 'returned_to_finance';
+    const statusMatch = status
+        ? order.status === status || financeState === status
+        : (isFinancePending || isFinanceRejected || isReturnedToFinance);
+    return statusMatch && inDateRange(order, from, to) && (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
+}
+
+function ordersStaffOrderMatches(order = {}, overrides = {}) {
+    const pharm = overrides.pharm ?? (($('filterPharmacy')?.value || '').toLowerCase().trim());
+    const rep = overrides.rep ?? (($('filterRepresentative')?.value || '').toLowerCase().trim());
+    const product = overrides.product ?? (($('filterProduct')?.value || '').toLowerCase().trim());
+    const statusMode = overrides.statusMode ?? ($('showHiddenMode')?.value || 'active');
+    const requiredOwner = overrides.requiredOwner ?? ($('filterRequiredOwner')?.value || '');
+    const from = overrides.from ?? ($('filterDateFrom')?.value || '');
+    const to = overrides.to ?? ($('filterDateTo')?.value || '');
+    const normalizedStatusMode = statusMode === 'all' ? 'followup' : statusMode;
+    const followUp = getWorkflowFollowUp(order);
+    const mode = getStaffMode(order);
+    let modeOk = mode === 'active';
+    if (normalizedStatusMode === 'followup') modeOk = true;
+    if (normalizedStatusMode === 'hidden') modeOk = mode === 'hidden';
+    if (normalizedStatusMode === 'exported') modeOk = mode === 'exported';
+    const itemMatch = !product || (Array.isArray(order.items) && order.items.some(item => `${item.name || ''} ${getItemProductCode(item)}`.toLowerCase().includes(product)));
+    return modeOk && itemMatch && inDateRange(order, from, to) &&
+        (!requiredOwner || followUp.ownerKey === requiredOwner) &&
+        (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm)) &&
+        (!rep || (order.repName || order.representativeName || '').toLowerCase().includes(rep));
+}
+
+function syncMarketSmartFilters() {
+    const counts = new Map();
+    state.orders.forEach(order => {
+        if (!marketOrderMatches(order, { status: '' })) return;
+        const status = order.status || '';
+        if (!status) return;
+        counts.set(status, (counts.get(status) || 0) + 1);
+    });
+    return replaceSelectOptions('filterStatus', sortedCountOptions(counts, WORKFLOW_FILTER_LABELS.marketStatus, { value: '', label: WORKFLOW_FILTER_LABELS.marketStatus[''] }), WORKFLOW_FILTER_LABELS.marketStatus['']);
+}
+
+function syncFinanceSmartFilters() {
+    const counts = new Map();
+    state.orders.forEach(order => {
+        if (!financeOrderMatches(order, { status: '' })) return;
+        const statuses = new Set([order.status, order.financeStatus].filter(Boolean));
+        statuses.forEach(status => {
+            if (['finance_pending', 'finance_rejected', 'returned_to_finance'].includes(status)) counts.set(status, (counts.get(status) || 0) + 1);
+        });
+    });
+    return replaceSelectOptions('filterStatus', sortedCountOptions(counts, WORKFLOW_FILTER_LABELS.financeStatus, { value: '', label: WORKFLOW_FILTER_LABELS.financeStatus[''] }), WORKFLOW_FILTER_LABELS.financeStatus['']);
+}
+
+function syncOrdersStaffSmartFilters() {
+    const modeCounts = new Map();
+    const ownerCounts = new Map();
+    state.orders.forEach(order => {
+        if (ordersStaffOrderMatches(order, { statusMode: 'followup' })) {
+            const mode = getStaffMode(order);
+            modeCounts.set('followup', (modeCounts.get('followup') || 0) + 1);
+            modeCounts.set(mode, (modeCounts.get(mode) || 0) + 1);
+        }
+        if (ordersStaffOrderMatches(order, { requiredOwner: '' })) {
+            const owner = getWorkflowFollowUp(order).ownerKey || 'none';
+            ownerCounts.set(owner, (ownerCounts.get(owner) || 0) + 1);
+        }
+    });
+
+    const modeOrder = ['active', 'followup', 'exported', 'hidden'];
+    const modeOptions = modeOrder
+        .filter(mode => mode === 'followup' || (modeCounts.get(mode) || 0) > 0)
+        .map(mode => ({ value: mode, label: WORKFLOW_FILTER_LABELS.staffMode[mode], count: modeCounts.get(mode) || 0 }));
+    const safeModeOptions = modeOptions.length ? modeOptions : [{ value: 'followup', label: WORKFLOW_FILTER_LABELS.staffMode.followup, count: 0 }];
+    const modeChanged = replaceSelectOptions('showHiddenMode', safeModeOptions, WORKFLOW_FILTER_LABELS.staffMode.active);
+
+    const ownerOptions = sortedCountOptions(ownerCounts, WORKFLOW_FILTER_LABELS.owner, { value: '', label: WORKFLOW_FILTER_LABELS.owner[''] });
+    const ownerChanged = replaceSelectOptions('filterRequiredOwner', ownerOptions, WORKFLOW_FILTER_LABELS.owner['']);
+    return modeChanged || ownerChanged;
 }
 
 function confirmReason(message, requireReason = false) {
@@ -1196,22 +1263,8 @@ async function marketDeleteOrder(orderId) {
 }
 
 function applyMarketFilters() {
-    const rep = ($('filterRepresentative')?.value || '').toLowerCase().trim();
-    const pharm = ($('filterPharmacy')?.value || '').toLowerCase().trim();
-    const status = $('filterStatus')?.value || '';
-    const from = $('filterDateFrom')?.value || '';
-    const to = $('filterDateTo')?.value || '';
-    state.visibleOrders = state.orders.filter(order => {
-        const orderStatus = order.status || '';
-        const eligible = ['market_manager_pending', 'supervisor_approved', 'returned_to_market_manager'].includes(orderStatus);
-        const statusMatch = status ? orderStatus === status : eligible;
-        return statusMatch &&
-            inDateRange(order, from, to) &&
-            (!rep || (order.repName || '').toLowerCase().includes(rep)) &&
-            (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
-    });
-    state.visibleOrders = sortWorkflowOrdersDesc(state.visibleOrders);
-    workflowTablePages.marketOrders = 1;
+    syncMarketSmartFilters();
+    state.visibleOrders = state.orders.filter(order => marketOrderMatches(order));
     renderMarketOrders();
 }
 
@@ -1277,11 +1330,13 @@ function renderMarketOrders() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) { clearWorkflowPager('marketOrdersPager'); return setTableEmpty('marketOrdersBody', 9, 'لا توجد طلبيات بانتظار مدير السوق'); }
+    if (state.visibleOrders.length === 0) return setTableEmpty('marketOrdersBody', 9, 'لا توجد طلبيات بانتظار مدير السوق');
 
-    const fragment = document.createDocumentFragment();
-    const pageRows = getWorkflowPageRows(state.visibleOrders, body, 'marketOrdersPager', 'marketOrders', renderMarketOrders);
-    pageRows.forEach(order => {
+    const renderChunk = async (startIndex = 0) => {
+        if (token !== state.renderToken) return;
+        const fragment = document.createDocumentFragment();
+        const chunk = state.visibleOrders.slice(startIndex, startIndex + 50);
+        chunk.forEach(order => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td data-label="تحديد"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
@@ -1303,6 +1358,12 @@ function renderMarketOrders() {
             fragment.appendChild(tr);
         });
         body.appendChild(fragment);
+        if (startIndex + 50 < state.visibleOrders.length) {
+            await nextFrame();
+            renderChunk(startIndex + 50);
+        }
+    };
+    renderChunk();
 }
 
 async function marketBulk(action) {
@@ -1394,22 +1455,8 @@ async function exportFinanceOrders(orders, scope = 'visible') {
 }
 
 function applyFinanceFilters() {
-    const pharm = ($('filterPharmacy')?.value || '').toLowerCase().trim();
-    const status = $('filterStatus')?.value || '';
-    const from = $('filterDateFrom')?.value || '';
-    const to = $('filterDateTo')?.value || '';
-    state.visibleOrders = state.orders.filter(order => {
-        const financeState = order.financeStatus || (order.status === 'finance_pending' ? 'finance_pending' : '');
-        const isFinancePending = order.status === 'finance_pending' || (order.marketManagerStatus === 'market_manager_approved' && financeState === 'finance_pending');
-        const isFinanceRejected = order.status === 'finance_rejected' || financeState === 'finance_rejected';
-        const isReturnedToFinance = order.status === 'returned_to_finance' || financeState === 'returned_to_finance';
-        const statusMatch = status
-            ? order.status === status || financeState === status
-            : (isFinancePending || isFinanceRejected || isReturnedToFinance);
-        return statusMatch && inDateRange(order, from, to) && (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
-    });
-    state.visibleOrders = sortWorkflowOrdersDesc(state.visibleOrders);
-    workflowTablePages.financeOrders = 1;
+    syncFinanceSmartFilters();
+    state.visibleOrders = state.orders.filter(order => financeOrderMatches(order));
     renderFinanceOrders();
 }
 
@@ -1419,11 +1466,13 @@ function renderFinanceOrders() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) { clearWorkflowPager('financeOrdersPager'); return setTableEmpty('financeOrdersBody', 8, 'لا توجد طلبيات مالية بانتظار الاعتماد'); }
+    if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 8, 'لا توجد طلبيات مالية بانتظار الاعتماد');
 
-    const fragment = document.createDocumentFragment();
-    const pageRows = getWorkflowPageRows(state.visibleOrders, body, 'financeOrdersPager', 'financeOrders', renderFinanceOrders);
-    pageRows.forEach(order => {
+    const renderChunk = async (startIndex = 0) => {
+        if (token !== state.renderToken) return;
+        const fragment = document.createDocumentFragment();
+        const chunk = state.visibleOrders.slice(startIndex, startIndex + 75);
+        chunk.forEach(order => {
             const tr = document.createElement('tr');
             const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
             const isRejected = order.status === 'finance_rejected' || (order.financeStatus || '') === 'finance_rejected';
@@ -1464,6 +1513,12 @@ function renderFinanceOrders() {
             fragment.appendChild(tr);
         });
         body.appendChild(fragment);
+        if (startIndex + 75 < state.visibleOrders.length) {
+            await nextFrame();
+            renderChunk(startIndex + 75);
+        }
+    };
+    renderChunk();
 }
 
 async function financeApprove(orderId, approvalNote = '') {
@@ -1543,39 +1598,14 @@ function orderToExportRows(order) {
 }
 
 function applyOrdersStaffFilters() {
-    const pharm = ($('filterPharmacy')?.value || '').toLowerCase().trim();
-    const rep = ($('filterRepresentative')?.value || '').toLowerCase().trim();
-    const product = ($('filterProduct')?.value || '').toLowerCase().trim();
+    syncOrdersStaffSmartFilters();
     const statusMode = $('showHiddenMode')?.value || 'active';
-    const requiredOwner = $('filterRequiredOwner')?.value || '';
-    const from = $('filterDateFrom')?.value || '';
-    const to = $('filterDateTo')?.value || '';
-
     const normalizedStatusMode = statusMode === 'all' ? 'followup' : statusMode;
     if (normalizedStatusMode === 'followup' && !state.allOrdersLoaded) {
         ensureOrdersStaffAllLoaded();
         return;
     }
-
-    state.visibleOrders = state.orders.filter(order => {
-        const status = getPrimaryStatus(order);
-        const followUp = getWorkflowFollowUp(order);
-        const staffState = order.orderStaffStatus || '';
-        const isHidden = status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order);
-        const isActive = (status === 'orders_staff_pending' || status === 'finance_approved' || staffState === 'orders_staff_pending' || order.financeStatus === 'finance_approved') && !isHidden && status !== 'orders_staff_exported';
-        const isExported = status === 'orders_staff_exported' || staffState === 'orders_staff_exported' || orderHasStaffExportEvidence(order);
-        let modeOk = isActive;
-        if (normalizedStatusMode === 'followup') modeOk = true;
-        if (normalizedStatusMode === 'hidden') modeOk = isHidden;
-        if (normalizedStatusMode === 'exported') modeOk = isExported && !isHidden;
-        const itemMatch = !product || (Array.isArray(order.items) && order.items.some(item => `${item.name || ''} ${getItemProductCode(item)}`.toLowerCase().includes(product)));
-        return modeOk && itemMatch && inDateRange(order, from, to) &&
-            (!requiredOwner || followUp.ownerKey === requiredOwner) &&
-            (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm)) &&
-            (!rep || (order.repName || order.representativeName || '').toLowerCase().includes(rep));
-    });
-    state.visibleOrders = sortWorkflowOrdersDesc(state.visibleOrders);
-    workflowTablePages.ordersStaff = 1;
+    state.visibleOrders = state.orders.filter(order => ordersStaffOrderMatches(order));
     renderOrdersStaffRows();
 }
 
@@ -1585,11 +1615,13 @@ function renderOrdersStaffRows() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) { clearWorkflowPager('ordersStaffPager'); return setTableEmpty('ordersStaffBody', 12, 'لا توجد طلبيات ضمن الفلاتر الحالية'); }
+    if (state.visibleOrders.length === 0) return setTableEmpty('ordersStaffBody', 12, 'لا توجد طلبيات ضمن الفلاتر الحالية');
 
-    const fragment = document.createDocumentFragment();
-    const pageRows = getWorkflowPageRows(state.visibleOrders, body, 'ordersStaffPager', 'ordersStaff', renderOrdersStaffRows);
-    pageRows.forEach(order => {
+    const renderChunk = async (startIndex = 0) => {
+        if (token !== state.renderToken) return;
+        const fragment = document.createDocumentFragment();
+        const chunk = state.visibleOrders.slice(startIndex, startIndex + 50);
+        chunk.forEach(order => {
             const followUp = getWorkflowFollowUp(order);
             const tr = document.createElement('tr');
             const staffCanAct = canOrdersStaffTouchOrder(order);
@@ -1619,6 +1651,12 @@ function renderOrdersStaffRows() {
             fragment.appendChild(tr);
         });
         body.appendChild(fragment);
+        if (startIndex + 50 < state.visibleOrders.length) {
+            await nextFrame();
+            renderChunk(startIndex + 50);
+        }
+    };
+    renderChunk();
 }
 
 function fullStaffOrderRows(order) {

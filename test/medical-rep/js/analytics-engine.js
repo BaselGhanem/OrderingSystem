@@ -196,26 +196,33 @@ async function fetchModernInvoicedOrders() {
 }
 
 async function fetchLegacySalesOrders() {
-    // منع قراءة كامل orders حتى لا تضرب كوتا Firestore.
-    // الطلبيات القديمة ذات status مفقود لا يمكن جلبها باستعلام Firestore مباشر؛ تظهر بعد أول وجود لها في الكاش أو عند وجود status معروف.
-    const ordersById = new Map();
-    const legacyQueries = [
-        query(collection(db, `orders`), where(`status`, `==`, `approved`)),
-        query(collection(db, `orders`), where(`status`, `==`, ``)),
-        query(collection(db, `orders`), where(`status`, `==`, null))
-    ];
+    try {
+        // مهم لشاشة مندوب الدعاية فقط:
+        // Firestore لا يستطيع جلب المستندات التي لا تحتوي حقل status باستخدام where(status == null).
+        // لذلك يتم عمل backfill كامل مرة واحدة فقط لهذا الكاش الجديد، ثم تعتمد التحديثات التالية على incremental sync.
+        const allRows = await fetchFullCollection(`orders`);
+        return allRows.filter(order => isLegacySalesOrder(order));
+    } catch (fullError) {
+        console.warn(`تعذر تنفيذ فحص الطلبيات القديمة الكامل لشاشة مندوب الدعاية، سيتم استخدام استعلامات احتياطية:`, fullError);
+        const ordersById = new Map();
+        const legacyQueries = [
+            query(collection(db, `orders`), where(`status`, `==`, `approved`)),
+            query(collection(db, `orders`), where(`status`, `==`, ``)),
+            query(collection(db, `orders`), where(`status`, `==`, null))
+        ];
 
-    for (const q of legacyQueries) {
-        try {
-            const snap = await getDocs(q);
-            snapshotToRows(snap).forEach(order => {
-                if (isLegacySalesOrder(order)) ordersById.set(order.id, order);
-            });
-        } catch (error) {
-            console.warn(`تعذر تنفيذ استعلام الطلبيات القديمة لشاشة مندوب الدعاية:`, error);
+        for (const q of legacyQueries) {
+            try {
+                const snap = await getDocs(q);
+                snapshotToRows(snap).forEach(order => {
+                    if (isLegacySalesOrder(order)) ordersById.set(order.id, order);
+                });
+            } catch (error) {
+                console.warn(`تعذر تنفيذ استعلام الطلبيات القديمة لشاشة مندوب الدعاية:`, error);
+            }
         }
+        return [...ordersById.values()];
     }
-    return [...ordersById.values()];
 }
 
 function readCoreCache(includeLegacySales = false) {

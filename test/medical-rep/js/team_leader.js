@@ -4,6 +4,7 @@ const C = window.medrepCommon;
 const state = {
     core: null,
     rows: [],
+    allTeamRows: [],
     filtered: [],
     teams: [],
     selectedTeam: ``,
@@ -33,6 +34,39 @@ function canViewAllTeams() {
     return !!state.access?.canViewAllTeams;
 }
 
+function replaceTeamSelectOptions(selectId, baseLabel, values = []) {
+    const select = C.$(selectId);
+    if (!select) return;
+    const current = select.value || ``;
+    const options = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, `ar`));
+    select.innerHTML = `<option value="">${baseLabel}</option>${options.map(value => `<option value="${C.escapeHtml(value)}">${C.escapeHtml(value)}</option>`).join(``)}`;
+    select.value = current && options.includes(current) ? current : ``;
+}
+
+function selectedTeamChannel() {
+    return C.$(`channelFilter`)?.value || `all`;
+}
+
+function teamRowMatches(row = {}, overrides = {}) {
+    const from = overrides.from ?? (C.$(`dateFrom`)?.value || ``);
+    const to = overrides.to ?? (C.$(`dateTo`)?.value || ``);
+    const team = overrides.team ?? state.selectedTeam;
+    const item = overrides.item ?? (C.$(`itemFilter`)?.value || ``);
+    const area = overrides.area ?? (C.$(`areaFilter`)?.value || ``);
+    const channel = overrides.channel ?? selectedTeamChannel();
+    const search = overrides.search ?? C.normalizeArabic(C.$(`searchInput`)?.value || ``);
+    if (!C.isWithinRange(row.date, from, to)) return false;
+    if (team && row.team !== team) return false;
+    if (item && row.itemName !== item) return false;
+    if (area && row.area !== area) return false;
+    if (channel !== `all` && row.channel !== channel) return false;
+    if (search) {
+        const haystack = C.normalizeArabic(`${row.medrep} ${row.pharmacyName} ${row.pharmacyCode} ${row.itemName} ${row.area} ${row.orderShort}`);
+        if (!haystack.includes(search)) return false;
+    }
+    return true;
+}
+
 function populateTeamFilter() {
     const group = C.$(`teamFilterGroup`);
     const select = C.$(`teamFilter`);
@@ -45,49 +79,62 @@ function populateTeamFilter() {
     }
 
     if (group) group.hidden = false;
-    const oldValue = state.selectedTeam || select.value || ``;
-    select.innerHTML = `<option value="">كل الفرق</option>${state.teams.map(team => `<option value="${C.escapeHtml(team)}">${C.escapeHtml(team)}</option>`).join(``)}`;
-    if (oldValue && state.teams.includes(oldValue)) {
-        select.value = oldValue;
-        state.selectedTeam = oldValue;
-    } else {
-        select.value = ``;
-        state.selectedTeam = ``;
+    replaceTeamSelectOptions(`teamFilter`, `كل الفرق`, state.teams);
+    state.selectedTeam = select.value || ``;
+}
+
+function syncTeamChannelFilterOptions() {
+    const select = C.$(`channelFilter`);
+    if (!select) return;
+    const current = select.value || `all`;
+    const counts = { direct: 0, others: 0 };
+    state.rows.forEach(row => {
+        if (teamRowMatches(row, { channel: `all` }) && counts[row.channel] !== undefined) counts[row.channel] += 1;
+    });
+    const options = [{ value: `all`, label: `الكل` }];
+    if (counts.direct > 0) options.push({ value: `direct`, label: `مباشر`, count: counts.direct });
+    if (counts.others > 0) options.push({ value: `others`, label: `اخرين فقط`, count: counts.others });
+    select.innerHTML = options.map(option => {
+        const countText = Number.isFinite(option.count) ? ` (${option.count.toLocaleString(`en-US`)})` : ``;
+        return `<option value="${option.value}">${option.label}${countText}</option>`;
+    }).join(``);
+    select.value = options.some(option => option.value === current) ? current : `all`;
+}
+
+function syncTeamSmartFilters() {
+    if (canViewAllTeams()) {
+        const allRows = state.allTeamRows.length ? state.allTeamRows : buildRowsForTeam(``, state.core);
+        const teams = [];
+        allRows.forEach(row => {
+            if (teamRowMatches(row, { team: `` })) teams.push(row.team);
+        });
+        const previousTeam = state.selectedTeam;
+        replaceTeamSelectOptions(`teamFilter`, `كل الفرق`, teams);
+        state.selectedTeam = C.$(`teamFilter`)?.value || ``;
+        if (previousTeam !== state.selectedTeam) {
+            state.rows = buildRowsForTeam(state.selectedTeam || ``, state.core);
+        }
     }
+
+    const items = [];
+    const areas = [];
+    state.rows.forEach(row => {
+        if (teamRowMatches(row, { item: `` })) items.push(row.itemName);
+        if (teamRowMatches(row, { area: `` })) areas.push(row.area);
+    });
+    replaceTeamSelectOptions(`itemFilter`, `كل الأصناف`, items);
+    replaceTeamSelectOptions(`areaFilter`, `كل المناطق`, areas);
+    syncTeamChannelFilterOptions();
 }
 
 function populateFilters() {
-    const itemSelect = C.$(`itemFilter`);
-    const areaSelect = C.$(`areaFilter`);
-    const items = [...new Set(state.rows.map(row => row.itemName).filter(Boolean))].sort((a, b) => a.localeCompare(b, `ar`));
-    const areas = [...new Set(state.rows.map(row => row.area).filter(Boolean))].sort((a, b) => a.localeCompare(b, `ar`));
-    const oldItem = itemSelect.value;
-    const oldArea = areaSelect.value;
-    itemSelect.innerHTML = `<option value="">كل الأصناف</option>${items.map(item => `<option value="${C.escapeHtml(item)}">${C.escapeHtml(item)}</option>`).join(``)}`;
-    areaSelect.innerHTML = `<option value="">كل المناطق</option>${areas.map(area => `<option value="${C.escapeHtml(area)}">${C.escapeHtml(area)}</option>`).join(``)}`;
-    if (oldItem) itemSelect.value = oldItem;
-    if (oldArea) areaSelect.value = oldArea;
+    syncTeamSmartFilters();
 }
 
 function applyFilters() {
-    const from = C.$(`dateFrom`)?.value || ``;
-    const to = C.$(`dateTo`)?.value || ``;
-    const item = C.$(`itemFilter`)?.value || ``;
-    const area = C.$(`areaFilter`)?.value || ``;
-    const channel = C.$(`channelFilter`)?.value || `all`;
-    const search = C.normalizeArabic(C.$(`searchInput`)?.value || ``);
-
-    state.filtered = state.rows.filter(row => {
-        if (!C.isWithinRange(row.date, from, to)) return false;
-        if (item && row.itemName !== item) return false;
-        if (area && row.area !== area) return false;
-        if (channel !== `all` && row.channel !== channel) return false;
-        if (search) {
-            const haystack = C.normalizeArabic(`${row.medrep} ${row.pharmacyName} ${row.pharmacyCode} ${row.itemName} ${row.area} ${row.orderShort}`);
-            if (!haystack.includes(search)) return false;
-        }
-        return true;
-    });
+    syncTeamSmartFilters();
+    syncTeamSmartFilters();
+    state.filtered = state.rows.filter(row => teamRowMatches(row));
     render();
 }
 
@@ -291,6 +338,7 @@ function renderDetails() {
 function applyTeamCore(core) {
     state.core = core;
     state.teams = distinctTeams(state.core);
+    state.allTeamRows = canViewAllTeams() ? buildRowsForTeam(``, state.core) : [];
     if (canViewAllTeams()) {
         if (state.selectedTeam && !state.teams.includes(state.selectedTeam)) state.selectedTeam = ``;
     } else {

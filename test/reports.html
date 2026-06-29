@@ -3,9 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
     <title>لوحة التقارير | DAR ALDAWAA</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
@@ -14,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=20260628_quota_cooldown_fix1">
+    <link rel="stylesheet" href="style.css?v=20260628_smart_filters_all1">
 
     <style>
         .dashboard-cards {
@@ -408,7 +405,6 @@
 
     <script type="module">
         import { db, collection, getDocs, doc, updateDoc } from './js/firebase.js';
-        import { loadReportOrdersByDateRange, REPORT_CACHE_VERSION } from './js/report-cache.js';
 
         let allOrders = [];
         let pharmacyAutocompleteOptions = [];
@@ -420,45 +416,7 @@
         let activeItemOptionIndex = -1;
         let itemFilterTimer = null;
         let productsCatalog = [];
-        let reportsLoadingRangeKey = '';
-        let currentFilteredReportOrders = [];
         
-
-        const REPORT_TABLE_PAGE_SIZE = 50;
-        const reportTablePages = {};
-
-        function ensureReportPager(tableId) {
-            let pager = document.getElementById(`${tableId}-pager`);
-            if (pager) return pager;
-            pager = document.createElement('div');
-            pager.id = `${tableId}-pager`;
-            pager.className = 'table-pager';
-            document.getElementById(tableId)?.insertAdjacentElement('afterend', pager);
-            return pager;
-        }
-
-        function renderReportPager(tableId, totalRows) {
-            const pager = ensureReportPager(tableId);
-            if (!pager) return 1;
-            const totalPages = Math.max(1, Math.ceil(totalRows / REPORT_TABLE_PAGE_SIZE));
-            const current = Math.min(Math.max(Number(reportTablePages[tableId] || 1), 1), totalPages);
-            reportTablePages[tableId] = current;
-            if (totalRows <= REPORT_TABLE_PAGE_SIZE) {
-                pager.innerHTML = totalRows ? '<span class="pager-label">Page 1 of 1</span>' : '';
-                return current;
-            }
-            const btn = (label, page, disabled = false, active = false) => `<button type="button" class="report-page-btn ${active ? 'active' : ''}" data-page="${page}" ${disabled ? 'disabled' : ''}>${label}</button>`;
-            const pages = new Set([1, totalPages, current - 1, current, current + 1].filter(page => page >= 1 && page <= totalPages));
-            pager.innerHTML = `${btn('‹', current - 1, current === 1)}<span class="pager-label">Page ${current} of ${totalPages}</span>${[...pages].sort((a, b) => a - b).map(page => btn(page, page, false, page === current)).join('')}${btn('›', current + 1, current === totalPages)}`;
-            pager.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => {
-                const next = Number(button.dataset.page);
-                if (!Number.isFinite(next) || next < 1 || next > totalPages || next === current) return;
-                reportTablePages[tableId] = next;
-                processReports(currentFilteredReportOrders);
-            }));
-            return current;
-        }
-
         const repManagerMap = {
             "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
             "محمد الفاعوري": "عبدالله الناطور", "اجود التلهوني": "عبدالله الناطور", "يزيد الرقب": "محمد طوالبه",
@@ -672,61 +630,36 @@
             };
         }
 
-        function selectedReportsDateRange() {
-            return {
-                fromValue: document.getElementById('filterDateFrom')?.value || '',
-                toValue: document.getElementById('filterDateTo')?.value || ''
-            };
-        }
-
-        function hydrateReportsOrders(rawOrders = []) {
-            allOrders = rawOrders.map(order => normalizeReportOrder(order));
-            allOrders.sort((a, b) => {
-                let dateA = a.createdAtNormalized || normalizeReportDate(a.createdAt) || 0;
-                let dateB = b.createdAtNormalized || normalizeReportDate(b.createdAt) || 0;
-                return dateB - dateA;
-            });
-            buildPharmacyAutocompleteIndex();
-            buildItemAutocompleteIndex();
-            applyFilters();
-        }
-
-        async function loadReportsOrders(forceRemote = false) {
-            const range = selectedReportsDateRange();
-            const requestKey = `${range.fromValue}_${range.toValue}_${forceRemote ? 'force' : 'cache'}`;
-            if (reportsLoadingRangeKey === requestKey) return;
-            reportsLoadingRangeKey = requestKey;
-            try {
-                const result = await loadReportOrdersByDateRange({
-                    namespace: 'reports-page',
-                    fromValue: range.fromValue,
-                    toValue: range.toValue,
-                    forceRemote
-                });
-                hydrateReportsOrders(result.orders);
-                const sourceText = result.fromCacheOnly ? 'الكاش الشهري' : 'Firebase + الكاش الشهري';
-                console.info(`Reports loaded from ${sourceText} using ${REPORT_CACHE_VERSION}`, result.monthStatuses);
-                document.getElementById('loadingScreen').style.display = 'none';
-                document.getElementById('dashboardContent').style.display = 'block';
-            } catch (error) {
-                console.warn("خطا في جلب البيانات:", error?.code || error?.message || error);
-                document.getElementById('loadingScreen').innerHTML = `<h3 style="color:red;">حدث خطا اثناء تحميل البيانات. قلل مدى التاريخ أو انتظر تجدد كوتا Firebase.</h3>`;
-            } finally {
-                reportsLoadingRangeKey = '';
-            }
-        }
-
         window.addEventListener('DOMContentLoaded', async () => {
             setDefaultMonthFilter(); // تطبيق التواريخ الافتراضية عند التحميل
             
             try {
-                const prodSnap = await getDocs(collection(db, "products"));
+                const [snap, prodSnap] = await Promise.all([
+                    getDocs(collection(db, "orders")),
+                    getDocs(collection(db, "products"))
+                ]);
                 productsCatalog = [];
                 prodSnap.forEach(document => productsCatalog.push({ id: document.id, ...document.data() }));
                 productsCatalog.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
-                await loadReportsOrders(false);
+                snap.forEach(document => {
+                    let data = normalizeReportOrder({ id: document.id, ...document.data() });
+                    allOrders.push(data);
+                });
+                
+                allOrders.sort((a, b) => {
+                    let dateA = a.createdAtNormalized || normalizeReportDate(a.createdAt) || 0;
+                    let dateB = b.createdAtNormalized || normalizeReportDate(b.createdAt) || 0;
+                    return dateB - dateA;
+                });
+
+                buildPharmacyAutocompleteIndex();
+                buildItemAutocompleteIndex();
+                applyFilters(); 
+                
+                document.getElementById('loadingScreen').style.display = 'none';
+                document.getElementById('dashboardContent').style.display = 'block';
             } catch (error) {
-                console.warn("خطا في جلب البيانات:", error?.code || error?.message || error);
+                console.error("خطا في جلب البيانات:", error);
                 document.getElementById('loadingScreen').innerHTML = `<h3 style="color:red;">حدث خطا اثناء تحميل البيانات.</h3>`;
             }
         });
@@ -785,13 +718,6 @@
             updatePharmacyAutocompleteOptions(pharmacies);
             updateItemAutocompleteOptions(items);
 
-            filteredOrders = [...filteredOrders].sort((a, b) => {
-                const db = (b.createdAtNormalized || normalizeReportDate(b.createdAt) || new Date(0)).getTime?.() || 0;
-                const da = (a.createdAtNormalized || normalizeReportDate(a.createdAt) || new Date(0)).getTime?.() || 0;
-                return db - da || String(b.id || '').localeCompare(String(a.id || ''));
-            });
-            currentFilteredReportOrders = filteredOrders;
-            reportTablePages['table-rep-all'] = 1;
             processReports(filteredOrders);
         }
 
@@ -963,11 +889,8 @@
             });
         }
 
-        ['filterManager', 'filterRep'].forEach(id => {
+        ['filterManager', 'filterRep', 'filterDateFrom', 'filterDateTo'].forEach(id => {
             document.getElementById(id)?.addEventListener('change', applyFilters);
-        });
-        ['filterDateFrom', 'filterDateTo'].forEach(id => {
-            document.getElementById(id)?.addEventListener('change', () => loadReportsOrders(false));
         });
         const pharmacyInput = document.getElementById('filterPharmacy');
         const pharmacyPanel = document.getElementById('pharmacyAutocompletePanel');
@@ -1037,11 +960,6 @@
         });
 
         function processReports(dataToProcess) {
-            dataToProcess = [...dataToProcess].sort((a, b) => {
-                const db = (b.createdAtNormalized || normalizeReportDate(b.createdAt) || new Date(0)).getTime?.() || 0;
-                const da = (a.createdAtNormalized || normalizeReportDate(a.createdAt) || new Date(0)).getTime?.() || 0;
-                return db - da || String(b.id || '').localeCompare(String(a.id || ''));
-            });
             let uniqueCustomers = new Set();
             let totalOrdersCount = dataToProcess.length;
             let grandTotalSum = 0;
@@ -1200,26 +1118,17 @@
             let tbody = '<tbody>';
             let columnTotals = new Array(headers.length).fill(0);
             let hasNumbers = false;
-            if (addTotals) {
-                rows.forEach(row => row.forEach((cell, index) => {
-                    if (index > 0 && typeof cell === 'number') {
-                        columnTotals[index] += cell;
-                        hasNumbers = true;
-                    }
-                }));
-            }
-
-            const shouldPaginate = tableId === 'table-rep-all';
-            const page = shouldPaginate ? renderReportPager(tableId, rows.length) : 1;
-            const displayRows = shouldPaginate ? rows.slice((page - 1) * REPORT_TABLE_PAGE_SIZE, page * REPORT_TABLE_PAGE_SIZE) : rows;
 
             if (rows.length === 0) {
-                if (shouldPaginate) ensureReportPager(tableId).innerHTML = '';
                 tbody += `<tr><td colspan="${headers.length}" style="text-align:center;">لا توجد بيانات مطابقة</td></tr>`;
             } else {
-                displayRows.forEach(row => {
+                rows.forEach(row => {
                     tbody += '<tr>';
                     row.forEach((cell, index) => {
+                        if (addTotals && index > 0 && typeof cell === 'number') {
+                            columnTotals[index] += cell;
+                            hasNumbers = true;
+                        }
                         let displayVal = (typeof cell === 'number' && cell % 1 !== 0) ? cell.toLocaleString('en-US', {minimumFractionDigits: 2}) : cell;
                         const trustedActionHtml = typeof displayVal === 'string' && /<button|<a\s/i.test(displayVal);
                         const rendered = trustedActionHtml ? displayVal : safeHtml(displayVal);

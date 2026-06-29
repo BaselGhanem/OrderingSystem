@@ -1,5 +1,4 @@
 import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, onSnapshot } from './firebase.js';
-import { loadReportOrdersByDateRange, REPORT_CACHE_VERSION } from './report-cache.js';
 
 // ==========================================
 // 🚀 1. نظام الإشعارات (Toasts)
@@ -118,8 +117,8 @@ window.addEventListener('DOMContentLoaded', () => {
     getEl('filterAllRep')?.addEventListener('input', filterAllOrders);
     getEl('filterAllPharmacy')?.addEventListener('input', filterAllOrders);
     getEl('filterAllStatus')?.addEventListener('change', filterAllOrders);
-    getEl('myOrdersDateFrom')?.addEventListener('change', () => loadMyOrders(false));
-    getEl('myOrdersDateTo')?.addEventListener('change', () => loadMyOrders(false));
+    getEl('myOrdersDateFrom')?.addEventListener('change', applyMyOrdersFilters);
+    getEl('myOrdersDateTo')?.addEventListener('change', applyMyOrdersFilters);
     getEl('myOrdersPharmacyFilter')?.addEventListener('input', applyMyOrdersFilters);
     getEl('selectAllMyOrders')?.addEventListener('change', function() {
         document.querySelectorAll('.my-order-checkbox').forEach(cb => cb.checked = this.checked);
@@ -311,9 +310,6 @@ function parseAppNumber(value) {
 function normalizeDateValue(value) {
     if (!value) return null;
     if (value.toDate && typeof value.toDate === 'function') return value.toDate();
-    if (typeof value === 'object' && typeof value.seconds === 'number') {
-        return new Date((value.seconds * 1000) + Math.floor((value.nanoseconds || 0) / 1000000));
-    }
     const d = value instanceof Date ? value : new Date(value);
     return Number.isNaN(d.getTime()) ? null : d;
 }
@@ -347,87 +343,9 @@ function isOrderInDateRange(order, fromVal, toVal) {
     return true;
 }
 
-
-const APP_TABLE_PAGE_SIZE = 50;
-const appTablePages = {};
-
-function appOrderDateTs(order = {}) {
-    return normalizeDateValue(order.createdAt || order.orderDate || order.date || order.updatedAt || order.changedAt)?.getTime() || 0;
-}
-
-function sortAppOrdersDesc(orders = []) {
-    return [...orders].sort((a, b) => {
-        const diff = appOrderDateTs(b) - appOrderDateTs(a);
-        return diff || String(b.id || '').localeCompare(String(a.id || ''));
-    });
-}
-
-function ensureAppPager(tbody, pagerId) {
-    let pager = document.getElementById(pagerId);
-    if (pager) return pager;
-    pager = document.createElement('div');
-    pager.id = pagerId;
-    pager.className = 'table-pager';
-    const table = tbody?.closest('table');
-    if (table) table.insertAdjacentElement('afterend', pager);
-    return pager;
-}
-
-function renderAppPager(tbody, pagerId, pageKey, totalRows, renderAgain) {
-    const pager = ensureAppPager(tbody, pagerId);
-    if (!pager) return 1;
-    const totalPages = Math.max(1, Math.ceil(totalRows / APP_TABLE_PAGE_SIZE));
-    const current = Math.min(Math.max(Number(appTablePages[pageKey] || 1), 1), totalPages);
-    appTablePages[pageKey] = current;
-    if (totalRows <= APP_TABLE_PAGE_SIZE) {
-        pager.innerHTML = totalRows > 0 ? `<span class="pager-label">Page 1 of 1</span>` : '';
-        return current;
-    }
-    const button = (label, page, disabled = false, active = false) => `<button type="button" class="${active ? 'active' : ''}" data-page-key="${pageKey}" data-page="${page}" ${disabled ? 'disabled' : ''}>${label}</button>`;
-    const pages = new Set([1, totalPages, current - 1, current, current + 1].filter(page => page >= 1 && page <= totalPages));
-    const middle = [...pages].sort((a, b) => a - b).map(page => button(page, page, false, page === current)).join('');
-    pager.innerHTML = `${button('‹', current - 1, current === 1)}<span class="pager-label">Page ${current} of ${totalPages}</span>${middle}${button('›', current + 1, current === totalPages)}`;
-    pager.querySelectorAll('[data-page]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const next = Number(btn.dataset.page);
-            if (!Number.isFinite(next) || next < 1 || next > totalPages || next === current) return;
-            appTablePages[pageKey] = next;
-            renderAgain();
-        });
-    });
-    return current;
-}
-
-function getAppPageRows(orders = [], tbody, pagerId, pageKey, renderAgain) {
-    const sorted = sortAppOrdersDesc(orders);
-    const page = renderAppPager(tbody, pagerId, pageKey, sorted.length, renderAgain);
-    const start = (page - 1) * APP_TABLE_PAGE_SIZE;
-    return sorted.slice(start, start + APP_TABLE_PAGE_SIZE);
-}
-
 function formatDateTime(value) {
     const d = normalizeDateValue(value);
     return d ? d.toLocaleString('en-GB') : 'غير متوفر';
-}
-
-
-function getManagerOrdersRangeValues() {
-    return {
-        fromValue: getEl('managerFilterFrom')?.value || '',
-        toValue: getEl('managerFilterTo')?.value || ''
-    };
-}
-
-async function loadCachedOrdersForApp(namespace, forceRemote = false) {
-    const range = getManagerOrdersRangeValues();
-    const result = await loadReportOrdersByDateRange({
-        namespace,
-        fromValue: range.fromValue,
-        toValue: range.toValue,
-        forceRemote
-    });
-    console.info(`App report orders loaded with ${REPORT_CACHE_VERSION}`, namespace, result.monthStatuses);
-    return result.orders;
 }
 
 function getPharmacyCodeFromOrder(order = {}) {
@@ -1046,17 +964,7 @@ function clearAdminSession() {
 }
 
 function getCurrentFilteredAllOrders() {
-    const repFilter = (getEl('filterAllRep')?.value || '').toLowerCase().trim();
-    const pharmFilter = (getEl('filterAllPharmacy')?.value || '').toLowerCase().trim();
-    const statusFilter = (getEl('filterAllStatus')?.value || '').trim();
-    const fromVal = getEl('managerFilterFrom')?.value;
-    const toVal = getEl('managerFilterTo')?.value;
-    return allOrdersData.filter(order => {
-        const repName = (order.repName || '').toLowerCase();
-        const pharmName = (order.pharmacyName || '').toLowerCase();
-        const orderStatus = String(getEffectiveOrderStatus(order) || order.status || '').trim();
-        return repName.includes(repFilter) && pharmName.includes(pharmFilter) && (statusFilter === '' || orderStatus === statusFilter) && isOrderInDateRange(order, fromVal, toVal);
-    });
+    return allOrdersData.filter(order => allOrderMatchesSmartFilters(order));
 }
 
 function goToLogin() { window.location.href = 'login.html'; }
@@ -1219,8 +1127,8 @@ async function loadInitialData() {
             repSelect.disabled = true;
         }
 
-        const CACHE_KEY = 'dad_app_cache_20260628_quota_cooldown_fix1';
-        const CACHE_TIME_KEY = 'dad_app_cache_time_20260628_quota_cooldown_fix1';
+        const CACHE_KEY = 'dad_app_cache_20260628_smart_filters_all1';
+        const CACHE_TIME_KEY = 'dad_app_cache_time_20260628_smart_filters_all1';
         const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
         const cachedDataStr = localStorage.getItem(CACHE_KEY);
         const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);
@@ -1315,8 +1223,8 @@ async function bootstrapPage() {
         const adminSession = getAdminSession();
         const isAdminOrderMode = sessionStorage.getItem('adminOrderMode') === '1';
         if (adminSession && adminSession.remember && !isAdminOrderMode) {
-            if (adminSession.type === 'manager') window.location.href = 'supervisor.html?v=20260628_quota_cooldown_fix1';
-            if (adminSession.type === 'reports') window.location.href = 'reports.html?v=20260628_quota_cooldown_fix1';
+            if (adminSession.type === 'manager') window.location.href = 'supervisor.html';
+            if (adminSession.type === 'reports') window.location.href = 'reports.html';
         }
     }
 }
@@ -1728,7 +1636,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
 
         if (isAdmin) {
             sessionStorage.removeItem('activeOrderContext');
-            window.location.href = 'supervisor.html?v=20260628_quota_cooldown_fix1';
+            window.location.href = 'supervisor.html';
             return;
         }
 
@@ -1751,29 +1659,24 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
     }
 };
 
-async function loadMyOrders(forceRemote = false) {
+async function loadMyOrders() {
     if (!currentRepId && !loadRepSession()) { showToast("الرجاء تسجيل الدخول أولاً", "error"); return; }
     const tbody = getEl('myOrdersBody');
     if (!tbody) return;
     setDefaultMyOrdersFilters();
     tbody.innerHTML = '<tr><td colspan="9"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
-    if (unsubMyOrders) { unsubMyOrders(); unsubMyOrders = null; }
+    if (unsubMyOrders) unsubMyOrders();
 
     try {
-        const result = await loadReportOrdersByDateRange({
-            namespace: `rep-my-orders-${currentRepId || currentRepName || 'unknown'}`,
-            fromValue: getEl('myOrdersDateFrom')?.value || '',
-            toValue: getEl('myOrdersDateTo')?.value || '',
-            forceRemote
-        });
-        currentMyOrdersData = result.orders
-            .filter(o => String(o.repId || '') === String(currentRepId || '') || String(o.repName || '').trim() === String(currentRepName || '').trim())
-            .filter(o => isRepVisibleOrderStatus(getEffectiveOrderStatus(o)));
-        applyMyOrdersFilters();
-    } catch(e) {
-        console.warn(e?.code || e?.message || e);
-        showToast("تعذر تحديث البيانات من Firebase. تم استخدام الكاش إن وجد أو انتظر تجدد الكوتا.", "warning");
-    }
+        const q = query(collection(db, "orders"), where("repId", "==", currentRepId));
+        unsubMyOrders = onSnapshot(q, (snap) => {
+            let orders = [];
+            snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
+            orders.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
+            currentMyOrdersData = orders.filter(o => isRepVisibleOrderStatus(getEffectiveOrderStatus(o)));
+            applyMyOrdersFilters();
+        }, () => showToast("خطأ في جلب البيانات.", "error"));
+    } catch(e) { showToast("خطأ في جلب البيانات.", "error"); }
 }
 
 function applyMyOrdersFilters() {
@@ -1797,13 +1700,10 @@ function applyMyOrdersFilters() {
     tbody.innerHTML = '';
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات ضمن الفلاتر الحالية</h3></div></td></tr>`;
-        const pager = document.getElementById('myOrdersPager');
-        if (pager) pager.innerHTML = '';
         return;
     }
 
-    const pageRows = getAppPageRows(filtered, tbody, 'myOrdersPager', 'myOrders', applyMyOrdersFilters);
-    pageRows.forEach(order => {
+    filtered.forEach(order => {
         const tr = document.createElement('tr');
         const statusClass = getEffectiveOrderStatus(order) || 'pending';
         tr.className = `row-${statusClass}`;
@@ -1863,73 +1763,192 @@ function updateAdvancedManagerDashboard(orders) {
     const e5 = getEl('dashUniquePharmacies'); if(e5) e5.innerText = uniquePharms.size;
 }
 
+
+// Smart supervisor filters: each dropdown shows only values that still exist after the other active filters.
+const SUPERVISOR_STATUS_FILTER_ORDER = Object.keys(WORKFLOW_STATUS_LABELS);
+
+function getOrderStatusForSmartFilter(order = {}) {
+    return String(getEffectiveOrderStatus(order) || order.status || order.orderStatus || order.workflowStatus || '').trim();
+}
+
+function normalizeSmartFilterText(value = '') {
+    return String(value || '').trim().toLowerCase();
+}
+
+function populateSmartSelect(selectEl, options, defaultLabel) {
+    if (!selectEl) return false;
+    const previousValue = selectEl.value;
+    selectEl.innerHTML = `<option value="">${defaultLabel}</option>`;
+    options.forEach(option => {
+        if (!option || !option.value) return;
+        const opt = document.createElement('option');
+        opt.value = option.value;
+        opt.textContent = option.label || option.value;
+        selectEl.appendChild(opt);
+    });
+    const hasPreviousValue = !previousValue || options.some(option => option.value === previousValue);
+    selectEl.value = hasPreviousValue ? previousValue : '';
+    return selectEl.value !== previousValue;
+}
+
+function getSmartStatusOptions(orders = []) {
+    const statuses = new Set();
+    orders.forEach(order => {
+        const status = getOrderStatusForSmartFilter(order);
+        if (status) statuses.add(status);
+    });
+
+    const knownOptions = SUPERVISOR_STATUS_FILTER_ORDER
+        .filter(status => statuses.has(status))
+        .map(status => ({ value: status, label: getWorkflowStatusLabel(status) }));
+
+    const unknownOptions = Array.from(statuses)
+        .filter(status => !SUPERVISOR_STATUS_FILTER_ORDER.includes(status))
+        .sort((a, b) => getWorkflowStatusLabel(a).localeCompare(getWorkflowStatusLabel(b), 'ar'))
+        .map(status => ({ value: status, label: getWorkflowStatusLabel(status) }));
+
+    return [...knownOptions, ...unknownOptions];
+}
+
+function getManagerSelectedRepText() {
+    const repDropdown = getEl('managerRepFilter');
+    if (!repDropdown || !repDropdown.value || repDropdown.selectedIndex <= 0) return '';
+    return normalizeSmartFilterText(repDropdown.options[repDropdown.selectedIndex]?.textContent || repDropdown.value);
+}
+
+function managerOrderMatchesSmartFilters(order = {}, ignore = {}) {
+    const repFilterText = ignore.rep ? '' : getManagerSelectedRepText();
+    const pharmFilter = ignore.pharmacy ? '' : normalizeSmartFilterText(getEl('managerPharmacyFilter')?.value || '');
+    const statusFilter = ignore.status ? '' : String(getEl('managerStatusFilter')?.value || '').trim();
+    const fromVal = ignore.date ? '' : getEl('managerFilterFrom')?.value;
+    const toVal = ignore.date ? '' : getEl('managerFilterTo')?.value;
+    const repName = normalizeSmartFilterText(order.repName || '');
+    const pharmacyName = normalizeSmartFilterText(order.pharmacyName || '');
+    const orderStatus = getOrderStatusForSmartFilter(order);
+
+    return (!repFilterText || repName.includes(repFilterText)) &&
+        (!pharmFilter || pharmacyName.includes(pharmFilter)) &&
+        (!statusFilter || orderStatus === statusFilter) &&
+        isOrderInDateRange(order, fromVal, toVal);
+}
+
+function refreshManagerSmartFilters() {
+    const statusSelect = getEl('managerStatusFilter');
+    const repSelectEl = getEl('managerRepFilter');
+    if (!statusSelect && !repSelectEl) return;
+
+    populateSmartSelect(
+        statusSelect,
+        getSmartStatusOptions(managerOrdersData.filter(order => managerOrderMatchesSmartFilters(order, { status: true }))),
+        'جميع الحالات'
+    );
+
+    const repMap = new Map();
+    managerOrdersData
+        .filter(order => managerOrderMatchesSmartFilters(order, { rep: true }))
+        .forEach(order => {
+            const repName = String(order.repName || '').trim();
+            if (repName) repMap.set(repName, repName);
+        });
+
+    populateSmartSelect(
+        repSelectEl,
+        Array.from(repMap.values())
+            .sort((a, b) => a.localeCompare(b, 'ar'))
+            .map(rep => ({ value: rep, label: rep })),
+        'جميع مندوبي'
+    );
+
+    populateSmartSelect(
+        statusSelect,
+        getSmartStatusOptions(managerOrdersData.filter(order => managerOrderMatchesSmartFilters(order, { status: true }))),
+        'جميع الحالات'
+    );
+}
+
+function allOrderMatchesSmartFilters(order = {}, ignore = {}) {
+    const repFilter = ignore.rep ? '' : normalizeSmartFilterText(getEl('filterAllRep')?.value || '');
+    const pharmFilter = ignore.pharmacy ? '' : normalizeSmartFilterText(getEl('filterAllPharmacy')?.value || '');
+    const statusFilter = ignore.status ? '' : String(getEl('filterAllStatus')?.value || '').trim();
+    const fromVal = ignore.date ? '' : getEl('managerFilterFrom')?.value;
+    const toVal = ignore.date ? '' : getEl('managerFilterTo')?.value;
+    const repName = normalizeSmartFilterText(order.repName || '');
+    const pharmacyName = normalizeSmartFilterText(order.pharmacyName || '');
+    const orderStatus = getOrderStatusForSmartFilter(order);
+
+    return (!repFilter || repName.includes(repFilter)) &&
+        (!pharmFilter || pharmacyName.includes(pharmFilter)) &&
+        (!statusFilter || orderStatus === statusFilter) &&
+        isOrderInDateRange(order, fromVal, toVal);
+}
+
+function refreshAllOrdersSmartFilters() {
+    const statusSelect = getEl('filterAllStatus');
+    if (!statusSelect) return;
+    populateSmartSelect(
+        statusSelect,
+        getSmartStatusOptions(allOrdersData.filter(order => allOrderMatchesSmartFilters(order, { status: true }))),
+        'جميع الحالات'
+    );
+}
+
 let managerOrdersData = [];
 
-async function loadManagerOrders(forceRemote = false) {
+async function loadManagerOrders() {
     const tbody = document.getElementById('managerOrdersBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
-    if (unsubManagerOrders) { unsubManagerOrders(); unsubManagerOrders = null; }
+    
+    if (unsubManagerOrders) unsubManagerOrders();
 
     try {
-        const allOrders = await loadCachedOrdersForApp('supervisor-team-orders', forceRemote);
-        const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
-        const normalizedUnder = managerReps.map(r => r.trim().toLowerCase());
-
-        managerOrdersData = allOrders.filter(o => {
-            const repNameNorm = (o.repName || '').trim().toLowerCase();
-            return normalizeDateValue(o.createdAt || o.updatedAt) && normalizedUnder.includes(repNameNorm);
-        });
-
-        const repDropdown = document.getElementById('managerRepFilter');
-        if (repDropdown && repDropdown.options.length <= 1) {
-            repDropdown.innerHTML = '<option value="">جميع مندوبي</option>';
-            managerReps.forEach(rep => {
-                const opt = document.createElement('option');
-                opt.value = rep;
-                opt.textContent = rep;
-                repDropdown.appendChild(opt);
+        unsubManagerOrders = onSnapshot(collection(db, "orders"), (snap) => {
+            let allOrders = [];
+            snap.forEach(d => {
+                const data = d.data();
+                if (data.createdAt) {
+                    allOrders.push({ id: d.id, ...data });
+                }
             });
-        }
 
-        applyManagerFilters();
+            allOrders.sort((a, b) => {
+                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
+                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+                return dateB - dateA;
+            });
+
+            const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
+            const normalizedUnder = managerReps.map(r => r.trim().toLowerCase());
+
+            managerOrdersData = allOrders.filter(o => {
+                const repNameNorm = (o.repName || '').trim().toLowerCase();
+                return normalizedUnder.includes(repNameNorm);
+            });
+
+            const repDropdown = document.getElementById('managerRepFilter');
+            if (repDropdown && repDropdown.options.length <= 1) {
+                repDropdown.innerHTML = '<option value="">جميع مندوبي</option>';
+                managerReps.forEach(rep => {
+                    const opt = document.createElement('option');
+                    opt.value = rep;
+                    opt.textContent = rep;
+                    repDropdown.appendChild(opt);
+                });
+            }
+
+            applyManagerFilters(); 
+        }, (e) => {
+            showToast("فشل في مزامنة بيانات الفريق", "error");
+        });
     } catch (e) {
-        console.error(e);
-        showToast("فشل في تحميل بيانات الفريق. قلل مدى التاريخ أو انتظر تجدد كوتا Firebase.", "error");
+        showToast("فشل في مزامنة بيانات الفريق", "error");
     }
 }
 
 function applyManagerFilters() {
-    const repDropdown = document.getElementById('managerRepFilter');
-    let repFilterText = '';
-    if (repDropdown && repDropdown.selectedIndex > 0) {
-        repFilterText = repDropdown.options[repDropdown.selectedIndex].text.trim().toLowerCase();
-    }
+    refreshManagerSmartFilters();
+    const filtered = managerOrdersData.filter(order => managerOrderMatchesSmartFilters(order));
 
-    const pharmFilter = document.getElementById('managerPharmacyFilter')?.value.trim().toLowerCase() || '';
-    const statusFilter = document.getElementById('managerStatusFilter')?.value || '';
-
-    const fromVal = document.getElementById('managerFilterFrom')?.value;
-    const toVal = document.getElementById('managerFilterTo')?.value;
-
-    let filtered = managerOrdersData.filter(o => {
-        const repNameClean = (o.repName || '').toLowerCase();
-        const matchRep = repFilterText === '' || repNameClean.includes(repFilterText);
-        
-        const matchPharm = pharmFilter === '' || (o.pharmacyName && o.pharmacyName.toLowerCase().includes(pharmFilter));
-        const matchStatus = statusFilter === '' || getEffectiveOrderStatus(o) === statusFilter;
-        
-        let matchDate = true;
-        const normalizedOrderDate = normalizeDateValue(o.createdAt || o.updatedAt);
-        if (normalizedOrderDate) {
-            let oDate = new Date(normalizedOrderDate.getFullYear(), normalizedOrderDate.getMonth(), normalizedOrderDate.getDate());
-            if (fromVal) { let dFrom = new Date(fromVal); dFrom.setHours(0,0,0,0); if (oDate < dFrom) matchDate = false; }
-            if (toVal) { let dTo = new Date(toVal); dTo.setHours(0,0,0,0); if (oDate > dTo) matchDate = false; }
-        }
-        return matchRep && matchPharm && matchStatus && matchDate;
-    });
-
-    appTablePages.managerOrders = 1;
     renderManagerOrders(filtered);
     updateAdvancedManagerDashboard(filtered); // 💡 تحديث اللوحة بالبيانات المفلترة
 }
@@ -1941,15 +1960,12 @@ function renderManagerOrders(orders) {
     
     if (orders.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-magnifying-glass"></i><h3>لا توجد طلبيات مطابقة للبحث</h3></div></td></tr>`;
-        const pager = document.getElementById('managerOrdersPager');
-        if (pager) pager.innerHTML = '';
         return;
     }
 
-    const pageRows = getAppPageRows(orders, tbody, 'managerOrdersPager', 'managerOrders', () => renderManagerOrders(orders));
-    pageRows.forEach(order => {
+    orders.forEach(order => {
         const isApproved = !isSupervisorPendingStatus(order.status);
-        const displayDate = formatDateTime(order.createdAt || order.updatedAt);
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const tr = document.createElement('tr');
         const statusClass = getEffectiveOrderStatus(order) || 'pending';
@@ -2037,19 +2053,35 @@ async function handleBulkAction(actionType) {
 document.getElementById('bulkApproveBtn')?.addEventListener('click', () => handleBulkAction('approve'));
 document.getElementById('bulkDeleteBtn')?.addEventListener('click', () => handleBulkAction('delete'));
 
-async function loadAllCompanyOrders(forceRemote = false) {
+async function loadAllCompanyOrders() {
     const tbody = document.getElementById('allOrdersBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
-    if (unsubAllOrders) { unsubAllOrders(); unsubAllOrders = null; }
+    
+    if (unsubAllOrders) unsubAllOrders();
 
     try {
-        allOrdersData = (await loadCachedOrdersForApp('supervisor-all-orders', forceRemote))
-            .filter(order => normalizeDateValue(order.createdAt || order.updatedAt));
-        filterAllOrders();
-    } catch(e) {
-        console.error(e);
-        showToast("خطأ في تحميل النظام الشامل. قلل مدى التاريخ أو انتظر تجدد كوتا Firebase.", "error");
+        unsubAllOrders = onSnapshot(collection(db, "orders"), (snap) => {
+            allOrdersData = [];
+            snap.forEach(d => {
+                const data = d.data();
+                if (data.createdAt) {
+                    allOrdersData.push({ id: d.id, ...data });
+                }
+            });
+
+            allOrdersData.sort((a, b) => {
+                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
+                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+                return dateB - dateA;
+            });
+
+            filterAllOrders(); 
+        }, (e) => { 
+            showToast("خطأ في تحميل النظام الشامل", "error"); 
+        });
+    } catch(e) { 
+        showToast("خطأ في التحميل", "error"); 
     }
 }
 
@@ -2058,17 +2090,14 @@ function renderAllOrders(orders) {
     tbody.innerHTML = '';
     if(orders.length === 0) { 
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد بيانات مطابقة</h3></div></td></tr>`; 
-        const pager = document.getElementById('allOrdersPager');
-        if (pager) pager.innerHTML = '';
         updateAllOrdersStats(orders); 
         return; 
     }
-    const pageRows = getAppPageRows(orders, tbody, 'allOrdersPager', 'allOrders', () => renderAllOrders(orders));
-    pageRows.forEach(order => {
+    orders.forEach(order => {
         const tr = document.createElement('tr');
         const statusClass = getEffectiveOrderStatus(order) || 'pending';
         tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
-        const displayDate = formatDateTime(order.createdAt || order.updatedAt);
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const canApproveFromAll = canCurrentSupervisorApproveOrder(order);
         const unassignedBadge = isOrderWithoutAssignedSupervisor(order) ? '<small class="workflow-reason" style="color:#92400e;">بدون مشرف محدد</small>' : '';
@@ -2215,23 +2244,9 @@ function showOrderDetails(order) {
 }
 
 function filterAllOrders() {
-    const repFilter = (getEl('filterAllRep')?.value || '').toLowerCase().trim();
-    const pharmFilter = (getEl('filterAllPharmacy')?.value || '').toLowerCase().trim();
-    const statusFilter = (getEl('filterAllStatus')?.value || '').trim();
-    const fromVal = getEl('managerFilterFrom')?.value;
-    const toVal = getEl('managerFilterTo')?.value;
+    refreshAllOrdersSmartFilters();
+    const filtered = allOrdersData.filter(order => allOrderMatchesSmartFilters(order));
 
-    const filtered = allOrdersData.filter(order => {
-        const repName = (order.repName || '').toLowerCase();
-        const pharmName = (order.pharmacyName || '').toLowerCase();
-        const orderStatus = String(getEffectiveOrderStatus(order) || order.status || '').trim();
-        return repName.includes(repFilter) &&
-               pharmName.includes(pharmFilter) &&
-               (statusFilter === '' || orderStatus === statusFilter) &&
-               isOrderInDateRange(order, fromVal, toVal);
-    });
-
-    appTablePages.allOrders = 1;
     renderAllOrders(filtered);
     updateAdvancedManagerDashboard(filtered);
 }
@@ -2576,42 +2591,43 @@ function closeEditModal() {
 }
 window.closeEditModal = closeEditModal;
 
-async function loadReports(forceRemote = false) {
+async function loadReports() {
     const body = getEl('reportsBody');
     if (!body) return;
     body.innerHTML = '<tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
-    if (unsubReports) { unsubReports(); unsubReports = null; }
+    if(unsubReports) unsubReports();
 
     try {
-        let os = await loadCachedOrdersForApp('supervisor-reports-tab', forceRemote);
-        if (!isAdmin && currentRepName) os = os.filter(o => o.repName === currentRepName);
-        reportsOrdersData = os;
-        body.innerHTML = '';
-        if (os.length === 0) {
-            body.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات</h3></div></td></tr>`;
-            return;
-        }
-        os.forEach(o => {
-            const tr = document.createElement('tr');
-            tr.className = `row-${o.status}`;
-            tr.innerHTML = `
-                <td data-label="تحديد"><input type="checkbox" class="report-order-checkbox" value="${o.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
-                <td data-label="رقم الطلب"><b>${o.id.substring(0,5).toUpperCase()}</b></td>
-                <td data-label="التاريخ">${formatDateTime(o.createdAt || o.updatedAt)}</td>
-                <td data-label="المندوب" class="rep-col">${o.repName || '-'}</td>
-                <td data-label="الصيدلية" class="pharm-col">${o.pharmacyName || '-'}</td>
-                <td data-label="القيمة">${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td data-label="الحالة"><span class="status-badge ${getEffectiveOrderStatus(o)}">${getWorkflowStatusLabel(getEffectiveOrderStatus(o))}</span></td>
-                <td data-label="إجراء"><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>
-            `;
-            tr.querySelector('.btn-view').onclick = () => showOrderDetails(o);
-            body.appendChild(tr);
+        unsubReports = onSnapshot(collection(db, "orders"), (snap) => {
+            let os = [];
+            snap.forEach(d => os.push({ id: d.id, ...d.data() }));
+            os.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
+            if (!isAdmin && currentRepName) os = os.filter(o => o.repName === currentRepName);
+            reportsOrdersData = os;
+            body.innerHTML = '';
+            if (os.length === 0) {
+                body.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات</h3></div></td></tr>`;
+                return;
+            }
+            os.forEach(o => {
+                const tr = document.createElement('tr');
+                tr.className = `row-${o.status}`;
+                tr.innerHTML = `
+                    <td data-label="تحديد"><input type="checkbox" class="report-order-checkbox" value="${o.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
+                    <td data-label="رقم الطلب"><b>${o.id.substring(0,5).toUpperCase()}</b></td>
+                    <td data-label="التاريخ">${formatDateTime(o.createdAt)}</td>
+                    <td data-label="المندوب" class="rep-col">${o.repName || '-'}</td>
+                    <td data-label="الصيدلية" class="pharm-col">${o.pharmacyName || '-'}</td>
+                    <td data-label="القيمة">${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td data-label="الحالة"><span class="status-badge ${getEffectiveOrderStatus(o)}">${getWorkflowStatusLabel(getEffectiveOrderStatus(o))}</span></td>
+                    <td data-label="إجراء"><button class="btn-view" style="color:#004a99;"><i class="ph ph-eye"></i></button></td>
+                `;
+                tr.querySelector('.btn-view').onclick = () => showOrderDetails(o);
+                body.appendChild(tr);
+            });
+            filterReportsTable();
         });
-        filterReportsTable();
-    } catch(e) {
-        console.error(e);
-        showToast("خطأ في الاتصال بالبيانات. قلل مدى التاريخ أو انتظر تجدد كوتا Firebase.", "error");
-    }
+    } catch(e) { showToast("خطأ في الاتصال بالبيانات", "error"); }
 }
 
 function filterReportsTable() {
@@ -2636,7 +2652,9 @@ if (exportExcelBtn) exportExcelBtn.onclick = async () => {
     const btn = exportExcelBtn;
     btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري...";
     try {
-        let allOrders = reportsOrdersData.length ? [...reportsOrdersData] : await loadCachedOrdersForApp('supervisor-reports-tab', false);
+        const snap = await getDocs(collection(db, "orders"));
+        let allOrders = [];
+        snap.forEach(d => allOrders.push({ id: d.id, ...d.data() }));
         if (!isAdmin && currentRepName) allOrders = allOrders.filter(o => o.repName === currentRepName);
         const flatData = buildFlatOrderExportRows(allOrders);
         if (flatData.length === 0) { showToast("لا توجد بيانات للتصدير", "warning"); return; }
@@ -2732,9 +2750,9 @@ if (confirmAdminLoginBtn) confirmAdminLoginBtn.onclick = (e) => {
         saveAdminSession(selectedAdminName, selectedAdminType, rememberMe);
         if (selectedAdminType === 'reports') {
             sessionStorage.removeItem('adminOrderMode');
-            window.location.href = 'reports.html?v=20260628_quota_cooldown_fix1';
+            window.location.href = 'reports.html';
         } else {
-            window.location.href = 'supervisor.html?v=20260628_quota_cooldown_fix1';
+            window.location.href = 'supervisor.html';
         }
     } else {
         showToast("رمز المرور غير صحيح!", "error");
@@ -2788,14 +2806,8 @@ const managerFilterTo = document.getElementById('managerFilterTo');
 const btnTodayOrders = document.getElementById('btnTodayOrders');
 const btnClearManagerFilter = document.getElementById('btnClearManagerFilter');
 
-function refreshManagerRangeViews() {
-    if (getEl('teamOrdersSection')?.style.display !== 'none') loadManagerOrders(false);
-    if (getEl('allOrdersSection')?.style.display !== 'none') loadAllCompanyOrders(false);
-    if (getEl('reportsScreen')?.style.display === 'block') loadReports(false);
-}
-
-managerFilterFrom?.addEventListener('change', refreshManagerRangeViews);
-managerFilterTo?.addEventListener('change', refreshManagerRangeViews);
+managerFilterFrom?.addEventListener('change', () => { applyManagerFilters(); filterAllOrders(); });
+managerFilterTo?.addEventListener('change', () => { applyManagerFilters(); filterAllOrders(); });
 
 btnTodayOrders?.addEventListener('click', () => {
     const today = new Date();
@@ -2805,11 +2817,13 @@ btnTodayOrders?.addEventListener('click', () => {
     const todayStr = `${yyyy}-${mm}-${dd}`;
     managerFilterFrom.value = todayStr;
     managerFilterTo.value = todayStr;
-    refreshManagerRangeViews();
+    applyManagerFilters();
+    filterAllOrders();
 });
 
 btnClearManagerFilter?.addEventListener('click', () => {
     managerFilterFrom.value = '';
     managerFilterTo.value = '';
-    refreshManagerRangeViews();
+    applyManagerFilters();
+    filterAllOrders();
 });
