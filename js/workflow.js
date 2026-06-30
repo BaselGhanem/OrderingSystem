@@ -1511,8 +1511,8 @@ function orderToExportRows(order) {
             'Item Note': calc.note || '',
             'Order Note': getOrderNote(order),
             'Return Note': order.returnReason || '',
-            'Order Date': formatExportDate(order.createdAt),
-            'Order Time': formatExportTime(order.createdAt),
+            'Order Date': formatDateTime(order.createdAt),
+           
             'Representative Name': order.repName || order.representativeName || '',
             'Area': getOrderArea(order),
             'Pharmacy Code': getPharmacyCode(order),
