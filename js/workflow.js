@@ -37,6 +37,10 @@ const state = {
     selectedOrder: null,
     unsub: null,
     productsByName: new Map(),
+    pharmacyAreasByCode: new Map(),
+    pharmacyAreasByName: new Map(),
+    pharmacyAreasLoaded: false,
+    pharmacyAreasPromise: null,
     onOrdersChange: null,
     renderToken: 0,
     allOrdersLoaded: false,
@@ -47,7 +51,7 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
-const WORKFLOW_CACHE_VERSION = '20260625_report_logic_cache_fix1';
+const WORKFLOW_CACHE_VERSION = '20260630_orders_staff_export_columns_fix1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
@@ -241,6 +245,25 @@ function normalizeDate(value) {
 function formatDateTime(value) {
     const d = normalizeDate(value);
     return d ? d.toLocaleString('en-GB') : '-';
+}
+
+function formatExportDate(value) {
+    const d = normalizeDate(value);
+    return d ? d.toLocaleDateString('en-GB') : '-';
+}
+
+function formatExportTime(value) {
+    const d = normalizeDate(value);
+    return d ? d.toLocaleTimeString('en-GB', { hour12: false }) : '-';
+}
+
+function exportSortTime(order = {}) {
+    const d = normalizeDate(order.createdAt || order.updatedAt || order.changedAt);
+    return d ? d.getTime() : Number.MAX_SAFE_INTEGER;
+}
+
+function sortOrdersAscending(orders = []) {
+    return [...orders].sort((a, b) => exportSortTime(a) - exportSortTime(b));
 }
 
 function toDateInputValue(date = new Date()) {
@@ -458,6 +481,23 @@ function getPharmacyCode(order = {}) {
     return order.pharmacyCode || order.pharmacy_code || order.customerCode || '';
 }
 
+function normalizeLookupKey(value = '') {
+    return String(value || '').trim().toLowerCase();
+}
+
+function getOrderArea(order = {}) {
+    const directArea = order.area || order.Area || order.region || order.Region || order.pharmacyArea || order.pharmacy_area || '';
+    if (directArea && directArea !== '-') return directArea;
+
+    const codeKey = normalizeLookupKey(getPharmacyCode(order));
+    if (codeKey && state.pharmacyAreasByCode.has(codeKey)) return state.pharmacyAreasByCode.get(codeKey) || '';
+
+    const nameKey = normalizeLookupKey(order.pharmacyName || order.pharmacy || '');
+    if (nameKey && state.pharmacyAreasByName.has(nameKey)) return state.pharmacyAreasByName.get(nameKey) || '';
+
+    return directArea || '';
+}
+
 function getItemProductCode(item = {}) {
     if (item.productCode || item.product_code || item.code) return item.productCode || item.product_code || item.code;
     const product = state.productsByName.get(item.name || '');
@@ -663,6 +703,35 @@ async function loadProducts() {
             console.warn('Products could not be loaded', error);
         }
     }, 0);
+}
+
+async function loadPharmacyAreas() {
+    if (state.pharmacyAreasLoaded) return;
+    if (state.pharmacyAreasPromise) return state.pharmacyAreasPromise;
+
+    state.pharmacyAreasPromise = (async () => {
+        try {
+            const snap = await getDocs(collection(db, 'pharmacies'));
+            state.pharmacyAreasByCode.clear();
+            state.pharmacyAreasByName.clear();
+            snap.forEach(d => {
+                const data = d.data() || {};
+                const area = String(data.area || data.Area || data.region || data.Region || '').trim();
+                const code = String(data.pharmacyCode || data.pharmacy_code || data.customerCode || '').trim();
+                const name = String(data.name || data.Name || data.pharmacyName || data.PharmacyName || '').trim();
+                if (code) state.pharmacyAreasByCode.set(normalizeLookupKey(code), area);
+                if (name) state.pharmacyAreasByName.set(normalizeLookupKey(name), area);
+            });
+            state.pharmacyAreasLoaded = true;
+            state.onOrdersChange?.();
+        } catch (error) {
+            console.warn('Pharmacy areas could not be loaded', error);
+        } finally {
+            state.pharmacyAreasPromise = null;
+        }
+    })();
+
+    return state.pharmacyAreasPromise;
 }
 
 async function refreshOrdersFromFirebase(source = currentPageOrderSource(), cacheKey = PAGE_CACHE_KEY, markAllLoaded = false) {
@@ -1416,35 +1485,44 @@ function initFinanceController() {
     subscribeOrders(applyFinanceFilters);
 }
 
+const ORDER_STAFF_EXPORT_HEADERS = [
+    'Item Note',
+    'Order Note',
+    'Return Note',
+    'Order Date',
+    'Order Time',
+    'Representative Name',
+    'Area',
+    'Pharmacy Code',
+    'Pharmacy Name',
+    'Product Code',
+    'Product Name',
+    'Price',
+    'Quantity',
+    'Bonus Quantity',
+    'Subtotal'
+];
+
 function orderToExportRows(order) {
     const items = Array.isArray(order.items) ? order.items : [];
     return items.map(item => {
         const calc = calculateItem(item);
         return {
-            'Order ID': order.id,
-            'Order Date': formatDateTime(order.createdAt),
-            'Pharmacy Code': getPharmacyCode(order),
-            'Pharmacy Name': order.pharmacyName || '',
-            'Representative Name': order.repName || '',
-            'Product Code': getItemProductCode(calc),
-            'Product Name': calc.name || '',
-            'Quantity': calc.qty,
-            'Bonus Quantity': calc.bonus,
-            'Bonus Percentage': calc.bonusPct,
-            'Price': calc.price,
-            'Subtotal': calc.total,
-            'Grand Total': parseNumber(order.grandTotal),
             'Item Note': calc.note || '',
             'Order Note': getOrderNote(order),
             'Return Note': order.returnReason || '',
-            'Status': statusLabel(getPrimaryStatus(order)),
-            'Workflow Stage': order.workflowStage || '',
-            'Required Owner': getWorkflowFollowUp(order).owner,
-            'Follow Up Detail': getWorkflowFollowUp(order).detail,
-            'Supervisor Status': statusLabel(order.supervisorStatus),
-            'Market Manager Status': statusLabel(order.marketManagerStatus),
-            'Finance Status': statusLabel(order.financeStatus),
-            'Order Staff Status': statusLabel(order.orderStaffStatus)
+            'Order Date': formatExportDate(order.createdAt),
+            'Order Time': formatExportTime(order.createdAt),
+            'Representative Name': order.repName || order.representativeName || '',
+            'Area': getOrderArea(order),
+            'Pharmacy Code': getPharmacyCode(order),
+            'Pharmacy Name': order.pharmacyName || '',
+            'Product Code': getItemProductCode(calc),
+            'Product Name': calc.name || '',
+            'Price': calc.price,
+            'Quantity': calc.qty,
+            'Bonus Quantity': calc.bonus,
+            'Subtotal': calc.total
         };
     });
 }
@@ -1760,10 +1838,28 @@ function isOrdersStaffExportEligible(order = {}) {
 async function exportOrders(orders) {
     if (orders.length === 0) return showToast('لا توجد طلبيات للتصدير.', 'warning');
     if (typeof XLSX === 'undefined') return showToast('مكتبة Excel غير محملة. أعد فتح الصفحة وحاول مرة أخرى.', 'error');
-    const rows = orders.flatMap(orderToExportRows);
+    await loadPharmacyAreas();
+    const rows = sortOrdersAscending(orders).flatMap(orderToExportRows);
     if (rows.length === 0) return showToast('لا توجد أصناف قابلة للتصدير.', 'warning');
     const exportFileName = `orders_staff_${toDateInputValue(new Date())}.xlsx`;
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const ws = XLSX.utils.json_to_sheet(rows, { header: ORDER_STAFF_EXPORT_HEADERS });
+    ws['!cols'] = [
+        { wch: 28 },
+        { wch: 36 },
+        { wch: 36 },
+        { wch: 14 },
+        { wch: 12 },
+        { wch: 24 },
+        { wch: 18 },
+        { wch: 15 },
+        { wch: 30 },
+        { wch: 15 },
+        { wch: 34 },
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 14 },
+        { wch: 14 }
+    ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Orders');
     XLSX.writeFile(wb, exportFileName);
@@ -1837,6 +1933,7 @@ async function boot() {
     updateOnlineStatus();
 
     loadProducts();
+    if (WORKFLOW_PAGE === 'orders-staff') loadPharmacyAreas();
     if (WORKFLOW_PAGE === 'market-manager') initMarketManager();
     if (WORKFLOW_PAGE === 'finance-controller') initFinanceController();
     if (WORKFLOW_PAGE === 'orders-staff') initOrdersStaff();
