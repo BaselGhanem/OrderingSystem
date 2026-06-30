@@ -51,7 +51,7 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
-const WORKFLOW_CACHE_VERSION = '20260630_orders_staff_export_columns_fix1';
+const WORKFLOW_CACHE_VERSION = '20260630_orders_staff_export_columns_finance_note_fix1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
@@ -101,7 +101,15 @@ function compactOrder(order = {}) {
         marketManagerStatus: order.marketManagerStatus || '',
         marketManagerRejectionReason: order.marketManagerRejectionReason || '',
         financeStatus: order.financeStatus || '',
+        financeApprovalNote: order.financeApprovalNote || '',
+        financeVisibleNote: order.financeVisibleNote || '',
         financeRejectionReason: order.financeRejectionReason || '',
+        area: order.area || '',
+        Area: order.Area || '',
+        region: order.region || '',
+        Region: order.Region || '',
+        pharmacyArea: order.pharmacyArea || '',
+        pharmacy_area: order.pharmacy_area || '',
         returnReason: order.returnReason || '',
         returnTarget: order.returnTarget || '',
         returnedBy: order.returnedBy || '',
@@ -247,25 +255,6 @@ function formatDateTime(value) {
     return d ? d.toLocaleString('en-GB') : '-';
 }
 
-function formatExportDate(value) {
-    const d = normalizeDate(value);
-    return d ? d.toLocaleDateString('en-GB') : '-';
-}
-
-function formatExportTime(value) {
-    const d = normalizeDate(value);
-    return d ? d.toLocaleTimeString('en-GB', { hour12: false }) : '-';
-}
-
-function exportSortTime(order = {}) {
-    const d = normalizeDate(order.createdAt || order.updatedAt || order.changedAt);
-    return d ? d.getTime() : Number.MAX_SAFE_INTEGER;
-}
-
-function sortOrdersAscending(orders = []) {
-    return [...orders].sort((a, b) => exportSortTime(a) - exportSortTime(b));
-}
-
 function toDateInputValue(date = new Date()) {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -303,6 +292,21 @@ function getFinanceVisibleNote(order = {}) {
         order.financeRejectionReason
     ].filter(v => v !== undefined && v !== null && String(v).trim() !== '');
     return notes.length ? String(notes[0]).trim() : '';
+}
+
+function getFinanceApprovalExportNote(order = {}) {
+    const approvalNote = String(order.financeApprovalNote || '').trim();
+    if (approvalNote) return approvalNote;
+
+    const status = order.status || '';
+    const financeStatus = order.financeStatus || '';
+    const isFinanceApprovedFlow = financeStatus === 'finance_approved' || [
+        'orders_staff_pending',
+        'orders_staff_exported',
+        'orders_staff_hidden'
+    ].includes(status);
+
+    return isFinanceApprovedFlow ? String(order.financeVisibleNote || '').trim() : '';
 }
 
 function getRawPrimaryStatus(order = {}) {
@@ -723,7 +727,6 @@ async function loadPharmacyAreas() {
                 if (name) state.pharmacyAreasByName.set(normalizeLookupKey(name), area);
             });
             state.pharmacyAreasLoaded = true;
-            state.onOrdersChange?.();
         } catch (error) {
             console.warn('Pharmacy areas could not be loaded', error);
         } finally {
@@ -1486,11 +1489,7 @@ function initFinanceController() {
 }
 
 const ORDER_STAFF_EXPORT_HEADERS = [
-    'Item Note',
-    'Order Note',
-    'Return Note',
-    'Order Date',
-    'Order Time',
+    'Order Date&time',
     'Representative Name',
     'Area',
     'Pharmacy Code',
@@ -1500,7 +1499,11 @@ const ORDER_STAFF_EXPORT_HEADERS = [
     'Price',
     'Quantity',
     'Bonus Quantity',
-    'Subtotal'
+    'Subtotal',
+    'Item Note',
+    'Order Note',
+    'Return Note',
+    'Finance Note'
 ];
 
 function orderToExportRows(order) {
@@ -1508,11 +1511,7 @@ function orderToExportRows(order) {
     return items.map(item => {
         const calc = calculateItem(item);
         return {
-            'Item Note': calc.note || '',
-            'Order Note': getOrderNote(order),
-            'Return Note': order.returnReason || '',
-            'Order Date': formatDateTime(order.createdAt),
-           
+            'Order Date&time': formatDateTime(order.createdAt),
             'Representative Name': order.repName || order.representativeName || '',
             'Area': getOrderArea(order),
             'Pharmacy Code': getPharmacyCode(order),
@@ -1522,7 +1521,11 @@ function orderToExportRows(order) {
             'Price': calc.price,
             'Quantity': calc.qty,
             'Bonus Quantity': calc.bonus,
-            'Subtotal': calc.total
+            'Subtotal': calc.total,
+            'Item Note': calc.note || '',
+            'Order Note': getOrderNote(order),
+            'Return Note': order.returnReason || '',
+            'Finance Note': getFinanceApprovalExportNote(order)
         };
     });
 }
@@ -1839,26 +1842,26 @@ async function exportOrders(orders) {
     if (orders.length === 0) return showToast('لا توجد طلبيات للتصدير.', 'warning');
     if (typeof XLSX === 'undefined') return showToast('مكتبة Excel غير محملة. أعد فتح الصفحة وحاول مرة أخرى.', 'error');
     await loadPharmacyAreas();
-    const rows = sortOrdersAscending(orders).flatMap(orderToExportRows);
+    const rows = orders.flatMap(orderToExportRows);
     if (rows.length === 0) return showToast('لا توجد أصناف قابلة للتصدير.', 'warning');
     const exportFileName = `orders_staff_${toDateInputValue(new Date())}.xlsx`;
     const ws = XLSX.utils.json_to_sheet(rows, { header: ORDER_STAFF_EXPORT_HEADERS });
     ws['!cols'] = [
-        { wch: 28 },
-        { wch: 36 },
-        { wch: 36 },
-        { wch: 14 },
-        { wch: 12 },
+        { wch: 22 },
         { wch: 24 },
         { wch: 18 },
         { wch: 15 },
-        { wch: 30 },
-        { wch: 15 },
+        { wch: 32 },
+        { wch: 16 },
         { wch: 34 },
         { wch: 12 },
         { wch: 10 },
         { wch: 14 },
-        { wch: 14 }
+        { wch: 14 },
+        { wch: 28 },
+        { wch: 36 },
+        { wch: 36 },
+        { wch: 36 }
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Orders');
@@ -1933,7 +1936,6 @@ async function boot() {
     updateOnlineStatus();
 
     loadProducts();
-    if (WORKFLOW_PAGE === 'orders-staff') loadPharmacyAreas();
     if (WORKFLOW_PAGE === 'market-manager') initMarketManager();
     if (WORKFLOW_PAGE === 'finance-controller') initFinanceController();
     if (WORKFLOW_PAGE === 'orders-staff') initOrdersStaff();
