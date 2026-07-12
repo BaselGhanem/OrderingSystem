@@ -1,4 +1,4 @@
-import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, onSnapshot } from './firebase.js';
+import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js';
 
 // ==========================================
 // 🚀 1. نظام الإشعارات (Toasts)
@@ -215,7 +215,7 @@ function initializeManagerView(managerName) {
     loadManagerOrders();
 }
 
-const repManagerMap = {
+const DEFAULT_REP_MANAGER_MAP = {
     "مراد عمر": "محمد طوالبه",
     "مؤيد الزعبي": "محمد طوالبه",
     "محمد عبدربه": "محمد طوالبه",
@@ -226,6 +226,21 @@ const repManagerMap = {
     "محمد ابو يامين": "عبدالله الناطور",
     "مراد الظاهر": "عبدالله الناطور"
 };
+let repManagerMap = { ...DEFAULT_REP_MANAGER_MAP };
+
+async function loadRepManagerAssignments() {
+    try {
+        const configSnap = await getDoc(doc(db, 'system_settings', 'rep_supervisor_assignments'));
+        if (configSnap.exists()) {
+            const savedMap = configSnap.data()?.assignments;
+            if (savedMap && typeof savedMap === 'object' && !Array.isArray(savedMap)) {
+                repManagerMap = { ...DEFAULT_REP_MANAGER_MAP, ...savedMap };
+            }
+        }
+    } catch (error) {
+        console.warn('تعذر تحميل ربط المندوبين بالمشرفين، سيتم استخدام الربط الافتراضي.', error);
+    }
+}
 // 🟢 إضافة: كلمات سر المندوبين المشفرة (Base64) لحمايتها من القراءة المباشرة
 const repPasswordsMap = {
     "قضايا": "MjAyNg==",
@@ -1132,6 +1147,7 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
 async function loadInitialData() {
     try {
         if (APP_PAGE === 'login') normalizeLoginUrlAfterSwitch();
+        await loadRepManagerAssignments();
         if (repSelect) {
             repSelect.innerHTML = '<option value="">⏳ جاري تحميل البيانات...</option>';
             repSelect.disabled = true;
