@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Firestore Debug - Medical Rep</title>
+    <style>
+        :root {
+            --teal: #099999;
+            --bg: #f6f8fb;
+            --card: #ffffff;
+            --text: #111827;
+            --muted: #64748b;
+            --border: #dbe3ea;
+            --danger: #b91c1c;
+            --ok: #047857;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .wrap {
+            width: min(1200px, calc(100% - 24px));
+            margin: 24px auto;
+        }
+        .hero, .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+        }
+        .hero {
+            padding: 20px;
+            display: grid;
+            gap: 12px;
+        }
+        h1 {
+            margin: 0;
+            font-size: clamp(22px, 3vw, 34px);
+        }
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.8;
+        }
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        button {
+            border: 0;
+            border-radius: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            font-weight: 800;
+            background: var(--teal);
+            color: #fff;
+        }
+        button.secondary {
+            background: #e5f4f4;
+            color: #055f5f;
+        }
+        button:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 14px;
+            margin-top: 16px;
+        }
+        .card {
+            padding: 16px;
+            overflow: hidden;
+        }
+        .card h2 {
+            margin: 0 0 8px;
+            font-size: 17px;
+        }
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+            background: #eef2ff;
+            color: #3730a3;
+        }
+        .status.ok { background: #ecfdf5; color: var(--ok); }
+        .status.error { background: #fef2f2; color: var(--danger); }
+        .keys {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .key {
+            direction: ltr;
+            unicode-bidi: plaintext;
+            border: 1px solid var(--border);
+            background: #f8fafc;
+            color: #334155;
+            padding: 5px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        pre {
+            direction: ltr;
+            text-align: left;
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #0f172a;
+            color: #e5e7eb;
+            border-radius: 14px;
+            padding: 14px;
+            overflow: auto;
+            max-height: 420px;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .full {
+            margin-top: 16px;
+        }
+        .note {
+            margin-top: 10px;
+            padding: 12px;
+            border-radius: 14px;
+            background: #fff7ed;
+            color: #9a3412;
+            border: 1px solid #fed7aa;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <main class="wrap">
+        <section class="hero">
+            <h1>Firestore Debug - Medical Rep Portal</h1>
+            <p>هذه الصفحة تسحب عيّنة صغيرة فقط من المجموعات المطلوبة حتى نعرف أسماء الحقول الفعلية بدون تحميل كل البيانات.</p>
+            <div class="actions">
+                <button id="scanBtn">فحص Firestore</button>
+                <button id="copyBtn" class="secondary" disabled>نسخ التقرير</button>
+                <button id="downloadBtn" class="secondary" disabled>تنزيل JSON</button>
+            </div>
+            <div class="note">ارفع هذا الملف داخل فولدر <b>medical-rep</b> باسم <b>debug-firestore.html</b> ثم افتحه من الرابط: <b>/medical-rep/debug-firestore.html</b></div>
+        </section>
+
+        <section id="cards" class="grid"></section>
+
+        <section class="card full">
+            <h2>التقرير الكامل</h2>
+            <pre id="output">اضغط فحص Firestore...</pre>
+        </section>
+    </main>
+
+    <script type="module">
+        import { db } from './js/firebase.js';
+        import {
+            collection,
+            getDocs,
+            getCountFromServer,
+            query,
+            limit
+        } from 'https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js';
+
+        const COLLECTIONS_TO_SCAN = [
+            `orders`,
+            `pharmacies`,
+            `medicalReps`,
+            `medicalRepAreaRules`,
+            `medicalRepOtherShares`,
+            `medicalRepTargets`
+        ];
+
+        const MAX_DOCS_PER_COLLECTION = 3;
+        const MAX_ARRAY_ITEMS = 3;
+        const output = document.getElementById(`output`);
+        const cards = document.getElementById(`cards`);
+        const scanBtn = document.getElementById(`scanBtn`);
+        const copyBtn = document.getElementById(`copyBtn`);
+        const downloadBtn = document.getElementById(`downloadBtn`);
+        let lastReport = null;
+
+        function cleanValue(value, depth = 0) {
+            if (depth > 3) return `[Max depth]`;
+            if (value === null || value === undefined) return value;
+            if (typeof value === `string` || typeof value === `number` || typeof value === `boolean`) return value;
+            if (value?.toDate && typeof value.toDate === `function`) return value.toDate().toISOString();
+            if (value?.seconds !== undefined && value?.nanoseconds !== undefined) return `Timestamp(${value.seconds})`;
+            if (Array.isArray(value)) return value.slice(0, MAX_ARRAY_ITEMS).map(item => cleanValue(item, depth + 1));
+            if (typeof value === `object`) {
+                const result = {};
+                Object.keys(value).slice(0, 40).forEach(key => {
+                    result[key] = cleanValue(value[key], depth + 1);
+                });
+                return result;
+            }
+            return String(value);
+        }
+
+        function flattenKeys(value, prefix = ``, result = new Set(), depth = 0) {
+            if (!value || typeof value !== `object` || depth > 4) return result;
+            Object.keys(value).forEach(key => {
+                const path = prefix ? `${prefix}.${key}` : key;
+                result.add(path);
+                const child = value[key];
+                if (Array.isArray(child)) {
+                    result.add(`${path}[]`);
+                    child.slice(0, MAX_ARRAY_ITEMS).forEach(item => flattenKeys(item, `${path}[]`, result, depth + 1));
+                    return;
+                }
+                if (child && typeof child === `object` && !child.toDate && child.seconds === undefined) {
+                    flattenKeys(child, path, result, depth + 1);
+                }
+            });
+            return result;
+        }
+
+        function detectCandidates(collectionName, docs) {
+            const keys = Array.from(new Set(docs.flatMap(doc => Array.from(flattenKeys(doc.data))))).sort();
+            const lower = key => key.toLowerCase();
+            const contains = terms => keys.filter(key => terms.some(term => lower(key).includes(term)));
+
+            const base = {
+                likelyStatusFields: contains([`status`, `invoic`, `hidden`, `export`, `staff`]),
+                likelyDateFields: contains([`date`, `created`, `updated`, `invoice`, `export`, `hidden`, `time`]),
+                likelyPharmacyFields: contains([`pharmacy`, `customer`, `code`, `name`]),
+                likelyAreaFields: contains([`area`, `region`, `zone`, `territory`, `منطقة`]),
+                likelyItemFields: contains([`items`, `item`, `product`, `qty`, `quantity`, `price`, `total`, `value`, `amount`, `bonus`, `code`])
+            };
+
+            if (collectionName === `orders`) return base;
+            if (collectionName === `pharmacies`) {
+                return {
+                    likelyPharmacyFields: base.likelyPharmacyFields,
+                    likelyAreaFields: base.likelyAreaFields,
+                    likelyRepFields: contains([`rep`, `representative`, `مندوب`])
+                };
+            }
+            return {
+                likelyKeys: keys.filter(key => ![`id`].includes(key)).slice(0, 80)
+            };
+        }
+
+        async function countCollection(collectionName) {
+            try {
+                const snap = await getCountFromServer(collection(db, collectionName));
+                return snap.data().count;
+            } catch (error) {
+                return `غير متاح: ${error.code || error.message}`;
+            }
+        }
+
+        async function scanCollection(collectionName) {
+            const result = {
+                collection: collectionName,
+                status: `ok`,
+                count: null,
+                docsRead: 0,
+                topLevelKeys: [],
+                allKeys: [],
+                candidates: {},
+                sampleDocs: [],
+                error: null
+            };
+
+            try {
+                const [count, snap] = await Promise.all([
+                    countCollection(collectionName),
+                    getDocs(query(collection(db, collectionName), limit(MAX_DOCS_PER_COLLECTION)))
+                ]);
+
+                result.count = count;
+                snap.forEach(docSnap => {
+                    result.sampleDocs.push({
+                        id: docSnap.id,
+                        data: cleanValue(docSnap.data())
+                    });
+                });
+
+                result.docsRead = result.sampleDocs.length;
+                result.topLevelKeys = Array.from(new Set(result.sampleDocs.flatMap(doc => Object.keys(doc.data)))).sort();
+                result.allKeys = Array.from(new Set(result.sampleDocs.flatMap(doc => Array.from(flattenKeys(doc.data))))).sort();
+                result.candidates = detectCandidates(collectionName, result.sampleDocs);
+                return result;
+            } catch (error) {
+                result.status = `error`;
+                result.error = {
+                    code: error.code || `unknown`,
+                    message: error.message || String(error)
+                };
+                return result;
+            }
+        }
+
+        function renderCards(report) {
+            cards.innerHTML = report.collections.map(item => {
+                const keys = item.allKeys.slice(0, 60).map(key => `<span class="key">${key}</span>`).join(``);
+                const statusClass = item.status === `ok` ? `ok` : `error`;
+                const statusText = item.status === `ok` ? `OK` : `ERROR`;
+                return `
+                    <article class="card">
+                        <h2>${item.collection}</h2>
+                        <span class="status ${statusClass}">${statusText}</span>
+                        <p>Count: ${item.count ?? `-`}</p>
+                        <p>Docs read: ${item.docsRead}</p>
+                        ${item.error ? `<p style="color: var(--danger);">${item.error.code}: ${item.error.message}</p>` : ``}
+                        <div class="keys">${keys || `<span class="key">No keys</span>`}</div>
+                    </article>
+                `;
+            }).join(``);
+        }
+
+        async function runScan() {
+            scanBtn.disabled = true;
+            copyBtn.disabled = true;
+            downloadBtn.disabled = true;
+            output.textContent = `جاري الفحص...`;
+            cards.innerHTML = ``;
+
+            const startedAt = new Date().toISOString();
+            const collections = [];
+
+            for (const collectionName of COLLECTIONS_TO_SCAN) {
+                output.textContent = `جاري فحص: ${collectionName}`;
+                const scanned = await scanCollection(collectionName);
+                collections.push(scanned);
+            }
+
+            lastReport = {
+                generatedAt: startedAt,
+                project: `dad-ordering-system`,
+                sampleLimitPerCollection: MAX_DOCS_PER_COLLECTION,
+                collections
+            };
+
+            output.textContent = JSON.stringify(lastReport, null, 2);
+            renderCards(lastReport);
+            scanBtn.disabled = false;
+            copyBtn.disabled = false;
+            downloadBtn.disabled = false;
+        }
+
+        async function copyReport() {
+            if (!lastReport) return;
+            await navigator.clipboard.writeText(JSON.stringify(lastReport, null, 2));
+            copyBtn.textContent = `تم النسخ`;
+            setTimeout(() => { copyBtn.textContent = `نسخ التقرير`; }, 1600);
+        }
+
+        function downloadReport() {
+            if (!lastReport) return;
+            const blob = new Blob([JSON.stringify(lastReport, null, 2)], { type: `application/json;charset=utf-8` });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement(`a`);
+            a.href = url;
+            a.download = `firestore-medrep-debug-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        scanBtn.addEventListener(`click`, runScan);
+        copyBtn.addEventListener(`click`, copyReport);
+        downloadBtn.addEventListener(`click`, downloadReport);
+    </script>
+</body>
+</html>
