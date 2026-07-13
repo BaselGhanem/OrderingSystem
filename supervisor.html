@@ -11,7 +11,48 @@
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
-</head><body data-page="supervisor"><div class="offline-banner" id="offline-banner">
+<style>
+.supervisor-filter-select {
+    flex: 1;
+    min-width: 170px;
+}
+.sortable-header-button {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.sortable-header-button:hover,
+.sortable-header-button:focus-visible {
+    color: var(--primary);
+    outline: none;
+}
+.sortable-header-button .sort-icon {
+    font-size: 1rem;
+    opacity: .55;
+    transition: transform .18s ease, opacity .18s ease;
+}
+.sortable-header-button.active .sort-icon {
+    opacity: 1;
+}
+.sortable-header-button[data-direction="desc"] .sort-icon {
+    transform: rotate(180deg);
+}
+@media (max-width: 768px) {
+    .sortable-header-button {
+        justify-content: flex-start;
+    }
+}
+</style></head><body data-page="supervisor"><div class="offline-banner" id="offline-banner">
 <i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال. النظام يعمل محلياً وسيتم المزامنة لاحقاً.
     </div><div class="saving-indicator" id="saving-indicator">
 <div class="spinner"></div> جارٍ الحفظ والتحديث...
@@ -108,11 +149,13 @@
 <div class="card"><strong>قيمة الطلبيات:</strong> <span id="managerOrdersTotal">0.00</span> د.ا</div>
 </div>
 <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-<select class="form-control" id="managerRepFilter" style="flex: 1; min-width: 150px;">
+<select class="form-control supervisor-filter-select" id="managerRepFilter" aria-label="تصفية حسب المندوب">
 <option value="">جميع المندوبين</option>
 </select>
-<input class="form-control" id="managerPharmacyFilter" placeholder="ابحث باسم الصيدلية..." style="flex: 1; min-width: 150px;" type="text"/>
-<select class="form-control" id="managerStatusFilter" style="flex: 1; min-width: 150px;">
+<select class="form-control supervisor-filter-select" id="managerPharmacyFilter" aria-label="تصفية حسب الصيدلية">
+<option value="">جميع الصيدليات</option>
+</select>
+<select class="form-control supervisor-filter-select" id="managerStatusFilter" aria-label="تصفية حسب الحالة">
 <option value="">جميع الحالات</option>
 <option value="pending_supervisor_approval">قيد موافقة المشرف</option>
 <option value="pending">قيد الموافقة - قديم</option>
@@ -120,6 +163,7 @@
 <option value="returned_to_supervisor">مرجعة للمشرف</option>
 <option value="returned_to_rep">مرجعة للمندوب</option>
 <option value="finance_pending">بانتظار المالية</option>
+<option value="finance_rejected">مرفوض مالياً</option>
 <option value="orders_staff_pending">جاهز للمعالجة</option>
 <option value="returned_to_market_manager">مرجعة لمدير السوق</option>
 <option value="returned_to_finance">مرجعة للمالية</option>
@@ -134,7 +178,16 @@
 </div>
 <div class="table-responsive mobile-cards">
 <table class="order-table" id="managerOrdersTable">
-<thead><tr><th><input id="selectAllOrders" type="checkbox"/></th><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
+<thead><tr>
+<th><input id="selectAllOrders" type="checkbox"/></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="reference" type="button">رقم المرجع <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button active" data-direction="desc" data-sort-table="manager" data-sort-key="date" type="button">التاريخ <i class="ph ph-arrow-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="rep" type="button">المندوب <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="pharmacy" type="button">الصيدلية <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="total" type="button">الإجمالي <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="status" type="button">الحالة <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th>الإجراءات</th>
+</tr></thead>
 <tbody id="managerOrdersBody"></tbody>
 </table>
 </div>
@@ -170,14 +223,19 @@
 </div>
 </div>
 <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-<input id="filterAllRep" placeholder="تصفية باسم المندوب..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;" type="text"/>
-<input id="filterAllPharmacy" placeholder="تصفية باسم الصيدلية..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;" type="text"/>
-<select id="filterAllStatus" style="flex: 0.5; min-width: 150px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+<select class="form-control supervisor-filter-select" id="filterAllRep" aria-label="تصفية جميع الطلبيات حسب المندوب">
+<option value="">جميع المندوبين</option>
+</select>
+<select class="form-control supervisor-filter-select" id="filterAllPharmacy" aria-label="تصفية جميع الطلبيات حسب الصيدلية">
+<option value="">جميع الصيدليات</option>
+</select>
+<select class="form-control supervisor-filter-select" id="filterAllStatus" aria-label="تصفية جميع الطلبيات حسب الحالة">
 <option value="">جميع الحالات</option>
 <option value="pending_supervisor_approval">قيد موافقة المشرف</option>
 <option value="pending">قيد الموافقة - قديم</option>
 <option value="market_manager_pending">بانتظار مدير السوق</option>
 <option value="finance_pending">بانتظار المالية</option>
+<option value="finance_rejected">مرفوض مالياً</option>
 <option value="orders_staff_pending">جاهز للمعالجة</option>
 <option value="returned_to_market_manager">مرجعة لمدير السوق</option>
 <option value="returned_to_finance">مرجعة للمالية</option>
@@ -188,7 +246,16 @@
 </div>
 <div class="table-responsive mobile-cards">
 <table class="order-table" id="allOrdersTable">
-<thead><tr><th><input id="selectAllAllOrders" type="checkbox"/></th><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
+<thead><tr>
+<th><input id="selectAllAllOrders" type="checkbox"/></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="reference" type="button">رقم المرجع <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button active" data-direction="desc" data-sort-table="all" data-sort-key="date" type="button">التاريخ <i class="ph ph-arrow-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="rep" type="button">المندوب <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="pharmacy" type="button">الصيدلية <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="total" type="button">الإجمالي <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="status" type="button">الحالة <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th>الإجراءات</th>
+</tr></thead>
 <tbody id="allOrdersBody"></tbody>
 </table>
 </div>
@@ -263,4 +330,4 @@
                 علمت ذلك، شكراً
             </button>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20260712_rep_supervisor_assignment_fix1" type="module"></script></body></html>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20260713_supervisor_smart_filters_sort1" type="module"></script></body></html>
