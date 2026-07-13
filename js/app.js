@@ -567,7 +567,6 @@ function setSupervisorSelectOptions(select, allLabel, optionRows, selectedValue)
         const option = document.createElement('option');
         option.value = row.value;
         option.textContent = row.label;
-        option.disabled = row.disabled === true && row.value !== selectedValue;
         fragment.appendChild(option);
     });
 
@@ -658,16 +657,13 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
         .map(order => normalizeSupervisorFilterText(getEffectiveOrderStatus(order)))
         .filter(Boolean))];
     const statusUniverse = [...new Set([...SUPERVISOR_FILTER_STATUS_ORDER, ...dynamicStatuses])];
-    const statusRows = statusUniverse.map(value => {
-        const count = statusCounts.get(value) || 0;
-        return {
-            value,
-            label: count > 0
-                ? `${getWorkflowStatusLabel(value)} (${count})`
-                : getWorkflowStatusLabel(value),
-            disabled: count === 0
-        };
-    });
+    const statusRows = statusUniverse
+        .map(value => ({ value, count: statusCounts.get(value) || 0 }))
+        .filter(row => row.count > 0)
+        .map(row => ({
+            value: row.value,
+            label: `${getWorkflowStatusLabel(row.value)} (${row.count})`
+        }));
 
     setSupervisorSelectOptions(config.repSelect, 'جميع المندوبين', repRows, selections.rep);
     setSupervisorSelectOptions(config.pharmacySelect, 'جميع الصيدليات', pharmacyRows, selections.pharmacy);
@@ -2118,7 +2114,9 @@ function applyManagerFilters() {
     const sorted = sortSupervisorOrders(filtered, 'manager');
 
     renderManagerOrders(sorted);
-    updateAdvancedManagerDashboard(sorted);
+    if (!getEl('managerAllOrdersBtn')?.classList.contains('active')) {
+        updateAdvancedManagerDashboard(sorted);
+    }
 }
 
 function renderManagerOrders(orders) {
@@ -2422,13 +2420,16 @@ function filterAllOrders() {
     const sorted = sortSupervisorOrders(filtered, 'all');
 
     renderAllOrders(sorted);
-    updateAdvancedManagerDashboard(sorted);
+    if (getEl('managerAllOrdersBtn')?.classList.contains('active')) {
+        updateAdvancedManagerDashboard(sorted);
+    }
 }
 
 const exportAllOrdersBtn = getEl('exportAllOrdersBtn');
 if (exportAllOrdersBtn) exportAllOrdersBtn.onclick = () => {
     const btn = exportAllOrdersBtn;
-    btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i> جاري التجهيز...";
+    btn.disabled = true;
+    btn.innerHTML = "<i class='ph ph-spinner ph-spin'></i><span>جاري التجهيز...</span>";
     try {
         const ordersToExport = getCurrentFilteredAllOrders();
         const flatData = buildFlatOrderExportRows(ordersToExport);
@@ -2444,7 +2445,8 @@ if (exportAllOrdersBtn) exportAllOrdersBtn.onclick = () => {
     } catch(e) {
         showToast("حدث خطأ أثناء التصدير", "error");
     } finally {
-        btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير الطلبيات المفلترة";
+        btn.disabled = false;
+        btn.innerHTML = "<i class='ph ph-file-xls'></i><span>تصدير جميع الطلبيات</span>";
     }
 };
 
@@ -2999,8 +3001,22 @@ btnTodayOrders?.addEventListener('click', () => {
 });
 
 btnClearManagerFilter?.addEventListener('click', () => {
-    managerFilterFrom.value = '';
-    managerFilterTo.value = '';
+    if (managerFilterFrom) managerFilterFrom.value = '';
+    if (managerFilterTo) managerFilterTo.value = '';
+
+    [
+        'managerRepFilter',
+        'managerPharmacyFilter',
+        'managerStatusFilter',
+        'filterAllRep',
+        'filterAllPharmacy',
+        'filterAllStatus'
+    ].forEach(id => {
+        const select = getEl(id);
+        if (select) select.value = '';
+    });
+
     applyManagerFilters();
     filterAllOrders();
+    showToast('تم محو جميع الفلاتر', 'success');
 });
