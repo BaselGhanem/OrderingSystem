@@ -114,12 +114,15 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    getEl('filterAllRep')?.addEventListener('change', filterAllOrders);
-    getEl('filterAllPharmacy')?.addEventListener('change', filterAllOrders);
+    initializeSupervisorSearchFilter('managerRepFilter', applyManagerFilters);
+    initializeSupervisorSearchFilter('managerPharmacyFilter', applyManagerFilters);
+    initializeSupervisorSearchFilter('filterAllRep', filterAllOrders);
+    initializeSupervisorSearchFilter('filterAllPharmacy', filterAllOrders);
     getEl('filterAllStatus')?.addEventListener('change', filterAllOrders);
     getEl('myOrdersDateFrom')?.addEventListener('change', applyMyOrdersFilters);
     getEl('myOrdersDateTo')?.addEventListener('change', applyMyOrdersFilters);
     getEl('myOrdersPharmacyFilter')?.addEventListener('input', applyMyOrdersFilters);
+    getEl('myOrdersStatusFilter')?.addEventListener('change', applyMyOrdersFilters);
     getEl('selectAllMyOrders')?.addEventListener('change', function() {
         document.querySelectorAll('.my-order-checkbox').forEach(cb => cb.checked = this.checked);
     });
@@ -151,19 +154,6 @@ function setDefaultMonthFilter() {
 function initializeManagerView(managerName) {
     currentManagerName = managerName;
     isAdmin = true;
-    const repsUnder = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === managerName);
-    const filterSelect = getEl('managerRepFilter');
-    if (filterSelect) {
-        filterSelect.innerHTML = '<option value="">جميع مندوبي</option>';
-        for (let rep of repsUnder) {
-            const repOption = repSelect ? Array.from(repSelect.options).find(opt => opt.textContent === rep) : null;
-            const opt = document.createElement('option');
-            opt.value = repOption ? repOption.value : rep;
-            opt.textContent = rep;
-            filterSelect.appendChild(opt);
-        }
-    }
-
     const managerAddBtn = getEl('managerAddNewOrderBtn');
     if (managerAddBtn) {
         managerAddBtn.onclick = () => {
@@ -539,8 +529,8 @@ function supervisorOrderMatchesSelections(order, selections, ignoredFilter, from
     const pharmacyName = normalizeSupervisorFilterText(order.pharmacyName);
     const status = normalizeSupervisorFilterText(getEffectiveOrderStatus(order));
 
-    if (ignoredFilter !== 'rep' && selections.rep && repName !== selections.rep) return false;
-    if (ignoredFilter !== 'pharmacy' && selections.pharmacy && pharmacyName !== selections.pharmacy) return false;
+    if (ignoredFilter !== 'rep' && selections.rep && !repName.includes(selections.rep)) return false;
+    if (ignoredFilter !== 'pharmacy' && selections.pharmacy && !pharmacyName.includes(selections.pharmacy)) return false;
     if (ignoredFilter !== 'status' && selections.status && status !== selections.status) return false;
     return isOrderInDateRange(order, fromVal, toVal);
 }
@@ -572,6 +562,139 @@ function setSupervisorSelectOptions(select, allLabel, optionRows, selectedValue)
 
     select.replaceChildren(fragment);
     select.value = selectedValue || '';
+}
+
+
+function closeSupervisorSearchFilter(input) {
+    const wrapper = input?.closest('.supervisor-filter-search');
+    if (wrapper) wrapper.classList.remove('open');
+    if (input) input._supervisorActiveIndex = -1;
+}
+
+function renderSupervisorSearchOptions(input, { showAllWhenExact = false } = {}) {
+    if (!input) return;
+    const list = getEl(`${input.id}Suggestions`);
+    const wrapper = input.closest('.supervisor-filter-search');
+    if (!list || !wrapper) return;
+
+    const rows = Array.isArray(input._supervisorFilterOptions) ? input._supervisorFilterOptions : [];
+    const queryText = normalizeSupervisorFilterText(input.value);
+    const exactMatch = rows.some(row => normalizeSupervisorFilterText(row.value) === queryText);
+    const effectiveQuery = showAllWhenExact && exactMatch ? '' : queryText;
+    const filteredRows = effectiveQuery
+        ? rows.filter(row => normalizeSupervisorFilterText(row.value).includes(effectiveQuery))
+        : rows;
+
+    list.replaceChildren();
+    input._supervisorActiveIndex = -1;
+
+    if (filteredRows.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'supervisor-filter-empty';
+        empty.textContent = queryText ? 'لا توجد خيارات مطابقة ضمن الفلاتر الحالية' : 'لا توجد خيارات متاحة ضمن الفترة الحالية';
+        list.appendChild(empty);
+    } else {
+        filteredRows.forEach(row => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'supervisor-filter-option';
+            option.setAttribute('role', 'option');
+            option.dataset.value = row.value;
+
+            const name = document.createElement('span');
+            name.className = 'supervisor-filter-option-name';
+            name.textContent = row.value;
+
+            const count = document.createElement('span');
+            count.className = 'supervisor-filter-option-count';
+            count.textContent = String(row.count ?? '');
+
+            option.append(name, count);
+            option.addEventListener('mousedown', event => event.preventDefault());
+            option.addEventListener('click', () => {
+                input.value = row.value;
+                input._supervisorSelectedValue = row.value;
+                closeSupervisorSearchFilter(input);
+                if (typeof input._supervisorFilterCallback === 'function') {
+                    input._supervisorFilterCallback();
+                }
+            });
+            list.appendChild(option);
+        });
+    }
+
+    wrapper.classList.add('open');
+}
+
+function setSupervisorAutocompleteOptions(input, optionRows) {
+    if (!input) return;
+    input._supervisorFilterOptions = Array.isArray(optionRows) ? optionRows : [];
+    if (input.closest('.supervisor-filter-search')?.classList.contains('open')) {
+        renderSupervisorSearchOptions(input);
+    }
+}
+
+function initializeSupervisorSearchFilter(inputId, onFilterChange) {
+    const input = getEl(inputId);
+    if (!input || input._supervisorSearchInitialized) return;
+    input._supervisorSearchInitialized = true;
+    input._supervisorFilterCallback = onFilterChange;
+    input._supervisorActiveIndex = -1;
+
+    input.addEventListener('input', () => {
+        if (input._supervisorSelectedValue !== input.value) {
+            input._supervisorSelectedValue = '';
+        }
+        if (typeof input._supervisorFilterCallback === 'function') {
+            input._supervisorFilterCallback();
+        }
+        renderSupervisorSearchOptions(input);
+    });
+
+    input.addEventListener('focus', () => renderSupervisorSearchOptions(input, { showAllWhenExact: true }));
+    input.addEventListener('click', () => renderSupervisorSearchOptions(input, { showAllWhenExact: true }));
+
+    input.addEventListener('keydown', event => {
+        const wrapper = input.closest('.supervisor-filter-search');
+        const list = getEl(`${input.id}Suggestions`);
+        if (!wrapper || !list) return;
+
+        if (event.key === 'Escape') {
+            closeSupervisorSearchFilter(input);
+            return;
+        }
+
+        if (!wrapper.classList.contains('open') && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
+            renderSupervisorSearchOptions(input, { showAllWhenExact: true });
+        }
+
+        const options = Array.from(list.querySelectorAll('.supervisor-filter-option'));
+        if (!options.length) return;
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            input._supervisorActiveIndex = (input._supervisorActiveIndex + 1) % options.length;
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            input._supervisorActiveIndex = input._supervisorActiveIndex <= 0
+                ? options.length - 1
+                : input._supervisorActiveIndex - 1;
+        } else if (event.key === 'Enter' && input._supervisorActiveIndex >= 0) {
+            event.preventDefault();
+            options[input._supervisorActiveIndex]?.click();
+            return;
+        } else {
+            return;
+        }
+
+        options.forEach((option, index) => option.classList.toggle('active', index === input._supervisorActiveIndex));
+        options[input._supervisorActiveIndex]?.scrollIntoView({ block: 'nearest' });
+    });
+
+    document.addEventListener('click', event => {
+        const wrapper = input.closest('.supervisor-filter-search');
+        if (wrapper && !wrapper.contains(event.target)) closeSupervisorSearchFilter(input);
+    });
 }
 
 function getSupervisorCascadingConfig(scope) {
@@ -617,12 +740,19 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
             .map(order => normalizeSupervisorFilterText(getEffectiveOrderStatus(order)))
             .filter(Boolean));
 
-        if (selections.rep && !availableRep.has(selections.rep)) {
+        const committedRep = normalizeSupervisorFilterText(config.repSelect?._supervisorSelectedValue);
+        const committedPharmacy = normalizeSupervisorFilterText(config.pharmacySelect?._supervisorSelectedValue);
+
+        if (committedRep && selections.rep === committedRep && !availableRep.has(committedRep)) {
             selections.rep = '';
+            config.repSelect.value = '';
+            config.repSelect._supervisorSelectedValue = '';
             changed = true;
         }
-        if (selections.pharmacy && !availablePharmacy.has(selections.pharmacy)) {
+        if (committedPharmacy && selections.pharmacy === committedPharmacy && !availablePharmacy.has(committedPharmacy)) {
             selections.pharmacy = '';
+            config.pharmacySelect.value = '';
+            config.pharmacySelect._supervisorSelectedValue = '';
             changed = true;
         }
         if (selections.status && !availableStatus.has(selections.status)) {
@@ -648,10 +778,10 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
     const textSort = (a, b) => a.localeCompare(b, 'ar', { numeric: true, sensitivity: 'base' });
     const repRows = [...repCounts.entries()]
         .sort(([a], [b]) => textSort(a, b))
-        .map(([value, count]) => ({ value, label: `${value} (${count})` }));
+        .map(([value, count]) => ({ value, count, label: `${value} (${count})` }));
     const pharmacyRows = [...pharmacyCounts.entries()]
         .sort(([a], [b]) => textSort(a, b))
-        .map(([value, count]) => ({ value, label: `${value} (${count})` }));
+        .map(([value, count]) => ({ value, count, label: `${value} (${count})` }));
 
     const dynamicStatuses = [...new Set(data
         .map(order => normalizeSupervisorFilterText(getEffectiveOrderStatus(order)))
@@ -665,8 +795,8 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
             label: `${getWorkflowStatusLabel(row.value)} (${row.count})`
         }));
 
-    setSupervisorSelectOptions(config.repSelect, 'جميع المندوبين', repRows, selections.rep);
-    setSupervisorSelectOptions(config.pharmacySelect, 'جميع الصيدليات', pharmacyRows, selections.pharmacy);
+    setSupervisorAutocompleteOptions(config.repSelect, repRows);
+    setSupervisorAutocompleteOptions(config.pharmacySelect, pharmacyRows);
     setSupervisorSelectOptions(config.statusSelect, 'جميع الحالات', statusRows, selections.status);
 
     return selections;
@@ -1966,16 +2096,57 @@ async function loadMyOrders() {
     } catch(e) { showToast("خطأ في جلب البيانات.", "error"); }
 }
 
+function synchronizeMyOrdersStatusFilter() {
+    const statusSelect = getEl('myOrdersStatusFilter');
+    if (!statusSelect) return '';
+
+    const fromVal = getEl('myOrdersDateFrom')?.value || '';
+    const toVal = getEl('myOrdersDateTo')?.value || '';
+    const pharmacyFilter = (getEl('myOrdersPharmacyFilter')?.value || '').toLowerCase().trim();
+    let selectedStatus = normalizeSupervisorFilterText(statusSelect.value);
+
+    const statusCounts = countSupervisorFilterValues(
+        currentMyOrdersData.filter(order => {
+            const pharmacyName = (order.pharmacyName || '').toLowerCase();
+            const pharmacyCode = String(getPharmacyCodeFromOrder(order) || '').toLowerCase();
+            const pharmacyMatches = !pharmacyFilter || pharmacyName.includes(pharmacyFilter) || pharmacyCode.includes(pharmacyFilter);
+            return isOrderInDateRange(order, fromVal, toVal) && pharmacyMatches;
+        }),
+        order => getEffectiveOrderStatus(order)
+    );
+
+    if (selectedStatus && !statusCounts.has(selectedStatus)) selectedStatus = '';
+
+    const dynamicStatuses = [...new Set(currentMyOrdersData
+        .map(order => normalizeSupervisorFilterText(getEffectiveOrderStatus(order)))
+        .filter(Boolean))];
+    const statusUniverse = [...new Set([...SUPERVISOR_FILTER_STATUS_ORDER, ...dynamicStatuses])];
+    const statusRows = statusUniverse
+        .map(value => ({ value, count: statusCounts.get(value) || 0 }))
+        .filter(row => row.count > 0)
+        .map(row => ({
+            value: row.value,
+            label: `${getWorkflowStatusLabel(row.value)} (${row.count})`
+        }));
+
+    setSupervisorSelectOptions(statusSelect, 'جميع الحالات', statusRows, selectedStatus);
+    return selectedStatus;
+}
+
 function applyMyOrdersFilters() {
     const tbody = getEl('myOrdersBody');
     if (!tbody) return;
     const fromVal = getEl('myOrdersDateFrom')?.value || '';
     const toVal = getEl('myOrdersDateTo')?.value || '';
     const pharmacyFilter = (getEl('myOrdersPharmacyFilter')?.value || '').toLowerCase().trim();
+    const statusFilter = synchronizeMyOrdersStatusFilter();
     const filtered = currentMyOrdersData.filter(order => {
         const pharmacyName = (order.pharmacyName || '').toLowerCase();
         const pharmacyCode = String(getPharmacyCodeFromOrder(order) || '').toLowerCase();
-        return isOrderInDateRange(order, fromVal, toVal) && (!pharmacyFilter || pharmacyName.includes(pharmacyFilter) || pharmacyCode.includes(pharmacyFilter));
+        const status = normalizeSupervisorFilterText(getEffectiveOrderStatus(order));
+        return isOrderInDateRange(order, fromVal, toVal) &&
+            (!pharmacyFilter || pharmacyName.includes(pharmacyFilter) || pharmacyCode.includes(pharmacyFilter)) &&
+            (!statusFilter || status === statusFilter);
     });
 
     const totalVal = filtered.reduce((sum, order) => sum + parseAppNumber(order.grandTotal), 0);
@@ -2083,17 +2254,6 @@ async function loadManagerOrders() {
                 return normalizedUnder.includes(repNameNorm);
             });
 
-            const repDropdown = document.getElementById('managerRepFilter');
-            if (repDropdown && repDropdown.options.length <= 1) {
-                repDropdown.innerHTML = '<option value="">جميع مندوبي</option>';
-                managerReps.forEach(rep => {
-                    const opt = document.createElement('option');
-                    opt.value = rep;
-                    opt.textContent = rep;
-                    repDropdown.appendChild(opt);
-                });
-            }
-
             applyManagerFilters(); 
         }, (e) => {
             showToast("فشل في مزامنة بيانات الفريق", "error");
@@ -2165,8 +2325,6 @@ function renderManagerOrders(orders) {
         tbody.appendChild(tr);
     });
 }
-document.getElementById('managerRepFilter')?.addEventListener('change', applyManagerFilters);
-document.getElementById('managerPharmacyFilter')?.addEventListener('change', applyManagerFilters);
 document.getElementById('managerStatusFilter')?.addEventListener('change', applyManagerFilters);
 
 
@@ -3012,8 +3170,11 @@ btnClearManagerFilter?.addEventListener('click', () => {
         'filterAllPharmacy',
         'filterAllStatus'
     ].forEach(id => {
-        const select = getEl(id);
-        if (select) select.value = '';
+        const control = getEl(id);
+        if (!control) return;
+        control.value = '';
+        control._supervisorSelectedValue = '';
+        closeSupervisorSearchFilter(control);
     });
 
     applyManagerFilters();
