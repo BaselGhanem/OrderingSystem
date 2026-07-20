@@ -1595,21 +1595,35 @@ $(`statAudit`).textContent = allAudit.toLocaleString(`en-US`);
 $(`statExport`).textContent = allExport.toLocaleString(`en-US`);
 $(`statPrint`).textContent = allPrint.toLocaleString(`en-US`);
 }
-function rebuildAuditSelect(id, values = [], labels = {}, defaultText = `الكل`) {
+function rebuildAuditSelect(id, values = [], labels = {}, defaultText = `الكل`, showCounts = false) {
 const select = $(id);
 if (!select) return false;
 const current = select.value || ``;
-const unique = Array.from(
-new Set(values.map(value => String(value || ``).trim()).filter(Boolean))
-).sort((first, second) => {
+const normalizedValues = values
+.map(value => String(value || ``).trim())
+.filter(Boolean);
+const counts = normalizedValues.reduce((result, value) => {
+result[value] = (result[value] || 0) + 1;
+return result;
+}, {});
+const unique = Array.from(new Set(normalizedValues)).sort((first, second) => {
 return (labels[first] || statusLabel(first)).localeCompare(
 labels[second] || statusLabel(second),
 `ar`
 );
 });
 const nextValue = !current || unique.includes(current) ? current : ``;
-select.innerHTML = `<option value="">${escapeHtml(defaultText)}</option>${
-unique.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(labels[value] || statusLabel(value))}</option>`).join(``)
+const defaultLabel = showCounts
+? `${defaultText} (${normalizedValues.length.toLocaleString(`en-US`)})`
+: defaultText;
+select.innerHTML = `<option value="">${escapeHtml(defaultLabel)}</option>${
+unique.map(value => {
+const label = labels[value] || statusLabel(value);
+const optionLabel = showCounts
+? `${label} (${(counts[value] || 0).toLocaleString(`en-US`)})`
+: label;
+return `<option value="${escapeHtml(value)}">${escapeHtml(optionLabel)}</option>`;
+}).join(``)
 }`;
 select.value = nextValue;
 return current !== nextValue;
@@ -1675,7 +1689,7 @@ historyValues.push(`has_print`);
 }
 });
 let changed = false;
-changed = rebuildAuditSelect(`statusFilter`, statuses, WORKFLOW_STATUS_LABELS, `كل الحالات`) || changed;
+changed = rebuildAuditSelect(`statusFilter`, statuses, WORKFLOW_STATUS_LABELS, `كل الحالات`, true) || changed;
 changed = rebuildAuditSelect(`ownerFilter`, owners, OWNER_LABELS, `الكل`) || changed;
 changed = rebuildAuditSelect(`historyFilter`, historyValues, HISTORY_LABELS, `الكل`) || changed;
 return changed;
