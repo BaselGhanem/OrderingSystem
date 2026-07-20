@@ -579,6 +579,14 @@
                 <input id="dateTo" type="date">
             </div>
             <div class="audit-field">
+                <label>فترة جاهزة</label>
+                <div class="audit-toolbar">
+                    <button class="audit-btn secondary" id="datePresetMonth" type="button">هذا الشهر</button>
+                    <button class="audit-btn secondary" id="datePresetYear" type="button">من أول السنة</button>
+                    <button class="audit-btn secondary" id="datePresetToday" type="button">اليوم</button>
+                </div>
+            </div>
+            <div class="audit-field">
                 <label for="searchBox">بحث عام</label>
                 <input id="searchBox" type="search" placeholder="رقم الطلبية / الصيدلية / المندوب / الكود">
             </div>
@@ -1059,6 +1067,16 @@
             return `${y}-${m}-${d}`;
         }
 
+        function setDatePreset(preset, shouldApply = true) {
+            const today = new Date();
+            let fromDate = today;
+            if (preset === 'month') fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            if (preset === 'year') fromDate = new Date(today.getFullYear(), 0, 1);
+            $('dateFrom').value = toDateInputValue(fromDate);
+            $('dateTo').value = toDateInputValue(today);
+            if (shouldApply) applyFilters();
+        }
+
         function inDateRange(order = {}, from = '', to = '') {
             const d = normalizeDate(order.createdAt || order.date || order.timestamp);
             if (!d) return true;
@@ -1491,6 +1509,9 @@
             ['dateFrom', 'dateTo', 'searchBox', 'statusFilter', 'ownerFilter', 'historyFilter'].forEach(id => {
                 $(id).addEventListener(id === 'searchBox' ? 'input' : 'change', applyFilters);
             });
+            $('datePresetMonth').addEventListener('click', () => setDatePreset('month'));
+            $('datePresetYear').addEventListener('click', () => setDatePreset('year'));
+            $('datePresetToday').addEventListener('click', () => setDatePreset('today'));
             $('refreshBtn').addEventListener('click', loadOrders);
             $('exportAuditBtn').addEventListener('click', exportVisibleAudit);
             $('closePanelBtn').addEventListener('click', closePanel);
@@ -1503,6 +1524,7 @@
         }
 
         bindEvents();
+        setDatePreset('month', false);
         loadOrders();
     </script>
 </body>
