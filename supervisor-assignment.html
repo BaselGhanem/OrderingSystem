@@ -1,23 +1,116 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>تغيير مشرف المندوب</title></head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تغيير مشرف المندوب</title>
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <style>
+    :root{--primary:#099999;--primary-dark:#077a7a;--bg:#f4f7f8;--card:#fff;--text:#182326;--muted:#66777b;--border:#dce6e8;--danger:#b42318;--success:#087f5b}
+    *{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:linear-gradient(145deg,#eef7f7,#f7f9fa);color:var(--text);min-height:100vh}
+    .shell{width:min(760px,calc(100% - 28px));margin:36px auto}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.top h1{margin:0;font-size:clamp(1.35rem,3vw,2rem)}.back{color:var(--primary-dark);text-decoration:none;font-weight:700}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:22px;padding:clamp(18px,4vw,30px);box-shadow:0 18px 50px rgba(17,61,66,.08)}
+    .intro{margin:0 0 24px;color:var(--muted);line-height:1.8}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.field{display:flex;flex-direction:column;gap:8px}.field label{font-weight:800}.field select{width:100%;min-height:52px;border:1px solid var(--border);border-radius:14px;padding:0 14px;background:#fff;font:inherit;color:var(--text);outline:none}.field select:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(9,153,153,.12)}
+    .current{margin:20px 0;padding:14px 16px;border-radius:14px;background:#f0f8f8;border:1px solid #cae7e7;color:#31575a}.actions{display:flex;gap:12px;flex-wrap:wrap}.btn{border:0;border-radius:14px;min-height:50px;padding:0 22px;font:inherit;font-weight:800;cursor:pointer}.save{background:var(--primary);color:#fff;flex:1}.save:hover{background:var(--primary-dark)}.save:disabled{opacity:.55;cursor:not-allowed}.status{display:none;margin-top:18px;padding:14px;border-radius:14px;font-weight:700}.status.show{display:block}.status.success{background:#e8f7f0;color:var(--success)}.status.error{background:#fff0ef;color:var(--danger)}
+    .note{margin-top:18px;color:var(--muted);font-size:.92rem;line-height:1.7}@media(max-width:640px){.shell{margin:18px auto}.top{align-items:flex-start}.grid{grid-template-columns:1fr}.card{border-radius:18px}.save{width:100%;flex:auto}}
+  </style>
+</head>
 <body>
-<script>
-(async () => {
-    const response = await fetch(`supervisor-assignment.status-source.html?v=20260722_status_unified_v2`);
-    if (!response.ok) throw new Error(`Unable to load supervisor assignment source: ${response.status}`);
-    let html = await response.text();
-    const oldResolver = `      const status=String(order.status||order.workflowStage||'').trim();`;
-    const canonicalResolver = `      const status=String(order.status||order.workflowStage||order.supervisorStatus||order.marketManagerStatus||order.financeStatus||order.orderStaffStatus||'').trim();`;
-    if (!html.includes(oldResolver)) throw new Error(`Supervisor assignment status resolver was not found.`);
-    html = html.replace(oldResolver, canonicalResolver);
-    document.open();
-    document.write(html);
-    document.close();
-})().catch(error => {
-    console.error(error);
-    document.body.innerHTML = `<main style="font-family:Arial,sans-serif;padding:30px;text-align:center;color:#b42318">تعذر تحميل الصفحة. يرجى تحديثها.</main>`;
+  <main class="shell">
+    <div class="top"><h1>تغيير مشرف المندوب</h1><a class="back" href="setting.html"><i class="ph ph-arrow-right"></i> الإعدادات</a></div>
+    <section class="card">
+      <p class="intro">اختر المندوب ثم المشرف الجديد. سيتم تطبيق التغيير على نظام الموافقات وعلى الطلبيات النشطة الحالية للمندوب.</p>
+      <div class="grid">
+        <div class="field"><label for="repSelect">المندوب</label><select id="repSelect"><option value="">جاري تحميل المندوبين...</option></select></div>
+        <div class="field"><label for="supervisorSelect">المشرف الجديد</label><select id="supervisorSelect"><option value="">-- اختر المشرف --</option><option value="محمد طوالبه">محمد طوالبه</option><option value="عبدالله الناطور">عبدالله الناطور</option></select></div>
+      </div>
+      <div id="currentAssignment" class="current">اختر مندوبًا لعرض المشرف الحالي.</div>
+      <div class="actions"><button id="saveBtn" class="btn save" type="button" disabled><i class="ph ph-floppy-disk"></i> حفظ وتطبيق التغيير</button></div>
+      <div id="status" class="status"></div>
+      <div class="note">لا يتم تعديل الطلبيات المكتملة أو المحذوفة. يتم تحديث الطلبيات الموجودة حاليًا ضمن مسار الموافقات فقط.</div>
+    </section>
+  </main>
+<script type="module">
+import { db, collection, getDocs, query, where, doc, getDoc, setDoc, updateDoc } from './js/firebase.js';
+
+const DEFAULT_ASSIGNMENTS = {
+  'مراد عمر':'محمد طوالبه','مؤيد الزعبي':'محمد طوالبه','محمد عبدربه':'محمد طوالبه',
+  'محمد الفاعوري':'عبدالله الناطور','اجود التلهوني':'عبدالله الناطور','يزيد الرقب':'محمد طوالبه',
+  'تامر عقل':'محمد طوالبه','محمد ابو يامين':'عبدالله الناطور','مراد الظاهر':'عبدالله الناطور'
+};
+const ACTIVE_STATUSES = new Set([
+  'pending','pending_supervisor_approval','returned_to_supervisor','returned_to_rep',
+  'supervisor_approved','market_manager_pending','returned_to_market_manager',
+  'market_manager_approved','finance_pending','returned_to_finance','finance_approved','orders_staff_pending'
+]);
+const repSelect=document.getElementById('repSelect');
+const supervisorSelect=document.getElementById('supervisorSelect');
+const currentAssignment=document.getElementById('currentAssignment');
+const saveBtn=document.getElementById('saveBtn');
+const statusBox=document.getElementById('status');
+let assignments={...DEFAULT_ASSIGNMENTS};
+let reps=[];
+
+function showStatus(message,type){statusBox.textContent=message;statusBox.className=`status show ${type}`;}
+function updateView(){
+  const repName=repSelect.options[repSelect.selectedIndex]?.dataset?.name||'';
+  const current=assignments[repName]||'غير محدد';
+  currentAssignment.textContent=repName?`المشرف الحالي للمندوب ${repName}: ${current}`:'اختر مندوبًا لعرض المشرف الحالي.';
+  if(repName && current!=='غير محدد') supervisorSelect.value=current;
+  saveBtn.disabled=!(repName&&supervisorSelect.value);
+}
+
+async function loadPage(){
+  try{
+    const [repsSnap,configSnap]=await Promise.all([
+      getDocs(collection(db,'reps')),
+      getDoc(doc(db,'system_settings','rep_supervisor_assignments'))
+    ]);
+    if(configSnap.exists()&&configSnap.data()?.assignments){assignments={...DEFAULT_ASSIGNMENTS,...configSnap.data().assignments};}
+    reps=repsSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.name).sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+    repSelect.innerHTML='<option value="">-- اختر المندوب --</option>';
+    reps.forEach(rep=>{const o=document.createElement('option');o.value=rep.id;o.textContent=rep.name;o.dataset.name=rep.name;repSelect.appendChild(o);});
+    updateView();
+  }catch(error){console.error(error);repSelect.innerHTML='<option value="">فشل تحميل المندوبين</option>';showStatus('تعذر تحميل البيانات من Firebase.','error');}
+}
+
+repSelect.addEventListener('change',updateView);
+supervisorSelect.addEventListener('change',updateView);
+saveBtn.addEventListener('click',async()=>{
+  const repName=repSelect.options[repSelect.selectedIndex]?.dataset?.name||'';
+  const supervisorName=supervisorSelect.value;
+  if(!repName||!supervisorName)return;
+  saveBtn.disabled=true;saveBtn.innerHTML='<i class="ph ph-spinner-gap"></i> جاري التطبيق...';
+  try{
+    assignments[repName]=supervisorName;
+    await setDoc(doc(db,'system_settings','rep_supervisor_assignments'),{
+      assignments,updatedAt:new Date(),updatedRepName:repName,updatedSupervisorName:supervisorName
+    },{merge:true});
+
+    const ordersSnap=await getDocs(query(collection(db,'orders'),where('repName','==',repName)));
+    const updates=[];
+    let updatedOrders=0;
+    ordersSnap.forEach(orderDoc=>{
+      const order=orderDoc.data();
+      const status=String(order.status||order.workflowStage||'').trim();
+      if(ACTIVE_STATUSES.has(status)){
+        updates.push(updateDoc(doc(db,'orders',orderDoc.id),{
+          managerName:supervisorName,
+          supervisorName:supervisorName,
+          supervisorAssignmentUpdatedAt:new Date()
+        }));
+        updatedOrders++;
+      }
+    });
+    await Promise.all(updates);
+    localStorage.setItem('dad_cache_invalidated_at',new Date().toISOString());
+    currentAssignment.textContent=`المشرف الحالي للمندوب ${repName}: ${supervisorName}`;
+    showStatus(`تم تغيير مشرف ${repName} إلى ${supervisorName} وتحديث ${updatedOrders} طلبية نشطة. قم بتحديث صفحات النظام المفتوحة لتطبيق الربط فورًا.`,'success');
+  }catch(error){console.error(error);showStatus('حدث خطأ أثناء الحفظ أو تحديث الطلبيات. لم يكتمل التغيير.','error');}
+  finally{saveBtn.disabled=false;saveBtn.innerHTML='<i class="ph ph-floppy-disk"></i> حفظ وتطبيق التغيير';}
 });
+loadPage();
 </script>
 </body>
 </html>
