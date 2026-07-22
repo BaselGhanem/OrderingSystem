@@ -4,7 +4,7 @@
 <body>
 <script>
 (async () => {
-    const response = await fetch(`control.status-source.html?v=20260722_status_unified_v2`, { cache: `no-store` });
+    const response = await fetch(`control.status-source.html?v=20260722_status_unified_v2`);
     if (!response.ok) throw new Error(`Unable to load control source: ${response.status}`);
     let html = await response.text();
     const resolverPattern = /    function primaryStatus\(order = \{\}\) \{[\s\S]*?\n    \}\n\n    function getWorkflowFollowUp/;

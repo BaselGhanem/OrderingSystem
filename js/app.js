@@ -1,7 +1,7 @@
 const sourceUrl = new URL(`./app.status-source.js?v=20260722_status_unified_v2`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
-const response = await fetch(sourceUrl, { cache: `no-store` });
+const response = await fetch(sourceUrl);
 if (!response.ok) throw new Error(`Unable to load application source: ${response.status}`);
 
 let source = await response.text();
