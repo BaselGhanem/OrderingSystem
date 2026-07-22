@@ -1,0 +1,1 @@
+Temporary files used to apply canonical order status resolution. They are removed automatically after the patch is committed.
