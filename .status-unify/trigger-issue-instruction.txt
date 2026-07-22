@@ -1,1 +1,0 @@
-Create issue titled [automation] unify-order-status to execute the patch.

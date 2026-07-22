@@ -1,1 +1,0 @@
-Trigger through repository issue event.
