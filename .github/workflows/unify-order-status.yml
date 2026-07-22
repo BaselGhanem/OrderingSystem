@@ -1,17 +1,16 @@
 name: Unify Order Status Logic
 
 on:
-  push:
-    branches:
-      - beforeChatGPT
-    paths:
-      - .github/workflows/unify-order-status.yml
+  issues:
+    types: [opened]
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   unify-status:
+    if: github.event.issue.title == '[automation] unify-order-status'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -20,252 +19,25 @@ jobs:
           ref: beforeChatGPT
           fetch-depth: 0
 
-      - name: Unify status resolution and labels
-        shell: bash
+      - name: Apply canonical status patch
+        run: python3 .status-unify/patch.py
+
+      - name: Validate JavaScript syntax
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          changed = set()
-
-          def read(path):
-              return Path(path).read_text(encoding='utf-8')
-
-          def write(path, text):
-              Path(path).write_text(text, encoding='utf-8')
-              changed.add(path)
-
-          def replace_once(path, old, new, label):
-              text = read(path)
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{path}: expected one {label}, found {count}')
-              write(path, text.replace(old, new, 1))
-
-          def regex_once(path, pattern, replacement, label, flags=0):
-              text = read(path)
-              updated, count = re.subn(pattern, replacement, text, count=1, flags=flags)
-              if count != 1:
-                  raise SystemExit(f'{path}: expected one {label}, found {count}')
-              write(path, updated)
-
-          # Canonical resolver is intentionally identical to audit.html.
-          app_resolver = """function getEffectiveOrderStatus(order = {}) {
-              return order.status || order.workflowStage || order.supervisorStatus ||
-                  order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
-          }"""
-          regex_once(
-              'js/app.js',
-              r"function getEffectiveOrderStatus\(order = \{\}\) \{.*?\n\}",
-              app_resolver,
-              'getEffectiveOrderStatus function',
-              re.S
-          )
-
-          workflow_raw = """function getRawPrimaryStatus(order = {}) {
-              return order.status || order.workflowStage || order.supervisorStatus ||
-                  order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
-          }"""
-          regex_once(
-              'js/workflow.js',
-              r"function getRawPrimaryStatus\(order = \{\}\) \{.*?\n\}",
-              workflow_raw,
-              'getRawPrimaryStatus function',
-              re.S
-          )
-          workflow_primary = """function getPrimaryStatus(order = {}) {
-              return getRawPrimaryStatus(order);
-          }"""
-          regex_once(
-              'js/workflow.js',
-              r"function getPrimaryStatus\(order = \{\}\) \{.*?\n\}",
-              workflow_primary,
-              'getPrimaryStatus function',
-              re.S
-          )
-
-          report_resolver = """        function getReportEffectiveStatus(order = {}) {
-                      return order.status || order.workflowStage || order.supervisorStatus ||
-                          order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
-                  }"""
-          regex_once(
-              'reports.html',
-              r"        function getReportEffectiveStatus\(order = \{\}\) \{.*?\n        \}",
-              report_resolver,
-              'getReportEffectiveStatus function',
-              re.S
-          )
-          replace_once(
-              'reports.html',
-              "            const rawStatus = order.status || order.orderStatus || order.workflowStatus || '';\n            const status = getReportEffectiveStatus(order);",
-              "            const rawStatus = getReportEffectiveStatus(order);\n            const status = rawStatus;",
-              'report normalized status assignment'
-          )
-
-          canonical_inline = """    function primaryStatus(order = {}) {
-                return order.status || order.workflowStage || order.supervisorStatus ||
-                  order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || ``;
-              }
-
-              function getWorkflowFollowUp"""
-          for path in ['control.html', 'basel.html']:
-              regex_once(
-                  path,
-                  r"    function primaryStatus\(order = \{\}\) \{.*?\n    \}\n\n    function getWorkflowFollowUp",
-                  canonical_inline,
-                  'primaryStatus function',
-                  re.S
-              )
-
-          replace_once(
-              'supervisor-assignment.html',
-              "      const status=String(order.status||order.workflowStage||'').trim();",
-              "      const status=String(order.status||order.workflowStage||order.supervisorStatus||order.marketManagerStatus||order.financeStatus||order.orderStaffStatus||'').trim();",
-              'supervisor assignment status resolution'
-          )
-
-          # Match the labels used by audit.html for all active workflow statuses.
-          label_replacements = {
-              'js/app.js': [
-                  ("    deleted_by_orders_staff: 'محذوفة من فريق المعالجة',", "    deleted_by_orders_staff: 'محذوفة من قسم الطلبيات',"),
-              ],
-              'js/workflow.js': [
-                  ("    deleted_by_orders_staff: 'محذوفة من فريق المعالجة',", "    deleted_by_orders_staff: 'محذوفة من قسم الطلبيات',"),
-              ],
-              'reports.html': [
-                  ("            orders_staff_pending: 'جاهز لقسم الطلبيات',", "            orders_staff_pending: 'جاهز للمعالجة',"),
-              ],
-              'control.html': [
-                  ("      orders_staff_pending: `جاهز لقسم الطلبيات`,", "      orders_staff_pending: `جاهز للمعالجة`,"),
-              ],
-              'basel.html': [
-                  ("      orders_staff_pending: `جاهز لقسم الطلبيات`,", "      orders_staff_pending: `جاهز للمعالجة`,"),
-              ],
-          }
-          for path, pairs in label_replacements.items():
-              for old, new in pairs:
-                  replace_once(path, old, new, f'label replacement: {old}')
-
-          def add_status_label(path, anchor, line):
-              text = read(path)
-              block_start = text.find('STATUS_LABELS')
-              if block_start < 0:
-                  block_start = text.find('WORKFLOW_STATUS_LABELS')
-              block_end = text.find('};', block_start)
-              block = text[block_start:block_end]
-              if 'orders_staff_edited_returned_to_finance' in block:
-                  return
-              count = text.count(anchor)
-              if count < 1:
-                  raise SystemExit(f'{path}: missing label insertion anchor')
-              text = text.replace(anchor, anchor + '\n' + line, 1)
-              write(path, text)
-
-          add_status_label(
-              'js/app.js',
-              "    orders_staff_hidden: 'تمت الفوترة',",
-              "    orders_staff_edited_returned_to_finance: 'تم تعديله وإرجاعه للمالية',"
-          )
-          add_status_label(
-              'js/workflow.js',
-              "    orders_staff_hidden: 'تمت الفوترة',",
-              "    orders_staff_edited_returned_to_finance: 'تم تعديله وإرجاعه للمالية',"
-          )
-          add_status_label(
-              'reports.html',
-              "            orders_staff_hidden: 'تمت الفوترة',",
-              "            orders_staff_edited_returned_to_finance: 'تم تعديله وإرجاعه للمالية',"
-          )
-
-          # Force browsers to load the revised shared modules immediately.
-          for path in ['login.html', 'order.html', 'supervisor.html']:
-              text = read(path)
-              updated, count = re.subn(
-                  r"js/app\.js\?v=[^\"']+",
-                  'js/app.js?v=20260722_status_unified_v1',
-                  text
-              )
-              if count < 1:
-                  raise SystemExit(f'{path}: app.js version reference not found')
-              write(path, updated)
-
-          for path in ['market_manager.html', 'finance_controller.html', 'orders_staff.html']:
-              text = read(path)
-              updated, count = re.subn(
-                  r"js/workflow\.js\?v=[^\"']+",
-                  'js/workflow.js?v=20260722_status_unified_v1',
-                  text
-              )
-              if count < 1:
-                  raise SystemExit(f'{path}: workflow.js version reference not found')
-              write(path, updated)
-
-          print('Changed files:')
-          for path in sorted(changed):
-              print(f' - {path}')
-          PY
-
-      - name: Validate canonical status logic
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          canonical_fields = [
-              'order.status', 'order.workflowStage', 'order.supervisorStatus',
-              'order.marketManagerStatus', 'order.financeStatus', 'order.orderStaffStatus'
-          ]
-
-          checks = {
-              'js/app.js': r"function getEffectiveOrderStatus\(order = \{\}\) \{(.*?)\n\}",
-              'js/workflow.js': r"function getRawPrimaryStatus\(order = \{\}\) \{(.*?)\n\}",
-              'reports.html': r"function getReportEffectiveStatus\(order = \{\}\) \{(.*?)\n\s*\}",
-              'control.html': r"function primaryStatus\(order = \{\}\) \{(.*?)\n\s*\}",
-              'basel.html': r"function primaryStatus\(order = \{\}\) \{(.*?)\n\s*\}",
-          }
-          for path, pattern in checks.items():
-              text = Path(path).read_text(encoding='utf-8')
-              match = re.search(pattern, text, re.S)
-              if not match:
-                  raise SystemExit(f'{path}: canonical resolver not found')
-              body = match.group(1)
-              positions = [body.find(field) for field in canonical_fields]
-              if any(pos < 0 for pos in positions) or positions != sorted(positions):
-                  raise SystemExit(f'{path}: canonical field order is incorrect')
-              forbidden = ['exportedAt', 'hiddenByOrderStaff', 'isInvoiced', 'auditTrail', 'latestStatusFromLogs']
-              if any(term in body for term in forbidden):
-                  raise SystemExit(f'{path}: resolver still infers status from secondary evidence')
-
-          required_labels = {
-              'js/app.js': ["orders_staff_pending: 'جاهز للمعالجة'", "deleted_by_orders_staff: 'محذوفة من قسم الطلبيات'"],
-              'js/workflow.js': ["orders_staff_pending: 'جاهز للمعالجة'", "deleted_by_orders_staff: 'محذوفة من قسم الطلبيات'"],
-              'reports.html': ["orders_staff_pending: 'جاهز للمعالجة'", "deleted_by_orders_staff: 'محذوف من قسم الطلبيات'"],
-              'control.html': ['orders_staff_pending: `جاهز للمعالجة`', 'deleted_by_orders_staff: `محذوف من قسم الطلبيات`'],
-              'basel.html': ['orders_staff_pending: `جاهز للمعالجة`', 'deleted_by_orders_staff: `محذوف من قسم الطلبيات`'],
-          }
-          for path, snippets in required_labels.items():
-              text = Path(path).read_text(encoding='utf-8')
-              for snippet in snippets:
-                  if snippet not in text:
-                      raise SystemExit(f'{path}: missing canonical label {snippet}')
-
-          print('Canonical status validation passed.')
-          PY
-
           node --check js/app.js
           node --check js/workflow.js
 
       - name: Commit unified status logic
-        shell: bash
         run: |
+          rm -rf .status-unify
           rm -f .github/workflows/unify-order-status.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            js/app.js js/workflow.js reports.html control.html basel.html supervisor-assignment.html \
-            login.html order.html supervisor.html market_manager.html finance_controller.html orders_staff.html \
-            .github/workflows/unify-order-status.yml
+          git add -A
           git commit -m "Unify order status logic with audit center"
           git push origin HEAD:beforeChatGPT
+
+      - name: Close trigger issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue close "${{ github.event.issue.number }}" --comment "Status unification completed."
