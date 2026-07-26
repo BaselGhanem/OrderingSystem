@@ -1,4 +1,4 @@
-import { initializeApp } from `https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js`;
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import {
     initializeFirestore,
     persistentLocalCache,
@@ -14,7 +14,7 @@ import {
     writeBatch,
     runTransaction,
     serverTimestamp
-} from `https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js`;
+} from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: `AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g`,
