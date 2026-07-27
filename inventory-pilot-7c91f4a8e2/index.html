@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260727_2">
+    <link rel="stylesheet" href="styles.css?v=20260727_3">
 </head>
 <body>
     <div class="ambient ambient-one"></div>
@@ -22,37 +22,34 @@
         <header class="topbar glass">
             <div class="brand">
                 <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="Dar Al Dawa">
-                <div>
-                    <strong>نظام الطلبيات</strong>
-                    <span>Inventory Pilot</span>
-                </div>
+                <div><strong>نظام الطلبيات</strong><span>Inventory Pilot</span></div>
             </div>
             <div class="top-actions">
                 <span id="activeUserBadge" class="user-badge" hidden></span>
-                <button id="homeBtn" class="icon-btn" type="button" title="تبديل المستخدم" hidden><i class="ph ph-sign-out"></i></button>
+                <button id="homeBtn" class="icon-btn" type="button" title="تسجيل الخروج" hidden><i class="ph ph-sign-out"></i></button>
             </div>
         </header>
 
         <section id="roleScreen" class="role-screen">
             <div class="hero-copy">
-                <span class="eyebrow"><i class="ph ph-sparkle"></i> تجربة جديدة</span>
+                <span class="eyebrow"><i class="ph ph-sparkle"></i> النسخة التجريبية</span>
                 <h1>اختر بوابة الدخول</h1>
-                <p>واجهة واحدة سريعة ومهيأة للموبايل والتابلت واللابتوب.</p>
+                <p>كل بوابة تستخدم نفس كلمة المرور وآلية الدخول المعتمدة في النظام الحالي.</p>
             </div>
             <div class="role-grid">
                 <button class="role-card rep-card" data-role="rep" type="button">
                     <span class="role-icon"><i class="ph ph-user-circle"></i></span>
-                    <span class="role-copy"><strong>مندوب</strong><small>الطلبيات، المخزون، وطلبية جديدة</small></span>
+                    <span class="role-copy"><strong>مندوب</strong><small>طلبية جديدة، طلبياتي، وأرصدة البضاعة</small></span>
                     <i class="ph ph-arrow-left card-arrow"></i>
                 </button>
                 <button class="role-card supervisor-card" data-role="supervisor" type="button">
                     <span class="role-icon"><i class="ph ph-users-three"></i></span>
-                    <span class="role-copy"><strong>Supervisor</strong><small>إدخال الطلبات ومتابعة أرصدة البضاعة</small></span>
+                    <span class="role-copy"><strong>Supervisor</strong><small>لوحة الفريق الكاملة، الطلبات، والمخزون</small></span>
                     <i class="ph ph-arrow-left card-arrow"></i>
                 </button>
                 <button class="role-card manager-card" data-role="manager" type="button">
                     <span class="role-icon"><i class="ph ph-chart-donut"></i></span>
-                    <span class="role-copy"><strong>Manager</strong><small>لوحة التقارير وإدارة المخزون</small></span>
+                    <span class="role-copy"><strong>Manager</strong><small>لوحة التقارير وتقرير أرصدة البضاعة</small></span>
                     <i class="ph ph-arrow-left card-arrow"></i>
                 </button>
             </div>
@@ -71,25 +68,7 @@
         </section>
     </div>
 
-    <div id="productModal" class="modal-layer" hidden>
-        <form id="productForm" class="modal-card glass">
-            <button class="modal-close" data-close-product type="button"><i class="ph ph-x"></i></button>
-            <div class="modal-heading">
-                <span class="modal-icon"><i class="ph ph-package"></i></span>
-                <div><h2>إضافة صنف</h2><p>الرصيد الافتراضي لأي صنف جديد هو 1000.</p></div>
-            </div>
-            <div class="form-grid">
-                <label>كود الصنف<input id="newProductCode" required autocomplete="off"></label>
-                <label>اسم الصنف<input id="newProductName" required autocomplete="off"></label>
-                <label>السعر<input id="newProductPrice" type="number" min="0" step="0.01" value="0" required></label>
-                <label>رصيد البداية<input id="newProductStock" type="number" min="0" step="1" value="1000" required></label>
-            </div>
-            <button class="primary-btn full-btn" type="submit"><i class="ph ph-plus-circle"></i> حفظ الصنف</button>
-        </form>
-    </div>
-
     <div id="toastContainer" class="toast-container"></div>
-    <input id="templateUpload" type="file" accept=".xlsx,.xls,.csv" hidden>
-    <script type="module" src="app.js?v=20260727_2"></script>
+    <script type="module" src="app.js?v=20260727_3"></script>
 </body>
 </html>
