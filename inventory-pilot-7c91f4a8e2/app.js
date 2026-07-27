@@ -5,13 +5,12 @@ import {
     persistentMultipleTabManager,
     collection,
     getDocs,
-    addDoc,
-    setDoc,
+    getDoc,
+    updateDoc,
     doc,
     onSnapshot,
     query,
     where,
-    writeBatch,
     runTransaction,
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
@@ -30,23 +29,47 @@ const db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
 
+const ADMIN_SESSION_KEY = `dad_admin_session_v2`;
 const INVENTORY_COLLECTION = `product_inventory_v1`;
 const DEFAULT_STOCK = 1000;
+const ADMIN_HASH = `MjAyNjA0`;
 const INVOICED_STATUSES = new Set([`orders_staff_hidden`, `orders_staff_invoiced_and_hidden_after_export`]);
-const STATUS_LABELS = {
-    pending: `بانتظار المشرف`,
-    pending_supervisor_approval: `بانتظار المشرف`,
-    returned_to_rep: `معادة للمندوب`,
-    market_manager_pending: `بانتظار مدير السوق`,
-    market_manager_approved: `موافقة مدير السوق`,
-    finance_pending: `بانتظار المالية`,
-    finance_approved: `موافقة المالية`,
-    orders_staff_pending: `جاهزة للمعالجة`,
-    orders_staff_exported: `تم تصديرها`,
-    orders_staff_hidden: `تمت الفوترة`,
-    orders_staff_invoiced_and_hidden_after_export: `تمت الفوترة`,
-    returned: `مرتجع`,
-    rejected: `مرفوضة`
+const LEGACY_THEME_URL = new URL(`./legacy-theme.css?v=20260727_1`, import.meta.url).href;
+const ROOT_ORDER_URL = new URL(`../order.html`, window.location.href).href;
+const ROOT_SUPERVISOR_URL = new URL(`../supervisor.html`, window.location.href).href;
+const ROOT_REPORTS_URL = new URL(`../reports.html`, window.location.href).href;
+
+const REP_PASSWORDS = {
+    [`قضايا`]: `MjAyNg==`,
+    [`LPO`]: `MjAyNg==`,
+    [`Settlement`]: `MjAyNg==`,
+    [`الهاتف`]: `MjAyNg==`,
+    [`مراد الظاهر`]: `MzQ3OA==`,
+    [`محمد ابو يامين`]: `NDA5OQ==`,
+    [`يزيد الرقب`]: `NDE4Nw==`,
+    [`محمد النسور`]: `MjAyNg==`,
+    [`مؤيد الزعبي`]: `MzQ3OQ==`,
+    [`محمد طوالبه`]: `MjAyNjA0`,
+    [`اجود التلهوني`]: `MzczNw==`,
+    [`تامر عقل`]: `MzU2OQ==`,
+    [`Inactive`]: `MjAyNg==`,
+    [`مغلقه`]: `MjAyNg==`,
+    [`اخرين`]: `MjAyNg==`,
+    [`محمد الفاعوري`]: `NDAyMA==`,
+    [`مراد عمر`]: `MTUxMA==`,
+    [`محمد عبدربه`]: `NDAyOQ==`
+};
+
+const DEFAULT_REP_MANAGER_MAP = {
+    [`مراد عمر`]: `محمد طوالبه`,
+    [`مؤيد الزعبي`]: `محمد طوالبه`,
+    [`محمد عبدربه`]: `محمد طوالبه`,
+    [`محمد الفاعوري`]: `عبدالله الناطور`,
+    [`اجود التلهوني`]: `عبدالله الناطور`,
+    [`يزيد الرقب`]: `محمد طوالبه`,
+    [`تامر عقل`]: `محمد طوالبه`,
+    [`محمد ابو يامين`]: `عبدالله الناطور`,
+    [`مراد الظاهر`]: `عبدالله الناطور`
 };
 
 const state = {
@@ -57,9 +80,13 @@ const state = {
     products: [],
     inventory: new Map(),
     orders: [],
+    repManagerMap: { ...DEFAULT_REP_MANAGER_MAP },
     activeView: null,
-    unsubOrders: null,
+    workspaceFrame: null,
+    pendingPilotOrder: null,
+    currentPharmacy: null,
     unsubInventory: null,
+    unsubOrders: null,
     unsubPilotOrders: null
 };
 
@@ -72,8 +99,6 @@ const activeUserBadge = byId(`activeUserBadge`);
 const homeBtn = byId(`homeBtn`);
 const selectionModal = byId(`selectionModal`);
 const selectionModalContent = byId(`selectionModalContent`);
-const productModal = byId(`productModal`);
-const templateUpload = byId(`templateUpload`);
 const roleButtons = [...document.querySelectorAll(`[data-role]`)];
 
 function escapeHtml(value = ``) {
@@ -85,26 +110,6 @@ function escapeHtml(value = ``) {
 function numberValue(value) {
     const parsed = Number(String(value ?? 0).replace(/,/g, ``));
     return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function showToast(message, type = ``) {
-    const toast = document.createElement(`div`);
-    toast.className = `toast ${type}`.trim();
-    toast.textContent = message;
-    byId(`toastContainer`).appendChild(toast);
-    setTimeout(() => toast.remove(), 3800);
-}
-
-function updateNetworkState() {
-    document.body.classList.toggle(`offline`, !navigator.onLine);
-}
-
-window.addEventListener(`online`, updateNetworkState);
-window.addEventListener(`offline`, updateNetworkState);
-updateNetworkState();
-
-function stockFor(product) {
-    return state.inventory.get(product.id)?.stock ?? DEFAULT_STOCK;
 }
 
 function productCode(product = {}) {
@@ -119,33 +124,132 @@ function effectiveStatus(order = {}) {
     return order.status || order.workflowStage || order.supervisorStatus || order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || ``;
 }
 
-function formatDate(value) {
-    const date = value?.toDate ? value.toDate() : value instanceof Date ? value : new Date(value || 0);
-    if (Number.isNaN(date.getTime())) return `-`;
-    return new Intl.DateTimeFormat(`ar-JO`, { dateStyle: `medium`, timeStyle: `short` }).format(date);
+function timestampNumber(value) {
+    if (value?.toMillis) return value.toMillis();
+    const date = new Date(value || 0);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
+function dateValue(value) {
+    if (!value) return null;
+    if (value?.toDate) return value.toDate();
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function toDateInput(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, `0`);
+    const day = String(date.getDate()).padStart(2, `0`);
+    return `${year}-${month}-${day}`;
+}
+
+function formatDate(value) {
+    const date = dateValue(value);
+    if (!date) return `—`;
+    return new Intl.DateTimeFormat(`ar-JO`, { year: `numeric`, month: `short`, day: `numeric` }).format(date);
+}
+
+function showToast(message, type = ``) {
+    const toast = document.createElement(`div`);
+    toast.className = `toast ${type}`.trim();
+    toast.textContent = message;
+    byId(`toastContainer`).appendChild(toast);
+    setTimeout(() => toast.remove(), 3900);
+}
+
+function updateNetworkState() {
+    document.body.classList.toggle(`offline`, !navigator.onLine);
+}
+
+window.addEventListener(`online`, updateNetworkState);
+window.addEventListener(`offline`, updateNetworkState);
+updateNetworkState();
+
 async function loadReferenceData() {
-    const [repsSnap, pharmaciesSnap, productsSnap] = await Promise.all([
+    const [repsSnap, pharmaciesSnap, productsSnap, assignmentsSnap] = await Promise.all([
         getDocs(collection(db, `reps`)),
         getDocs(collection(db, `pharmacies`)),
-        getDocs(collection(db, `products`))
+        getDocs(collection(db, `products`)),
+        getDoc(doc(db, `system_settings`, `rep_supervisor_assignments`))
     ]);
+    state.reps = repsSnap.docs.map(item => ({ id: item.id, ...item.data() })).filter(item => item.name).sort((a, b) => String(a.name).localeCompare(String(b.name), `ar`));
+    state.pharmacies = pharmaciesSnap.docs.map(item => ({ id: item.id, ...item.data() })).filter(item => item.name).sort((a, b) => String(a.name).localeCompare(String(b.name), `ar`));
+    state.products = productsSnap.docs.map(item => ({ id: item.id, ...item.data() })).filter(item => item.name).sort((a, b) => String(a.name).localeCompare(String(b.name), `ar`));
+    if (assignmentsSnap.exists()) {
+        const saved = assignmentsSnap.data()?.assignments;
+        if (saved && typeof saved === `object` && !Array.isArray(saved)) state.repManagerMap = { ...DEFAULT_REP_MANAGER_MAP, ...saved };
+    }
+}
 
-    state.reps = repsSnap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => String(a.name || ``).localeCompare(String(b.name || ``), `ar`));
-    state.pharmacies = pharmaciesSnap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => String(a.name || ``).localeCompare(String(b.name || ``), `ar`));
-    state.products = productsSnap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => String(a.name || ``).localeCompare(String(b.name || ``), `ar`));
+function normalizedBatches(product) {
+    const inventory = state.inventory.get(product.id);
+    if (Array.isArray(inventory?.batches) && inventory.batches.length) {
+        return inventory.batches.map(batch => ({
+            id: batch.id || `batch`,
+            batchNo: batch.batchNo || `بدون رقم`,
+            quantity: numberValue(batch.quantity),
+            expiryDate: batch.expiryDate || ``
+        }));
+    }
+    return [{
+        id: `opening-balance`,
+        batchNo: `رصيد افتتاحي`,
+        quantity: numberValue(inventory?.stock ?? DEFAULT_STOCK),
+        expiryDate: ``
+    }];
+}
+
+function inventoryMetrics(product) {
+    const batches = normalizedBatches(product);
+    const total = batches.reduce((sum, batch) => sum + batch.quantity, 0);
+    const dated = batches.filter(batch => batch.expiryDate && batch.quantity !== 0).sort((a, b) => String(a.expiryDate).localeCompare(String(b.expiryDate)));
+    const nearestExpiry = dated[0]?.expiryDate || ``;
+    const today = toDateInput(new Date());
+    const inSixMonths = new Date();
+    inSixMonths.setMonth(inSixMonths.getMonth() + 6);
+    const expiryLimit = toDateInput(inSixMonths);
+    const expired = dated.some(batch => batch.expiryDate < today && batch.quantity > 0);
+    const expiring = dated.some(batch => batch.expiryDate >= today && batch.expiryDate <= expiryLimit && batch.quantity > 0);
+    return { batches, total, nearestExpiry, expired, expiring };
 }
 
 function startInventoryListener() {
     if (state.unsubInventory) state.unsubInventory();
     state.unsubInventory = onSnapshot(collection(db, INVENTORY_COLLECTION), snapshot => {
         state.inventory = new Map(snapshot.docs.map(item => [item.id, { id: item.id, ...item.data() }]));
-        if ([`inventory`, `order`].includes(state.activeView)) renderActiveView();
+        if (state.activeView === `inventory`) renderInventoryReport();
     }, error => {
         console.error(error);
-        showToast(`تعذر تحميل أرصدة المخزون.`, `error`);
+        showToast(`تعذر تحميل أرصدة البضاعة.`, `error`);
     });
+}
+
+function startOrdersListener() {
+    if (state.unsubOrders) state.unsubOrders();
+    state.unsubOrders = onSnapshot(collection(db, `orders`), snapshot => {
+        state.orders = snapshot.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => timestampNumber(b.createdAt) - timestampNumber(a.createdAt));
+        detectPilotOrder(snapshot.docChanges());
+    }, error => console.error(error));
+}
+
+function detectPilotOrder(changes) {
+    const pending = state.pendingPilotOrder;
+    if (!pending) return;
+    const earliest = pending.startedAt - 5000;
+    const match = changes.filter(change => change.type === `added`).map(change => ({ id: change.doc.id, ...change.doc.data() })).find(order =>
+        order.inventoryPilot !== true &&
+        String(order.repId || ``) === String(pending.repId || ``) &&
+        String(order.pharmacyName || ``) === String(pending.pharmacyName || ``) &&
+        timestampNumber(order.createdAt) >= earliest
+    );
+    if (!match) return;
+    state.pendingPilotOrder = null;
+    updateDoc(doc(db, `orders`, match.id), {
+        inventoryPilot: true,
+        inventoryDeducted: false,
+        inventoryPilotMarkedAt: serverTimestamp()
+    }).catch(error => console.error(error));
 }
 
 function startInventoryDeductionWorker() {
@@ -157,7 +261,7 @@ function startInventoryDeductionWorker() {
             if (INVOICED_STATUSES.has(effectiveStatus(order)) && order.inventoryDeducted !== true) {
                 deductInvoicedOrder(order.id).catch(error => {
                     console.error(error);
-                    showToast(`تعذر خصم مخزون طلبية مفوترة. ستتم إعادة المحاولة تلقائياً.`, `error`);
+                    showToast(`تعذر خصم مخزون طلبية مفوترة، وستتم إعادة المحاولة.`, `error`);
                 });
             }
         });
@@ -169,7 +273,6 @@ async function deductInvoicedOrder(orderId) {
         const orderRef = doc(db, `orders`, orderId);
         const orderSnap = await transaction.get(orderRef);
         if (!orderSnap.exists()) return;
-
         const order = orderSnap.data();
         if (order.inventoryDeducted === true || !INVOICED_STATUSES.has(effectiveStatus(order))) return;
 
@@ -179,33 +282,49 @@ async function deductInvoicedOrder(orderId) {
                 const itemCode = item.productCode || item.product_code || item.code || ``;
                 return (itemCode && productCode(product) === itemCode) || product.name === item.name;
             });
-            const id = match?.id || safeDocumentId(item.productCode || item.name || `unknown`);
+            if (!match) return;
             const quantity = numberValue(item.qty) + numberValue(item.bonus);
-            const current = grouped.get(id) || { product: match || item, quantity: 0 };
-            current.quantity += quantity;
-            grouped.set(id, current);
+            grouped.set(match.id, { product: match, quantity: (grouped.get(match.id)?.quantity || 0) + quantity });
         });
 
         const rows = [...grouped.entries()].filter(([, row]) => row.quantity > 0);
-        const snapshots = await Promise.all(rows.map(([id]) => transaction.get(doc(db, INVENTORY_COLLECTION, id))));
+        const inventoryRefs = rows.map(([id]) => doc(db, INVENTORY_COLLECTION, id));
+        const inventorySnaps = await Promise.all(inventoryRefs.map(ref => transaction.get(ref)));
         let shortageDetected = false;
 
         rows.forEach(([id, row], index) => {
-            const inventoryRef = doc(db, INVENTORY_COLLECTION, id);
-            const existing = snapshots[index].exists() ? snapshots[index].data() : {};
-            const currentStock = numberValue(existing.stock ?? DEFAULT_STOCK);
-            const newStock = currentStock - row.quantity;
-            if (newStock < 0) shortageDetected = true;
-            transaction.set(inventoryRef, {
+            const existing = inventorySnaps[index].exists() ? inventorySnaps[index].data() : {};
+            let batches = Array.isArray(existing.batches) && existing.batches.length
+                ? existing.batches.map(batch => ({ id: batch.id || `batch-${Date.now()}`, batchNo: batch.batchNo || `بدون رقم`, quantity: numberValue(batch.quantity), expiryDate: batch.expiryDate || `` }))
+                : [{ id: `opening-balance`, batchNo: `رصيد افتتاحي`, quantity: numberValue(existing.stock ?? DEFAULT_STOCK), expiryDate: `` }];
+            batches.sort((a, b) => {
+                if (!a.expiryDate && !b.expiryDate) return 0;
+                if (!a.expiryDate) return 1;
+                if (!b.expiryDate) return -1;
+                return String(a.expiryDate).localeCompare(String(b.expiryDate));
+            });
+            let remaining = row.quantity;
+            batches = batches.map(batch => {
+                if (remaining <= 0 || batch.quantity <= 0) return batch;
+                const deducted = Math.min(batch.quantity, remaining);
+                remaining -= deducted;
+                return { ...batch, quantity: batch.quantity - deducted };
+            });
+            if (remaining > 0) {
+                shortageDetected = true;
+                batches.push({ id: `shortage-${orderId}`, batchNo: `عجز مخزون`, quantity: -remaining, expiryDate: `` });
+            }
+            const stock = batches.reduce((sum, batch) => sum + numberValue(batch.quantity), 0);
+            transaction.set(inventoryRefs[index], {
                 productId: id,
                 productCode: productCode(row.product),
                 productName: row.product.name || ``,
-                stock: newStock,
+                batches,
+                stock,
                 lastDeductionOrderId: orderId,
                 updatedAt: serverTimestamp()
             }, { merge: true });
         });
-
         transaction.update(orderRef, {
             inventoryDeducted: true,
             inventoryDeductedAt: serverTimestamp(),
@@ -214,578 +333,526 @@ async function deductInvoicedOrder(orderId) {
     });
 }
 
-function safeDocumentId(value) {
-    const normalized = String(value || `product`).trim().replace(/[/.#$[\]]/g, `-`).replace(/\s+/g, `-`).slice(0, 120);
-    return normalized || `product-${Date.now()}`;
+function saveAdminSession(name, type, remember) {
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    const session = {
+        name,
+        type,
+        token: btoa(encodeURIComponent(`${name}:${Date.now()}`)),
+        savedAt: Date.now(),
+        remember
+    };
+    (remember ? localStorage : sessionStorage).setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
 }
 
-roleButtons.forEach(button => {
-    button.addEventListener(`click`, () => chooseRole(button.dataset.role));
+function saveRepSession(rep) {
+    sessionStorage.setItem(`repId`, rep.id);
+    sessionStorage.setItem(`repName`, rep.name);
+}
+
+function clearSessions() {
+    sessionStorage.removeItem(`repId`);
+    sessionStorage.removeItem(`repName`);
+    sessionStorage.removeItem(`activeOrderContext`);
+    sessionStorage.removeItem(`adminOrderMode`);
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+}
+
+roleButtons.forEach(button => button.addEventListener(`click`, () => openLogin(button.dataset.role)));
+homeBtn.addEventListener(`click`, logoutToHome);
+selectionModal.addEventListener(`click`, event => {
+    if (event.target === selectionModal || event.target.closest(`[data-close-modal]`)) closeModal();
 });
 
-function chooseRole(role) {
-    if (role === `rep`) return showRepSelection();
-    if (role === `supervisor`) return showSupervisorSelection();
-    enterDashboard(`manager`, { id: `reports`, name: `لوحة التقارير` });
+function closeModal() {
+    selectionModal.hidden = true;
+    selectionModalContent.innerHTML = ``;
 }
 
-function showRepSelection() {
-    selectionModalContent.innerHTML = `
-        <div class="modal-heading">
-            <span class="modal-icon"><i class="ph ph-user-circle"></i></span>
-            <div><h2>اختر اسم المندوب</h2><p>سيتم عرض طلبيات المندوب المحدد فقط.</p></div>
-        </div>
-        <div class="selection-list">
-            ${state.reps.map(rep => `<button class="selection-btn" data-rep-id="${escapeHtml(rep.id)}" type="button"><span>${escapeHtml(rep.name || `مندوب`)}</span><i class="ph ph-arrow-left"></i></button>`).join(``)}
-        </div>
-    `;
+function openModal(content) {
+    selectionModalContent.innerHTML = content;
     selectionModal.hidden = false;
-    selectionModalContent.querySelectorAll(`[data-rep-id]`).forEach(button => {
-        button.addEventListener(`click`, () => {
-            const rep = state.reps.find(item => item.id === button.dataset.repId);
-            if (rep) enterDashboard(`rep`, rep);
-        });
+}
+
+function loginShell(title, subtitle, fields) {
+    return `
+        <div class="login-head">
+            <span class="login-icon"><i class="ph ph-lock-key"></i></span>
+            <h2>${title}</h2>
+            <p>${subtitle}</p>
+        </div>
+        <form id="roleLoginForm" class="login-form">
+            ${fields}
+            <label class="password-field">
+                <span>كلمة المرور</span>
+                <div class="input-with-icon">
+                    <i class="ph ph-password"></i>
+                    <input id="rolePassword" type="password" autocomplete="current-password" required autofocus>
+                </div>
+            </label>
+            <label class="remember-row"><input id="rememberLogin" type="checkbox"> تذكر تسجيل الدخول على هذا الجهاز</label>
+            <p id="loginError" class="form-error" hidden></p>
+            <button class="primary-btn full-btn" type="submit"><i class="ph ph-sign-in"></i> دخول</button>
+        </form>`;
+}
+
+function openLogin(role) {
+    if (role === `rep`) renderRepLogin();
+    if (role === `supervisor`) renderSupervisorLogin();
+    if (role === `manager`) renderManagerLogin();
+}
+
+function renderRepLogin() {
+    const options = state.reps
+        .filter(rep => REP_PASSWORDS[rep.name])
+        .map(rep => `<option value="${escapeHtml(rep.id)}">${escapeHtml(rep.name)}</option>`)
+        .join(``);
+    openModal(loginShell(`دخول المندوب`, `اختر اسمك وأدخل نفس كلمة المرور المستخدمة في النظام الحالي.`, `
+        <label><span>اسم المندوب</span><select id="loginRep" required><option value="">اختر المندوب</option>${options}</select></label>
+    `));
+    byId(`roleLoginForm`).addEventListener(`submit`, event => {
+        event.preventDefault();
+        const rep = state.reps.find(item => item.id === byId(`loginRep`).value);
+        const error = byId(`loginError`);
+        if (!rep || btoa(byId(`rolePassword`).value) !== REP_PASSWORDS[rep.name]) {
+            error.textContent = `اسم المندوب أو كلمة المرور غير صحيحة.`;
+            error.hidden = false;
+            return;
+        }
+        saveRepSession(rep);
+        closeModal();
+        enterDashboard(`rep`, { id: rep.id, name: rep.name });
     });
 }
 
-function showSupervisorSelection() {
-    const supervisors = [
-        { id: `abdullah`, name: `عبدالله الناطور` },
-        { id: `mohammad`, name: `محمد طوالبه` }
-    ];
-    selectionModalContent.innerHTML = `
-        <div class="modal-heading">
-            <span class="modal-icon"><i class="ph ph-users-three"></i></span>
-            <div><h2>اختر اسم المشرف</h2><p>سيتم تسجيل الاسم تلقائياً على الطلبية.</p></div>
-        </div>
-        <div class="selection-list">
-            ${supervisors.map(user => `<button class="selection-btn" data-supervisor-id="${user.id}" type="button"><span>${user.name}</span><i class="ph ph-arrow-left"></i></button>`).join(``)}
-        </div>
-    `;
-    selectionModal.hidden = false;
-    selectionModalContent.querySelectorAll(`[data-supervisor-id]`).forEach(button => {
-        button.addEventListener(`click`, () => {
-            const user = supervisors.find(item => item.id === button.dataset.supervisorId);
-            if (user) enterDashboard(`supervisor`, user);
-        });
+function renderSupervisorLogin() {
+    openModal(loginShell(`دخول المشرف`, `اختر الاسم ثم أدخل كلمة مرور المشرف المعتمدة.`, `
+        <label><span>اسم المشرف</span>
+            <select id="loginSupervisor" required>
+                <option value="">اختر المشرف</option>
+                <option value="عبدالله الناطور">عبدالله الناطور</option>
+                <option value="محمد طوالبه">محمد طوالبه</option>
+            </select>
+        </label>
+    `));
+    byId(`roleLoginForm`).addEventListener(`submit`, event => {
+        event.preventDefault();
+        const name = byId(`loginSupervisor`).value;
+        const error = byId(`loginError`);
+        if (!name || btoa(byId(`rolePassword`).value) !== ADMIN_HASH) {
+            error.textContent = `اسم المشرف أو كلمة المرور غير صحيحة.`;
+            error.hidden = false;
+            return;
+        }
+        saveAdminSession(name, `supervisor`, byId(`rememberLogin`).checked);
+        closeModal();
+        enterDashboard(`supervisor`, { name });
     });
 }
+
+function renderManagerLogin() {
+    openModal(loginShell(`دخول المدير`, `أدخل نفس كلمة مرور لوحة التقارير الحالية.`, `
+        <label><span>الاسم</span><input id="loginManager" value="المدير" autocomplete="username" required></label>
+    `));
+    byId(`roleLoginForm`).addEventListener(`submit`, event => {
+        event.preventDefault();
+        const name = byId(`loginManager`).value.trim() || `المدير`;
+        const error = byId(`loginError`);
+        if (btoa(byId(`rolePassword`).value) !== ADMIN_HASH) {
+            error.textContent = `كلمة المرور غير صحيحة.`;
+            error.hidden = false;
+            return;
+        }
+        saveAdminSession(name, `manager`, byId(`rememberLogin`).checked);
+        closeModal();
+        enterDashboard(`manager`, { name });
+    });
+}
+
+const NAV_ITEMS = {
+    rep: [
+        { id: `new-order`, icon: `ph-plus-circle`, label: `طلبية جديدة` },
+        { id: `my-orders`, icon: `ph-receipt`, label: `طلبياتي` },
+        { id: `inventory`, icon: `ph-package`, label: `أرصدة البضاعة` },
+        { id: `rep-reports`, icon: `ph-chart-bar`, label: `التقارير` }
+    ],
+    supervisor: [
+        { id: `supervisor-dashboard`, icon: `ph-squares-four`, label: `لوحة المشرف` },
+        { id: `new-order`, icon: `ph-plus-circle`, label: `طلبية جديدة` },
+        { id: `inventory`, icon: `ph-package`, label: `أرصدة البضاعة` }
+    ],
+    manager: [
+        { id: `manager-reports`, icon: `ph-chart-donut`, label: `لوحة التقارير` },
+        { id: `inventory`, icon: `ph-package`, label: `أرصدة البضاعة` }
+    ]
+};
 
 function enterDashboard(role, user) {
     state.role = role;
     state.user = user;
-    selectionModal.hidden = true;
     roleScreen.hidden = true;
     dashboardScreen.hidden = false;
     homeBtn.hidden = false;
     activeUserBadge.hidden = false;
-    activeUserBadge.textContent = user.name;
-    renderNavigation();
-    startOrdersListener();
-    setView(role === `manager` ? `reports` : `orders`);
+    activeUserBadge.innerHTML = `<i class="ph ph-user"></i> ${escapeHtml(user.name)}`;
+    dashboardNav.innerHTML = NAV_ITEMS[role].map(item => `
+        <button type="button" data-view="${item.id}"><i class="ph ${item.icon}"></i><span>${item.label}</span></button>
+    `).join(``);
+    dashboardNav.querySelectorAll(`[data-view]`).forEach(button => button.addEventListener(`click`, () => setView(button.dataset.view)));
+    setView(NAV_ITEMS[role][0].id);
 }
 
-function leaveDashboard() {
+function logoutToHome() {
+    clearSessions();
     state.role = null;
     state.user = null;
-    state.orders = [];
-    if (state.unsubOrders) state.unsubOrders();
-    state.unsubOrders = null;
+    state.activeView = null;
+    state.pendingPilotOrder = null;
+    state.workspaceFrame = null;
+    dashboardContent.innerHTML = ``;
     dashboardScreen.hidden = true;
     roleScreen.hidden = false;
     homeBtn.hidden = true;
     activeUserBadge.hidden = true;
-    dashboardContent.innerHTML = ``;
-}
-
-homeBtn.addEventListener(`click`, leaveDashboard);
-document.querySelector(`[data-close-modal]`).addEventListener(`click`, () => selectionModal.hidden = true);
-document.querySelector(`[data-close-product]`).addEventListener(`click`, () => productModal.hidden = true);
-selectionModal.addEventListener(`click`, event => { if (event.target === selectionModal) selectionModal.hidden = true; });
-productModal.addEventListener(`click`, event => { if (event.target === productModal) productModal.hidden = true; });
-
-function navigationItems() {
-    if (state.role === `manager`) {
-        return [
-            { id: `reports`, icon: `ph-chart-line-up`, label: `لوحة التقارير` },
-            { id: `inventory`, icon: `ph-package`, label: `أرصدة البضاعة` }
-        ];
-    }
-    return [
-        { id: `orders`, icon: `ph-receipt`, label: state.role === `rep` ? `طلبياتي` : `الطلبيات` },
-        { id: `inventory`, icon: `ph-package`, label: `أرصدة البضاعة` },
-        { id: `order`, icon: `ph-plus-circle`, label: `طلبية جديدة` }
-    ];
-}
-
-function renderNavigation() {
-    dashboardNav.innerHTML = navigationItems().map(item => `
-        <button class="nav-btn" data-view="${item.id}" type="button"><i class="ph ${item.icon}"></i>${item.label}</button>
-    `).join(``);
-    dashboardNav.querySelectorAll(`[data-view]`).forEach(button => button.addEventListener(`click`, () => setView(button.dataset.view)));
 }
 
 function setView(view) {
     state.activeView = view;
     dashboardNav.querySelectorAll(`[data-view]`).forEach(button => button.classList.toggle(`active`, button.dataset.view === view));
-    renderActiveView();
+    if (view === `inventory`) return renderInventoryReport();
+    if (view === `supervisor-dashboard`) return renderLegacyWorkspace(ROOT_SUPERVISOR_URL, `supervisor`);
+    if (view === `manager-reports`) return renderLegacyWorkspace(ROOT_REPORTS_URL, `manager`);
+    if (view === `new-order`) return renderOrderPreparation();
+    if (view === `my-orders`) return renderRepresentativeLegacySection(`my-orders`);
+    if (view === `rep-reports`) return renderRepresentativeLegacySection(`reports`);
 }
 
-function renderActiveView() {
-    if (state.activeView === `inventory`) return renderInventory();
-    if (state.activeView === `order`) return renderOrderEntry();
-    if (state.activeView === `reports`) return renderReports();
-    renderOrders();
-}
-
-function startOrdersListener() {
-    if (state.unsubOrders) state.unsubOrders();
-    const source = state.role === `rep`
-        ? query(collection(db, `orders`), where(`repId`, `==`, state.user.id))
-        : collection(db, `orders`);
-    state.unsubOrders = onSnapshot(source, snapshot => {
-        state.orders = snapshot.docs
-            .map(item => ({ id: item.id, ...item.data() }))
-            .sort((a, b) => timestampNumber(b.createdAt) - timestampNumber(a.createdAt));
-        if (state.activeView === `orders`) renderOrders();
-    }, error => {
-        console.error(error);
-        showToast(`تعذر تحميل الطلبيات.`, `error`);
+function renderLegacyWorkspace(url, mode) {
+    dashboardContent.innerHTML = `<div class="workspace-card"><div class="frame-loader"><i class="ph ph-spinner-gap"></i> جارٍ تحميل الصفحة كاملة…</div><iframe id="workspaceFrame" class="workspace-frame" title="مساحة العمل"></iframe></div>`;
+    const frame = byId(`workspaceFrame`);
+    state.workspaceFrame = frame;
+    frame.addEventListener(`load`, () => {
+        const loader = dashboardContent.querySelector(`.frame-loader`);
+        if (loader) loader.remove();
+        applyLegacyTheme(frame);
+        if (mode === `supervisor`) enhanceSupervisorFrame(frame);
+        if (mode === `manager`) enhanceManagerFrame(frame);
+        if (mode === `rep`) enhanceRepresentativeFrame(frame);
     });
+    frame.src = url;
 }
 
-function timestampNumber(value) {
-    if (value?.toMillis) return value.toMillis();
-    const date = new Date(value || 0);
-    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-}
-
-function renderOrders() {
-    const total = state.orders.reduce((sum, order) => sum + numberValue(order.grandTotal), 0);
-    const invoiced = state.orders.filter(order => INVOICED_STATUSES.has(effectiveStatus(order))).length;
-    const visible = state.orders.slice(0, 100);
-    dashboardContent.innerHTML = `
-        <section class="page-section">
-            <div class="section-head">
-                <div><h2>${state.role === `rep` ? `طلبياتي` : `متابعة الطلبيات`}</h2><p>آخر 100 طلبية مرتبة من الأحدث إلى الأقدم.</p></div>
-                <button class="primary-btn" data-new-order type="button"><i class="ph ph-plus-circle"></i> طلبية جديدة</button>
-            </div>
-            <div class="stats-grid">
-                <div class="stat-card"><i class="ph ph-receipt"></i><span>عدد الطلبيات</span><strong>${state.orders.length.toLocaleString(`en-US`)}</strong></div>
-                <div class="stat-card"><i class="ph ph-check-circle"></i><span>تمت الفوترة</span><strong>${invoiced.toLocaleString(`en-US`)}</strong></div>
-                <div class="stat-card"><i class="ph ph-coins"></i><span>القيمة الإجمالية</span><strong>${total.toLocaleString(`en-US`, { maximumFractionDigits: 2 })}</strong></div>
-                <div class="stat-card"><i class="ph ph-package"></i><span>عدد الأصناف</span><strong>${state.products.length.toLocaleString(`en-US`)}</strong></div>
-            </div>
-            <div class="panel">
-                <div class="filter-row"><input id="ordersSearch" class="input" type="search" placeholder="ابحث بالصيدلية، المندوب، أو رقم الطلبية..."><button class="secondary-btn" data-refresh-orders type="button"><i class="ph ph-arrows-clockwise"></i> تحديث</button></div>
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>المرجع</th><th>التاريخ</th><th>الصيدلية</th><th>المندوب</th><th>الأصناف</th><th>الإجمالي</th><th>الحالة</th><th>المخزون</th></tr></thead>
-                        <tbody id="ordersRows">${ordersRows(visible)}</tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-    `;
-    dashboardContent.querySelector(`[data-new-order]`).addEventListener(`click`, () => setView(`order`));
-    dashboardContent.querySelector(`[data-refresh-orders]`).addEventListener(`click`, () => renderOrders());
-    byId(`ordersSearch`).addEventListener(`input`, event => {
-        const term = event.target.value.trim().toLowerCase();
-        const filtered = state.orders.filter(order => [order.id, order.pharmacyName, order.repName].some(value => String(value || ``).toLowerCase().includes(term))).slice(0, 100);
-        byId(`ordersRows`).innerHTML = ordersRows(filtered);
-    });
-}
-
-function ordersRows(orders) {
-    if (!orders.length) return `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-receipt"></i>لا توجد طلبيات</div></td></tr>`;
-    return orders.map(order => {
-        const status = effectiveStatus(order);
-        const inventoryState = order.inventoryPilot !== true ? `—` : order.inventoryDeducted === true ? `تم الخصم` : INVOICED_STATUSES.has(status) ? `جارٍ الخصم` : `بانتظار الفوترة`;
-        return `
-            <tr>
-                <td>${escapeHtml(order.id.slice(0, 7).toUpperCase())}</td>
-                <td>${escapeHtml(formatDate(order.createdAt))}</td>
-                <td>${escapeHtml(order.pharmacyName || `-`)}</td>
-                <td>${escapeHtml(order.repName || `-`)}</td>
-                <td>${Array.isArray(order.items) ? order.items.length : 0}</td>
-                <td>${numberValue(order.grandTotal).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td><span class="status">${escapeHtml(STATUS_LABELS[status] || status || `-`)}</span></td>
-                <td>${inventoryState}</td>
-            </tr>
-        `;
-    }).join(``);
-}
-
-function renderInventory() {
-    const stocks = state.products.map(product => stockFor(product));
-    const totalUnits = stocks.reduce((sum, value) => sum + value, 0);
-    const lowStock = stocks.filter(value => value < 200).length;
-    dashboardContent.innerHTML = `
-        <section class="page-section">
-            <div class="section-head">
-                <div><h2>أرصدة البضاعة</h2><p>الرصيد الافتراضي 1000، ولا يتم الخصم إلا بعد الفوترة.</p></div>
-                ${state.role === `manager` ? `
-                    <div class="toolbar">
-                        <button class="secondary-btn" data-download-template type="button"><i class="ph ph-file-xls"></i> تنزيل Template</button>
-                        <button class="secondary-btn" data-upload-template type="button"><i class="ph ph-upload-simple"></i> رفع الملف</button>
-                        <button class="primary-btn" data-add-product type="button"><i class="ph ph-plus-circle"></i> إضافة صنف</button>
-                    </div>
-                ` : ``}
-            </div>
-            <div class="stats-grid">
-                <div class="stat-card"><i class="ph ph-package"></i><span>عدد الأصناف</span><strong>${state.products.length.toLocaleString(`en-US`)}</strong></div>
-                <div class="stat-card"><i class="ph ph-stack"></i><span>إجمالي الوحدات</span><strong>${totalUnits.toLocaleString(`en-US`)}</strong></div>
-                <div class="stat-card"><i class="ph ph-warning"></i><span>أرصدة أقل من 200</span><strong>${lowStock.toLocaleString(`en-US`)}</strong></div>
-                <div class="stat-card"><i class="ph ph-check-fat"></i><span>قاعدة الخصم</span><strong>بعد الفوترة</strong></div>
-            </div>
-            <div class="panel">
-                <div class="filter-row"><input id="inventorySearch" class="input" type="search" placeholder="ابحث باسم الصنف أو الكود..."><span></span></div>
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>كود الصنف</th><th>اسم الصنف</th><th>السعر</th><th>الرصيد الحالي</th>${state.role === `manager` ? `<th>تحديث الرصيد</th>` : ``}<th>آخر تحديث</th></tr></thead>
-                        <tbody id="inventoryRows">${inventoryRows(state.products)}</tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-    `;
-
-    byId(`inventorySearch`).addEventListener(`input`, event => {
-        const term = event.target.value.trim().toLowerCase();
-        const filtered = state.products.filter(product => [product.name, productCode(product)].some(value => String(value || ``).toLowerCase().includes(term)));
-        byId(`inventoryRows`).innerHTML = inventoryRows(filtered);
-        bindInventoryActions();
-    });
-
-    if (state.role === `manager`) {
-        dashboardContent.querySelector(`[data-add-product]`).addEventListener(`click`, () => productModal.hidden = false);
-        dashboardContent.querySelector(`[data-download-template]`).addEventListener(`click`, downloadInventoryTemplate);
-        dashboardContent.querySelector(`[data-upload-template]`).addEventListener(`click`, () => templateUpload.click());
-        bindInventoryActions();
-    }
-}
-
-function inventoryRows(products) {
-    if (!products.length) {
-        return `<tr><td colspan="${state.role === `manager` ? 6 : 5}"><div class="empty-state"><i class="ph ph-package"></i>لا توجد أصناف</div></td></tr>`;
-    }
-    return products.map(product => {
-        const stock = stockFor(product);
-        const inventory = state.inventory.get(product.id);
-        const stockClass = stock < 0 ? `negative` : stock < 200 ? `low` : ``;
-        return `
-            <tr>
-                <td>${escapeHtml(productCode(product) || `-`)}</td>
-                <td><strong>${escapeHtml(product.name || `-`)}</strong></td>
-                <td>${numberValue(product.price).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td><span class="stock-pill ${stockClass}">${stock.toLocaleString(`en-US`)}</span></td>
-                ${state.role === `manager` ? `
-                    <td><div class="stock-editor"><input data-stock-input="${escapeHtml(product.id)}" type="number" step="1" min="0" value="${stock}"><button data-save-stock="${escapeHtml(product.id)}" type="button"><i class="ph ph-check"></i></button></div></td>
-                ` : ``}
-                <td>${inventory?.updatedAt ? escapeHtml(formatDate(inventory.updatedAt)) : `الرصيد الافتراضي`}</td>
-            </tr>
-        `;
-    }).join(``);
-}
-
-function bindInventoryActions() {
-    dashboardContent.querySelectorAll(`[data-save-stock]`).forEach(button => {
-        button.addEventListener(`click`, async () => {
-            const product = state.products.find(item => item.id === button.dataset.saveStock);
-            const input = dashboardContent.querySelector(`[data-stock-input="${CSS.escape(button.dataset.saveStock)}"]`);
-            if (!product || !input) return;
-            const stock = numberValue(input.value);
-            if (stock < 0) return showToast(`لا يمكن إدخال رصيد سالب يدوياً.`, `error`);
-            await saveStock(product, stock, `manual`);
-            showToast(`تم تحديث رصيد ${product.name}.`, `success`);
-        });
-    });
-}
-
-async function saveStock(product, stock, source) {
-    await setDoc(doc(db, INVENTORY_COLLECTION, product.id), {
-        productId: product.id,
-        productCode: productCode(product),
-        productName: product.name || ``,
-        stock,
-        updateSource: source,
-        updatedBy: state.user?.name || `Manager`,
-        updatedAt: serverTimestamp()
-    }, { merge: true });
-}
-
-byId(`productForm`).addEventListener(`submit`, async event => {
-    event.preventDefault();
-    const code = byId(`newProductCode`).value.trim();
-    const name = byId(`newProductName`).value.trim();
-    const price = numberValue(byId(`newProductPrice`).value);
-    const stock = numberValue(byId(`newProductStock`).value);
-    if (!code || !name || stock < 0) return showToast(`أكمل بيانات الصنف بشكل صحيح.`, `error`);
-
-    const duplicate = state.products.some(product => productCode(product).toLowerCase() === code.toLowerCase() || String(product.name || ``).toLowerCase() === name.toLowerCase());
-    if (duplicate) return showToast(`الصنف أو الكود موجود مسبقاً.`, `error`);
-
-    const id = safeDocumentId(code);
-    await setDoc(doc(db, `products`, id), { name, productCode: code, price });
-    const product = { id, name, productCode: code, price };
-    await saveStock(product, stock, `new_product`);
-    state.products.push(product);
-    state.products.sort((a, b) => String(a.name || ``).localeCompare(String(b.name || ``), `ar`));
-    productModal.hidden = true;
-    event.target.reset();
-    byId(`newProductStock`).value = `1000`;
-    showToast(`تمت إضافة الصنف بنجاح.`, `success`);
-    renderInventory();
-});
-
-function downloadInventoryTemplate() {
-    if (!window.XLSX) return showToast(`تعذر تحميل أداة Excel.`, `error`);
-    const rows = state.products.map(product => ({
-        [`Product Code`]: productCode(product),
-        [`Product Name`]: product.name || ``,
-        [`Price`]: numberValue(product.price),
-        [`Stock`]: stockFor(product)
-    }));
-    if (!rows.length) rows.push({ [`Product Code`]: `P001`, [`Product Name`]: `Example Product`, [`Price`]: 0, [`Stock`]: 1000 });
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    worksheet[`!cols`] = [{ wch: 18 }, { wch: 42 }, { wch: 14 }, { wch: 14 }];
-    XLSX.utils.book_append_sheet(workbook, worksheet, `Inventory`);
-    XLSX.writeFile(workbook, `Inventory_Template.xlsx`);
-}
-
-templateUpload.addEventListener(`change`, async event => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+function applyLegacyTheme(frame) {
     try {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data, { type: `array` });
-        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: `` });
-        await importInventoryRows(rows);
-        showToast(`تم رفع وتحديث ${rows.length} صفاً.`, `success`);
+        const target = frame.contentDocument;
+        if (!target || target.querySelector(`[data-pilot-theme]`)) return;
+        const link = target.createElement(`link`);
+        link.rel = `stylesheet`;
+        link.href = LEGACY_THEME_URL;
+        link.dataset.pilotTheme = `true`;
+        target.head.appendChild(link);
+        target.documentElement.dataset.inventoryPilot = `true`;
     } catch (error) {
         console.error(error);
-        showToast(`الملف غير صالح أو عناوين الأعمدة غير صحيحة.`, `error`);
-    } finally {
-        templateUpload.value = ``;
     }
-});
-
-async function importInventoryRows(rows) {
-    const normalized = rows.map((row, index) => ({
-        rowNumber: index + 2,
-        code: String(row[`Product Code`] ?? row[`كود الصنف`] ?? ``).trim(),
-        name: String(row[`Product Name`] ?? row[`اسم الصنف`] ?? ``).trim(),
-        price: numberValue(row[`Price`] ?? row[`السعر`] ?? 0),
-        stock: numberValue(row[`Stock`] ?? row[`الرصيد`] ?? DEFAULT_STOCK)
-    }));
-    if (!normalized.length || normalized.some(row => !row.code || !row.name || row.stock < 0)) {
-        throw new Error(`Invalid inventory rows`);
-    }
-
-    for (let start = 0; start < normalized.length; start += 200) {
-        const batch = writeBatch(db);
-        normalized.slice(start, start + 200).forEach(row => {
-            const existing = state.products.find(product => productCode(product).toLowerCase() === row.code.toLowerCase() || String(product.name || ``).toLowerCase() === row.name.toLowerCase());
-            const id = existing?.id || safeDocumentId(row.code);
-            batch.set(doc(db, `products`, id), { name: row.name, productCode: row.code, price: row.price }, { merge: true });
-            batch.set(doc(db, INVENTORY_COLLECTION, id), {
-                productId: id,
-                productCode: row.code,
-                productName: row.name,
-                stock: row.stock,
-                updateSource: `template_import`,
-                updatedBy: state.user?.name || `Manager`,
-                updatedAt: serverTimestamp()
-            }, { merge: true });
-        });
-        await batch.commit();
-    }
-    await loadReferenceData();
-    renderInventory();
 }
 
-function renderOrderEntry() {
+function enhanceSupervisorFrame(frame) {
+    try {
+        const target = frame.contentDocument;
+        const addButton = target.querySelector(`#managerAddNewOrderBtn`);
+        if (addButton && !addButton.dataset.pilotBound) {
+            addButton.dataset.pilotBound = `true`;
+            addButton.addEventListener(`click`, event => {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                setView(`new-order`);
+            }, true);
+        }
+        const main = target.querySelector(`main`) || target.body;
+        if (!target.querySelector(`.pilot-inventory-callout`)) {
+            const callout = target.createElement(`button`);
+            callout.type = `button`;
+            callout.className = `pilot-inventory-callout`;
+            callout.innerHTML = `<i class="ph ph-package"></i><span><strong>أرصدة البضاعة</strong><small>عرض الكميات والباتشات وتواريخ الانتهاء</small></span><i class="ph ph-arrow-left"></i>`;
+            callout.addEventListener(`click`, () => setView(`inventory`));
+            main.prepend(callout);
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function enhanceManagerFrame(frame) {
+    try {
+        const target = frame.contentDocument;
+        const grid = target.querySelector(`.report-cards-grid`) || target.querySelector(`main`) || target.body;
+        if (!target.querySelector(`.pilot-stock-report-card`)) {
+            const card = target.createElement(`button`);
+            card.type = `button`;
+            card.className = `pilot-stock-report-card`;
+            card.innerHTML = `<i class="ph ph-package"></i><span><strong>تقرير أرصدة البضاعة</strong><small>الرصيد، الباتشات، وتواريخ الانتهاء</small></span><i class="ph ph-arrow-left"></i>`;
+            card.addEventListener(`click`, () => setView(`inventory`));
+            grid.appendChild(card);
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function enhanceRepresentativeFrame(frame) {
+    try {
+        const target = frame.contentDocument;
+        const changeButton = target.querySelector(`#changePharmacyBtn`);
+        if (changeButton && !changeButton.dataset.pilotBound) {
+            changeButton.dataset.pilotBound = `true`;
+            changeButton.addEventListener(`click`, event => {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                renderOrderPreparation();
+            }, true);
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function allowedRepsForSupervisor() {
+    if (state.role !== `supervisor`) return [];
+    return state.reps.filter(rep => state.repManagerMap[rep.name] === state.user.name);
+}
+
+function renderOrderPreparation() {
+    const reps = state.role === `rep` ? [state.user] : allowedRepsForSupervisor();
     dashboardContent.innerHTML = `
-        <section class="page-section">
-            <div class="section-head"><div><h2>إدخال طلبية جديدة</h2><p>${state.role === `supervisor` ? `اختر الصيدلية وسيظهر اسم المندوب تلقائياً.` : `أدخل طلبية باسم المندوب المحدد.`}</p></div></div>
-            <form id="orderForm" class="order-layout">
-                <div class="panel">
-                    <div class="order-grid">
-                        <label>الصيدلية
-                            <select id="orderPharmacy" required>
-                                <option value="">اختر الصيدلية</option>
-                                ${availablePharmacies().map(pharmacy => `<option value="${escapeHtml(pharmacy.id)}">${escapeHtml(pharmacy.name || `-`)}${pharmacyCode(pharmacy) ? ` — ${escapeHtml(pharmacyCode(pharmacy))}` : ``}</option>`).join(``)}
-                            </select>
-                        </label>
-                        <label>المندوب<input id="orderRepName" value="${state.role === `rep` ? escapeHtml(state.user.name || ``) : ``}" readonly placeholder="يظهر تلقائياً بعد اختيار الصيدلية"></label>
-                        <label class="wide">ملاحظة الطلبية<textarea id="orderNote" rows="2" placeholder="ملاحظة اختيارية..."></textarea></label>
-                    </div>
-                    <div class="line-items" id="lineItems"></div>
-                    <button class="secondary-btn" id="addLineBtn" type="button"><i class="ph ph-plus"></i> إضافة صنف</button>
-                </div>
-                <aside class="panel order-summary">
-                    <h3>ملخص الطلبية</h3>
-                    <div class="summary-row"><span>عدد الأصناف</span><strong id="summaryItems">0</strong></div>
-                    <div class="summary-row"><span>إجمالي الكمية</span><strong id="summaryQty">0</strong></div>
-                    <div class="summary-row"><span>إجمالي البونص</span><strong id="summaryBonus">0</strong></div>
-                    <div class="summary-total"><span>الإجمالي</span><strong><span id="summaryTotal">0.00</span> د.ا</strong></div>
-                    <button class="primary-btn full-btn" type="submit"><i class="ph ph-paper-plane-tilt"></i> إرسال الطلبية</button>
-                </aside>
-            </form>
-        </section>
-    `;
+        <section class="content-panel order-prep">
+            <div class="section-heading">
+                <div><span class="eyebrow">طلبية جديدة</span><h2>اختيار الصيدلية</h2><p>بعد الاختيار ستظهر صفحة الطلبية الأصلية بجميع ميزاتها.</p></div>
+                <span class="context-chip"><i class="ph ph-user"></i> ${escapeHtml(state.role === `rep` ? state.user.name : state.user.name)}</span>
+            </div>
+            <div class="prep-grid">
+                ${state.role === `supervisor` ? `
+                    <label><span>المندوب</span><select id="orderRepSelect"><option value="">اختر المندوب</option>${reps.map(rep => `<option value="${escapeHtml(rep.id)}">${escapeHtml(rep.name)}</option>`).join(``)}</select></label>
+                ` : ``}
+                <label class="pharmacy-search"><span>ابحث عن الصيدلية</span><div class="input-with-icon"><i class="ph ph-magnifying-glass"></i><input id="pharmacySearch" type="search" placeholder="اكتب اسم الصيدلية أو الكود"></div></label>
+            </div>
+            <div id="pharmacyResults" class="pharmacy-results"></div>
+        </section>`;
 
-    byId(`orderPharmacy`).addEventListener(`change`, updateOrderRepresentative);
-    byId(`addLineBtn`).addEventListener(`click`, () => addOrderLine());
-    byId(`orderForm`).addEventListener(`submit`, submitOrder);
-    addOrderLine();
+    const input = byId(`pharmacySearch`);
+    const results = byId(`pharmacyResults`);
+    const draw = () => {
+        const term = input.value.trim().toLocaleLowerCase(`ar`);
+        const matches = state.pharmacies.filter(pharmacy => {
+            const haystack = `${pharmacy.name || ``} ${pharmacyCode(pharmacy)}`.toLocaleLowerCase(`ar`);
+            return !term || haystack.includes(term);
+        }).slice(0, 60);
+        results.innerHTML = matches.length ? matches.map(pharmacy => `
+            <button type="button" class="pharmacy-option" data-pharmacy="${escapeHtml(pharmacy.id)}">
+                <span class="pharmacy-mark"><i class="ph ph-first-aid-kit"></i></span>
+                <span><strong>${escapeHtml(pharmacy.name)}</strong><small>${escapeHtml(pharmacyCode(pharmacy) || `بدون كود`)}</small></span>
+                <i class="ph ph-arrow-left"></i>
+            </button>`).join(``) : `<div class="empty-state"><i class="ph ph-magnifying-glass"></i><p>لا توجد نتائج مطابقة.</p></div>`;
+        results.querySelectorAll(`[data-pharmacy]`).forEach(button => button.addEventListener(`click`, () => {
+            const pharmacy = state.pharmacies.find(item => item.id === button.dataset.pharmacy);
+            let rep = state.user;
+            if (state.role === `supervisor`) rep = reps.find(item => item.id === byId(`orderRepSelect`).value);
+            if (!rep) return showToast(`اختر المندوب أولاً.`, `error`);
+            launchLegacyOrder(rep, pharmacy);
+        }));
+    };
+    input.addEventListener(`input`, draw);
+    draw();
 }
 
-function availablePharmacies() {
-    if (state.role !== `rep`) return state.pharmacies;
-    return state.pharmacies.filter(pharmacy => String(pharmacy.rep_id || pharmacy.repId || ``) === String(state.user.id));
-}
-
-function updateOrderRepresentative() {
-    if (state.role === `rep`) return;
-    const pharmacy = state.pharmacies.find(item => item.id === byId(`orderPharmacy`).value);
-    const repId = pharmacy?.rep_id || pharmacy?.repId || ``;
-    const rep = state.reps.find(item => String(item.id) === String(repId));
-    byId(`orderRepName`).value = rep?.name || ``;
-    byId(`orderRepName`).dataset.repId = rep?.id || ``;
-    if (pharmacy && !rep) showToast(`هذه الصيدلية غير مرتبطة بمندوب.`, `error`);
-}
-
-function addOrderLine(prefill = {}) {
-    const line = document.createElement(`div`);
-    line.className = `line-item`;
-    line.innerHTML = `
-        <label class="product-field">الصنف
-            <select class="line-product" required>
-                <option value="">اختر الصنف</option>
-                ${state.products.map(product => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.name || `-`)}${productCode(product) ? ` — ${escapeHtml(productCode(product))}` : ``}</option>`).join(``)}
-            </select>
-            <span class="line-stock">الرصيد: —</span>
-        </label>
-        <label>الكمية<input class="line-qty" type="number" min="1" step="1" value="${numberValue(prefill.qty) || 1}" required></label>
-        <label>البونص<input class="line-bonus" type="number" min="0" step="1" value="${numberValue(prefill.bonus)}"></label>
-        <label>السعر<input class="line-price" type="number" min="0" step="0.01" value="0" readonly></label>
-        <button class="remove-line" type="button" title="حذف"><i class="ph ph-trash"></i></button>
-    `;
-    byId(`lineItems`).appendChild(line);
-    const productSelect = line.querySelector(`.line-product`);
-    productSelect.addEventListener(`change`, () => {
-        const product = state.products.find(item => item.id === productSelect.value);
-        line.querySelector(`.line-price`).value = numberValue(product?.price).toFixed(2);
-        line.querySelector(`.line-stock`).textContent = `الرصيد: ${product ? stockFor(product).toLocaleString(`en-US`) : `—`}`;
-        updateOrderSummary();
-    });
-    line.querySelectorAll(`input`).forEach(input => input.addEventListener(`input`, updateOrderSummary));
-    line.querySelector(`.remove-line`).addEventListener(`click`, () => {
-        if (byId(`lineItems`).children.length === 1) return showToast(`يجب أن تحتوي الطلبية على صنف واحد على الأقل.`, `error`);
-        line.remove();
-        updateOrderSummary();
-    });
-    updateOrderSummary();
-}
-
-function collectOrderItems() {
-    return [...document.querySelectorAll(`.line-item`)].map(line => {
-        const product = state.products.find(item => item.id === line.querySelector(`.line-product`).value);
-        const qty = numberValue(line.querySelector(`.line-qty`).value);
-        const bonus = numberValue(line.querySelector(`.line-bonus`).value);
-        const price = numberValue(line.querySelector(`.line-price`).value);
-        return {
-            productId: product?.id || ``,
-            productCode: productCode(product),
-            name: product?.name || ``,
-            qty,
-            bonus,
-            price,
-            total: qty * price
-        };
-    });
-}
-
-function updateOrderSummary() {
-    const items = collectOrderItems();
-    byId(`summaryItems`).textContent = items.filter(item => item.name).length;
-    byId(`summaryQty`).textContent = items.reduce((sum, item) => sum + item.qty, 0).toLocaleString(`en-US`);
-    byId(`summaryBonus`).textContent = items.reduce((sum, item) => sum + item.bonus, 0).toLocaleString(`en-US`);
-    byId(`summaryTotal`).textContent = items.reduce((sum, item) => sum + item.total, 0).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-async function submitOrder(event) {
-    event.preventDefault();
-    const pharmacy = state.pharmacies.find(item => item.id === byId(`orderPharmacy`).value);
-    const rep = state.role === `rep`
-        ? state.user
-        : state.reps.find(item => item.id === byId(`orderRepName`).dataset.repId);
-    const items = collectOrderItems();
-
-    if (!pharmacy || !rep) return showToast(`اختر صيدلية مرتبطة بمندوب.`, `error`);
-    if (!items.length || items.some(item => !item.productId || item.qty < 1 || item.bonus < 0)) return showToast(`راجع الأصناف والكميات.`, `error`);
-
-    const exceedsStock = items.find(item => item.qty + item.bonus > stockFor(state.products.find(product => product.id === item.productId)));
-    if (exceedsStock) return showToast(`كمية ${exceedsStock.name} أكبر من الرصيد المتاح.`, `error`);
-
-    const isSupervisor = state.role === `supervisor`;
-    const initialStatus = isSupervisor ? `market_manager_pending` : `pending_supervisor_approval`;
-    const grandTotal = items.reduce((sum, item) => sum + item.total, 0);
-
-    await addDoc(collection(db, `orders`), {
+function launchLegacyOrder(rep, pharmacy) {
+    saveRepSession(rep);
+    state.currentPharmacy = pharmacy;
+    const isAdminOrder = state.role === `supervisor`;
+    sessionStorage.setItem(`activeOrderContext`, JSON.stringify({
         repId: rep.id,
-        repName: rep.name || ``,
-        pharmacyName: pharmacy.name || ``,
+        repName: rep.name,
+        pharmacyName: pharmacy.name,
         pharmacyCode: pharmacyCode(pharmacy),
-        items,
-        grandTotal,
-        orderNote: byId(`orderNote`).value.trim(),
-        status: initialStatus,
-        previousStatus: ``,
-        workflowStage: isSupervisor ? `market_manager` : `supervisor`,
-        supervisorStatus: isSupervisor ? `supervisor_approved` : `pending_supervisor_approval`,
-        marketManagerStatus: isSupervisor ? `market_manager_pending` : ``,
-        financeStatus: ``,
-        orderStaffStatus: ``,
-        managerName: isSupervisor ? state.user.name : ``,
-        inventoryPilot: true,
-        inventoryDeducted: false,
-        createdAt: serverTimestamp(),
-        auditTrail: [{
-            action: `order_created`,
-            actor: state.user.name || ``,
-            role: isSupervisor ? `supervisor` : `representative`,
-            createdAt: new Date().toISOString(),
-            newStatus: initialStatus
-        }]
-    });
-
-    showToast(`تم إرسال الطلبية بنجاح دون خصم المخزون.`, `success`);
-    setView(`orders`);
+        isAdminOrder,
+        managerName: isAdminOrder ? state.user.name : ``
+    }));
+    if (isAdminOrder) sessionStorage.setItem(`adminOrderMode`, `1`);
+    else sessionStorage.removeItem(`adminOrderMode`);
+    state.pendingPilotOrder = {
+        repId: rep.id,
+        pharmacyName: pharmacy.name,
+        startedAt: Date.now()
+    };
+    renderLegacyWorkspace(ROOT_ORDER_URL, `rep`);
 }
 
-function renderReports() {
+function ensureRepresentativeContext() {
+    saveRepSession(state.user);
+    const context = JSON.parse(sessionStorage.getItem(`activeOrderContext`) || `null`);
+    if (!context || context.repId !== state.user.id) {
+        const fallbackPharmacy = state.pharmacies[0];
+        if (fallbackPharmacy) {
+            sessionStorage.setItem(`activeOrderContext`, JSON.stringify({
+                repId: state.user.id,
+                repName: state.user.name,
+                pharmacyName: fallbackPharmacy.name,
+                pharmacyCode: pharmacyCode(fallbackPharmacy),
+                isAdminOrder: false,
+                managerName: ``
+            }));
+        }
+    }
+}
+
+function renderRepresentativeLegacySection(section) {
+    ensureRepresentativeContext();
+    renderLegacyWorkspace(ROOT_ORDER_URL, `rep`);
+    const frame = byId(`workspaceFrame`);
+    frame.addEventListener(`load`, () => {
+        const target = frame.contentDocument;
+        if (section === `my-orders`) {
+            target.querySelector(`#navMyOrdersBtn`)?.click();
+            setTimeout(() => injectSmartMyOrdersFilters(target), 200);
+        } else {
+            target.querySelector(`#navReportsBtn`)?.click();
+        }
+    }, { once: true });
+}
+
+function injectSmartMyOrdersFilters(target) {
+    const anchor = target.querySelector(`#myOrdersDateFrom`)?.closest(`.filter-group`)?.parentElement
+        || target.querySelector(`#myOrdersFilters`)
+        || target.querySelector(`#myOrdersSection`);
+    if (!anchor || target.querySelector(`.pilot-smart-filters`)) return;
+    const wrapper = target.createElement(`div`);
+    wrapper.className = `pilot-smart-filters`;
+    wrapper.innerHTML = `
+        <strong><i class="ph ph-magic-wand"></i> فلاتر سريعة</strong>
+        <button type="button" data-range="today">طلبيات اليوم</button>
+        <button type="button" data-range="month" class="active">طلبيات هذا الشهر</button>
+        <button type="button" data-range="all">كل الطلبيات</button>`;
+    anchor.prepend(wrapper);
+    const applyRange = range => {
+        const from = target.querySelector(`#myOrdersDateFrom`);
+        const to = target.querySelector(`#myOrdersDateTo`);
+        if (!from || !to) return;
+        const today = new Date();
+        if (range === `today`) {
+            from.value = toDateInput(today);
+            to.value = toDateInput(today);
+        } else if (range === `month`) {
+            from.value = toDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+            to.value = toDateInput(today);
+        } else {
+            from.value = ``;
+            to.value = ``;
+        }
+        [from, to].forEach(input => input.dispatchEvent(new Event(`change`, { bubbles: true })));
+        wrapper.querySelectorAll(`button`).forEach(button => button.classList.toggle(`active`, button.dataset.range === range));
+    };
+    wrapper.querySelectorAll(`button`).forEach(button => button.addEventListener(`click`, () => applyRange(button.dataset.range)));
+    applyRange(`month`);
+}
+
+function inventoryBadge(metrics) {
+    if (metrics.total < 0) return `<span class="stock-badge danger">عجز</span>`;
+    if (metrics.total === 0) return `<span class="stock-badge danger">نفد</span>`;
+    if (metrics.expired) return `<span class="stock-badge danger">منتهي</span>`;
+    if (metrics.expiring) return `<span class="stock-badge warning">قريب الانتهاء</span>`;
+    if (metrics.total <= 100) return `<span class="stock-badge warning">منخفض</span>`;
+    return `<span class="stock-badge success">متوفر</span>`;
+}
+
+function renderInventoryReport() {
+    if (state.activeView !== `inventory`) return;
+    const rows = state.products.map(product => ({ product, metrics: inventoryMetrics(product) }));
+    const totalStock = rows.reduce((sum, row) => sum + row.metrics.total, 0);
+    const low = rows.filter(row => row.metrics.total <= 100).length;
+    const expiring = rows.filter(row => row.metrics.expired || row.metrics.expiring).length;
     dashboardContent.innerHTML = `
-        <section class="page-section">
-            <div class="section-head"><div><h2>لوحة التقارير</h2><p>نفس لوحة التقارير الحالية، مع تبويب مستقل لأرصدة البضاعة.</p></div><button class="secondary-btn" data-open-reports type="button"><i class="ph ph-arrow-square-out"></i> فتح بصفحة كاملة</button></div>
-            <iframe class="report-frame" src="../reports.html" title="لوحة التقارير"></iframe>
-        </section>
-    `;
-    dashboardContent.querySelector(`[data-open-reports]`).addEventListener(`click`, () => window.open(`../reports.html`, `_blank`, `noopener`));
+        <section class="content-panel inventory-report">
+            <div class="section-heading">
+                <div><span class="eyebrow">قراءة فقط</span><h2>تقرير أرصدة البضاعة</h2><p>الرصيد لا يتغير إلا بعد وصول الطلبية إلى حالة تمت الفوترة.</p></div>
+                ${state.role === `manager` ? `<button id="exportInventoryBtn" class="secondary-btn" type="button"><i class="ph ph-file-xls"></i> تنزيل Excel</button>` : ``}
+            </div>
+            <div class="metric-grid compact">
+                <article><i class="ph ph-package"></i><span>عدد الأصناف<strong>${rows.length.toLocaleString(`ar-JO`)}</strong></span></article>
+                <article><i class="ph ph-stack"></i><span>إجمالي الوحدات<strong>${totalStock.toLocaleString(`ar-JO`)}</strong></span></article>
+                <article><i class="ph ph-warning"></i><span>منخفض أو نافد<strong>${low.toLocaleString(`ar-JO`)}</strong></span></article>
+                <article><i class="ph ph-calendar-warning"></i><span>انتهاء قريب/منتهي<strong>${expiring.toLocaleString(`ar-JO`)}</strong></span></article>
+            </div>
+            <div class="inventory-tools">
+                <div class="input-with-icon"><i class="ph ph-magnifying-glass"></i><input id="inventorySearch" type="search" placeholder="بحث باسم الصنف أو الكود أو الباتش"></div>
+                <select id="inventoryStatusFilter">
+                    <option value="">كل الحالات</option><option value="available">متوفر</option><option value="low">منخفض أو نافد</option><option value="expiry">انتهاء قريب أو منتهي</option>
+                </select>
+            </div>
+            <div class="table-scroll">
+                <table class="inventory-table">
+                    <thead><tr><th>كود الصنف</th><th>اسم الصنف</th><th>الرصيد</th><th>عدد الباتشات</th><th>أقرب انتهاء</th><th>الحالة</th></tr></thead>
+                    <tbody id="inventoryRows"></tbody>
+                </table>
+            </div>
+            <p class="read-only-note"><i class="ph ph-lock-key"></i> لا يمكن تعديل الأرصدة من أي من هذه الواجهات.</p>
+        </section>`;
+
+    const draw = () => {
+        const term = byId(`inventorySearch`).value.trim().toLocaleLowerCase(`ar`);
+        const status = byId(`inventoryStatusFilter`).value;
+        const filtered = rows.filter(row => {
+            const haystack = `${productCode(row.product)} ${row.product.name} ${row.metrics.batches.map(batch => batch.batchNo).join(` `)}`.toLocaleLowerCase(`ar`);
+            const statusMatch = !status
+                || (status === `available` && row.metrics.total > 100 && !row.metrics.expired && !row.metrics.expiring)
+                || (status === `low` && row.metrics.total <= 100)
+                || (status === `expiry` && (row.metrics.expired || row.metrics.expiring));
+            return (!term || haystack.includes(term)) && statusMatch;
+        });
+        byId(`inventoryRows`).innerHTML = filtered.length ? filtered.map(row => `
+            <tr>
+                <td><span class="code-pill">${escapeHtml(productCode(row.product) || `—`)}</span></td>
+                <td><strong>${escapeHtml(row.product.name)}</strong><small>${row.metrics.batches.map(batch => `${escapeHtml(batch.batchNo)}: ${batch.quantity.toLocaleString(`ar-JO`)}`).join(` · `)}</small></td>
+                <td class="stock-number">${row.metrics.total.toLocaleString(`ar-JO`)}</td>
+                <td>${row.metrics.batches.length.toLocaleString(`ar-JO`)}</td>
+                <td>${row.metrics.nearestExpiry ? escapeHtml(formatDate(row.metrics.nearestExpiry)) : `—`}</td>
+                <td>${inventoryBadge(row.metrics)}</td>
+            </tr>`).join(``) : `<tr><td colspan="6"><div class="empty-state"><i class="ph ph-package"></i><p>لا توجد أصناف مطابقة.</p></div></td></tr>`;
+    };
+    byId(`inventorySearch`).addEventListener(`input`, draw);
+    byId(`inventoryStatusFilter`).addEventListener(`change`, draw);
+    byId(`exportInventoryBtn`)?.addEventListener(`click`, () => exportInventory(rows));
+    draw();
+}
+
+function exportInventory(rows) {
+    const data = [];
+    rows.forEach(({ product, metrics }) => {
+        metrics.batches.forEach(batch => data.push({
+            [`كود الصنف`]: productCode(product),
+            [`اسم الصنف`]: product.name,
+            [`رقم الباتش`]: batch.batchNo,
+            [`الكمية`]: batch.quantity,
+            [`تاريخ الانتهاء`]: batch.expiryDate,
+            [`إجمالي رصيد الصنف`]: metrics.total
+        }));
+    });
+    const sheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, `أرصدة البضاعة`);
+    XLSX.writeFile(workbook, `inventory-report-${toDateInput(new Date())}.xlsx`);
 }
 
 async function boot() {
-    roleButtons.forEach(button => button.disabled = true);
     try {
         await loadReferenceData();
         startInventoryListener();
+        startOrdersListener();
         startInventoryDeductionWorker();
-        roleButtons.forEach(button => button.disabled = false);
     } catch (error) {
         console.error(error);
-        showToast(`تعذر تحميل بيانات النظام. تحقق من الاتصال وصلاحيات Firebase.`, `error`);
+        showToast(`تعذر تحميل بيانات النظام. تحقق من الاتصال ثم أعد المحاولة.`, `error`);
     }
 }
 
