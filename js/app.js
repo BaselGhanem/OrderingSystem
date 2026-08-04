@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20260722_status_unified_v4`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20260804_supervisor_delete_rules_v1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -32,15 +32,46 @@ try {
         order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
 }`;
 
+    const supervisorDeletePattern = /function canCurrentSupervisorDeleteOrder\(order = \{\}\) \{[\s\S]*?\n\}/;
+    const supervisorDeleteResolver = `function canCurrentSupervisorDeleteOrder(order = {}) {
+    const status = getEffectiveOrderStatus(order) || 'pending_supervisor_approval';
+    if (isDeletedOrderStatus(status)) return false;
+
+    const ownerOk = isOrderUnderCurrentManager(order) || isOrderWithoutAssignedSupervisor(order);
+    if (!ownerOk) return false;
+
+    const deletableStatuses = [
+        'pending',
+        'pending_supervisor_approval',
+        'returned_to_rep',
+        'returned_to_supervisor',
+        'finance_rejected'
+    ];
+
+    return deletableStatuses.includes(status);
+}`;
+
     if (!resolverPattern.test(source)) {
         throw new Error(`Status resolver was not found in application source.`);
     }
+    if (!supervisorDeletePattern.test(source)) {
+        throw new Error(`Supervisor delete permission resolver was not found in application source.`);
+    }
 
     source = source.replace(resolverPattern, canonicalResolver);
+    source = source.replace(supervisorDeletePattern, supervisorDeleteResolver);
     source = source.replace(/from\s+(['"])\.\/firebase\.js\1/, `from ${JSON.stringify(firebaseUrl)}`);
     source = source.replace(
         `deleted_by_orders_staff: 'محذوفة من فريق المعالجة'`,
         `deleted_by_orders_staff: 'محذوفة من قسم الطلبيات'`
+    );
+    source = source.replace(
+        'حذف المشرف مسموح فقط قبل موافقة المشرف. بعد الموافقة استخدم الإرجاع حسب مسار العمل.',
+        'لا يمكن للمشرف حذف الطلبية في حالتها الحالية.'
+    );
+    source = source.replace(
+        'تم حذف الطلبيات المسموح حذفها فقط. تم تجاوز ${skipped.length} طلبية لأنها ليست قبل موافقة المشرف.',
+        'تم حذف الطلبيات المسموح حذفها فقط. تم تجاوز ${skipped.length} طلبية لأن حالتها الحالية غير مسموح حذفها للمشرف.'
     );
 
     if (!source.includes(`orders_staff_edited_returned_to_finance: 'تم تعديله وإرجاعه للمالية'`)) {
