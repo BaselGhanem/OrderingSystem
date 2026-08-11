@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <link rel="icon" href="favicon.ico?v=20260629_audit_dynamic_notes_fix1">
+    <link rel="icon" href="favicon.ico?v=20260712_settings_control_center_v1">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>إعدادات الموقع | DAR ALDAWAA</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20260629_audit_dynamic_notes_fix1">
+    <link rel="stylesheet" href="style.css?v=20260712_settings_control_center_v1">
     <style>
         :root {
             --settings-accent: #099999;
@@ -577,10 +577,117 @@
             .tab-button { padding: 10px 13px; font-size: 0.88rem; }
             input[type="file"] { width: 100%; }
         }
+
+
+        /* ===== مركز التحكم الشامل ===== */
+        .control-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr);
+            gap: 16px;
+            padding: clamp(18px, 3vw, 28px);
+            border-radius: 22px;
+            background: linear-gradient(135deg, #0f3b5c 0%, #087f80 100%);
+            color: white;
+            overflow: hidden;
+            position: relative;
+        }
+        .control-hero::after {
+            content: '';
+            position: absolute;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            left: -80px;
+            top: -110px;
+            background: rgba(255,255,255,.08);
+        }
+        .control-hero h2 { margin: 0 0 8px; font-size: clamp(1.25rem, 3vw, 2rem); }
+        .control-hero p { margin: 0; line-height: 1.9; color: rgba(255,255,255,.86); font-weight: 600; }
+        .control-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; align-content: center; justify-content: flex-end; position: relative; z-index: 1; }
+        .control-hero .btn-local { background: white; color: #0f3b5c; }
+        .control-hero .btn-local.btn-outline-light { background: transparent; color: white; border: 1px solid rgba(255,255,255,.45); }
+        .config-source-badge { display: inline-flex; margin-top: 14px; padding: 7px 12px; border-radius: 999px; background: rgba(255,255,255,.14); font-size: .82rem; font-weight: 800; }
+
+        .control-stats-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+        .control-stat-card { display: flex; gap: 12px; align-items: center; padding: 16px; border: 1px solid #e2e8f0; border-radius: 17px; background: #fff; min-width: 0; }
+        .control-stat-card > i { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 14px; background: rgba(9,153,153,.11); color: #077979; font-size: 1.35rem; flex: 0 0 auto; }
+        .control-stat-card div { min-width: 0; }
+        .control-stat-card span, .control-stat-card small { display: block; color: #64748b; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .control-stat-card strong { display: block; font-size: 1.55rem; color: #0f3b5c; line-height: 1.2; }
+        .control-stat-card small { font-size: .72rem; margin-top: 3px; }
+
+        .settings-split-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr); gap: 16px; margin-top: 16px; }
+        .console-subcard { border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; padding: 16px; min-width: 0; }
+        .console-subcard h3 { margin: 0 0 12px; color: #0f3b5c; display: flex; align-items: center; gap: 8px; }
+        .health-list { display: grid; gap: 9px; }
+        .health-row { display: flex; gap: 9px; align-items: flex-start; border-radius: 12px; padding: 10px 12px; font-weight: 700; line-height: 1.6; }
+        .health-row.success { background: #ecfdf5; color: #047857; }
+        .health-row.warning { background: #fffbeb; color: #92400e; }
+        .health-row.danger { background: #fef2f2; color: #b91c1c; }
+        .health-row.info { background: #eff6ff; color: #1d4ed8; }
+
+        .console-form-grid { display: grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+        .console-form-grid.three { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+        .console-field { display: grid; gap: 6px; min-width: 0; }
+        .console-field label { color: #475569; font-weight: 800; font-size: .86rem; }
+        .console-field input, .console-field select { width: 100%; }
+        .console-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 14px 0 10px; }
+        .console-toolbar .settings-search { flex: 1 1 280px; max-width: 520px; }
+        .console-option-line { display: flex; gap: 16px; flex-wrap: wrap; padding: 12px; border-radius: 14px; background: #f8fafc; border: 1px solid #e2e8f0; margin: 12px 0; }
+        .switch-line { display: inline-flex; align-items: center; gap: 8px; color: #334155; font-weight: 800; white-space: nowrap; }
+        .switch-line input { width: 18px; height: 18px; accent-color: #099999; }
+        .empty-inline { text-align: center; color: #64748b; padding: 24px !important; }
+
+        .permission-matrix { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .permission-role-card { border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; background: #fff; }
+        .permission-role-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 13px 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .permission-role-head > div:first-child { display: flex; align-items: center; gap: 8px; color: #0f3b5c; }
+        .permission-role-actions { display: flex; gap: 8px; }
+        .mini-link { border: 0; background: transparent; color: #087f80; cursor: pointer; font-family: inherit; font-weight: 800; font-size: .78rem; }
+        .permission-checkbox-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 13px; max-height: 360px; overflow: auto; }
+        .permission-check { display: flex; gap: 8px; align-items: flex-start; padding: 9px; border-radius: 10px; background: #f8fafc; border: 1px solid transparent; font-size: .8rem; font-weight: 700; color: #334155; }
+        .permission-check:has(input:checked) { background: #ecfeff; border-color: #99f6e4; color: #0f766e; }
+        .permission-check input { margin-top: 3px; accent-color: #099999; }
+
+        .general-settings-grid { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 18px; }
+        .general-logo-box { display: grid; place-items: center; min-height: 190px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 18px; padding: 18px; }
+        .general-logo-box img { max-width: 170px; max-height: 100px; object-fit: contain; }
+        .toggle-stack { display: grid; gap: 10px; margin-top: 14px; }
+        .toggle-stack .switch-line { justify-content: space-between; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 13px; white-space: normal; }
+        .danger-zone-grid { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 12px; }
+        .danger-tool { padding: 15px; border-radius: 16px; border: 1px solid #e2e8f0; background: #fff; display: grid; gap: 10px; align-content: start; }
+        .danger-tool p { margin: 0; color: #64748b; font-size: .84rem; line-height: 1.7; font-weight: 600; }
+
+        .settings-console-toast-wrap { position: fixed; left: 18px; bottom: 18px; display: grid; gap: 8px; z-index: 999999; pointer-events: none; }
+        .settings-console-toast { transform: translateY(15px); opacity: 0; transition: .22s ease; display: flex; align-items: center; gap: 9px; max-width: min(430px, calc(100vw - 36px)); padding: 12px 15px; border-radius: 13px; color: white; background: #334155; box-shadow: 0 14px 36px rgba(15,23,42,.22); font-weight: 800; }
+        .settings-console-toast.show { transform: translateY(0); opacity: 1; }
+        .settings-console-toast.success { background: #047857; }
+        .settings-console-toast.error { background: #b91c1c; }
+        .btn-outline-light { border: 1px solid rgba(255,255,255,.45); }
+
+        @media (max-width: 1200px) {
+            .control-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .console-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 900px) {
+            .control-hero, .settings-split-grid, .general-settings-grid { grid-template-columns: 1fr; }
+            .control-hero-actions { justify-content: flex-start; }
+            .permission-matrix { grid-template-columns: 1fr; }
+            .danger-zone-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 640px) {
+            .control-stats-grid, .console-form-grid, .console-form-grid.three { grid-template-columns: 1fr; }
+            .permission-checkbox-grid { grid-template-columns: 1fr; }
+            .control-hero-actions .btn-local { width: 100%; }
+        }
+
+    
+        .security-boundary-note { display:flex; gap:10px; align-items:flex-start; padding:12px 14px; margin-bottom:14px; border:1px solid #f59e0b55; background:#fff8e7; color:#7c4a03; border-radius:14px; line-height:1.65; }
+        .security-boundary-note i { font-size:1.35rem; margin-top:2px; }
+
     </style>
 </head>
 <body>
-<a href="supervisor-assignment.html" style="position:fixed;left:18px;bottom:18px;z-index:9999;background:#099999;color:#fff;text-decoration:none;padding:12px 16px;border-radius:14px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.18)">تغيير مشرف مندوب</a>
     <div class="bg-shapes"><div class="shape shape-1"></div><div class="shape shape-2"></div></div>
 
     <div class="settings-shell">
@@ -588,8 +695,8 @@
             <div class="settings-title">
                 <img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="Dar Al Dawaa Logo">
                 <div>
-                    <h1>إعدادات الموقع</h1>
-                    <p>مركز واحد لإدارة الأصناف، الصيدليات، التصدير، وأرشفة البيانات القديمة.</p>
+                    <h1>مركز التحكم الشامل</h1>
+                    <p>إدارة المستخدمين، كلمات السر، المشرفين، الصلاحيات، الأصناف، الصيدليات، وإعدادات النظام من مكان واحد.</p>
                 </div>
             </div>
             <div class="settings-actions">
@@ -599,14 +706,139 @@
         </header>
 
         <nav class="settings-tabs" aria-label="أقسام إعدادات الموقع">
-            <button type="button" class="tab-button active" data-target="productsPanel"><i class="ph ph-package"></i> الأصناف</button>
+            <button type="button" class="tab-button active" data-target="controlDashboardPanel"><i class="ph ph-command"></i> لوحة التحكم</button>
+            <button type="button" class="tab-button" data-target="usersAccessPanel"><i class="ph ph-users-three"></i> المستخدمون والصلاحيات</button>
+            <button type="button" class="tab-button" data-target="systemConfigPanel"><i class="ph ph-sliders-horizontal"></i> إعدادات النظام</button>
+            <button type="button" class="tab-button" data-target="productsPanel"><i class="ph ph-package"></i> الأصناف</button>
             <button type="button" class="tab-button" data-target="pharmaciesPanel"><i class="ph ph-storefront"></i> الصيدليات</button>
             <button type="button" class="tab-button" data-target="exportPanel"><i class="ph ph-download-simple"></i> التصدير</button>
             <button type="button" class="tab-button" data-target="oldOrdersPanel"><i class="ph ph-archive-box"></i> الطلبيات السابقة</button>
             <button type="button" class="tab-button" data-target="oldReturnsPanel"><i class="ph ph-arrow-counter-clockwise"></i> المرتجعات السابقة</button>
         </nav>
 
-        <section id="productsPanel" class="settings-card active">
+        <section id="controlDashboardPanel" class="settings-card active">
+            <div class="control-hero">
+                <div>
+                    <h2>كل شيء تحت سيطرتك</h2>
+                    <p>هذه الشاشة تفحص بنية النظام الفعلية وتربط الإعدادات مع Firebase. أي تغيير على المندوب أو المشرف يمكن تطبيقه تلقائياً على الصيدليات والطلبيات الموجودة دون تغيير الأسعار أو الكميات أو الحالات.</p>
+                    <span id="configSourceBadge" class="config-source-badge">جاري تحديد مصدر الإعدادات...</span>
+                </div>
+                <div class="control-hero-actions">
+                    <button type="button" id="refreshControlCenterBtn" class="btn-local"><i class="ph ph-arrows-clockwise"></i> فحص وتحديث</button>
+                    <button type="button" id="initializeControlCenterBtn" class="btn-local btn-outline-light"><i class="ph ph-magic-wand"></i> تهيئة الإعدادات المركزية</button>
+                </div>
+            </div>
+
+            <div id="controlCenterStats" class="control-stats-grid"></div>
+
+            <div class="settings-split-grid">
+                <div class="console-subcard">
+                    <h3><i class="ph ph-stethoscope"></i> فحص صحة النظام</h3>
+                    <div id="systemHealthList" class="health-list"><div class="health-row info"><i class="ph ph-circle-notch ph-spin"></i><span>جاري الفحص...</span></div></div>
+                </div>
+                <div class="console-subcard">
+                    <h3><i class="ph ph-lightning"></i> إجراءات سريعة</h3>
+                    <div class="utility-grid">
+                        <button type="button" id="bumpDataRevisionBtn" class="btn-local btn-teal"><i class="ph ph-broadcast"></i> تحديث البيانات عند الجميع</button>
+                        <button type="button" id="repairAssignmentsBtn" class="btn-local btn-blue"><i class="ph ph-link"></i> إصلاح ارتباطات المندوب والمشرف</button>
+                        <button type="button" id="exportControlBackupBtn" class="btn-local btn-green"><i class="ph ph-download-simple"></i> نسخة احتياطية للإعدادات</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="usersAccessPanel" class="settings-card">
+            <div class="card-heading">
+                <div>
+                    <h2><i class="ph ph-users-three"></i> المستخدمون وكلمات السر والارتباطات</h2>
+                    <p>تغيير اسم المندوب أو المشرف، كلمة السر، الدور، حالة الحساب، والمشرف التابع له مع تطبيق اختياري على البيانات الحالية.</p>
+                </div>
+            </div>
+
+            <div id="representativeManagementBlock" class="console-subcard">
+                <h3><i class="ph ph-user-plus"></i> إضافة مندوب جديد</h3>
+                <div class="console-form-grid">
+                    <div class="console-field"><label for="newRepresentativeName">اسم المندوب</label><input id="newRepresentativeName" class="table-input" type="text" placeholder="الاسم الكامل"></div>
+                    <div class="console-field"><label for="newRepresentativeSupervisor">المشرف</label><select id="newRepresentativeSupervisor" class="table-select"><option value="">جاري التحميل...</option></select></div>
+                    <div class="console-field"><label for="newRepresentativePassword">كلمة السر</label><input id="newRepresentativePassword" class="table-input" type="password" autocomplete="new-password" placeholder="اختياري"></div>
+                    <button type="button" id="addRepresentativeBtn" class="btn-local btn-green"><i class="ph ph-plus"></i> إضافة المندوب</button>
+                </div>
+                <div class="console-option-line">
+                    <label class="switch-line"><input id="cascadeRepChanges" type="checkbox" checked><span>عند تغيير اسم المندوب أو مشرفه: طبّق التغيير على الصيدليات والطلبيات الحالية</span></label>
+                </div>
+                <div class="console-toolbar"><input id="representativesSearch" class="settings-search" type="search" placeholder="بحث باسم المندوب أو المشرف..."></div>
+                <div class="table-wrap">
+                    <table class="settings-table">
+                        <thead><tr><th>Document ID</th><th>اسم المندوب</th><th>المشرف</th><th>كلمة سر جديدة</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+                        <tbody id="representativesTableBody"><tr><td colspan="6" class="empty-inline">جاري التحميل...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="systemUserManagementBlock" class="console-subcard" style="margin-top:16px;">
+                <h3><i class="ph ph-identification-card"></i> حسابات الإدارة والتشغيل</h3>
+                <div class="console-form-grid">
+                    <div class="console-field"><label for="newSystemUserName">اسم الحساب</label><input id="newSystemUserName" class="table-input" type="text" placeholder="مثال: حمزة"></div>
+                    <div class="console-field"><label for="newSystemUserRole">الدور</label><select id="newSystemUserRole" class="table-select"><option value="supervisor">مشرف</option><option value="market_manager">مدير السوق</option><option value="finance_controller">المراقب المالي</option><option value="orders_staff">قسم الطلبيات</option><option value="reports">التقارير</option><option value="settings">الإعدادات</option><option value="audit">التدقيق</option><option value="control">التحكم</option></select></div>
+                    <div class="console-field"><label for="newSystemUserPassword">كلمة السر</label><input id="newSystemUserPassword" class="table-input" type="password" autocomplete="new-password" placeholder="إجبارية للحساب الجديد"></div>
+                    <button type="button" id="addSystemUserBtn" class="btn-local btn-green"><i class="ph ph-plus"></i> إضافة الحساب</button>
+                </div>
+                <div class="console-option-line">
+                    <label class="switch-line"><input id="cascadeSupervisorChanges" type="checkbox" checked><span>عند تغيير اسم مشرف: طبّق الاسم الجديد على المناديب والصيدليات والطلبيات الحالية</span></label>
+                </div>
+                <div class="console-toolbar"><input id="systemUsersSearch" class="settings-search" type="search" placeholder="بحث باسم الحساب أو الدور..."></div>
+                <div class="table-wrap">
+                    <table class="settings-table">
+                        <thead><tr><th>Document ID</th><th>اسم الحساب</th><th>الدور</th><th>كلمة سر جديدة</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+                        <tbody id="systemUsersTableBody"><tr><td colspan="6" class="empty-inline">جاري التحميل...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="permissionsManagementBlock" class="console-subcard" style="margin-top:16px;">
+                <div class="card-heading">
+                    <div><h3><i class="ph ph-shield-check"></i> مصفوفة الصلاحيات حسب الدور</h3><p>يمكن تحديد ما يستطيع كل دور فتحه أو تنفيذه. لا تصبح القيود إجبارية إلا بعد تفعيلها من إعدادات النظام.</p></div>
+                    <button type="button" id="savePermissionsBtn" class="btn-local btn-teal"><i class="ph ph-floppy-disk"></i> حفظ الصلاحيات</button>
+                </div>
+                <div class="security-boundary-note"><i class="ph ph-shield-warning"></i><div><strong>حدود الحماية:</strong> هذه الصلاحيات تضبط الواجهات والإجراءات داخل النظام. الحماية الأمنية غير القابلة للتجاوز تحتاج لاحقاً إلى Firebase Authentication وقواعد Firestore مقيدة، لأن النظام الحالي يعتمد دخولاً محلياً.</div></div>
+                <div id="permissionsMatrix" class="permission-matrix"></div>
+            </div>
+        </section>
+
+        <section id="systemConfigPanel" class="settings-card">
+            <div class="card-heading">
+                <div><h2><i class="ph ph-sliders-horizontal"></i> إعدادات النظام العامة</h2><p>الهوية، العملة، الذاكرة المؤقتة، متطلبات كلمات السر، وتفعيل تطبيق الصلاحيات.</p></div>
+                <button type="button" id="saveGeneralSettingsBtn" class="btn-local btn-teal"><i class="ph ph-floppy-disk"></i> حفظ إعدادات النظام</button>
+            </div>
+            <div class="general-settings-grid">
+                <div>
+                    <div class="console-form-grid three">
+                        <div class="console-field"><label for="systemNameInput">اسم النظام</label><input id="systemNameInput" class="table-input" type="text"></div>
+                        <div class="console-field"><label for="companyNameInput">اسم الشركة</label><input id="companyNameInput" class="table-input" type="text"></div>
+                        <div class="console-field"><label for="currencyLabelInput">رمز العملة</label><input id="currencyLabelInput" class="table-input" type="text"></div>
+                        <div class="console-field"><label for="companyLogoInput">رابط الشعار</label><input id="companyLogoInput" class="table-input" type="url"></div>
+                        <div class="console-field"><label for="cacheVersionInput">نسخة الذاكرة المؤقتة</label><input id="cacheVersionInput" class="table-input" type="text"></div>
+                    </div>
+                    <div class="toggle-stack">
+                        <label class="switch-line"><span><strong>تطبيق الصلاحيات الصارم</strong><br><small>عند التفعيل، يمنع فتح الشاشة أو تنفيذ الإجراء دون صلاحية.</small></span><input id="enforcePermissionsInput" type="checkbox"></label>
+                        <label class="switch-line"><span><strong>كلمة سر المندوب إجبارية</strong><br><small>إلغاء التفعيل يسمح بالدخول دون كلمة سر للمندوبين.</small></span><input id="representativePasswordRequiredInput" type="checkbox" checked></label>
+                        <label class="switch-line"><span><strong>السماح بتذكر كلمات السر</strong><br><small>يتحكم بخيار الحفظ المحلي على جهاز المستخدم.</small></span><input id="allowRememberPasswordsInput" type="checkbox" checked></label>
+                    </div>
+                </div>
+                <div class="general-logo-box"><img id="generalLogoPreview" alt="معاينة الشعار"></div>
+            </div>
+
+            <div class="console-subcard" style="margin-top:18px;">
+                <h3><i class="ph ph-hard-drives"></i> النسخة الاحتياطية والاسترجاع</h3>
+                <div class="danger-zone-grid">
+                    <div class="danger-tool"><strong>تنزيل نسخة الإعدادات</strong><p>تشمل إعدادات النظام والحسابات والصلاحيات والمناديب. لا تشمل الطلبيات أو الأصناف.</p><button type="button" onclick="document.getElementById('exportControlBackupBtn').click()" class="btn-local btn-green"><i class="ph ph-download-simple"></i> تنزيل JSON</button></div>
+                    <div class="danger-tool"><strong>استرجاع نسخة الإعدادات</strong><p>يتم التحديث حسب Document ID دون حذف السجلات الأخرى.</p><input id="controlBackupFile" type="file" accept=".json"><button type="button" id="importControlBackupBtn" class="btn-local btn-orange"><i class="ph ph-upload-simple"></i> استرجاع النسخة</button></div>
+                    <div class="danger-tool"><strong>فرض تحديث على جميع الأجهزة</strong><p>يرفع رقم مراجعة البيانات حتى تتجاوز الأجهزة الكاش القديم عند الفتح التالي.</p><button type="button" onclick="document.getElementById('bumpDataRevisionBtn').click()" class="btn-local btn-blue"><i class="ph ph-broadcast"></i> تحديث عند الجميع</button></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="productsPanel" class="settings-card">
             <div class="card-heading">
                 <div>
                     <h2><i class="ph ph-package"></i> إدارة وتحديث الأصناف</h2>
@@ -618,12 +850,12 @@
             <div class="products-workflow-panel">
                 <div class="info-panel">
                     <strong><i class="ph ph-microsoft-excel-logo"></i> أسرع طريقة لتعديل الأصناف:</strong>
-                    نزّل ملف الأصناف كما هو من Firebase، عدّل <code>name</code> أو <code>code</code> أو <code>productCode</code> أو <code>price</code>، ثم ارفع نفس الملف. النظام يحدث السجلات حسب <code>Document_ID</code> ولا يحذف أي صنف غير موجود في الملف. إذا تغيّر كود الصنف، سيتم تبديل الكود القديم بالجديد داخل الطلبيات الموجودة فقط، بدون تعديل السعر أو الكمية أو الإجمالي.
+                    نزّل ملف الأصناف كما هو من Firebase، عدّل <code>name</code> أو <code>code</code> أو <code>productCode</code> أو <code>price</code>، ثم ارفع نفس الملف. النظام يحدث السجلات حسب <code>Document_ID</code> ولا يحذف أي صنف غير موجود في الملف. إذا تغيّر كود الصنف أو اسمه، سيتم تطبيق الكود والاسم الجديدين داخل الطلبيات الموجودة مع الحفاظ على السعر والكمية والإجمالي التاريخي.
                 </div>
                 <div class="workflow-steps">
                     <div class="workflow-step"><span>1</span><div>تنزيل ملف الأصناف الحالي من قاعدة البيانات.</div></div>
                     <div class="workflow-step"><span>2</span><div>تعديل الاسم أو الكود أو السعر داخل Excel فقط.</div></div>
-                    <div class="workflow-step"><span>3</span><div>رفع نفس الملف لتحديث Firebase مباشرة. تغيير الكود ينعكس على كودات الطلبيات القديمة فقط.</div></div>
+                    <div class="workflow-step"><span>3</span><div>رفع نفس الملف لتحديث Firebase مباشرة. تغيير الكود أو الاسم ينعكس على أصناف الطلبيات القديمة مع الحفاظ على أرقامها المالية.</div></div>
                 </div>
                 <div class="upload-panel">
                     <strong>تعديل الأصناف بدون حذف البيانات القديمة</strong>
@@ -835,6 +1067,25 @@
 
     <script type="module">
         import { db, collection, getDocs, deleteDoc, setDoc, doc, addDoc, updateDoc } from './js/firebase.js';
+        import { loadSystemConfig, applySystemPresentation, guardPage, hasPermission, getAdminSession } from './js/system-config.js?v=20260712_settings_control_center_v2';
+
+        const settingSystemConfig = await loadSystemConfig(true);
+        applySystemPresentation(settingSystemConfig);
+        if (!(await guardPage('page.settings'))) throw new Error('Settings access denied');
+
+        const settingsSession = getAdminSession();
+        const SETTINGS_ACTOR = settingsSession?.name || 'مسؤول الإعدادات';
+        const settingAccess = {
+            products: await hasPermission('settings.manage_products', settingsSession, settingSystemConfig),
+            pharmacies: await hasPermission('settings.manage_pharmacies', settingsSession, settingSystemConfig),
+            exportData: await hasPermission('settings.export_data', settingsSession, settingSystemConfig),
+            importHistory: await hasPermission('settings.import_history', settingsSession, settingSystemConfig)
+        };
+        const requireSettingAccess = (scope, message = 'لا تملك صلاحية تنفيذ هذا الإجراء.') => {
+            if (settingAccess[scope] === true) return true;
+            alert(message);
+            return false;
+        };
 
         const repManagerMap = {
             "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
@@ -1113,7 +1364,7 @@
                             ...trail,
                             {
                                 action: 'product_code_sync',
-                                user: 'Settings Page',
+                                user: SETTINGS_ACTOR,
                                 role: 'settings_admin',
                                 timestamp: new Date().toISOString(),
                                 syncCount: entries.length,
@@ -1139,6 +1390,55 @@
         }
 
 
+
+        async function syncProductNameChangesWithOrders(nameChanges, statusId = 'productsStatus') {
+            const changes = (Array.isArray(nameChanges) ? nameChanges : []).filter(change => change?.oldName && change?.newName && change.oldName !== change.newName);
+            if (!changes.length) return { changedOrders: 0, changedItems: 0 };
+
+            setStatus(statusId, 'جاري تحديث أسماء الأصناف داخل الطلبيات الحالية مع الحفاظ على الأسعار والكميات...', '#f59e0b');
+            const ordersSnap = await getDocs(collection(db, 'orders'));
+            const operations = [];
+            let changedItems = 0;
+
+            ordersSnap.docs.forEach(orderDoc => {
+                const order = orderDoc.data() || {};
+                const items = Array.isArray(order.items) ? order.items : [];
+                let orderChanged = false;
+                const updatedItems = items.map(item => {
+                    if (!item || typeof item !== 'object') return item;
+                    const itemCode = normalizeProductCode(item.productCode || item.product_code || item.code);
+                    const match = changes.find(change => {
+                        const codes = [change.oldCode, change.newCode].map(normalizeProductCode).filter(Boolean);
+                        return (codes.includes(itemCode) && (!change.oldName || item.name === change.oldName)) || item.name === change.oldName;
+                    });
+                    if (!match) return item;
+                    orderChanged = true;
+                    changedItems += 1;
+                    return { ...item, name: match.newName };
+                });
+                if (!orderChanged) return;
+                const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+                operations.push({
+                    id: orderDoc.id,
+                    payload: {
+                        items: updatedItems,
+                        productNameSyncAt: new Date(),
+                        auditTrail: [...trail, {
+                            action: 'product_name_sync',
+                            user: SETTINGS_ACTOR,
+                            role: 'settings_admin',
+                            timestamp: new Date().toISOString(),
+                            notes: 'تم تحديث اسم الصنف داخل الطلبية مع الحفاظ على السعر والكمية والإجمالي.'
+                        }],
+                        updatedAt: new Date()
+                    }
+                });
+            });
+
+            if (operations.length) await runInChunks(operations, operation => updateDoc(doc(db, 'orders', operation.id), operation.payload), 100, statusId, 'تم تحديث أسماء الأصناف');
+            return { changedOrders: operations.length, changedItems };
+        }
+
         const getFilteredProducts = () => {
             const queryValue = String(document.getElementById('productsSearchInput')?.value || '').trim().toLowerCase();
             if (!queryValue) return productsRowsCache;
@@ -1148,13 +1448,15 @@
             });
         };
 
-        const runInChunks = async (items, handler, chunkSize = 250, statusId = '', statusPrefix = '') => {
+        const runInChunks = async (items, handler, chunkSize = 25, statusId = '', statusPrefix = '') => {
+            const safeChunkSize = Math.min(Math.max(Number(chunkSize) || 25, 1), 25);
             let completed = 0;
-            for (let index = 0; index < items.length; index += chunkSize) {
-                const chunk = items.slice(index, index + chunkSize);
+            for (let index = 0; index < items.length; index += safeChunkSize) {
+                const chunk = items.slice(index, index + safeChunkSize);
                 await Promise.all(chunk.map(handler));
                 completed += chunk.length;
                 if (statusId && statusPrefix) setStatus(statusId, `${statusPrefix} ${completed} / ${items.length}`, '#f59e0b');
+                if (index + safeChunkSize < items.length) await new Promise(resolve => setTimeout(resolve, 80));
             }
         };
 
@@ -1267,6 +1569,7 @@
         }
 
         async function addNewProduct() {
+            if (!requireSettingAccess('products')) return;
             const nameInput = document.getElementById('newProductName');
             const codeInput = document.getElementById('newProductCode');
             const priceInput = document.getElementById('newProductPrice');
@@ -1321,6 +1624,7 @@
         }
 
         async function updateSingleProduct(button) {
+            if (!requireSettingAccess('products')) return;
             const row = button.closest('tr');
             const id = button.dataset.id;
             const nameVal = row.querySelector('.product-name').value.trim();
@@ -1341,12 +1645,18 @@
                 const productData = buildProductPayload({ name: nameVal, productCode: codeVal, price: priceVal });
                 const cached = productsRowsCache.find(product => product.id === id);
                 const oldCode = cached?.productCode || cached?.raw?.productCode || cached?.raw?.product_code || cached?.raw?.code || '';
+                const oldName = cached?.name || cached?.raw?.name || '';
                 const codeChanges = new Map();
+                const nameChanges = [];
                 mergeCodeChange(codeChanges, oldCode, productData.productCode);
+                if (oldName && oldName !== productData.name) nameChanges.push({ oldName, newName: productData.name, oldCode, newCode: productData.productCode });
 
                 await updateDoc(doc(db, 'products', id), productData);
                 let syncResult = { changedOrders: 0, changedItems: 0 };
                 if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+                const nameSyncResult = await syncProductNameChangesWithOrders(nameChanges);
+                syncResult.changedOrders += nameSyncResult.changedOrders;
+                syncResult.changedItems += nameSyncResult.changedItems;
 
                 if (cached) Object.assign(cached, { name: productData.name, productCode: productData.productCode, price: productData.price, raw: { ...cached.raw, ...productData } });
                 invalidateOperationalCaches('products');
@@ -1368,6 +1678,7 @@
         }
 
         async function deleteSingleProduct(button) {
+            if (!requireSettingAccess('products')) return;
             const id = button.dataset.id;
             if (!confirm('هل أنت متأكد من حذف هذا الصنف نهائياً من قاعدة البيانات؟')) return;
 
@@ -1384,6 +1695,7 @@
         }
 
         async function importProducts() {
+            if (!requireSettingAccess('products')) return;
             const fileInput = document.getElementById('productsExcelFile');
             const file = fileInput.files[0];
             if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
@@ -1430,9 +1742,14 @@
                 const existingById = new Map();
                 snap.docs.forEach(item => existingById.set(item.id, item.data()));
                 const codeChanges = new Map();
+                const nameChanges = [];
                 validRows.forEach(row => {
                     if (!row.documentId || !existingById.has(row.documentId)) return;
-                    mergeCodeChange(codeChanges, productCodeFromData(existingById.get(row.documentId)), row.productCode);
+                    const existing = existingById.get(row.documentId) || {};
+                    const oldCode = productCodeFromData(existing);
+                    mergeCodeChange(codeChanges, oldCode, row.productCode);
+                    const oldName = String(existing.name || '').trim();
+                    if (oldName && oldName !== row.name) nameChanges.push({ oldName, newName: row.name, oldCode, newCode: row.productCode });
                 });
 
                 setStatus('productsStatus', 'جاري حذف المنتجات القديمة...', '#f59e0b');
@@ -1447,6 +1764,9 @@
 
                 let syncResult = { changedOrders: 0, changedItems: 0 };
                 if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+                const nameSyncResult = await syncProductNameChangesWithOrders(nameChanges);
+                syncResult.changedOrders += nameSyncResult.changedOrders;
+                syncResult.changedItems += nameSyncResult.changedItems;
 
                 invalidateOperationalCaches('products');
                 fileInput.value = '';
@@ -1461,6 +1781,8 @@
         }
 
         async function exportProductsEditable(statusId = 'productsStatus') {
+            const allowedScope = statusId === 'exportStatus' ? 'exportData' : 'products';
+            if (!requireSettingAccess(allowedScope)) return;
             setStatus(statusId, 'جاري تجهيز ملف الأصناف من Firebase...', '#f59e0b');
 
             try {
@@ -1512,6 +1834,7 @@
         }
 
         async function importProductsPatch() {
+            if (!requireSettingAccess('products')) return;
             const fileInput = document.getElementById('productsPatchFile');
             const file = fileInput.files[0];
             if (!file) return alert('الرجاء اختيار ملف الأصناف المعدل أولاً.');
@@ -1568,12 +1891,17 @@
                 let updates = 0;
                 let creates = 0;
                 const codeChanges = new Map();
+                const nameChanges = [];
                 const operations = rows.map(row => {
                     const payload = buildProductPayload(row);
                     const targetId = row.documentId || codeToId.get(row.productCode) || '';
                     if (targetId && existingIds.has(targetId)) {
                         updates += 1;
-                        mergeCodeChange(codeChanges, productCodeFromData(existingById.get(targetId)), payload.productCode);
+                        const existing = existingById.get(targetId) || {};
+                        const oldCode = productCodeFromData(existing);
+                        const oldName = String(existing.name || '').trim();
+                        mergeCodeChange(codeChanges, oldCode, payload.productCode);
+                        if (oldName && oldName !== payload.name) nameChanges.push({ oldName, newName: payload.name, oldCode, newCode: payload.productCode });
                         return { type: 'update', id: targetId, payload };
                     }
                     if (targetId && row.documentId) {
@@ -1601,6 +1929,9 @@
 
                 let syncResult = { changedOrders: 0, changedItems: 0 };
                 if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+                const nameSyncResult = await syncProductNameChangesWithOrders(nameChanges);
+                syncResult.changedOrders += nameSyncResult.changedOrders;
+                syncResult.changedItems += nameSyncResult.changedItems;
 
                 invalidateOperationalCaches('products');
                 fileInput.value = '';
@@ -1615,6 +1946,7 @@
         }
 
         async function saveVisibleProducts() {
+            if (!requireSettingAccess('products')) return;
             const rows = Array.from(document.querySelectorAll('#productsTableBody tr[data-id]'));
             if (rows.length === 0) return alert('لا توجد أصناف ظاهرة للحفظ.');
             const editedRows = rows.filter(row => row.classList.contains('row-edited'));
@@ -1624,6 +1956,7 @@
 
             try {
                 const codeChanges = new Map();
+                const nameChanges = [];
                 await runInChunks(targetRows, async row => {
                     const id = row.dataset.id;
                     const productData = buildProductPayload({
@@ -1634,7 +1967,10 @@
 
                     if (!productData.name || !productData.productCode) throw new Error(`صف ناقص البيانات: ${id}`);
                     const cached = productsRowsCache.find(product => product.id === id);
-                    mergeCodeChange(codeChanges, cached?.productCode || cached?.raw?.productCode || cached?.raw?.product_code || cached?.raw?.code || '', productData.productCode);
+                    const oldCode = cached?.productCode || cached?.raw?.productCode || cached?.raw?.product_code || cached?.raw?.code || '';
+                    const oldName = cached?.name || cached?.raw?.name || '';
+                    mergeCodeChange(codeChanges, oldCode, productData.productCode);
+                    if (oldName && oldName !== productData.name) nameChanges.push({ oldName, newName: productData.name, oldCode, newCode: productData.productCode });
 
                     await updateDoc(doc(db, 'products', id), productData);
                     if (cached) Object.assign(cached, { name: productData.name, productCode: productData.productCode, price: productData.price, raw: { ...cached.raw, ...productData } });
@@ -1643,6 +1979,9 @@
 
                 let syncResult = { changedOrders: 0, changedItems: 0 };
                 if (codeChanges.size > 0) syncResult = await syncProductCodeChangesWithOrders(codeChanges);
+                const nameSyncResult = await syncProductNameChangesWithOrders(nameChanges);
+                syncResult.changedOrders += nameSyncResult.changedOrders;
+                syncResult.changedItems += nameSyncResult.changedItems;
 
                 invalidateOperationalCaches('products');
                 const syncMessage = codeChanges.size > 0 ? ` وتم تحديث ${syncResult.changedItems} صنف داخل ${syncResult.changedOrders} طلبية موجودة بالكود الجديد فقط.` : '';
@@ -1659,8 +1998,11 @@
                 const snap = await getDocs(collection(db, 'reps'));
                 repsOptions = snap.docs.map(item => ({
                     id: item.id,
-                    name: String(item.data().name || item.id).trim()
-                })).filter(rep => rep.id && rep.name);
+                    name: String(item.data().name || item.id).trim(),
+                    supervisorName: String(item.data().supervisorName || item.data().managerName || item.data().supervisor || '').trim(),
+                    active: item.data().active !== false
+                })).filter(rep => rep.id && rep.name && rep.active);
+                repsOptions.forEach(rep => { if (rep.supervisorName) repManagerMap[rep.name] = rep.supervisorName; });
                 repsOptions.sort((a, b) => a.name.localeCompare(b.name));
                 renderNewPharmacyRepSelect();
             } catch (error) {
@@ -1732,6 +2074,7 @@
         }
 
         async function addNewPharmacy() {
+            if (!requireSettingAccess('pharmacies')) return;
             const nameInput = document.getElementById('newPharmacyName');
             const codeInput = document.getElementById('newPharmacyCode');
             const repSelect = document.getElementById('newPharmacyRep');
@@ -1795,6 +2138,7 @@
         }
 
         async function updateSinglePharmacy(button) {
+            if (!requireSettingAccess('pharmacies')) return;
             const row = button.closest('tr');
             const id = button.dataset.id;
             const nameVal = row.querySelector('.pharmacy-name').value.trim();
@@ -1839,6 +2183,7 @@
         }
 
         async function deleteSinglePharmacy(button) {
+            if (!requireSettingAccess('pharmacies')) return;
             const id = button.dataset.id;
             if (!confirm('هل أنت متأكد من حذف هذه الصيدلية نهائياً من قاعدة البيانات؟')) return;
 
@@ -1854,6 +2199,7 @@
         }
 
         async function importPharmacies() {
+            if (!requireSettingAccess('pharmacies')) return;
             const fileInput = document.getElementById('pharmaciesExcelFile');
             const file = fileInput.files[0];
             if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
@@ -1899,10 +2245,10 @@
 
                 setStatus('pharmaciesStatus', 'الملف سليم.. جاري حذف الصيدليات القديمة...', '#004a99');
                 const snap = await getDocs(collection(db, 'pharmacies'));
-                await Promise.all(snap.docs.map(item => deleteDoc(doc(db, 'pharmacies', item.id))));
+                await runInChunks(snap.docs, item => deleteDoc(doc(db, 'pharmacies', item.id)), 25, 'pharmaciesStatus', 'تم حذف السجلات القديمة');
 
                 setStatus('pharmaciesStatus', `جاري إضافة ${validRows.length} صيدلية جديدة...`, '#f59e0b');
-                await Promise.all(validRows.map(row => {
+                await runInChunks(validRows, row => {
                     const repName = getRepNameById(row.rep_id) || row.rep_id;
                     return addDoc(collection(db, 'pharmacies'), {
                         name: row.name,
@@ -1914,7 +2260,7 @@
                         supervisor: row.supervisor || '-',
                         area: row.area || '-'
                     });
-                }));
+                }, 25, 'pharmaciesStatus', 'تم رفع الصيدليات');
 
                 invalidateOperationalCaches('all');
                 fileInput.value = '';
@@ -1927,6 +2273,7 @@
         }
 
         async function downloadCollection(collectionName, arabicName) {
+            if (!requireSettingAccess('exportData')) return;
             setStatus('exportStatus', `جاري جلب بيانات ${arabicName}...`, '#f59e0b');
 
             try {
@@ -1961,6 +2308,7 @@
         }
 
         async function importOldOrders() {
+            if (!requireSettingAccess('importHistory')) return;
             const file = document.getElementById('oldOrdersFile').files[0];
             if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
 
@@ -2026,7 +2374,7 @@
                 });
                 if (!oldOrdersOk) return;
                 setStatus('oldOrdersStatus', `تم تجميع الأصناف إلى ${ordersArray.length} طلبية. جاري الرفع بدون حذف القديم...`, '#f59e0b');
-                await Promise.all(ordersArray.map(orderData => addDoc(collection(db, 'orders'), orderData)));
+                await runInChunks(ordersArray, orderData => addDoc(collection(db, 'orders'), orderData), 25, 'oldOrdersStatus', 'تم رفع الطلبيات');
                 document.getElementById('oldOrdersFile').value = '';
                 setStatus('oldOrdersStatus', `تم رفع ${ordersArray.length} طلبية سابقة بنجاح.`, '#10b981');
             } catch (error) {
@@ -2036,6 +2384,7 @@
         }
 
         async function importOldReturns() {
+            if (!requireSettingAccess('importHistory')) return;
             const file = document.getElementById('oldReturnsFile').files[0];
             if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
 
@@ -2107,7 +2456,7 @@
                 });
                 if (!oldReturnsOk) return;
                 setStatus('oldReturnsStatus', `تم تجميع ${returnsArray.length} مرتجع. جاري الرفع على قاعدة البيانات...`, '#f59e0b');
-                await Promise.all(returnsArray.map(returnData => addDoc(collection(db, 'orders'), returnData)));
+                await runInChunks(returnsArray, returnData => addDoc(collection(db, 'orders'), returnData), 25, 'oldReturnsStatus', 'تم رفع المرتجعات');
                 document.getElementById('oldReturnsFile').value = '';
                 setStatus('oldReturnsStatus', `تم رفع ${returnsArray.length} مرتجع بنجاح كطلبيات بقيم سالبة.`, '#10b981');
             } catch (error) {
@@ -2148,5 +2497,6 @@
             await loadRepsForSettings();
         });
     </script>
+    <script type="module" src="js/settings-console.js?v=20260712_settings_control_center_v2"></script>
 </body>
 </html>

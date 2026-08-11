@@ -1,17 +1,481 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="ar"><head>
-<link href="favicon.ico?v=20260623_modal_finance_note_fix1" rel="icon"/>
+<link href="favicon.ico?v=20260629_audit_dynamic_notes_fix1" rel="icon"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
 <title>لوحة المدير | نظام الطلبيات</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="style.css?v=20260623_modal_finance_note_fix1" rel="stylesheet"/>
+<link href="style.css?v=20260629_audit_dynamic_notes_fix1" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
-</head><body data-page="supervisor"><div class="offline-banner" id="offline-banner">
+<style>
+:root {
+    --supervisor-accent: #099999;
+    --supervisor-accent-dark: #067575;
+    --supervisor-navy: #123047;
+    --supervisor-muted: #64748b;
+    --supervisor-border: rgba(148, 163, 184, .28);
+    --supervisor-shadow: 0 12px 30px rgba(15, 23, 42, .08);
+    --supervisor-shadow-hover: 0 18px 38px rgba(15, 23, 42, .14);
+}
+
+.supervisor-filter-select {
+    flex: 1;
+    min-width: 170px;
+    min-height: 48px;
+    border: 1px solid var(--supervisor-border) !important;
+    border-radius: 14px !important;
+    background: rgba(255, 255, 255, .94) !important;
+    color: var(--supervisor-navy) !important;
+    font-weight: 700;
+    box-shadow: 0 5px 16px rgba(15, 23, 42, .045);
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.supervisor-filter-select:hover {
+    border-color: rgba(9, 153, 153, .48) !important;
+}
+.supervisor-filter-select:focus {
+    border-color: var(--supervisor-accent) !important;
+    box-shadow: 0 0 0 4px rgba(9, 153, 153, .12) !important;
+    transform: translateY(-1px);
+}
+
+
+.supervisor-filter-search {
+    position: relative;
+    min-width: 210px;
+    flex: 1 1 230px;
+    z-index: 35;
+}
+.supervisor-filter-search:focus-within { z-index: 80; }
+.supervisor-filter-search .supervisor-search-input {
+    width: 100%;
+    height: 46px;
+    padding: 0 43px 0 38px;
+    border-radius: 13px !important;
+    border: 1px solid rgba(148, 163, 184, .55) !important;
+    background: linear-gradient(145deg, #ffffff, #fbfefe) !important;
+    color: #0f172a;
+    font-family: inherit;
+    font-weight: 700;
+    outline: none;
+    box-shadow: 0 5px 13px rgba(15, 23, 42, .045);
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.supervisor-filter-search .supervisor-search-input::placeholder {
+    color: #64748b;
+    opacity: 1;
+}
+.supervisor-filter-search .supervisor-search-input:focus {
+    border-color: rgba(9, 153, 153, .78) !important;
+    box-shadow: 0 0 0 4px rgba(9, 153, 153, .10), 0 9px 20px rgba(15, 23, 42, .07);
+}
+.supervisor-filter-search-icon {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--supervisor-accent-dark);
+    font-size: 1.08rem;
+    pointer-events: none;
+    z-index: 2;
+}
+.supervisor-filter-search-chevron {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+    font-size: .95rem;
+    pointer-events: none;
+    transition: transform .18s ease, color .18s ease;
+}
+.supervisor-filter-search.open .supervisor-filter-search-chevron {
+    transform: translateY(-50%) rotate(180deg);
+    color: var(--supervisor-accent-dark);
+}
+.supervisor-filter-suggestions {
+    position: absolute;
+    top: calc(100% + 7px);
+    right: 0;
+    left: 0;
+    display: none;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 7px;
+    border: 1px solid rgba(9, 153, 153, .32);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, .985);
+    box-shadow: 0 20px 45px rgba(15, 23, 42, .18);
+    backdrop-filter: blur(18px);
+    z-index: 9999;
+}
+.supervisor-filter-search.open .supervisor-filter-suggestions { display: block; }
+.supervisor-filter-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 12px;
+    border: 0;
+    border-radius: 11px;
+    background: transparent;
+    color: #172033;
+    font-family: inherit;
+    font-size: .93rem;
+    font-weight: 700;
+    text-align: right;
+    cursor: pointer;
+    transition: background .14s ease, color .14s ease, transform .14s ease;
+}
+.supervisor-filter-option:hover,
+.supervisor-filter-option.active {
+    color: #fff;
+    background: linear-gradient(135deg, var(--supervisor-accent), var(--supervisor-accent-dark));
+    transform: translateX(-2px);
+}
+.supervisor-filter-option-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.supervisor-filter-option-count {
+    flex: 0 0 auto;
+    min-width: 28px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    color: #087174;
+    background: #e7f8f8;
+    font-size: .76rem;
+    font-weight: 900;
+    text-align: center;
+}
+.supervisor-filter-option:hover .supervisor-filter-option-count,
+.supervisor-filter-option.active .supervisor-filter-option-count {
+    color: #075f61;
+    background: rgba(255,255,255,.92);
+}
+.supervisor-filter-empty {
+    padding: 15px 12px;
+    color: #64748b;
+    font-size: .88rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.supervisor-filter-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 14px;
+    border: 1px solid rgba(226, 232, 240, .9);
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(248, 250, 252, .96), rgba(255, 255, 255, .96));
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+}
+
+.sortable-header-button {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.sortable-header-button:hover,
+.sortable-header-button:focus-visible {
+    color: var(--supervisor-accent);
+    outline: none;
+}
+.sortable-header-button .sort-icon {
+    font-size: 1rem;
+    opacity: .5;
+    transition: transform .18s ease, opacity .18s ease;
+}
+.sortable-header-button.active .sort-icon { opacity: 1; }
+.sortable-header-button[data-direction="desc"] .sort-icon { transform: rotate(180deg); }
+
+.manager-sub-tabs.supervisor-premium-tabs {
+    display: flex !important;
+    gap: 10px !important;
+    margin-bottom: 22px !important;
+    padding: 8px !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    border: 1px solid rgba(226, 232, 240, .92) !important;
+    border-radius: 18px !important;
+    background: rgba(248, 250, 252, .86) !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+}
+.manager-sub-tabs.supervisor-premium-tabs .btn-subtab {
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: 1px solid transparent;
+    border-radius: 13px;
+    color: #526174;
+    background: transparent;
+    box-shadow: none;
+}
+.manager-sub-tabs.supervisor-premium-tabs .btn-subtab i { font-size: 1.15rem; }
+.manager-sub-tabs.supervisor-premium-tabs .btn-subtab:hover:not(.active) {
+    color: var(--supervisor-accent-dark);
+    background: rgba(9, 153, 153, .07);
+    border-color: rgba(9, 153, 153, .14);
+    transform: translateY(-1px);
+}
+.manager-sub-tabs.supervisor-premium-tabs .btn-subtab.active {
+    color: #fff;
+    background: linear-gradient(135deg, var(--supervisor-accent), var(--supervisor-accent-dark));
+    border-color: rgba(255, 255, 255, .18);
+    box-shadow: 0 10px 22px rgba(9, 153, 153, .24);
+}
+.manager-sub-tabs.supervisor-premium-tabs .premium-company-tab.active {
+    background: linear-gradient(135deg, #173a53, #0d6370 58%, #099999);
+    box-shadow: 0 11px 25px rgba(15, 61, 78, .25);
+}
+
+.premium-export-btn,
+.premium-filter-clear,
+.premium-action-btn {
+    position: relative;
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 17px;
+    border-radius: 13px !important;
+    border: 1px solid transparent !important;
+    font-family: inherit;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    cursor: pointer;
+    overflow: hidden;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .10);
+    transition: transform .18s ease, box-shadow .18s ease, filter .18s ease, background .18s ease;
+}
+.premium-export-btn:hover,
+.premium-filter-clear:hover,
+.premium-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 13px 25px rgba(15, 23, 42, .15);
+    filter: brightness(1.02);
+}
+.premium-export-btn:active,
+.premium-filter-clear:active,
+.premium-action-btn:active {
+    transform: translateY(0) scale(.985);
+}
+.premium-export-btn:disabled,
+.premium-filter-clear:disabled,
+.premium-action-btn:disabled {
+    cursor: wait;
+    opacity: .72;
+    transform: none;
+    filter: saturate(.8);
+}
+.premium-export-btn i,
+.premium-filter-clear i,
+.premium-action-btn i { font-size: 1.15rem; }
+
+.premium-export-btn {
+    color: #fff !important;
+    background: linear-gradient(135deg, #0f7a43, #159a58) !important;
+    border-color: rgba(15, 122, 67, .15) !important;
+    box-shadow: 0 10px 22px rgba(15, 122, 67, .22);
+}
+.premium-filter-clear {
+    color: var(--supervisor-accent-dark) !important;
+    background: linear-gradient(145deg, #ffffff, #edfafa) !important;
+    border-color: rgba(9, 153, 153, .30) !important;
+    box-shadow: 0 8px 18px rgba(9, 153, 153, .10);
+}
+.premium-filter-clear:hover {
+    color: #fff !important;
+    background: linear-gradient(135deg, var(--supervisor-accent), var(--supervisor-accent-dark)) !important;
+}
+
+.premium-actions-toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.premium-action-btn.action-approve {
+    color: #fff !important;
+    background: linear-gradient(135deg, #119b69, #057a53) !important;
+    box-shadow: 0 9px 20px rgba(5, 122, 83, .20);
+}
+.premium-action-btn.action-delete {
+    color: #fff !important;
+    background: linear-gradient(135deg, #e34d5b, #bd2537) !important;
+    box-shadow: 0 9px 20px rgba(189, 37, 55, .20);
+}
+.premium-action-btn.action-print {
+    color: #086f72 !important;
+    background: linear-gradient(145deg, #ffffff, #eaf8f8) !important;
+    border-color: rgba(9, 153, 153, .30) !important;
+    box-shadow: 0 8px 18px rgba(9, 153, 153, .11);
+}
+.premium-action-btn.action-print:hover {
+    color: #fff !important;
+    background: linear-gradient(135deg, #0f8f92, #087174) !important;
+}
+
+.all-orders-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.all-orders-header h3 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 1.18rem;
+}
+.all-orders-header h3 i {
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: #fff;
+    background: linear-gradient(135deg, #173a53, var(--supervisor-accent));
+    box-shadow: 0 8px 18px rgba(9, 153, 153, .18);
+}
+
+.premium-stats-grid {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(160px, 1fr));
+    gap: 14px !important;
+    margin: 0 0 18px !important;
+}
+.premium-stat-card {
+    position: relative;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 18px !important;
+    overflow: hidden;
+    text-align: right !important;
+    border: 1px solid rgba(226, 232, 240, .92) !important;
+    border-radius: 20px !important;
+    background: linear-gradient(145deg, rgba(255,255,255,.99), rgba(248,250,252,.96)) !important;
+    box-shadow: var(--supervisor-shadow) !important;
+    transition: transform .20s ease, box-shadow .20s ease, border-color .20s ease;
+}
+.premium-stat-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 5px;
+    background: var(--metric-color, var(--supervisor-accent));
+}
+.premium-stat-card::after {
+    content: '';
+    position: absolute;
+    width: 95px;
+    height: 95px;
+    top: -45px;
+    left: -35px;
+    border-radius: 50%;
+    background: var(--metric-glow, rgba(9, 153, 153, .10));
+}
+.premium-stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--supervisor-shadow-hover) !important;
+    border-color: color-mix(in srgb, var(--metric-color, var(--supervisor-accent)) 28%, #e2e8f0) !important;
+}
+.premium-stat-card.metric-count { --metric-color: #176b8c; --metric-glow: rgba(23, 107, 140, .11); }
+.premium-stat-card.metric-sales { --metric-color: #07966a; --metric-glow: rgba(7, 150, 106, .11); }
+.premium-stat-card.metric-returns { --metric-color: #d23c50; --metric-glow: rgba(210, 60, 80, .10); }
+.premium-stat-card.metric-net { --metric-color: #7250b5; --metric-glow: rgba(114, 80, 181, .11); }
+.metric-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+.metric-icon {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 13px;
+    color: var(--metric-color, var(--supervisor-accent));
+    background: color-mix(in srgb, var(--metric-color, var(--supervisor-accent)) 11%, white);
+    border: 1px solid color-mix(in srgb, var(--metric-color, var(--supervisor-accent)) 18%, white);
+    font-size: 1.25rem;
+}
+.metric-label {
+    color: var(--supervisor-muted);
+    font-weight: 750;
+    font-size: .85rem;
+    line-height: 1.5;
+}
+.metric-value {
+    position: relative;
+    z-index: 1;
+    margin-top: 12px;
+    color: var(--supervisor-navy) !important;
+    font-size: clamp(1.55rem, 2.4vw, 2rem) !important;
+    line-height: 1.15;
+    font-weight: 850 !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.035em;
+}
+
+@media (max-width: 1024px) {
+    .premium-stats-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+}
+@media (max-width: 768px) {
+    .sortable-header-button { justify-content: flex-start; }
+    .manager-sub-tabs.supervisor-premium-tabs .btn-subtab { flex: 1 1 145px; }
+    .premium-actions-toolbar > button,
+    .premium-export-btn,
+    .premium-filter-clear { flex: 1 1 170px; }
+    .supervisor-filter-select,
+    .supervisor-filter-search { min-width: 100%; width: 100%; }
+    .supervisor-filter-bar { padding: 12px; }
+}
+@media (max-width: 560px) {
+    .premium-stats-grid { grid-template-columns: 1fr; }
+    .premium-stat-card { min-height: 116px; }
+    .premium-actions-toolbar { display: grid; grid-template-columns: 1fr; width: 100%; }
+    .premium-actions-toolbar > button { width: 100%; }
+    .all-orders-header { align-items: stretch; }
+    .all-orders-header h3 { width: 100%; }
+    .premium-export-btn { width: 100%; }
+}
+</style></head><body data-page="supervisor"><div class="offline-banner" id="offline-banner">
 <i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال. النظام يعمل محلياً وسيتم المزامنة لاحقاً.
     </div><div class="saving-indicator" id="saving-indicator">
 <div class="spinner"></div> جارٍ الحفظ والتحديث...
@@ -34,9 +498,9 @@
 </div>
 </header><main class="screen active glass-panel" id="managerScreen" style="display: block;">
 <h2><i class="ph ph-users-four"></i> لوحة تحكم المدير</h2>
-<div class="manager-sub-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; align-items: center; flex-wrap: wrap;">
-<button class="btn-subtab active" id="managerMyTeamBtn">طلبيات فريقي</button>
-<button class="btn-subtab" id="managerAllOrdersBtn">جميع طلبيات الشركة</button>
+<div class="manager-sub-tabs supervisor-premium-tabs">
+<button class="btn-subtab active" id="managerMyTeamBtn" type="button"><i class="ph ph-users-three"></i><span>طلبيات فريقي</span></button>
+<button class="btn-subtab premium-company-tab" id="managerAllOrdersBtn" type="button"><i class="ph ph-buildings"></i><span>جميع طلبيات الشركة</span></button>
 <button id="managerAddNewOrderBtn" style="background: #004a99; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; margin-right: auto; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.3s; box-shadow: 0 4px 6px rgba(0,74,153,0.2);">
 <i class="ph ph-plus-circle"></i> إضافة طلبية لمندوبي
                 </button>
@@ -45,7 +509,7 @@
 <div id="advancedManagerDashboard" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
 <!-- عدد الطلبيات -->
 <div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #004a99; box-shadow: var(--shadow-sm);">
-<small style="color: var(--secondary); font-weight: 700;">عدد السجلات المعروضة</small>
+<small style="color: var(--secondary); font-weight: 700;">عدد الطلبيات المحتسبة</small>
 <h3 id="dashDailyCount" style="margin: 5px 0 0 0; color: var(--primary);">0</h3>
 </div>
 <!-- إجمالي الطلبيات (موجب فقط) -->
@@ -93,8 +557,8 @@
 <button class="btn-primary" id="btnTodayOrders" style="flex: 1; height: 45px; border-radius: 8px;" type="button">
 <i class="ph ph-calendar-star"></i> طلبيات اليوم
                         </button>
-<button class="btn-secondary" id="btnClearManagerFilter" style="flex: 1; height: 45px; border-radius: 8px;" type="button">
-<i class="ph ph-arrow-counter-clockwise"></i> تصفير التاريخ
+<button class="premium-filter-clear" id="btnClearManagerFilter" style="flex: 1;" type="button">
+<i class="ph ph-broom"></i> محو جميع الفلاتر
                         </button>
 </div>
 </div>
@@ -107,88 +571,103 @@
 <div class="card"><strong>عدد الطلبيات:</strong> <span id="managerOrdersCount">0</span></div>
 <div class="card"><strong>قيمة الطلبيات:</strong> <span id="managerOrdersTotal">0.00</span> د.ا</div>
 </div>
-<div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-<select class="form-control" id="managerRepFilter" style="flex: 1; min-width: 150px;">
-<option value="">جميع المندوبين</option>
-</select>
-<input class="form-control" id="managerPharmacyFilter" placeholder="ابحث باسم الصيدلية..." style="flex: 1; min-width: 150px;" type="text"/>
-<select class="form-control" id="managerStatusFilter" style="flex: 1; min-width: 150px;">
+<div class="supervisor-filter-bar">
+<div class="supervisor-filter-search" data-filter-kind="rep">
+<i class="ph ph-user-list supervisor-filter-search-icon"></i>
+<input class="form-control supervisor-search-input" id="managerRepFilter" aria-label="تصفية حسب المندوب" autocomplete="off" placeholder="ابحث أو اختر المندوب..." type="text"/>
+<i class="ph ph-caret-down supervisor-filter-search-chevron"></i>
+<div class="supervisor-filter-suggestions" id="managerRepFilterSuggestions" role="listbox"></div>
+</div>
+<div class="supervisor-filter-search" data-filter-kind="pharmacy">
+<i class="ph ph-first-aid-kit supervisor-filter-search-icon"></i>
+<input class="form-control supervisor-search-input" id="managerPharmacyFilter" aria-label="تصفية حسب الصيدلية" autocomplete="off" placeholder="ابحث أو اختر الصيدلية..." type="text"/>
+<i class="ph ph-caret-down supervisor-filter-search-chevron"></i>
+<div class="supervisor-filter-suggestions" id="managerPharmacyFilterSuggestions" role="listbox"></div>
+</div>
+<select class="form-control supervisor-filter-select" id="managerStatusFilter" aria-label="تصفية حسب الحالة">
 <option value="">جميع الحالات</option>
-<option value="pending_supervisor_approval">قيد موافقة المشرف</option>
-<option value="pending">قيد الموافقة - قديم</option>
-<option value="market_manager_pending">محول إلى مدير السوق</option>
-<option value="returned_to_supervisor">مرجعة للمشرف</option>
-<option value="returned_to_rep">مرجعة للمندوب</option>
-<option value="finance_pending">بانتظار المالية</option>
-<option value="orders_staff_pending">جاهز للمعالجة</option>
-<option value="returned_to_market_manager">مرجعة لمدير السوق</option>
-<option value="returned_to_finance">مرجعة للمالية</option>
-<option value="approved">موافق عليه - قديم</option>
-<option value="returned">مرتجع</option>
 </select>
 </div>
-<div style="display: flex; gap: 10px;">
-<button class="btn-success" id="bulkApproveBtn" style="background:#28a745; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-check-circle"></i> موافقة على المحدد</button>
-<button class="btn-danger" id="bulkDeleteBtn" style="background:#dc3545; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-trash"></i> حذف المحدد</button><button class="btn-secondary print-btn" id="printManagerOrdersBtn" type="button"><i class="ph ph-printer"></i> طباعة المحدد</button>
+<div class="premium-actions-toolbar">
+<button class="premium-action-btn action-approve" id="bulkApproveBtn" type="button"><i class="ph ph-check-circle"></i><span>موافقة على المحدد</span></button>
+<button class="premium-action-btn action-delete" id="bulkDeleteBtn" type="button"><i class="ph ph-trash"></i><span>حذف المحدد</span></button>
+<button class="premium-action-btn action-print" id="printManagerOrdersBtn" type="button"><i class="ph ph-printer"></i><span>طباعة المحدد</span></button>
 </div>
 </div>
 <div class="table-responsive mobile-cards">
 <table class="order-table" id="managerOrdersTable">
-<thead><tr><th><input id="selectAllOrders" type="checkbox"/></th><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
+<thead><tr>
+<th><input id="selectAllOrders" type="checkbox"/></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="reference" type="button">رقم المرجع <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button active" data-direction="desc" data-sort-table="manager" data-sort-key="date" type="button">التاريخ <i class="ph ph-arrow-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="rep" type="button">المندوب <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="pharmacy" type="button">الصيدلية <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="total" type="button">الإجمالي <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="status" type="button">الحالة <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th>الإجراءات</th>
+</tr></thead>
 <tbody id="managerOrdersBody"></tbody>
 </table>
 </div>
 </div>
 <!-- قسم جميع الطلبيات -->
 <div id="allOrdersSection" style="display: none;">
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-<h3><i class="ph ph-building-office"></i> جميع طلبيات الشركة</h3>
-<button class="btn-secondary" id="exportAllOrdersBtn" style="background:#107c41; color:white; border:none;" type="button">
-<i class="ph ph-file-xls"></i> تصدير جميع الطلبيات
-                    </button>
-<div id="allOrdersStats" style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-<div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow-sm); flex: 1; text-align: center; border: 1px solid #e2e8f0;">
-<div id="totalOrdersCount" style="font-size: 2rem; font-weight: 800; color: var(--primary);">0</div>
-<div style="color: var(--secondary);">عدد السجلات</div>
+<div class="all-orders-header">
+<h3><i class="ph ph-buildings"></i><span>جميع طلبيات الشركة</span></h3>
+<button class="premium-export-btn" id="exportAllOrdersBtn" type="button"><i class="ph ph-file-xls"></i><span>تصدير جميع الطلبيات</span></button>
 </div>
-<div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow-sm); flex: 1; text-align: center; border: 1px solid #e2e8f0;">
-<div id="totalOrdersSum" style="font-size: 2rem; font-weight: 800; color: #059669;">0.00</div>
-<div style="color: var(--secondary);">إجمالي الطلبيات (د.ا)</div>
+<div class="premium-stats-grid" id="allOrdersStats">
+<div class="stat-card premium-stat-card metric-count">
+<div class="metric-card-top"><span class="metric-label">عدد الطلبيات المحتسبة</span><span class="metric-icon"><i class="ph ph-receipt"></i></span></div>
+<div class="metric-value" id="totalOrdersCount">0</div>
 </div>
-<div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow-sm); flex: 1; text-align: center; border: 1px solid #fca5a5;">
-<div id="totalReturnsSum" style="font-size: 2rem; font-weight: 800; color: #dc2626;">0.00</div>
-<div style="color: var(--secondary);">إجمالي المرتجعات (د.ا)</div>
+<div class="stat-card premium-stat-card metric-sales">
+<div class="metric-card-top"><span class="metric-label">إجمالي الطلبيات (د.ا)</span><span class="metric-icon"><i class="ph ph-trend-up"></i></span></div>
+<div class="metric-value" id="totalOrdersSum">0.00</div>
 </div>
-<div class="stat-card" style="background: white; border-radius: 16px; padding: 15px 25px; box-shadow: var(--shadow-sm); flex: 1; text-align: center; border: 2px solid #7c3aed;">
-<div id="totalNetSum" style="font-size: 2rem; font-weight: 800;">0.00</div>
-<div style="color: var(--secondary); font-weight: 700;">صافي المبيعات (د.ا)</div>
+<div class="stat-card premium-stat-card metric-returns">
+<div class="metric-card-top"><span class="metric-label">إجمالي المرتجعات (د.ا)</span><span class="metric-icon"><i class="ph ph-arrow-u-down-left"></i></span></div>
+<div class="metric-value" id="totalReturnsSum">0.00</div>
 </div>
-<div style="display: flex; gap: 10px; margin-bottom: 15px;">
-<button class="btn-success" id="bulkApproveAllBtn" style="background:#28a745; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-check-circle"></i> موافقة على المحدد</button>
-<button class="btn-danger" id="bulkDeleteAllBtn" style="background:#dc3545; color:white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700;"><i class="ph ph-trash"></i> حذف المحدد</button><button class="btn-secondary print-btn" id="printAllOrdersBtn" type="button"><i class="ph ph-printer"></i> طباعة المحدد</button>
+<div class="stat-card premium-stat-card metric-net">
+<div class="metric-card-top"><span class="metric-label">صافي المبيعات (د.ا)</span><span class="metric-icon"><i class="ph ph-chart-line-up"></i></span></div>
+<div class="metric-value" id="totalNetSum">0.00</div>
 </div>
 </div>
+<div class="premium-actions-toolbar" style="margin-bottom: 16px;">
+<button class="premium-action-btn action-approve" id="bulkApproveAllBtn" type="button"><i class="ph ph-check-circle"></i><span>موافقة على المحدد</span></button>
+<button class="premium-action-btn action-delete" id="bulkDeleteAllBtn" type="button"><i class="ph ph-trash"></i><span>حذف المحدد</span></button>
+<button class="premium-action-btn action-print" id="printAllOrdersBtn" type="button"><i class="ph ph-printer"></i><span>طباعة المحدد</span></button>
 </div>
-<div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-<input id="filterAllRep" placeholder="تصفية باسم المندوب..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;" type="text"/>
-<input id="filterAllPharmacy" placeholder="تصفية باسم الصيدلية..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;" type="text"/>
-<select id="filterAllStatus" style="flex: 0.5; min-width: 150px; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+<div class="supervisor-filter-bar">
+<div class="supervisor-filter-search" data-filter-kind="rep">
+<i class="ph ph-user-list supervisor-filter-search-icon"></i>
+<input class="form-control supervisor-search-input" id="filterAllRep" aria-label="تصفية جميع الطلبيات حسب المندوب" autocomplete="off" placeholder="ابحث أو اختر المندوب..." type="text"/>
+<i class="ph ph-caret-down supervisor-filter-search-chevron"></i>
+<div class="supervisor-filter-suggestions" id="filterAllRepSuggestions" role="listbox"></div>
+</div>
+<div class="supervisor-filter-search" data-filter-kind="pharmacy">
+<i class="ph ph-first-aid-kit supervisor-filter-search-icon"></i>
+<input class="form-control supervisor-search-input" id="filterAllPharmacy" aria-label="تصفية جميع الطلبيات حسب الصيدلية" autocomplete="off" placeholder="ابحث أو اختر الصيدلية..." type="text"/>
+<i class="ph ph-caret-down supervisor-filter-search-chevron"></i>
+<div class="supervisor-filter-suggestions" id="filterAllPharmacySuggestions" role="listbox"></div>
+</div>
+<select class="form-control supervisor-filter-select" id="filterAllStatus" aria-label="تصفية جميع الطلبيات حسب الحالة">
 <option value="">جميع الحالات</option>
-<option value="pending_supervisor_approval">قيد موافقة المشرف</option>
-<option value="pending">قيد الموافقة - قديم</option>
-<option value="market_manager_pending">بانتظار مدير السوق</option>
-<option value="finance_pending">بانتظار المالية</option>
-<option value="orders_staff_pending">جاهز للمعالجة</option>
-<option value="returned_to_market_manager">مرجعة لمدير السوق</option>
-<option value="returned_to_finance">مرجعة للمالية</option>
-<option value="orders_staff_hidden">تمت الفوترة</option>
-<option value="approved">موافق عليه - قديم</option>
-<option value="returned">مرتجع</option>
 </select>
 </div>
 <div class="table-responsive mobile-cards">
 <table class="order-table" id="allOrdersTable">
-<thead><tr><th><input id="selectAllAllOrders" type="checkbox"/></th><th>رقم المرجع</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الاجمالي</th><th>الحالة</th><th>الاجراءات</th></tr></thead>
+<thead><tr>
+<th><input id="selectAllAllOrders" type="checkbox"/></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="reference" type="button">رقم المرجع <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button active" data-direction="desc" data-sort-table="all" data-sort-key="date" type="button">التاريخ <i class="ph ph-arrow-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="rep" type="button">المندوب <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="pharmacy" type="button">الصيدلية <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="total" type="button">الإجمالي <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="status" type="button">الحالة <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th>الإجراءات</th>
+</tr></thead>
 <tbody id="allOrdersBody"></tbody>
 </table>
 </div>
@@ -263,4 +742,4 @@
                 علمت ذلك، شكراً
             </button>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20260623_modal_finance_note_fix1" type="module"></script></body></html>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20260714_supervisor_searchable_filters_v3" type="module"></script></body></html>
