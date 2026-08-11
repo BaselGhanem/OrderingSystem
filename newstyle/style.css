@@ -204,6 +204,29 @@ button {
     background: var(--teal-soft);
 }
 
+.role-visual {
+    width: 166px;
+    height: 178px;
+    display: grid;
+    place-items: end center;
+    pointer-events: none;
+}
+
+.role-visual img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center bottom;
+    filter: drop-shadow(0 12px 12px rgba(11, 53, 93, 0.13));
+    transition: transform var(--transition), filter var(--transition);
+}
+
+.role-card:hover .role-visual img {
+    transform: translateY(-3px) scale(1.025);
+    filter: drop-shadow(0 16px 15px rgba(11, 53, 93, 0.17));
+}
+
 .role-icon {
     width: 112px;
     height: 112px;
@@ -606,10 +629,14 @@ button {
         transform: none;
     }
 
-    .role-icon {
+    .role-card:hover .role-visual img {
+        transform: none;
+    }
+
+    .role-visual {
         flex: 0 0 auto;
-        width: 74px;
-        height: 74px;
+        width: 78px;
+        height: 92px;
     }
 
     .role-icon i {
