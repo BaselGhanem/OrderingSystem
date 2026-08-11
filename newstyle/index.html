@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <base href="../">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>نظام الطلبيات</title>
+    <link rel="icon" href="favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="newstyle/style.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        (() => {
+            const ADMIN_SESSION_KEY = `dad_admin_session_v2`;
+            const LEGACY_ADMIN_KEYS = [`managerName`, `adminType`, `authToken`, `adminPassword`];
+            const SWITCH_PARAMS = [`switch`, `logout`, `reset`, `forceLogin`];
+            const safeJson = value => {
+                try { return value ? JSON.parse(value) : null; } catch (error) { return null; }
+            };
+            const params = new URLSearchParams(window.location.search);
+            const mustSwitch = SWITCH_PARAMS.some(key => params.has(key));
+
+            if (mustSwitch) {
+                localStorage.removeItem(ADMIN_SESSION_KEY);
+                sessionStorage.removeItem(ADMIN_SESSION_KEY);
+                LEGACY_ADMIN_KEYS.forEach(key => {
+                    localStorage.removeItem(key);
+                    sessionStorage.removeItem(key);
+                });
+                sessionStorage.removeItem(`activeOrderContext`);
+                sessionStorage.removeItem(`adminOrderMode`);
+                sessionStorage.removeItem(`repId`);
+                sessionStorage.removeItem(`repName`);
+                window.history.replaceState(null, document.title, window.location.pathname);
+            } else {
+                const orderContext = sessionStorage.getItem(`activeOrderContext`);
+                if (orderContext) {
+                    window.location.replace(`order.html`);
+                    return;
+                }
+                const adminSession = safeJson(localStorage.getItem(ADMIN_SESSION_KEY)) || safeJson(sessionStorage.getItem(ADMIN_SESSION_KEY));
+                if (adminSession?.remember && adminSession.type === `manager`) {
+                    window.location.replace(`supervisor.html`);
+                    return;
+                }
+                if (adminSession?.remember && adminSession.type === `reports`) {
+                    window.location.replace(`reports.html`);
+                }
+            }
+        })();
+    </script>
+</head>
+<body data-page="login">
+    <div class="page-glow page-glow--top" aria-hidden="true"></div>
+    <div class="page-glow page-glow--bottom" aria-hidden="true"></div>
+
+    <div class="offline-banner" id="offline-banner">
+        <i class="ph ph-wifi-slash" aria-hidden="true"></i>
+        أنت الآن في وضع عدم الاتصال. النظام يعمل محلياً وسيتم المزامنة لاحقاً.
+    </div>
+    <div class="saving-indicator" id="saving-indicator">
+        <span class="spinner" aria-hidden="true"></span>
+        جارٍ الحفظ والتحديث...
+    </div>
+
+    <div class="app-shell">
+        <header class="brand-header" aria-label="رأس نظام الطلبيات">
+            <h1>نظام الطلبيات</h1>
+            <span class="brand-divider" aria-hidden="true"></span>
+            <img class="brand-logo" src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="دار الدواء">
+        </header>
+
+        <main class="main-panel">
+            <section class="view view--active" id="roleView" aria-labelledby="roleTitle">
+                <div class="view-heading">
+                    <h2 id="roleTitle">اختر طريقة الدخول</h2>
+                    <p>حدد نوع حسابك للمتابعة إلى تسجيل الدخول</p>
+                </div>
+
+                <div class="role-grid" aria-label="أنواع الدخول">
+                    <button class="role-card" type="button" data-role="rep">
+                        <span class="role-icon"><i class="ph ph-identification-card" aria-hidden="true"></i></span>
+                        <strong>مندوب</strong>
+                        <i class="ph ph-caret-left role-arrow" aria-hidden="true"></i>
+                    </button>
+                    <button class="role-card" type="button" data-role="supervisor">
+                        <span class="role-icon"><i class="ph ph-user-focus" aria-hidden="true"></i></span>
+                        <strong>مشرف</strong>
+                        <i class="ph ph-caret-left role-arrow" aria-hidden="true"></i>
+                    </button>
+                    <button class="role-card" type="button" data-role="manager">
+                        <span class="role-icon"><i class="ph ph-user-circle-gear" aria-hidden="true"></i></span>
+                        <strong>مدير</strong>
+                        <i class="ph ph-caret-left role-arrow" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </section>
+
+            <section class="view auth-stage" id="authView" aria-labelledby="authTitle" aria-hidden="true">
+                <button class="back-button" id="backToRoles" type="button">
+                    <i class="ph ph-arrow-right" aria-hidden="true"></i>
+                    تغيير نوع الدخول
+                </button>
+
+                <div class="auth-card">
+                    <div class="auth-heading">
+                        <span class="auth-icon" id="authIcon"><i class="ph ph-shield-check" aria-hidden="true"></i></span>
+                        <div>
+                            <span class="auth-kicker" id="authKicker">بوابة الدخول</span>
+                            <h2 id="authTitle">تسجيل الدخول</h2>
+                        </div>
+                    </div>
+
+                    <form class="login-form" id="repLoginForm" autocomplete="on">
+                        <input type="text" value="Representative" autocomplete="username" aria-hidden="true" tabindex="-1" class="hidden-username">
+                        <div class="field-group">
+                            <label for="repSelect">اسم المندوب</label>
+                            <div class="field-control">
+                                <i class="ph ph-user" aria-hidden="true"></i>
+                                <select id="repSelect" disabled>
+                                    <option>جاري التحميل...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="repPasswordGroup" style="display: none;">
+                            <div class="field-group">
+                                <label for="repPasswordInput">كلمة المرور</label>
+                                <div class="field-control">
+                                    <i class="ph ph-lock-key" aria-hidden="true"></i>
+                                    <input id="repPasswordInput" type="password" autocomplete="current-password" placeholder="أدخل كلمة المرور">
+                                    <button class="password-toggle" type="button" data-password-target="repPasswordInput" aria-label="إظهار كلمة المرور">
+                                        <i class="ph ph-eye" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <label class="remember-row" for="rememberRepPass">
+                                <input id="rememberRepPass" type="checkbox">
+                                <span>تذكر كلمة المرور</span>
+                            </label>
+                        </div>
+
+                        <div class="field-group">
+                            <label for="pharmacyInput">الصيدلية المستهدفة</label>
+                            <div class="autocomplete-wrapper field-control">
+                                <i class="ph ph-first-aid-kit" aria-hidden="true"></i>
+                                <input id="pharmacyInput" type="text" autocomplete="off" placeholder="اختر المندوب أولاً" disabled>
+                                <div class="autocomplete-list" id="pharmacySuggestions"></div>
+                            </div>
+                        </div>
+
+                        <button class="primary-button" id="startOrderBtn" type="button" disabled>
+                            بدء إدخال الطلبية
+                            <i class="ph ph-arrow-left" aria-hidden="true"></i>
+                        </button>
+                    </form>
+
+                    <form class="login-form" id="adminLoginForm" autocomplete="on" hidden>
+                        <input type="text" value="Admin" autocomplete="username" aria-hidden="true" tabindex="-1" class="hidden-username">
+                        <div class="admin-options" id="adminOptions">
+                            <button class="admin-option btn-admin-opt" data-role-option="supervisor" data-name="محمد طوالبه" data-type="manager" type="button">
+                                <i class="ph ph-user" aria-hidden="true"></i>
+                                محمد طوالبه
+                            </button>
+                            <button class="admin-option btn-admin-opt" data-role-option="supervisor" data-name="عبدالله الناطور" data-type="manager" type="button">
+                                <i class="ph ph-user" aria-hidden="true"></i>
+                                عبدالله الناطور
+                            </button>
+                            <button class="admin-option btn-admin-opt" data-role-option="manager" data-name="لوحة التقارير" data-type="reports" type="button">
+                                <i class="ph ph-chart-donut" aria-hidden="true"></i>
+                                لوحة التقارير
+                            </button>
+                        </div>
+
+                        <div class="field-group">
+                            <label for="adminPasswordInput">كلمة المرور</label>
+                            <div class="field-control">
+                                <i class="ph ph-lock-key" aria-hidden="true"></i>
+                                <input id="adminPasswordInput" type="password" autocomplete="current-password" placeholder="أدخل كلمة المرور">
+                                <button class="password-toggle" type="button" data-password-target="adminPasswordInput" aria-label="إظهار كلمة المرور">
+                                    <i class="ph ph-eye" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <label class="remember-row" for="rememberAdmin">
+                            <input id="rememberAdmin" type="checkbox">
+                            <span>تذكر تسجيل الدخول</span>
+                        </label>
+
+                        <button class="primary-button" id="confirmAdminLoginBtn" type="button">
+                            تسجيل الدخول
+                            <i class="ph ph-sign-in" aria-hidden="true"></i>
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <footer class="panel-footer">نظام الطلبيات&nbsp;&nbsp;•&nbsp;&nbsp;Dar Al-Dawaa</footer>
+        </main>
+    </div>
+
+    <button id="adminModeBtn" type="button" hidden></button>
+    <div id="toast-container" aria-live="polite"></div>
+
+    <script>
+        (() => {
+            const roleView = document.getElementById(`roleView`);
+            const authView = document.getElementById(`authView`);
+            const repForm = document.getElementById(`repLoginForm`);
+            const adminForm = document.getElementById(`adminLoginForm`);
+            const authTitle = document.getElementById(`authTitle`);
+            const authKicker = document.getElementById(`authKicker`);
+            const authIcon = document.getElementById(`authIcon`);
+            let activeRole = ``;
+
+            const roleConfig = {
+                rep: { title: `دخول المندوب`, kicker: `مندوب`, icon: `ph-identification-card` },
+                supervisor: { title: `دخول المشرف`, kicker: `مشرف`, icon: `ph-user-focus` },
+                manager: { title: `دخول المدير`, kicker: `مدير`, icon: `ph-user-circle-gear` }
+            };
+
+            const selectAdminOptions = role => {
+                document.querySelectorAll(`[data-role-option]`).forEach(option => {
+                    option.hidden = option.dataset.roleOption !== role;
+                    option.classList.remove(`active`);
+                });
+                const defaultOption = document.querySelector(`[data-role-option="${role}"]`);
+                const activateDefault = () => defaultOption?.click();
+                if (document.readyState === `complete`) activateDefault();
+                else window.addEventListener(`load`, activateDefault, { once: true });
+            };
+
+            const openAuth = role => {
+                activeRole = role;
+                const config = roleConfig[role];
+                authTitle.textContent = config.title;
+                authKicker.textContent = config.kicker;
+                authIcon.innerHTML = `<i class="ph ${config.icon}" aria-hidden="true"></i>`;
+                repForm.hidden = role !== `rep`;
+                adminForm.hidden = role === `rep`;
+                if (role !== `rep`) selectAdminOptions(role);
+                roleView.classList.remove(`view--active`);
+                roleView.setAttribute(`aria-hidden`, `true`);
+                authView.classList.add(`view--active`);
+                authView.setAttribute(`aria-hidden`, `false`);
+                window.scrollTo({ top: 0, behavior: `smooth` });
+            };
+
+            const closeAuth = () => {
+                activeRole = ``;
+                authView.classList.remove(`view--active`);
+                authView.setAttribute(`aria-hidden`, `true`);
+                roleView.classList.add(`view--active`);
+                roleView.removeAttribute(`aria-hidden`);
+                document.querySelectorAll(`.btn-admin-opt`).forEach(option => option.classList.remove(`active`));
+            };
+
+            document.querySelectorAll(`.role-card`).forEach(card => {
+                card.addEventListener(`click`, () => openAuth(card.dataset.role));
+            });
+            document.getElementById(`backToRoles`).addEventListener(`click`, closeAuth);
+
+            document.querySelectorAll(`.password-toggle`).forEach(button => {
+                button.addEventListener(`click`, () => {
+                    const input = document.getElementById(button.dataset.passwordTarget);
+                    const showPassword = input.type === `password`;
+                    input.type = showPassword ? `text` : `password`;
+                    button.setAttribute(`aria-label`, showPassword ? `إخفاء كلمة المرور` : `إظهار كلمة المرور`);
+                    button.querySelector(`i`).className = showPassword ? `ph ph-eye-slash` : `ph ph-eye`;
+                });
+            });
+
+            window.addEventListener(`load`, () => authView.classList.add(`auth-stage--ready`));
+            window.addEventListener(`popstate`, () => {
+                if (activeRole) closeAuth();
+            });
+        })();
+    </script>
+    <script src="js/app.js?v=20260811_newstyle_index_v1" type="module"></script>
+</body>
+</html>
