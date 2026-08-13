@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="style.css?v=20260813_finance_layout_fix_v5" rel="stylesheet"/>
+<link href="style.css?v=20260813_finance_action_menu_v6" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -33,13 +33,13 @@
     <div class="finance-table-heading"><div><h2>الطلبيات المالية</h2><p><i class="ph ph-arrows-down-up"></i> اضغط على عنوان العمود للترتيب تصاعدياً أو تنازلياً</p></div></div>
     <div class="table-responsive workflow-table-wrap">
         <table class="order-table workflow-table finance-workflow-table">
-            <thead><tr><th><input id="selectAllWorkflow" type="checkbox"></th><th data-sort="date"><button class="finance-sort-btn" type="button">التاريخ <i class="ph ph-caret-up-down"></i></button></th><th data-sort="time"><button class="finance-sort-btn" type="button">الوقت <i class="ph ph-caret-up-down"></i></button></th><th data-sort="pharmacyCode"><button class="finance-sort-btn" type="button">كود الصيدلية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="pharmacyName"><button class="finance-sort-btn" type="button">اسم الصيدلية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="representative"><button class="finance-sort-btn" type="button">المندوب <i class="ph ph-caret-up-down"></i></button></th><th data-sort="note"><button class="finance-sort-btn" type="button">ملاحظة الطلبية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="value"><button class="finance-sort-btn" type="button">قيمة الطلبية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="status"><button class="finance-sort-btn" type="button">الإجراءات المالية <i class="ph ph-caret-up-down"></i></button></th></tr></thead>
-            <tbody id="financeOrdersBody"><tr><td colspan="9"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr></tbody>
+            <thead><tr><th><input id="selectAllWorkflow" type="checkbox"></th><th data-sort="date"><button class="finance-sort-btn" type="button">التاريخ <i class="ph ph-caret-up-down"></i></button></th><th data-sort="time"><button class="finance-sort-btn" type="button">الوقت <i class="ph ph-caret-up-down"></i></button></th><th data-sort="pharmacyCode"><button class="finance-sort-btn" type="button">كود الصيدلية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="pharmacyName"><button class="finance-sort-btn" type="button">اسم الصيدلية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="representative"><button class="finance-sort-btn" type="button">المندوب <i class="ph ph-caret-up-down"></i></button></th><th data-sort="note"><button class="finance-sort-btn" type="button">ملاحظة الطلبية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="value"><button class="finance-sort-btn" type="button">قيمة الطلبية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="status"><button class="finance-sort-btn" type="button">الحالة <i class="ph ph-caret-up-down"></i></button></th><th>الإجراء</th></tr></thead>
+            <tbody id="financeOrdersBody"><tr><td colspan="10"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr></tbody>
         </table>
     </div>
 </main>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260813_finance_layout_fix_v5" type="module"></script>
+<script src="js/workflow.js?v=20260813_finance_action_menu_v6" type="module"></script>
 </body>
 </html>
