@@ -817,7 +817,7 @@ function subscribeOrders(onChange) {
         showDataModeNotice('تم عرض نسخة مخزنة محليًا، ويتم تحديثها الآن من Firebase.');
         onChange();
     } else {
-        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 9] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 8] : ['ordersStaffBody', 12];
+        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 9] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 9] : ['ordersStaffBody', 12];
         setLoadingRow(target[0], target[1]);
     }
     refreshOrdersFromFirebase();
@@ -1390,7 +1390,7 @@ function renderFinanceOrders() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 8, 'لا توجد طلبيات مالية بانتظار الاعتماد');
+    if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 9, 'لا توجد طلبيات مالية بانتظار الاعتماد');
 
     const renderChunk = async (startIndex = 0) => {
         if (token !== state.renderToken) return;
@@ -1398,6 +1398,7 @@ function renderFinanceOrders() {
         const chunk = state.visibleOrders.slice(startIndex, startIndex + 75);
         chunk.forEach(order => {
             const tr = document.createElement('tr');
+            const [financeDate, financeTime] = splitFinanceDateTime(order.createdAt);
             const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
             const isRejected = order.status === 'finance_rejected' || (order.financeStatus || '') === 'finance_rejected';
             const isReturnedToFinance = order.status === 'returned_to_finance' || (order.financeStatus || '') === 'returned_to_finance';
@@ -1411,14 +1412,15 @@ function renderFinanceOrders() {
                         ? `<span class="status-badge returned_to_finance">مرجعة للمالية</span><small class="workflow-reason">${escapeHtml(returnReason || 'لا توجد ملاحظة مسجلة')}</small><button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button>`
                         : `<span class="status-badge ${order.status}">${statusLabel(order.status)}</span>`;
             tr.innerHTML = `
-                <td><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
-                <td>${escapeHtml(formatDateTime(order.createdAt))}</td>
-                <td>${escapeHtml(getPharmacyCode(order) || '-')}</td>
-                <td>${escapeHtml(order.pharmacyName || '-')}</td>
-                <td>${escapeHtml(order.repName || order.representativeName || '-')}</td>
-                <td class="workflow-note-cell">${escapeHtml(getOrderNote(order) || '-')} ${getFinanceVisibleNote(order) ? `<div class="workflow-reason" style="margin-top:6px;"><strong>آخر ملاحظة مالية:</strong> ${escapeHtml(getFinanceVisibleNote(order))}</div>` : ''}</td>
-                <td>${formatMoney(order.grandTotal)} د.ا</td>
-                <td class="workflow-actions-cell">${actionHtml}</td>
+                <td data-column="select"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
+                <td data-column="date" data-label="التاريخ" class="finance-date-cell">${escapeHtml(financeDate)}</td>
+                <td data-column="time" data-label="الوقت" class="finance-time-cell">${escapeHtml(financeTime)}</td>
+                <td data-column="pharmacyCode" data-label="كود الصيدلية" class="finance-code-cell">${escapeHtml(getPharmacyCode(order) || '-')}</td>
+                <td data-column="pharmacyName" data-label="اسم الصيدلية" class="finance-pharmacy-cell">${escapeHtml(order.pharmacyName || '-')}</td>
+                <td data-column="representative" data-label="المندوب">${escapeHtml(order.repName || order.representativeName || '-')}</td>
+                <td data-column="note" data-label="ملاحظة الطلبية" class="workflow-note-cell">${escapeHtml(getOrderNote(order) || '-')} ${getFinanceVisibleNote(order) ? `<div class="workflow-reason" style="margin-top:6px;"><strong>آخر ملاحظة مالية:</strong> ${escapeHtml(getFinanceVisibleNote(order))}</div>` : ''}</td>
+                <td data-column="value" data-label="قيمة الطلبية" class="finance-value-cell">${formatMoney(order.grandTotal)} <small>د.ا</small></td>
+                <td data-column="actions" data-label="الإجراءات المالية" class="workflow-actions-cell">${actionHtml}</td>
             `;
             tr.querySelector('.approve-btn')?.addEventListener('click', () => {
                 if (!confirm('اعتماد الطلبية مالياً وتحويلها إلى فريق المعالجة؟')) return;
@@ -1437,12 +1439,89 @@ function renderFinanceOrders() {
             fragment.appendChild(tr);
         });
         body.appendChild(fragment);
+        applyFinanceColumnOrder();
         if (startIndex + 75 < state.visibleOrders.length) {
             await nextFrame();
             renderChunk(startIndex + 75);
         }
     };
     renderChunk();
+}
+
+const FINANCE_COLUMN_ORDER_KEY = 'financeControllerColumnOrderV1';
+const FINANCE_DEFAULT_COLUMNS = ['select', 'date', 'time', 'pharmacyCode', 'pharmacyName', 'representative', 'note', 'value', 'actions'];
+
+function splitFinanceDateTime(value) {
+    const formatted = formatDateTime(value);
+    const parts = formatted.split(',').map(part => part.trim()).filter(Boolean);
+    if (parts.length > 1) return [parts[0], parts.slice(1).join('، ')];
+    const fallback = formatted.match(/^(.*?\d{4})(?:\s+)(.+)$/);
+    return fallback ? [fallback[1], fallback[2]] : [formatted || '-', '-'];
+}
+
+function getFinanceColumnOrder() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(FINANCE_COLUMN_ORDER_KEY) || '[]');
+        return saved.length === FINANCE_DEFAULT_COLUMNS.length && FINANCE_DEFAULT_COLUMNS.every(key => saved.includes(key))
+            ? saved
+            : [...FINANCE_DEFAULT_COLUMNS];
+    } catch {
+        return [...FINANCE_DEFAULT_COLUMNS];
+    }
+}
+
+function applyFinanceColumnOrder() {
+    const table = document.querySelector('.finance-workflow-table');
+    if (!table) return;
+    const order = getFinanceColumnOrder();
+    const headerRow = table.tHead?.rows?.[0];
+    if (headerRow) order.forEach(key => {
+        const cell = headerRow.querySelector(`[data-column="${key}"]`);
+        if (cell) headerRow.appendChild(cell);
+    });
+    Array.from(table.tBodies?.[0]?.rows || []).forEach(row => {
+        order.forEach(key => {
+            const cell = row.querySelector(`[data-column="${key}"]`);
+            if (cell) row.appendChild(cell);
+        });
+    });
+}
+
+function initFinanceColumnReordering() {
+    const headerRow = document.querySelector('.finance-workflow-table thead tr');
+    if (!headerRow) return;
+    let draggedKey = '';
+    headerRow.querySelectorAll('th[data-column]').forEach(header => {
+        header.draggable = true;
+        header.addEventListener('dragstart', event => {
+            draggedKey = header.dataset.column || '';
+            header.classList.add('is-dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', draggedKey);
+        });
+        header.addEventListener('dragover', event => {
+            event.preventDefault();
+            if (draggedKey && draggedKey !== header.dataset.column) header.classList.add('drag-target');
+        });
+        header.addEventListener('dragleave', () => header.classList.remove('drag-target'));
+        header.addEventListener('drop', event => {
+            event.preventDefault();
+            const targetKey = header.dataset.column || '';
+            const order = getFinanceColumnOrder();
+            const fromIndex = order.indexOf(draggedKey);
+            const targetIndex = order.indexOf(targetKey);
+            if (fromIndex < 0 || targetIndex < 0 || fromIndex === targetIndex) return;
+            order.splice(fromIndex, 1);
+            order.splice(targetIndex, 0, draggedKey);
+            localStorage.setItem(FINANCE_COLUMN_ORDER_KEY, JSON.stringify(order));
+            applyFinanceColumnOrder();
+        });
+        header.addEventListener('dragend', () => {
+            draggedKey = '';
+            headerRow.querySelectorAll('th').forEach(item => item.classList.remove('is-dragging', 'drag-target'));
+        });
+    });
+    applyFinanceColumnOrder();
 }
 
 async function financeApprove(orderId, approvalNote = '') {
@@ -1485,6 +1564,7 @@ function initFinanceController() {
     $('selectAllWorkflow')?.addEventListener('change', e => document.querySelectorAll('.workflow-order-checkbox').forEach(cb => cb.checked = e.target.checked));
     $('financeExportSelectedBtn')?.addEventListener('click', () => exportFinanceOrders(getOrdersByIds(selectedIds()), 'selected'));
     $('financeExportVisibleBtn')?.addEventListener('click', () => exportFinanceOrders(state.visibleOrders, 'visible'));
+    initFinanceColumnReordering();
     subscribeOrders(applyFinanceFilters);
 }
 
