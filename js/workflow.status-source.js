@@ -1391,6 +1391,7 @@ function renderFinanceOrders() {
     body.innerHTML = '';
     updateStats(state.visibleOrders);
     if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 9, 'لا توجد طلبيات مالية بانتظار الاعتماد');
+    applyFinanceSort();
 
     const renderChunk = async (startIndex = 0) => {
         if (token !== state.renderToken) return;
@@ -1439,7 +1440,6 @@ function renderFinanceOrders() {
             fragment.appendChild(tr);
         });
         body.appendChild(fragment);
-        applyFinanceColumnOrder();
         if (startIndex + 75 < state.visibleOrders.length) {
             await nextFrame();
             renderChunk(startIndex + 75);
@@ -1447,9 +1447,6 @@ function renderFinanceOrders() {
     };
     renderChunk();
 }
-
-const FINANCE_COLUMN_ORDER_KEY = 'financeControllerColumnOrderV1';
-const FINANCE_DEFAULT_COLUMNS = ['select', 'date', 'time', 'pharmacyCode', 'pharmacyName', 'representative', 'note', 'value', 'actions'];
 
 function splitFinanceDateTime(value) {
     const formatted = formatDateTime(value);
@@ -1459,69 +1456,68 @@ function splitFinanceDateTime(value) {
     return fallback ? [fallback[1], fallback[2]] : [formatted || '-', '-'];
 }
 
-function getFinanceColumnOrder() {
-    try {
-        const saved = JSON.parse(localStorage.getItem(FINANCE_COLUMN_ORDER_KEY) || '[]');
-        return saved.length === FINANCE_DEFAULT_COLUMNS.length && FINANCE_DEFAULT_COLUMNS.every(key => saved.includes(key))
-            ? saved
-            : [...FINANCE_DEFAULT_COLUMNS];
-    } catch {
-        return [...FINANCE_DEFAULT_COLUMNS];
+const financeSortState = { key: 'date', direction: 'desc' };
+
+function financeTimestamp(value) {
+    if (!value) return 0;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    if (typeof value.toDate === 'function') return value.toDate().getTime();
+    if (typeof value.seconds === 'number') return value.seconds * 1000;
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function financeSortValue(order, key) {
+    const timestamp = financeTimestamp(order.createdAt);
+    if (key === 'date') return new Date(timestamp).setHours(0, 0, 0, 0);
+    if (key === 'time') {
+        const date = new Date(timestamp);
+        return (date.getHours() * 3600) + (date.getMinutes() * 60) + date.getSeconds();
     }
+    if (key === 'pharmacyCode') return getPharmacyCode(order) || '';
+    if (key === 'pharmacyName') return order.pharmacyName || '';
+    if (key === 'representative') return order.repName || order.representativeName || '';
+    if (key === 'note') return getOrderNote(order) || getFinanceVisibleNote(order) || '';
+    if (key === 'value') return Number(order.grandTotal) || 0;
+    if (key === 'status') return statusLabel(order.financeStatus || order.status || '');
+    return '';
 }
 
-function applyFinanceColumnOrder() {
-    const table = document.querySelector('.finance-workflow-table');
-    if (!table) return;
-    const order = getFinanceColumnOrder();
-    const headerRow = table.tHead?.rows?.[0];
-    if (headerRow) order.forEach(key => {
-        const cell = headerRow.querySelector(`[data-column="${key}"]`);
-        if (cell) headerRow.appendChild(cell);
-    });
-    Array.from(table.tBodies?.[0]?.rows || []).forEach(row => {
-        order.forEach(key => {
-            const cell = row.querySelector(`[data-column="${key}"]`);
-            if (cell) row.appendChild(cell);
-        });
+function applyFinanceSort() {
+    const { key, direction } = financeSortState;
+    const multiplier = direction === 'asc' ? 1 : -1;
+    state.visibleOrders.sort((a, b) => {
+        const aValue = financeSortValue(a, key);
+        const bValue = financeSortValue(b, key);
+        if (typeof aValue === 'number' && typeof bValue === 'number') return (aValue - bValue) * multiplier;
+        return String(aValue).localeCompare(String(bValue), 'ar', { numeric: true, sensitivity: 'base' }) * multiplier;
     });
 }
 
-function initFinanceColumnReordering() {
-    const headerRow = document.querySelector('.finance-workflow-table thead tr');
-    if (!headerRow) return;
-    let draggedKey = '';
-    headerRow.querySelectorAll('th[data-column]').forEach(header => {
-        header.draggable = true;
-        header.addEventListener('dragstart', event => {
-            draggedKey = header.dataset.column || '';
-            header.classList.add('is-dragging');
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', draggedKey);
-        });
-        header.addEventListener('dragover', event => {
-            event.preventDefault();
-            if (draggedKey && draggedKey !== header.dataset.column) header.classList.add('drag-target');
-        });
-        header.addEventListener('dragleave', () => header.classList.remove('drag-target'));
-        header.addEventListener('drop', event => {
-            event.preventDefault();
-            const targetKey = header.dataset.column || '';
-            const order = getFinanceColumnOrder();
-            const fromIndex = order.indexOf(draggedKey);
-            const targetIndex = order.indexOf(targetKey);
-            if (fromIndex < 0 || targetIndex < 0 || fromIndex === targetIndex) return;
-            order.splice(fromIndex, 1);
-            order.splice(targetIndex, 0, draggedKey);
-            localStorage.setItem(FINANCE_COLUMN_ORDER_KEY, JSON.stringify(order));
-            applyFinanceColumnOrder();
-        });
-        header.addEventListener('dragend', () => {
-            draggedKey = '';
-            headerRow.querySelectorAll('th').forEach(item => item.classList.remove('is-dragging', 'drag-target'));
+function updateFinanceSortIndicators() {
+    document.querySelectorAll('.finance-workflow-table th[data-sort]').forEach(header => {
+        const active = header.dataset.sort === financeSortState.key;
+        header.classList.toggle('sort-active', active);
+        header.setAttribute('aria-sort', active ? (financeSortState.direction === 'asc' ? 'ascending' : 'descending') : 'none');
+        const icon = header.querySelector('i');
+        if (icon) icon.className = active
+            ? `ph ${financeSortState.direction === 'asc' ? 'ph-caret-up' : 'ph-caret-down'}`
+            : 'ph ph-caret-up-down';
+    });
+}
+
+function initFinanceSorting() {
+    localStorage.removeItem('financeControllerColumnOrderV1');
+    document.querySelectorAll('.finance-workflow-table th[data-sort]').forEach(header => {
+        header.querySelector('.finance-sort-btn')?.addEventListener('click', () => {
+            const key = header.dataset.sort || 'date';
+            financeSortState.direction = financeSortState.key === key && financeSortState.direction === 'asc' ? 'desc' : 'asc';
+            financeSortState.key = key;
+            updateFinanceSortIndicators();
+            renderFinanceOrders();
         });
     });
-    applyFinanceColumnOrder();
+    updateFinanceSortIndicators();
 }
 
 async function financeApprove(orderId, approvalNote = '') {
@@ -1564,7 +1560,7 @@ function initFinanceController() {
     $('selectAllWorkflow')?.addEventListener('change', e => document.querySelectorAll('.workflow-order-checkbox').forEach(cb => cb.checked = e.target.checked));
     $('financeExportSelectedBtn')?.addEventListener('click', () => exportFinanceOrders(getOrdersByIds(selectedIds()), 'selected'));
     $('financeExportVisibleBtn')?.addEventListener('click', () => exportFinanceOrders(state.visibleOrders, 'visible'));
-    initFinanceColumnReordering();
+    initFinanceSorting();
     subscribeOrders(applyFinanceFilters);
 }
 
