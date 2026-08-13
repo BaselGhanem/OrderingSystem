@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="style.css?v=20260629_audit_dynamic_notes_fix1" rel="stylesheet"/>
+<link href="style.css?v=20260813_finance_premium_v1" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -17,30 +17,29 @@
 <div class="offline-banner" id="offline-banner"><i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال.</div>
 <div class="bg-shapes"><div class="shape shape-1"></div><div class="shape shape-2"></div></div>
 <div class="app-container workflow-page-shell">
-<header class="glass-panel workflow-header">
-    <div class="logo-area"><img alt="Dar Al Dawaa Logo" class="logo" src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png"/><div><h1>Finance Controller</h1><p>اعتماد Hamza المالي للطلبيات المعتمدة من مدير السوق</p></div></div>
+<header class="finance-premium-header">
+    <div class="finance-title"><span class="finance-title-icon"><i class="ph ph-receipt"></i></span><div><h1>التحكم المالي <span>Finance Controller</span></h1><p>نظام إدارة ومراقبة واعتماد الطلبيات المالية</p></div></div>
+    <img alt="Dar Al Dawaa Logo" class="logo" src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png"/>
 </header>
-<main class="glass-panel workflow-main">
-    <section class="workflow-stats-grid"><div class="workflow-stat-card"><span>عدد الطلبيات</span><strong id="ordersCount">0</strong></div><div class="workflow-stat-card"><span>القيمة المعروضة</span><strong id="ordersValue">0.00 د.ا</strong></div></section>
-    <section class="workflow-filters">
+<main class="finance-premium-main">
+    <section class="finance-summary"><div class="finance-summary-item"><span class="finance-summary-icon"><i class="ph ph-files"></i></span><div><span>إجمالي عدد الطلبيات</span><strong id="ordersCount">0</strong></div></div><div class="finance-summary-item"><span class="finance-summary-icon"><i class="ph ph-wallet"></i></span><div><span>إجمالي قيمة الطلبيات</span><strong id="ordersValue">0.00 د.ا</strong></div></div></section>
+    <section class="workflow-filters finance-filters">
         <div><label>من تاريخ</label><input id="filterDateFrom" type="date"></div>
         <div><label>إلى تاريخ</label><input id="filterDateTo" type="date"></div>
         <div><label>الصيدلية</label><input id="filterPharmacy" type="search" placeholder="بحث بالصيدلية أو الكود"></div>
         <div><label>الحالة</label><select id="filterStatus"><option value="">الكل</option><option value="finance_pending">بانتظار المالية</option><option value="finance_rejected">مرفوض مالياً</option><option value="returned_to_finance">مرجعة للمالية</option></select></div>
+        <div class="finance-filter-actions"><button class="btn-secondary" id="financeExportVisibleBtn" type="button"><i class="ph ph-download-simple"></i> تصدير كل الظاهر</button><button class="btn-success" id="financeExportSelectedBtn" type="button"><i class="ph ph-file-xls"></i> تصدير المحدد</button></div>
     </section>
-    <section class="workflow-toolbar">
-        <button class="btn-success" id="financeExportSelectedBtn" type="button"><i class="ph ph-file-xls"></i> تصدير المحدد</button>
-        <button class="btn-secondary" id="financeExportVisibleBtn" type="button"><i class="ph ph-download-simple"></i> تصدير كل الظاهر</button>
-    </section>
+    <div class="finance-table-heading"><div><h2>الطلبيات المالية</h2><p><i class="ph ph-dots-six-vertical"></i> اسحب عنوان أي عمود لتغيير ترتيبه</p></div></div>
     <div class="table-responsive workflow-table-wrap">
         <table class="order-table workflow-table finance-workflow-table">
-            <thead><tr><th><input id="selectAllWorkflow" type="checkbox"></th><th>التاريخ</th><th>كود الصيدلية</th><th>اسم الصيدلية</th><th>المندوب</th><th>ملاحظة الطلبية</th><th>قيمة الطلبية</th><th>Action</th></tr></thead>
-            <tbody id="financeOrdersBody"><tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr></tbody>
+            <thead><tr><th data-column="select"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span><input id="selectAllWorkflow" type="checkbox"></th><th data-column="date"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>التاريخ</th><th data-column="time"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>الوقت</th><th data-column="pharmacyCode"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>كود الصيدلية</th><th data-column="pharmacyName"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>اسم الصيدلية</th><th data-column="representative"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>المندوب</th><th data-column="note"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>ملاحظة الطلبية</th><th data-column="value"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>قيمة الطلبية</th><th data-column="actions"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>الإجراءات المالية</th></tr></thead>
+            <tbody id="financeOrdersBody"><tr><td colspan="9"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr></tbody>
         </table>
     </div>
 </main>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260629_audit_dynamic_notes_fix1" type="module"></script>
+<script src="js/workflow.js?v=20260813_finance_premium_v1" type="module"></script>
 </body>
 </html>
