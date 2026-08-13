@@ -1839,60 +1839,42 @@ body[data-page="finance-controller"] .workflow-note-cell {
 }
 
 body[data-page="finance-controller"] .workflow-actions-cell {
-    min-width: 340px;
-    white-space: normal !important;
+    min-width: 150px;
+    width: 150px;
+    white-space: nowrap !important;
 }
 
-.finance-action-stack {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+.finance-status-cell {
+    min-width: 130px;
+    text-align: center;
 }
 
-.finance-action-state {
-    display: flex;
-    align-items: center;
+.finance-action-select {
+    width: 100%;
+    min-width: 135px;
+    min-height: 38px;
+    padding: 7px 11px;
+    border: 1px solid #bed6d6;
+    border-radius: 9px;
+    background: #f3fbfb;
+    color: var(--finance-teal-dark);
+    font-family: inherit;
+    font-size: .74rem;
+    font-weight: 800;
+    cursor: pointer;
+    outline: none;
 }
 
-.finance-action-buttons {
-    display: flex;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: 6px;
-}
-
-body[data-page="finance-controller"] .workflow-actions-cell .action-btn {
-    min-height: 34px;
-    margin: 0;
-    padding: 6px 8px;
-    border-radius: 8px;
-    font-size: .66rem;
-    box-shadow: none;
-    white-space: nowrap;
-}
-
-body[data-page="finance-controller"] .workflow-actions-cell .approve-btn {
-    background: var(--finance-teal);
-    color: #fff;
+.finance-action-select:hover,
+.finance-action-select:focus {
     border-color: var(--finance-teal);
+    box-shadow: 0 0 0 3px rgba(9,153,153,.1);
 }
 
-body[data-page="finance-controller"] .workflow-actions-cell .approve-btn:hover {
-    background: var(--finance-teal-dark);
-    transform: none;
-}
-
-body[data-page="finance-controller"] .workflow-actions-cell .reject-btn {
-    background: #fff;
-    color: #c43d3d;
-    border-color: #efcaca;
-}
-
-body[data-page="finance-controller"] .workflow-actions-cell .return-market-btn {
-    background: #fffaf0;
-    color: #91600b;
-    border-color: #ead7ae;
+.finance-no-action {
+    color: var(--finance-muted);
+    font-size: .72rem;
+    font-weight: 700;
 }
 
 body[data-page="finance-controller"] input[type="checkbox"] {
