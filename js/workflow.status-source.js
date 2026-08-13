@@ -1403,14 +1403,20 @@ function renderFinanceOrders() {
             const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
             const isRejected = order.status === 'finance_rejected' || (order.financeStatus || '') === 'finance_rejected';
             const isReturnedToFinance = order.status === 'returned_to_finance' || (order.financeStatus || '') === 'returned_to_finance';
-            const rejectionReason = order.financeRejectionReason || order.rejectionReason || '';
-            const returnReason = order.returnReason || '';
+            const orderNote = String(getOrderNote(order) || '').trim();
+            const financeNote = String(getFinanceVisibleNote(order) || '').trim();
+            const notesMatch = orderNote && financeNote && orderNote.localeCompare(financeNote, 'ar', { sensitivity: 'base' }) === 0;
+            const noteHtml = orderNote && orderNote !== '-'
+                ? `${escapeHtml(orderNote)}${financeNote && !notesMatch ? `<div class="finance-note-detail"><strong>آخر ملاحظة مالية:</strong> ${escapeHtml(financeNote)}</div>` : ''}`
+                : financeNote
+                    ? `<div class="finance-note-detail"><strong>آخر ملاحظة مالية:</strong> ${escapeHtml(financeNote)}</div>`
+                    : '-';
             const actionHtml = isPending
-                ? `<button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button>`
+                ? `<div class="finance-action-buttons"><button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button></div>`
                 : isRejected
-                    ? `<span class="status-badge finance_rejected">مرفوض مالياً</span><small class="workflow-reason">${escapeHtml(rejectionReason || 'لا يوجد سبب مسجل')}</small><button class="action-btn approve-btn" type="button"><i class="ph ph-arrow-counter-clockwise"></i> تعديل القرار: اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-pencil-simple"></i> تعديل سبب الرفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button>`
+                    ? `<div class="finance-action-stack"><div class="finance-action-state"><span class="status-badge finance_rejected">مرفوض مالياً</span></div><div class="finance-action-buttons"><button class="action-btn approve-btn" type="button"><i class="ph ph-arrow-counter-clockwise"></i> تعديل القرار: اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-pencil-simple"></i> تعديل سبب الرفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button></div></div>`
                     : isReturnedToFinance
-                        ? `<span class="status-badge returned_to_finance">مرجعة للمالية</span><small class="workflow-reason">${escapeHtml(returnReason || 'لا توجد ملاحظة مسجلة')}</small><button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button>`
+                        ? `<div class="finance-action-stack"><div class="finance-action-state"><span class="status-badge returned_to_finance">مرجعة للمالية</span></div><div class="finance-action-buttons"><button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button></div></div>`
                         : `<span class="status-badge ${order.status}">${statusLabel(order.status)}</span>`;
             tr.innerHTML = `
                 <td data-column="select"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
@@ -1419,7 +1425,7 @@ function renderFinanceOrders() {
                 <td data-column="pharmacyCode" data-label="كود الصيدلية" class="finance-code-cell">${escapeHtml(getPharmacyCode(order) || '-')}</td>
                 <td data-column="pharmacyName" data-label="اسم الصيدلية" class="finance-pharmacy-cell">${escapeHtml(order.pharmacyName || '-')}</td>
                 <td data-column="representative" data-label="المندوب">${escapeHtml(order.repName || order.representativeName || '-')}</td>
-                <td data-column="note" data-label="ملاحظة الطلبية" class="workflow-note-cell">${escapeHtml(getOrderNote(order) || '-')} ${getFinanceVisibleNote(order) ? `<div class="workflow-reason" style="margin-top:6px;"><strong>آخر ملاحظة مالية:</strong> ${escapeHtml(getFinanceVisibleNote(order))}</div>` : ''}</td>
+                <td data-column="note" data-label="ملاحظة الطلبية" class="workflow-note-cell">${noteHtml}</td>
                 <td data-column="value" data-label="قيمة الطلبية" class="finance-value-cell">${formatMoney(order.grandTotal)} <small>د.ا</small></td>
                 <td data-column="actions" data-label="الإجراءات المالية" class="workflow-actions-cell">${actionHtml}</td>
             `;
