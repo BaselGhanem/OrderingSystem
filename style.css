@@ -1757,25 +1757,36 @@ body[data-page="finance-controller"] .finance-workflow-table thead th {
     text-transform: none;
     letter-spacing: 0;
     font-size: .72rem;
-    cursor: grab;
-    user-select: none;
-    transition: background .16s ease, color .16s ease, opacity .16s ease;
+    transition: background .16s ease, color .16s ease;
 }
 
-body[data-page="finance-controller"] .finance-workflow-table thead th:active { cursor: grabbing; }
-body[data-page="finance-controller"] .finance-workflow-table thead th.is-dragging { opacity: .42; }
-body[data-page="finance-controller"] .finance-workflow-table thead th.drag-target {
+.finance-sort-btn {
+    width: 100%;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.finance-sort-btn i {
+    color: #9aabb8;
+    font-size: .82rem;
+}
+
+body[data-page="finance-controller"] .finance-workflow-table thead th.sort-active {
     color: var(--finance-teal) !important;
     background: #e7f7f7 !important;
-    box-shadow: inset 3px 0 0 var(--finance-teal);
 }
 
-.column-drag {
-    display: inline-flex;
-    margin-inline-end: 5px;
-    color: #9aabb8;
-    font-size: .92rem;
-    vertical-align: middle;
+body[data-page="finance-controller"] .finance-workflow-table thead th.sort-active .finance-sort-btn i {
+    color: var(--finance-teal);
 }
 
 body[data-page="finance-controller"] .finance-workflow-table tbody td {
