@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link href="style.css?v=20260813_finance_premium_v1" rel="stylesheet"/>
+<link href="style.css?v=20260813_finance_premium_sort_v2" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -30,16 +30,16 @@
         <div><label>الحالة</label><select id="filterStatus"><option value="">الكل</option><option value="finance_pending">بانتظار المالية</option><option value="finance_rejected">مرفوض مالياً</option><option value="returned_to_finance">مرجعة للمالية</option></select></div>
         <div class="finance-filter-actions"><button class="btn-secondary" id="financeExportVisibleBtn" type="button"><i class="ph ph-download-simple"></i> تصدير كل الظاهر</button><button class="btn-success" id="financeExportSelectedBtn" type="button"><i class="ph ph-file-xls"></i> تصدير المحدد</button></div>
     </section>
-    <div class="finance-table-heading"><div><h2>الطلبيات المالية</h2><p><i class="ph ph-dots-six-vertical"></i> اسحب عنوان أي عمود لتغيير ترتيبه</p></div></div>
+    <div class="finance-table-heading"><div><h2>الطلبيات المالية</h2><p><i class="ph ph-arrows-down-up"></i> اضغط على عنوان العمود للترتيب تصاعدياً أو تنازلياً</p></div></div>
     <div class="table-responsive workflow-table-wrap">
         <table class="order-table workflow-table finance-workflow-table">
-            <thead><tr><th data-column="select"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span><input id="selectAllWorkflow" type="checkbox"></th><th data-column="date"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>التاريخ</th><th data-column="time"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>الوقت</th><th data-column="pharmacyCode"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>كود الصيدلية</th><th data-column="pharmacyName"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>اسم الصيدلية</th><th data-column="representative"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>المندوب</th><th data-column="note"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>ملاحظة الطلبية</th><th data-column="value"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>قيمة الطلبية</th><th data-column="actions"><span class="column-drag"><i class="ph ph-dots-six-vertical"></i></span>الإجراءات المالية</th></tr></thead>
+            <thead><tr><th><input id="selectAllWorkflow" type="checkbox"></th><th data-sort="date"><button class="finance-sort-btn" type="button">التاريخ <i class="ph ph-caret-up-down"></i></button></th><th data-sort="time"><button class="finance-sort-btn" type="button">الوقت <i class="ph ph-caret-up-down"></i></button></th><th data-sort="pharmacyCode"><button class="finance-sort-btn" type="button">كود الصيدلية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="pharmacyName"><button class="finance-sort-btn" type="button">اسم الصيدلية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="representative"><button class="finance-sort-btn" type="button">المندوب <i class="ph ph-caret-up-down"></i></button></th><th data-sort="note"><button class="finance-sort-btn" type="button">ملاحظة الطلبية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="value"><button class="finance-sort-btn" type="button">قيمة الطلبية <i class="ph ph-caret-up-down"></i></button></th><th data-sort="status"><button class="finance-sort-btn" type="button">الإجراءات المالية <i class="ph ph-caret-up-down"></i></button></th></tr></thead>
             <tbody id="financeOrdersBody"><tr><td colspan="9"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr></tbody>
         </table>
     </div>
 </main>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260813_finance_premium_v1" type="module"></script>
+<script src="js/workflow.js?v=20260813_finance_premium_sort_v2" type="module"></script>
 </body>
 </html>
