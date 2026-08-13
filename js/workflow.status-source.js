@@ -817,7 +817,7 @@ function subscribeOrders(onChange) {
         showDataModeNotice('تم عرض نسخة مخزنة محليًا، ويتم تحديثها الآن من Firebase.');
         onChange();
     } else {
-        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 9] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 9] : ['ordersStaffBody', 12];
+        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 9] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 10] : ['ordersStaffBody', 12];
         setLoadingRow(target[0], target[1]);
     }
     refreshOrdersFromFirebase();
@@ -1390,7 +1390,7 @@ function renderFinanceOrders() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 9, 'لا توجد طلبيات مالية بانتظار الاعتماد');
+    if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 10, 'لا توجد طلبيات مالية بانتظار الاعتماد');
     applyFinanceSort();
 
     const renderChunk = async (startIndex = 0) => {
@@ -1411,13 +1411,18 @@ function renderFinanceOrders() {
                 : financeNote
                     ? `<div class="finance-note-detail"><strong>آخر ملاحظة مالية:</strong> ${escapeHtml(financeNote)}</div>`
                     : '-';
-            const actionHtml = isPending
-                ? `<div class="finance-action-buttons"><button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button></div>`
+            const statusHtml = isPending
+                ? `<span class="status-badge finance_pending">بانتظار المالية</span>`
                 : isRejected
-                    ? `<div class="finance-action-stack"><div class="finance-action-state"><span class="status-badge finance_rejected">مرفوض مالياً</span></div><div class="finance-action-buttons"><button class="action-btn approve-btn" type="button"><i class="ph ph-arrow-counter-clockwise"></i> اعتماد بدلاً من الرفض</button><button class="action-btn reject-btn" type="button"><i class="ph ph-pencil-simple"></i> تعديل السبب</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع للسوق</button></div></div>`
+                    ? `<span class="status-badge finance_rejected">مرفوض مالياً</span>`
                     : isReturnedToFinance
-                        ? `<div class="finance-action-stack"><div class="finance-action-state"><span class="status-badge returned_to_finance">مرجعة للمالية</span></div><div class="finance-action-buttons"><button class="action-btn approve-btn" type="button"><i class="ph ph-check-circle"></i> اعتماد</button><button class="action-btn reject-btn" type="button"><i class="ph ph-x-circle"></i> رفض</button><button class="action-btn return-market-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع لمدير السوق</button></div></div>`
+                        ? `<span class="status-badge returned_to_finance">مرجعة للمالية</span>`
                         : `<span class="status-badge ${order.status}">${statusLabel(order.status)}</span>`;
+            const approveLabel = isRejected ? 'اعتماد بدلاً من الرفض' : 'اعتماد';
+            const rejectLabel = isRejected ? 'تعديل سبب الرفض' : 'رفض';
+            const actionHtml = (isPending || isRejected || isReturnedToFinance)
+                ? `<select class="finance-action-select" aria-label="اختر إجراء للطلبية"><option value="" selected>الإجراء</option><option value="approve">${approveLabel}</option><option value="reject">${rejectLabel}</option><option value="return">إرجاع لمدير السوق</option></select>`
+                : `<span class="finance-no-action">لا يوجد إجراء</span>`;
             tr.innerHTML = `
                 <td data-column="select"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
                 <td data-column="date" data-label="التاريخ" class="finance-date-cell">${escapeHtml(financeDate)}</td>
@@ -1427,21 +1432,25 @@ function renderFinanceOrders() {
                 <td data-column="representative" data-label="المندوب">${escapeHtml(order.repName || order.representativeName || '-')}</td>
                 <td data-column="note" data-label="ملاحظة الطلبية" class="workflow-note-cell">${noteHtml}</td>
                 <td data-column="value" data-label="قيمة الطلبية" class="finance-value-cell">${formatMoney(order.grandTotal)} <small>د.ا</small></td>
+                <td data-column="status" data-label="الحالة" class="finance-status-cell">${statusHtml}</td>
                 <td data-column="actions" data-label="الإجراءات المالية" class="workflow-actions-cell">${actionHtml}</td>
             `;
-            tr.querySelector('.approve-btn')?.addEventListener('click', () => {
-                if (!confirm('اعتماد الطلبية مالياً وتحويلها إلى فريق المعالجة؟')) return;
-                const note = window.prompt('يمكنك كتابة ملاحظة اختيارية للمندوب والمشرف عند الاعتماد (اختياري):', order.financeApprovalNote || order.financeVisibleNote || '');
-                if (note === null) return;
-                financeApprove(order.id, note.trim());
-            });
-            tr.querySelector('.reject-btn')?.addEventListener('click', () => {
-                const reason = confirmReason(isRejected ? 'تعديل سبب الرفض المالي (سيظهر للمندوب والمشرف):' : 'سبب الرفض المالي (سيظهر للمندوب والمشرف):', true);
-                if (reason !== null) financeReject(order.id, reason);
-            });
-            tr.querySelector('.return-market-btn')?.addEventListener('click', () => {
-                const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع لمدير السوق:');
-                if (reason !== null) returnOrderStep(order.id, 'market_manager', reason, 'Hamza', 'finance_controller', 'finance_returned_to_market_manager');
+            tr.querySelector('.finance-action-select')?.addEventListener('change', event => {
+                const action = event.target.value;
+                event.target.value = '';
+                if (action === 'approve') {
+                    if (!confirm('اعتماد الطلبية مالياً وتحويلها إلى فريق المعالجة؟')) return;
+                    const note = window.prompt('يمكنك كتابة ملاحظة اختيارية للمندوب والمشرف عند الاعتماد (اختياري):', order.financeApprovalNote || order.financeVisibleNote || '');
+                    if (note !== null) financeApprove(order.id, note.trim());
+                }
+                if (action === 'reject') {
+                    const reason = confirmReason(isRejected ? 'تعديل سبب الرفض المالي (سيظهر للمندوب والمشرف):' : 'سبب الرفض المالي (سيظهر للمندوب والمشرف):', true);
+                    if (reason !== null) financeReject(order.id, reason);
+                }
+                if (action === 'return') {
+                    const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع لمدير السوق:');
+                    if (reason !== null) returnOrderStep(order.id, 'market_manager', reason, 'Hamza', 'finance_controller', 'finance_returned_to_market_manager');
+                }
             });
             fragment.appendChild(tr);
         });
