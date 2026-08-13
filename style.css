@@ -1822,16 +1822,43 @@ body[data-page="finance-controller"] .finance-workflow-table tbody tr:hover {
 .finance-value-cell small { color: var(--finance-muted); font-size: .65rem; font-weight: 700; }
 
 body[data-page="finance-controller"] .workflow-note-cell {
-    min-width: 190px;
-    max-width: 280px;
+    min-width: 220px;
+    max-width: 300px;
     white-space: normal !important;
+    line-height: 1.65;
+}
+
+.finance-note-detail {
+    color: #a33a32;
+    font-size: .72rem;
+    font-weight: 700;
+}
+
+.finance-note-detail strong {
+    color: #8d2e28;
 }
 
 body[data-page="finance-controller"] .workflow-actions-cell {
-    min-width: 310px;
+    min-width: 390px;
+    white-space: normal !important;
+}
+
+.finance-action-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.finance-action-state {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
+}
+
+.finance-action-buttons {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
     gap: 6px;
 }
 
@@ -1842,6 +1869,7 @@ body[data-page="finance-controller"] .workflow-actions-cell .action-btn {
     border-radius: 8px;
     font-size: .7rem;
     box-shadow: none;
+    white-space: nowrap;
 }
 
 body[data-page="finance-controller"] .workflow-actions-cell .approve-btn {
