@@ -1,6 +1,8 @@
 import { db, collection, getDocs, query, where, doc, getDoc, setDoc } from './firebase.js';
 
 const TARGETS_COLLECTION = `monthly_targets`;
+const TARGET_UPDATE_NOTICE_DATE = `2026-08-19`;
+const TARGET_UPDATE_NOTICE_VERSION = `targets_v1`;
 const DEFAULT_REP_MANAGER_MAP = {
     [`مراد عمر`]: `محمد طوالبه`,
     [`مؤيد الزعبي`]: `محمد طوالبه`,
@@ -133,6 +135,44 @@ function readRepresentativeContext() {
 
 function showTargetToast(message, type = `info`) {
     if (typeof window.showToast === `function`) window.showToast(message, type);
+}
+
+function showTargetUpdateNoticeOnce(role, userId) {
+    const today = currentMonthValue().concat(`-`, String(new Date().getDate()).padStart(2, `0`));
+    if (today !== TARGET_UPDATE_NOTICE_DATE || !userId) return;
+
+    const storageKey = `target_update_notice_${TARGET_UPDATE_NOTICE_VERSION}_${role}_${normalizeText(userId)}`;
+    try {
+        if (localStorage.getItem(storageKey) === `shown`) return;
+        localStorage.setItem(storageKey, `shown`);
+    } catch (error) {
+        console.warn(`تعذر حفظ حالة تنبيه تحديث التارجت.`, error);
+    }
+
+    const modal = document.createElement(`div`);
+    modal.id = `targetUpdateNoticeModal`;
+    modal.className = `modal-overlay`;
+    modal.style.cssText = `display:flex;z-index:11000;`;
+    modal.innerHTML = `
+        <div class="modal-content glass-panel" role="dialog" aria-modal="true" aria-labelledby="targetUpdateNoticeTitle" style="max-width:460px;text-align:center;padding:40px 30px;">
+            <div style="background:rgba(9,153,153,.12);width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+                <i class="ph ph-target" aria-hidden="true" style="font-size:3.5rem;color:#099999;"></i>
+            </div>
+            <h2 id="targetUpdateNoticeTitle" style="color:var(--primary);margin-bottom:15px;font-weight:800;">تحديث جديد: نظام التارجت</h2>
+            <p style="color:var(--secondary);font-size:1.05rem;line-height:1.8;margin-bottom:30px;">
+                تمت إضافة قسم جديد لتحديد الأهداف الشهرية ومتابعة الكميات المباعة والمتبقية ونسبة الإنجاز.
+            </p>
+            <button class="btn-primary" id="closeTargetUpdateNoticeBtn" type="button" style="width:100%;height:50px;font-size:1.05rem;">
+                علمت ذلك، شكراً
+            </button>
+        </div>`;
+    document.body.appendChild(modal);
+
+    const closeNotice = () => modal.remove();
+    el(`closeTargetUpdateNoticeBtn`)?.addEventListener(`click`, closeNotice, { once: true });
+    modal.addEventListener(`click`, event => {
+        if (event.target === modal) closeNotice();
+    });
 }
 
 async function loadAssignments() {
@@ -400,6 +440,7 @@ async function initializeSupervisorTargets() {
     targetState.supervisorLoaded = true;
     targetState.supervisorName = readAdminSession()?.name || ``;
     if (!targetState.supervisorName) return;
+    showTargetUpdateNoticeOnce(`supervisor`, targetState.supervisorName);
     await loadAssignments();
     await loadBaseData();
     const month = currentMonthValue();
@@ -469,6 +510,7 @@ async function initializeRepresentativeTarget() {
     const context = readRepresentativeContext();
     targetState.repName = context.repName || ``;
     if (!targetState.repName) return;
+    showTargetUpdateNoticeOnce(`representative`, context.repId || targetState.repName);
     await loadAssignments();
     targetState.supervisorName = targetState.repManagerMap[targetState.repName] || ``;
     await loadBaseData();
