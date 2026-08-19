@@ -340,6 +340,74 @@
     background: linear-gradient(135deg, #0f8f92, #087174) !important;
 }
 
+.targets-section {
+    padding: 20px;
+    border: 1px solid rgba(226, 232, 240, .92);
+    border-radius: 20px;
+    background: linear-gradient(145deg, rgba(255,255,255,.99), rgba(248,250,252,.96));
+    box-shadow: var(--supervisor-shadow);
+}
+.targets-section-header,
+.targets-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.targets-section-header { margin-bottom: 18px; }
+.targets-section-header h3 { margin: 0; color: var(--supervisor-navy); }
+.targets-section-header p { margin: 5px 0 0; color: var(--supervisor-muted); font-weight: 600; }
+.targets-toolbar {
+    padding: 14px;
+    margin-bottom: 16px;
+    border-radius: 16px;
+    background: #f7fbfb;
+    border: 1px solid rgba(9,153,153,.16);
+}
+.targets-toolbar-group { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.targets-toolbar .input-group { margin: 0; min-width: 180px; }
+.targets-toolbar input,
+.targets-toolbar select {
+    min-height: 44px;
+    border: 1px solid rgba(148,163,184,.55);
+    border-radius: 12px;
+    background: #fff;
+}
+.targets-table-wrap { max-height: 62vh; overflow: auto; border-radius: 16px; border: 1px solid #e2e8f0; }
+.targets-table { min-width: 760px; margin: 0; }
+.targets-table thead th { position: sticky; top: 0; z-index: 8; background: #eef7f7; }
+.targets-table .target-sticky-product { position: sticky; right: 0; z-index: 7; min-width: 230px; background: #fff; }
+.targets-table thead .target-sticky-product { z-index: 12; background: #e7f4f4; }
+.target-sticky-product small,
+.target-product-code { display: block; margin-top: 4px; color: #64748b; font-size: .75rem; }
+.target-qty-input {
+    width: 100%;
+    min-width: 105px;
+    height: 40px;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    text-align: center;
+    font: inherit;
+    font-weight: 800;
+    color: var(--supervisor-navy);
+    background: #fff;
+}
+.target-qty-input:focus { outline: 0; border-color: var(--supervisor-accent); box-shadow: 0 0 0 3px rgba(9,153,153,.11); }
+.target-progress-cell { min-width: 145px; }
+.target-progress-cell > span { display: block; margin-bottom: 5px; font-weight: 900; color: var(--supervisor-accent-dark); }
+.target-progress-track { height: 8px; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+.target-progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #099999, #087174); }
+.target-file-input { display: none; }
+
+@media (max-width: 768px) {
+    .targets-section { padding: 14px; }
+    .targets-toolbar-group,
+    .targets-toolbar-group > button,
+    .targets-toolbar .input-group { width: 100%; }
+}
+
 .all-orders-header {
     display: flex;
     justify-content: space-between;
@@ -499,8 +567,10 @@
 </header><main class="screen active glass-panel" id="managerScreen" style="display: block;">
 <h2><i class="ph ph-users-four"></i> لوحة تحكم المدير</h2>
 <div class="manager-sub-tabs supervisor-premium-tabs">
-<button class="btn-subtab active" id="managerMyTeamBtn" type="button"><i class="ph ph-users-three"></i><span>طلبيات فريقي</span></button>
-<button class="btn-subtab premium-company-tab" id="managerAllOrdersBtn" type="button"><i class="ph ph-buildings"></i><span>جميع طلبيات الشركة</span></button>
+<button class="btn-subtab active" data-target-section="teamOrdersSection" id="managerMyTeamBtn" type="button"><i class="ph ph-users-three"></i><span>طلبيات فريقي</span></button>
+<button class="btn-subtab premium-company-tab" data-target-section="allOrdersSection" id="managerAllOrdersBtn" type="button"><i class="ph ph-buildings"></i><span>جميع طلبيات الشركة</span></button>
+<button class="btn-subtab" data-target-section="setTargetsSection" id="managerSetTargetsBtn" type="button"><i class="ph ph-target"></i><span>تحديد الأهداف</span></button>
+<button class="btn-subtab" data-target-section="targetDashboardSection" id="managerTargetDashboardBtn" type="button"><i class="ph ph-chart-line-up"></i><span>متابعة الأهداف</span></button>
 <button id="managerAddNewOrderBtn" style="background: #004a99; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; margin-right: auto; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.3s; box-shadow: 0 4px 6px rgba(0,74,153,0.2);">
 <i class="ph ph-plus-circle"></i> إضافة طلبية لمندوبي
                 </button>
@@ -670,6 +740,38 @@
 </table>
 </div>
 </div>
+<section class="targets-section" id="setTargetsSection" style="display:none;">
+<div class="targets-section-header">
+<div><h3><i class="ph ph-target"></i> تحديد الأهداف الشهرية</h3><p>أدخل الكمية المستهدفة لكل صنف ومندوب، ثم اعتمد بيانات الشهر.</p></div>
+</div>
+<div class="targets-toolbar">
+<div class="targets-toolbar-group"><div class="input-group"><label for="targetMonthPicker">الشهر</label><input id="targetMonthPicker" type="month"/></div></div>
+<div class="targets-toolbar-group">
+<button class="btn-secondary" id="downloadTargetTemplateBtn" type="button"><i class="ph ph-file-xls"></i> تنزيل نموذج Excel</button>
+<button class="btn-secondary" id="uploadTargetTemplateBtn" type="button"><i class="ph ph-upload-simple"></i> رفع ملف Excel</button>
+<input accept=".xlsx,.xls" class="target-file-input" id="targetExcelInput" type="file"/>
+<button class="btn-primary" id="approveTargetsBtn" type="button"><i class="ph ph-check-circle"></i> حفظ واعتماد الهدف</button>
+</div>
+</div>
+<div class="targets-table-wrap">
+<table class="order-table targets-table" id="targetEntryTable"><thead id="targetEntryHead"></thead><tbody id="targetEntryBody"></tbody></table>
+</div>
+</section>
+<section class="targets-section" id="targetDashboardSection" style="display:none;">
+<div class="targets-section-header">
+<div><h3><i class="ph ph-chart-line-up"></i> متابعة الأهداف والتنفيذ</h3><p>المبيعات الفعلية محسوبة من الطلبيات التي تمت فوترتها خلال الشهر المحدد.</p></div>
+</div>
+<div class="targets-toolbar">
+<div class="targets-toolbar-group">
+<div class="input-group"><label for="targetProgressMonth">الشهر</label><input id="targetProgressMonth" type="month"/></div>
+<div class="input-group"><label for="targetProgressRepFilter">المندوب</label><select id="targetProgressRepFilter"><option value="">كل المندوبين</option></select></div>
+<div class="input-group"><label for="targetProgressProductFilter">الصنف</label><select id="targetProgressProductFilter"><option value="">كل الأصناف</option></select></div>
+</div>
+</div>
+<div class="targets-table-wrap">
+<table class="order-table targets-table"><thead><tr><th>المندوب</th><th>الصنف</th><th>الكمية المطلوبة</th><th>الكمية المباعة</th><th>الكمية المتبقية</th><th>نسبة الإنجاز</th></tr></thead><tbody id="targetProgressBody"></tbody></table>
+</div>
+</section>
 </main><div class="modal-overlay" id="detailsModal" style="display: none; z-index: 10010;">
 <div class="modal-content glass-panel">
 <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
@@ -740,4 +842,4 @@
                 علمت ذلك، شكراً
             </button>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20260819_supervisor_remove_reference_v1" type="module"></script></body></html>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20260819_supervisor_remove_reference_v1" type="module"></script><script src="js/targets.js?v=20260819_targets_v1" type="module"></script></body></html>
