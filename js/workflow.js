@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./workflow.status-source.js?v=20260813_finance_action_menu_v6`, import.meta.url);
+const sourceUrl = new URL(`./workflow.status-source.js?v=20260819_hide_deleted_orders_v1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
