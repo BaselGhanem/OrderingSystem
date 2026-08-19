@@ -839,6 +839,27 @@ function getEffectiveOrderStatus(order = {}) {
     return rawStatus;
 }
 
+function isOrderDeleted(order = {}) {
+    const statusFields = [
+        order.status,
+        order.orderStatus,
+        order.workflowStatus,
+        order.workflowStage,
+        order.supervisorStatus,
+        order.marketManagerStatus,
+        order.financeStatus,
+        order.orderStaffStatus
+    ];
+
+    return statusFields.some(value => {
+        const normalized = String(value || '').trim().toLowerCase();
+        return normalized === 'deleted' || normalized.startsWith('deleted_');
+    }) ||
+        order.isDeleted === true ||
+        order.deleted === true ||
+        Boolean(order.deletedAt);
+}
+
 function getOrderRejectionReason(order = {}) {
     const reasons = [
         order.returnReason,
@@ -2250,6 +2271,8 @@ async function loadManagerOrders() {
             const normalizedUnder = managerReps.map(r => r.trim().toLowerCase());
 
             managerOrdersData = allOrders.filter(o => {
+                if (isOrderDeleted(o)) return false;
+
                 const repNameNorm = (o.repName || '').trim().toLowerCase();
                 return normalizedUnder.includes(repNameNorm);
             });
@@ -2269,6 +2292,7 @@ function applyManagerFilters() {
     const toVal = getEl('managerFilterTo')?.value;
 
     const filtered = managerOrdersData.filter(order =>
+        !isOrderDeleted(order) &&
         supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal)
     );
     const sorted = sortSupervisorOrders(filtered, 'manager');
@@ -2389,7 +2413,7 @@ async function loadAllCompanyOrders() {
             allOrdersData = [];
             snap.forEach(d => {
                 const data = d.data();
-                if (data.createdAt) {
+                if (data.createdAt && !isOrderDeleted(data)) {
                     allOrdersData.push({ id: d.id, ...data });
                 }
             });
@@ -2573,6 +2597,7 @@ function filterAllOrders() {
     const toVal = getEl('managerFilterTo')?.value;
 
     const filtered = allOrdersData.filter(order =>
+        !isOrderDeleted(order) &&
         supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal)
     );
     const sorted = sortSupervisorOrders(filtered, 'all');
