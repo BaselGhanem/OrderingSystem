@@ -265,6 +265,7 @@ let currentPharmacyCode = null;
 let currentPharmaciesData = [];
 let currentMyOrdersData = [];
 let reportsOrdersData = [];
+let activeInventoryBatches = [];
 
 let unsubMyOrders = null;
 let unsubManagerOrders = null;
@@ -1192,6 +1193,9 @@ function createProductItemFromRow(row) {
     return {
         name: input?.value || '',
         productCode: input?.dataset?.productCode || selectedProduct?.productCode || selectedProduct?.product_code || selectedProduct?.code || '',
+        batch: row.querySelector('.batch-select')?.value || '',
+        batchExpiry: row.querySelector('.batch-select')?.selectedOptions?.[0]?.dataset?.expiry || '',
+        inventoryBatchId: row.querySelector('.batch-select')?.selectedOptions?.[0]?.dataset?.inventoryId || '',
         qty: row.querySelector('.qty-input')?.value || 0,
         bonus: row.querySelector('.bonus-input')?.value || 0,
         price: row.querySelector('.price-cell')?.innerText || 0,
@@ -1641,6 +1645,7 @@ async function bootstrapPage() {
                     </button>`;
                 bindPharmacyHistoryButton();
             }
+            await loadActiveInventoryBatches();
             if (!restoreSavedDraft() && orderBody && orderBody.children.length === 0) addNewRow();
             loadMyOrders();
         } catch (error) {
@@ -1766,6 +1771,7 @@ function addNewRow(prefill = null) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
         <td data-label="الصنف"><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+        <td data-label="Batch"><select class="batch-select" disabled><option value="">لا يوجد Batch مفعل</option></select><small class="batch-balance" style="display:block;margin-top:4px;color:#64748b;font-weight:700"></small></td>
         <td data-label="الكمية"><input type="number" class="qty-input" value="1" min="1"></td>
         <td data-label="البونص" style="position:relative;"><input type="number" class="bonus-input" value="0" min="0"><span class="bonus-pct" style="font-size:0.75rem; color:var(--primary); font-weight:bold; display:block; text-align:center; margin-top:4px;"></span></td>
         <td data-label="السعر" class="price-cell">0.00</td>
@@ -1781,6 +1787,7 @@ function addNewRow(prefill = null) {
           p = tr.querySelector('.price-cell'), 
           t = tr.querySelector('.row-total'),
           bPct = tr.querySelector('.bonus-pct');
+    const batchSelect = tr.querySelector('.batch-select');
           
     const productNames = productsList.map(prod => prod.name);
     
@@ -1788,6 +1795,7 @@ function addNewRow(prefill = null) {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
         const pr = selectedProd ? parseAppNumber(selectedProd.price) : 0;
         s.dataset.productCode = selectedProd?.productCode || selectedProd?.product_code || selectedProd?.code || '';
+        populateOrderBatchSelect(tr, selectedProd);
         p.innerText = pr.toFixed(2);
         t.innerText = (pr * q.value).toFixed(2);
         updateGrandTotal();
@@ -1820,6 +1828,7 @@ function addNewRow(prefill = null) {
     }
 
     q.oninput = () => { 
+        validateOrderBatchQuantity(tr);
         t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); 
         calcBonus();
         updateGrandTotal(); 
@@ -1844,9 +1853,47 @@ function addNewRow(prefill = null) {
         p.innerText = price.toFixed(2);
         t.innerText = prefill.total !== undefined ? parseAppNumber(prefill.total).toFixed(2) : (price * parseAppNumber(q.value)).toFixed(2);
         tr.querySelector('.item-note-input').value = prefill.note || '';
+        populateOrderBatchSelect(tr, product, prefill.batch || '');
         calcBonus();
         updateGrandTotal();
     }
+}
+
+function populateOrderBatchSelect(row, product, selectedBatch = '') {
+    const select = row.querySelector('.batch-select');
+    const balance = row.querySelector('.batch-balance');
+    if (!select) return;
+    const code = normalizeSupervisorFilterText(product?.productCode || product?.product_code || product?.code || '');
+    const name = normalizeSupervisorFilterText(product?.name || '');
+    const batches = activeInventoryBatches.filter(batch => normalizeSupervisorFilterText(batch.productCode) === code || (!code && normalizeSupervisorFilterText(batch.productName) === name));
+    select.innerHTML = batches.length ? `<option value="">اختر Batch</option>${batches.map(batch => `<option value="${escapePrintHtml(batch.batch)}" data-expiry="${escapePrintHtml(batch.expiryDate || '')}" data-inventory-id="${batch.id}" data-remaining="${parseAppNumber(batch.remainingQty)}">${escapePrintHtml(batch.batch)} — متاح ${parseAppNumber(batch.remainingQty).toLocaleString('en-US')}</option>`).join('')}` : `<option value="">لا يوجد Batch مفعل</option>`;
+    select.disabled = batches.length === 0;
+    select.required = batches.length > 0;
+    if (selectedBatch) select.value = selectedBatch;
+    const refresh = () => { const option = select.selectedOptions[0]; balance.textContent = option?.dataset?.remaining ? `الرصيد: ${parseAppNumber(option.dataset.remaining).toLocaleString('en-US')}` : ''; validateOrderBatchQuantity(row); autoSaveDraft(); };
+    select.onchange = refresh; refresh();
+}
+
+function validateOrderBatchQuantity(row) {
+    const select = row.querySelector('.batch-select');
+    const qty = row.querySelector('.qty-input');
+    if (!select || select.disabled) return true;
+    const remaining = parseAppNumber(select.selectedOptions[0]?.dataset?.remaining);
+    const valid = Boolean(select.value) && parseAppNumber(qty?.value) <= remaining;
+    select.classList.toggle('input-error', !valid);
+    qty?.classList.toggle('input-error', Boolean(select.value) && parseAppNumber(qty.value) > remaining);
+    return valid;
+}
+
+async function loadActiveInventoryBatches() {
+    try {
+        const snap = await getDocs(query(collection(db, 'new_inventory_batches'), where('active', '==', true)));
+        activeInventoryBatches = []; snap.forEach(item => activeInventoryBatches.push({ id: item.id, ...item.data() }));
+        document.querySelectorAll('#orderBody tr').forEach(row => {
+            const product = productsList.find(item => item.name === row.querySelector('.product-input')?.value.trim());
+            if (product) populateOrderBatchSelect(row, product, row.querySelector('.batch-select')?.value || '');
+        });
+    } catch (error) { console.warn('تعذر تحميل أرصدة الـ Batch التجريبية.', error); }
 }
 
 function updateGrandTotal() {
@@ -2011,6 +2058,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
                 invalidItem = true;
                 s.classList.add('input-error');
             } else {
+                if (!validateOrderBatchQuantity(r)) invalidItem = true;
                 s.classList.remove('input-error'); 
                 items.push(createProductItemFromRow(r));
             }
@@ -2018,7 +2066,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
     });
 
     if (invalidItem) {
-        return showToast("يوجد أصناف غير صحيحة، يرجى اختيار الصنف من القائمة حصراً.", "error");
+        return showToast("تحقق من الصنف والـ Batch والكمية المتاحة لكل سطر.", "error");
     }
 
     if (items.length === 0) return showToast("لا يمكن إرسال طلبية فارغة!", "warning");
@@ -3047,6 +3095,7 @@ if (navReportsBtn) navReportsBtn.onclick = () => {
     navReportsBtn.classList.add('active');
     loadReports();
 };
+getEl('navReturnsPageBtn')?.addEventListener('click', () => { window.location.href = 'returns.html'; });
 const logoutBtn = getEl('logoutBtn');
 if (logoutBtn) logoutBtn.onclick = () => {
     if (!confirm("هل أنت متأكد من تسجيل الخروج؟")) return;
