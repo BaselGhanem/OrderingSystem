@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20260804_supervisor_delete_rules_v1`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20260819_hide_deleted_supervisor_v1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
