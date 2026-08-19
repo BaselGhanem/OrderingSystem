@@ -1,0 +1,165 @@
+/* Premium responsive layer for the representative workspace only. */
+body.rep-premium-page {
+    --rep-teal: #099999;
+    --rep-teal-dark: #067979;
+    --rep-ink: #12344d;
+    --rep-muted: #607386;
+    --rep-line: #dfe8ed;
+    --rep-surface: rgba(255, 255, 255, .96);
+    background: #f2f6f7;
+    background-image: radial-gradient(circle at 100% 0, rgba(9,153,153,.10), transparent 34%), radial-gradient(circle at 0 100%, rgba(15,59,92,.07), transparent 38%);
+}
+
+.rep-premium-page .app-container { max-width: 1380px; padding: clamp(10px, 2vw, 24px); }
+.rep-premium-page .glass-panel { border: 1px solid rgba(15,59,92,.08); box-shadow: 0 16px 45px rgba(15,59,92,.08); }
+.rep-premium-page .rep-app-header { min-height: 92px; padding: 18px 22px; margin-bottom: 18px; flex-direction: column; align-items: stretch; }
+.rep-premium-page .rep-app-header .logo-area { justify-content: center; }
+.rep-premium-page .rep-app-header .user-info { width: 100%; justify-content: center; gap: 20px; padding-top: 14px; border-top: 1px solid rgba(15,59,92,.08); }
+.rep-premium-page .logo { height: 46px; max-width: 170px; object-fit: contain; }
+.rep-premium-page .logo-area h1 { font-size: clamp(1.25rem, 2vw, 1.7rem); white-space: nowrap; }
+.rep-premium-page .user-info { min-width: 0; }
+.rep-premium-page .tabs { width: max-content; max-width: 100%; flex: 0 0 auto; gap: 4px; padding: 5px; background: #edf3f4; }
+.rep-premium-page .btn-tab { flex: 0 0 auto; min-height: 48px; padding: 10px 15px; white-space: nowrap; }
+.rep-premium-page .btn-tab.active { color: var(--rep-teal-dark); box-shadow: 0 5px 16px rgba(15,59,92,.08); }
+.rep-premium-page[data-rep-tab="reports"] #navReportsBtn,
+.rep-premium-page[data-rep-tab="targets"] #navTargetsBtn,
+.rep-premium-page[data-rep-tab="my-orders"] #navMyOrdersBtn,
+.rep-premium-page[data-rep-tab="order"] #navOrderBtn {
+    background: #fff;
+    color: var(--rep-teal-dark);
+    box-shadow: 0 5px 16px rgba(15,59,92,.10);
+    font-weight: 800;
+}
+.rep-premium-page #currentRepName { color: var(--rep-muted); font-size: .9rem; white-space: nowrap; }
+.rep-premium-page #currentRepName b { color: var(--rep-ink); }
+.rep-premium-page #logoutBtn { flex: 0 0 42px; width: 42px; height: 42px; }
+
+@media (max-width: 1250px) and (min-width: 769px) {
+    .rep-premium-page .rep-app-header { flex-direction: column; align-items: stretch; }
+    .rep-premium-page .logo-area { justify-content: center; }
+    .rep-premium-page .user-info { width: 100%; justify-content: center; gap: 18px; padding-top: 14px; border-top: 1px solid rgba(15,59,92,.08); }
+    .rep-premium-page .tabs { flex: 0 0 auto; min-width: 0; }
+    .rep-premium-page #currentRepName { flex: 0 0 auto; margin-inline-start: auto; }
+}
+
+.rep-premium-page .screen { padding: clamp(18px, 2.5vw, 32px); }
+.rep-premium-page .screen > h2,
+.rep-premium-page .rep-page-title h2,
+.rep-premium-page .rep-target-header h2 { color: var(--rep-ink); font-size: clamp(1.25rem, 2vw, 1.65rem); }
+.rep-premium-page .rep-page-heading { display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 22px; }
+.rep-premium-page .rep-page-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.rep-premium-page #orderPharmacyName { margin: 0; padding: 8px 12px; border-radius: 12px; background: rgba(9,153,153,.08); font-size: 1rem; }
+.rep-premium-page #changePharmacyBtn,
+.rep-premium-page #printDraftBtn { min-height: 42px; padding: 9px 14px !important; }
+
+.rep-premium-page .table-responsive,
+.rep-premium-page .rep-target-table-wrap { border: 1px solid var(--rep-line); border-radius: 18px; box-shadow: none; background: #fff; }
+.rep-premium-page .order-table { min-width: 0; table-layout: auto; }
+.rep-premium-page #orderScreen .order-table { min-width: 920px; }
+.rep-premium-page .order-table th { padding: 14px 12px; background: #f2f7f7; color: var(--rep-ink); letter-spacing: 0; text-transform: none; white-space: nowrap; }
+.rep-premium-page .order-table td { padding: 13px 12px; }
+.rep-premium-page .order-table input { min-height: 42px; padding: 9px 11px; }
+.rep-premium-page .total-box { min-width: 210px; padding: 12px 16px; border-radius: 14px; background: #edf8f8; color: var(--rep-ink); text-align: center; }
+.rep-premium-page #submitOrderBtn { max-width: 420px; margin-inline-start: auto; }
+
+.rep-premium-page .rep-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }
+.rep-premium-page .rep-summary-card { position: relative; overflow: hidden; min-height: 112px; padding: 20px; border: 1px solid var(--rep-line); border-radius: 18px; background: linear-gradient(145deg,#fff,#f7fbfb); box-shadow: 0 8px 24px rgba(15,59,92,.06); }
+.rep-premium-page .rep-summary-card::after { content: ''; position: absolute; inset-block: 0; inset-inline-end: 0; width: 4px; background: var(--rep-teal); }
+.rep-premium-page .rep-summary-count::after { background: #e98300; }
+.rep-premium-page .rep-summary-card small { color: var(--rep-muted); font-weight: 800; }
+.rep-premium-page .rep-summary-card h3 { font-size: clamp(1.45rem, 2.4vw, 2rem) !important; }
+.rep-premium-page .orders-toolbar { padding: 16px; background: #f7fafb; }
+.rep-premium-page .orders-toolbar .filter-grid { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
+.rep-premium-page .orders-toolbar .input-group { margin: 0; }
+.rep-premium-page .orders-toolbar { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+
+.rep-premium-page .rep-target-header { padding-bottom: 14px; border-bottom: 1px solid var(--rep-line); }
+.rep-premium-page .rep-target-note { display: flex; align-items: center; gap: 8px; }
+.rep-premium-page .target-quick-filters { display: flex; flex-wrap: wrap; gap: 9px; margin: 0 0 10px; }
+.rep-premium-page .target-filter-chip { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 9px 15px; border: 1px solid #cbdde0; border-radius: 999px; background: #fff; color: var(--rep-muted); font-family: inherit; font-weight: 800; cursor: pointer; transition: .2s ease; }
+.rep-premium-page .target-filter-chip:hover { border-color: var(--rep-teal); color: var(--rep-teal-dark); }
+.rep-premium-page .target-filter-chip.active { border-color: var(--rep-teal); background: var(--rep-teal); color: #fff; box-shadow: 0 7px 18px rgba(9,153,153,.20); }
+.rep-premium-page .target-results-summary { min-height: 24px; margin-bottom: 8px; color: var(--rep-muted); font-size: .85rem; font-weight: 700; }
+.rep-premium-page .rep-target-table-wrap { max-height: 62vh; }
+.rep-premium-page .rep-target-table { min-width: 760px; }
+.rep-premium-page .rep-target-table thead th { background: var(--rep-ink); color: #fff; }
+
+@media (min-width: 769px) and (max-width: 1100px) {
+    .rep-premium-page .rep-app-header { align-items: stretch; }
+    .rep-premium-page .user-info { width: 100%; justify-content: space-between; gap: 12px; }
+    .rep-premium-page .orders-toolbar .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rep-premium-page .rep-page-actions { width: 100%; justify-content: flex-start; }
+}
+
+@media (max-width: 768px) {
+    .rep-premium-page .app-container { padding: 8px; }
+    .rep-premium-page .rep-app-header { min-height: 0; padding: 14px; gap: 12px; border-radius: 18px; }
+    .rep-premium-page .logo-area { width: 100%; justify-content: center; gap: 10px; }
+    .rep-premium-page .logo { height: 38px; max-width: 132px; }
+    .rep-premium-page .user-info { padding-top: 10px; gap: 10px; }
+    .rep-premium-page .tabs { order: 2; width: 100%; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+    .rep-premium-page .tabs::-webkit-scrollbar { display: none; }
+    .rep-premium-page .btn-tab { flex: 0 0 auto; min-width: 92px; min-height: 44px; padding: 8px 12px; font-size: .84rem; }
+    .rep-premium-page #currentRepName { order: 1; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .rep-premium-page #logoutBtn { order: 1; }
+    .rep-premium-page .screen { padding: 16px; border-radius: 18px; }
+    .rep-premium-page .rep-page-heading { align-items: stretch; margin-bottom: 16px; }
+    .rep-premium-page .rep-page-title,
+    .rep-premium-page .rep-page-actions { width: 100%; }
+    .rep-premium-page .rep-page-actions { display: grid; grid-template-columns: 1fr 1fr; }
+    .rep-premium-page #orderPharmacyName { grid-column: 1 / -1; }
+    .rep-premium-page #changePharmacyBtn,
+    .rep-premium-page #printDraftBtn { width: 100%; }
+    .rep-premium-page .rep-summary-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .rep-premium-page .rep-summary-card { min-height: 96px; padding: 15px; }
+    .rep-premium-page .orders-toolbar,
+    .rep-premium-page .orders-toolbar .filter-grid { grid-template-columns: 1fr; }
+    .rep-premium-page .orders-toolbar .table-actions button { width: 100%; }
+    .rep-premium-page .target-quick-filters { display: grid; grid-template-columns: 1fr; }
+    .rep-premium-page .target-filter-chip { width: 100%; border-radius: 13px; }
+    .rep-premium-page .rep-target-table-wrap { max-height: none; overflow: visible; border: 0; background: transparent; }
+
+    .rep-premium-page #myOrdersTable,
+    .rep-premium-page #reportsTable,
+    .rep-premium-page .rep-target-table { min-width: 0; display: block; background: transparent; }
+    .rep-premium-page #myOrdersTable thead,
+    .rep-premium-page #reportsTable thead,
+    .rep-premium-page .rep-target-table thead { display: none; }
+    .rep-premium-page #myOrdersTable tbody,
+    .rep-premium-page #reportsTable tbody,
+    .rep-premium-page .rep-target-table tbody { display: grid; gap: 12px; }
+    .rep-premium-page #myOrdersTable tr,
+    .rep-premium-page #reportsTable tr,
+    .rep-premium-page .rep-target-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 0; overflow: hidden; border: 1px solid var(--rep-line); border-radius: 16px; background: #fff; box-shadow: 0 6px 18px rgba(15,59,92,.06); }
+    .rep-premium-page #myOrdersTable td,
+    .rep-premium-page #reportsTable td,
+    .rep-premium-page .rep-target-table td { display: flex; min-width: 0; padding: 10px 12px; border-bottom: 1px solid #edf2f4; white-space: normal; align-items: center; justify-content: space-between; gap: 8px; }
+    .rep-premium-page #myOrdersTable td::before,
+    .rep-premium-page #reportsTable td::before { content: attr(data-label); color: var(--rep-muted); font-size: .75rem; font-weight: 800; }
+    .rep-premium-page .rep-target-table td:nth-child(1)::before { content: 'الصنف'; }
+    .rep-premium-page .rep-target-table td:nth-child(2)::before { content: 'التارجت'; }
+    .rep-premium-page .rep-target-table td:nth-child(3)::before { content: 'المباع'; }
+    .rep-premium-page .rep-target-table td:nth-child(4)::before { content: 'المتبقي'; }
+    .rep-premium-page .rep-target-table td:nth-child(5)::before { content: 'الإنجاز'; }
+    .rep-premium-page #myOrdersTable td:nth-last-child(-n+2),
+    .rep-premium-page #reportsTable td:last-child,
+    .rep-premium-page .rep-target-table td:first-child,
+    .rep-premium-page .rep-target-table td:last-child { grid-column: 1 / -1; }
+    .rep-premium-page .target-progress-cell { width: 100%; min-width: 0; }
+    .rep-premium-page .table-responsive { padding-bottom: 0 !important; overflow: visible !important; background: transparent; border: 0; }
+    .rep-premium-page #orderScreen .table-responsive { overflow-x: auto !important; border: 1px solid var(--rep-line); background: #fff; }
+    .rep-premium-page #submitOrderBtn { max-width: none; }
+}
+
+@media (max-width: 430px) {
+    .rep-premium-page .logo-area h1 { font-size: 1.08rem; }
+    .rep-premium-page .rep-summary-grid { grid-template-columns: 1fr; }
+    .rep-premium-page .rep-summary-card { min-height: 88px; }
+    .rep-premium-page .rep-page-actions { grid-template-columns: 1fr; }
+    .rep-premium-page #myOrdersTable tr,
+    .rep-premium-page #reportsTable tr,
+    .rep-premium-page .rep-target-table tr { grid-template-columns: 1fr; }
+    .rep-premium-page #myOrdersTable td,
+    .rep-premium-page #reportsTable td,
+    .rep-premium-page .rep-target-table td { grid-column: 1 / -1; }
+}

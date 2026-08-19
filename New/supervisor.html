@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar"><head>
+<link href="favicon.ico?v=20260629_audit_dynamic_notes_fix1" rel="icon"/>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport"/>
+<title>لوحة المدير | نظام الطلبيات</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="style.css?v=20260629_audit_dynamic_notes_fix1" rel="stylesheet"/>
+<meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
+<meta content="no-cache" http-equiv="Pragma"/>
+<meta content="0" http-equiv="Expires"/>
+<style>
+:root {
+    --supervisor-accent: #099999;
+    --supervisor-accent-dark: #067575;
+    --supervisor-navy: #123047;
+    --supervisor-muted: #64748b;
+    --supervisor-border: rgba(148, 163, 184, .28);
+    --supervisor-shadow: 0 12px 30px rgba(15, 23, 42, .08);
+    --supervisor-shadow-hover: 0 18px 38px rgba(15, 23, 42, .14);
+}
+
+.supervisor-filter-select {
+    flex: 1;
+    min-width: 170px;
+    min-height: 48px;
+    border: 1px solid var(--supervisor-border) !important;
+    border-radius: 14px !important;
+    background: rgba(255, 255, 255, .94) !important;
+    color: var(--supervisor-navy) !important;
+    font-weight: 700;
+    box-shadow: 0 5px 16px rgba(15, 23, 42, .045);
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.supervisor-filter-select:hover {
+    border-color: rgba(9, 153, 153, .48) !important;
+}
+.supervisor-filter-select:focus {
+    border-color: var(--supervisor-accent) !important;
+    box-shadow: 0 0 0 4px rgba(9, 153, 153, .12) !important;
+    transform: translateY(-1px);
+}
+
+
+.supervisor-filter-search {
+    position: relative;
+    min-width: 210px;
+    flex: 1 1 230px;
+    z-index: 35;
+}
+.supervisor-filter-search:focus-within { z-index: 80; }
+.supervisor-filter-search .supervisor-search-input {
+    width: 100%;
+    height: 46px;
+    padding: 0 43px 0 38px;
+    border-radius: 13px !important;
+    border: 1px solid rgba(148, 163, 184, .55) !important;
+    background: linear-gradient(145deg, #ffffff, #fbfefe) !important;
+    color: #0f172a;
+    font-family: inherit;
+    font-weight: 700;
+    outline: none;
+    box-shadow: 0 5px 13px rgba(15, 23, 42, .045);
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.supervisor-filter-search .supervisor-search-input::placeholder {
+    color: #64748b;
+    opacity: 1;
+}
+.supervisor-filter-search .supervisor-search-input:focus {
+    border-color: rgba(9, 153, 153, .78) !important;
+    box-shadow: 0 0 0 4px rgba(9, 153, 153, .10), 0 9px 20px rgba(15, 23, 42, .07);
+}
+.supervisor-filter-search-icon {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--supervisor-accent-dark);
+    font-size: 1.08rem;
+    pointer-events: none;
+    z-index: 2;
+}
+.supervisor-filter-search-chevron {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+    font-size: .95rem;
+    pointer-events: none;
+    transition: transform .18s ease, color .18s ease;
+}
+.supervisor-filter-search.open .supervisor-filter-search-chevron {
+    transform: translateY(-50%) rotate(180deg);
+    color: var(--supervisor-accent-dark);
+}
+.supervisor-filter-suggestions {
+    position: absolute;
+    top: calc(100% + 7px);
+    right: 0;
+    left: 0;
+    display: none;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 7px;
+    border: 1px solid rgba(9, 153, 153, .32);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, .985);
+    box-shadow: 0 20px 45px rgba(15, 23, 42, .18);
+    backdrop-filter: blur(18px);
+    z-index: 9999;
+}
+.supervisor-filter-search.open .supervisor-filter-suggestions { display: block; }
+.supervisor-filter-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 12px;
+    border: 0;
+    border-radius: 11px;
+    background: transparent;
+    color: #172033;
+    font-family: inherit;
+    font-size: .93rem;
+    font-weight: 700;
+    text-align: right;
+    cursor: pointer;
+    transition: background .14s ease, color .14s ease, transform .14s ease;
+}
+.supervisor-filter-option:hover,
+.supervisor-filter-option.active {
+    color: #fff;
+    background: linear-gradient(135deg, var(--supervisor-accent), var(--supervisor-accent-dark));
+    transform: translateX(-2px);
+}
+.supervisor-filter-option-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.supervisor-filter-option-count {
+    flex: 0 0 auto;
+    min-width: 28px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    color: #087174;
+    background: #e7f8f8;
+    font-size: .76rem;
+    font-weight: 900;
+    text-align: center;
+}
+.supervisor-filter-option:hover .supervisor-filter-option-count,
+.supervisor-filter-option.active .supervisor-filter-option-count {
+    color: #075f61;
+    background: rgba(255,255,255,.92);
+}
+.supervisor-filter-empty {
+    padding: 15px 12px;
+    color: #64748b;
+    font-size: .88rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.supervisor-filter-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 14px;
+    border: 1px solid rgba(226, 232, 240, .9);
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(248, 250, 252, .96), rgba(255, 255, 255, .96));
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+}
+
+.sortable-header-button {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.sortable-header-button:hover,
+.sortable-header-button:focus-visible {
+    color: var(--supervisor-accent);
+    outline: none;
+}
+.sortable-header-button .sort-icon {
+    font-size: 1rem;
+    opacity: .5;
+    transition: transform .18s ease, opacity .18s ease;
+}
+.sortable-header-button.active .sort-icon { opacity: 1; }
+.sortable-header-button[data-direction="desc"] .sort-icon { transform: rotate(180deg); }
+
+.manager-sub-tabs.supervisor-premium-tabs {
+    display: flex !important;
+    gap: 10px !important;
+    margin-bottom: 22px !important;
+    padding: 8px !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    border: 1px solid rgba(226, 232, 240, .92) !important;
+    border-radius: 18px !important;
+    background: rgba(248, 250, 252, .86) !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+}
+.manager-sub-tabs.supervisor-premium-tabs .btn-subtab {
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: 1px solid transparent;
+    border-radius: 13px;
+    color: #526174;
+    background: transparent;
+    box-shadow: none;
+}
+.manager-sub-tabs.supervisor-premium-tabs .btn-subtab i { font-size: 1.15rem; }
+.manager-sub-tabs.supervisor-premium-tabs .btn-subtab:hover:not(.active) {
+    color: var(--supervisor-accent-dark);
+    background: rgba(9, 153, 153, .07);
+    border-color: rgba(9, 153, 153, .14);
+    transform: translateY(-1px);
+}
+.manager-sub-tabs.supervisor-premium-tabs .btn-subtab.active {
+    color: #fff;
+    background: linear-gradient(135deg, var(--supervisor-accent), var(--supervisor-accent-dark));
+    border-color: rgba(255, 255, 255, .18);
+    box-shadow: 0 10px 22px rgba(9, 153, 153, .24);
+}
+.manager-sub-tabs.supervisor-premium-tabs .premium-company-tab.active {
+    background: linear-gradient(135deg, #173a53, #0d6370 58%, #099999);
+    box-shadow: 0 11px 25px rgba(15, 61, 78, .25);
+}
+
+.premium-export-btn,
+.premium-filter-clear,
+.premium-action-btn {
+    position: relative;
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 17px;
+    border-radius: 13px !important;
+    border: 1px solid transparent !important;
+    font-family: inherit;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    cursor: pointer;
+    overflow: hidden;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .10);
+    transition: transform .18s ease, box-shadow .18s ease, filter .18s ease, background .18s ease;
+}
+.premium-export-btn:hover,
+.premium-filter-clear:hover,
+.premium-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 13px 25px rgba(15, 23, 42, .15);
+    filter: brightness(1.02);
+}
+.premium-export-btn:active,
+.premium-filter-clear:active,
+.premium-action-btn:active {
+    transform: translateY(0) scale(.985);
+}
+.premium-export-btn:disabled,
+.premium-filter-clear:disabled,
+.premium-action-btn:disabled {
+    cursor: wait;
+    opacity: .72;
+    transform: none;
+    filter: saturate(.8);
+}
+.premium-export-btn i,
+.premium-filter-clear i,
+.premium-action-btn i { font-size: 1.15rem; }
+
+.premium-export-btn {
+    color: #fff !important;
+    background: linear-gradient(135deg, #0f7a43, #159a58) !important;
+    border-color: rgba(15, 122, 67, .15) !important;
+    box-shadow: 0 10px 22px rgba(15, 122, 67, .22);
+}
+.premium-filter-clear {
+    color: var(--supervisor-accent-dark) !important;
+    background: linear-gradient(145deg, #ffffff, #edfafa) !important;
+    border-color: rgba(9, 153, 153, .30) !important;
+    box-shadow: 0 8px 18px rgba(9, 153, 153, .10);
+}
+.premium-filter-clear:hover {
+    color: #fff !important;
+    background: linear-gradient(135deg, var(--supervisor-accent), var(--supervisor-accent-dark)) !important;
+}
+
+.premium-actions-toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.premium-action-btn.action-approve {
+    color: #fff !important;
+    background: linear-gradient(135deg, #119b69, #057a53) !important;
+    box-shadow: 0 9px 20px rgba(5, 122, 83, .20);
+}
+.premium-action-btn.action-delete {
+    color: #fff !important;
+    background: linear-gradient(135deg, #e34d5b, #bd2537) !important;
+    box-shadow: 0 9px 20px rgba(189, 37, 55, .20);
+}
+.premium-action-btn.action-print {
+    color: #086f72 !important;
+    background: linear-gradient(145deg, #ffffff, #eaf8f8) !important;
+    border-color: rgba(9, 153, 153, .30) !important;
+    box-shadow: 0 8px 18px rgba(9, 153, 153, .11);
+}
+.premium-action-btn.action-print:hover {
+    color: #fff !important;
+    background: linear-gradient(135deg, #0f8f92, #087174) !important;
+}
+
+.targets-section {
+    padding: 20px;
+    border: 1px solid rgba(226, 232, 240, .92);
+    border-radius: 20px;
+    background: linear-gradient(145deg, rgba(255,255,255,.99), rgba(248,250,252,.96));
+    box-shadow: var(--supervisor-shadow);
+}
+.targets-section-header,
+.targets-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.targets-section-header { margin-bottom: 18px; }
+.targets-section-header h3 { margin: 0; color: var(--supervisor-navy); }
+.targets-section-header p { margin: 5px 0 0; color: var(--supervisor-muted); font-weight: 600; }
+.targets-toolbar {
+    padding: 14px;
+    margin-bottom: 16px;
+    border-radius: 16px;
+    background: #f7fbfb;
+    border: 1px solid rgba(9,153,153,.16);
+}
+.targets-toolbar-group { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.targets-toolbar .input-group { margin: 0; min-width: 180px; }
+.targets-toolbar input,
+.targets-toolbar select {
+    min-height: 44px;
+    border: 1px solid rgba(148,163,184,.55);
+    border-radius: 12px;
+    background: #fff;
+}
+.targets-table-wrap { max-height: 62vh; overflow: auto; border-radius: 16px; border: 1px solid #e2e8f0; }
+.targets-table { min-width: 760px; margin: 0; }
+.targets-table thead th { position: sticky; top: 0; z-index: 8; background: #eef7f7; }
+.targets-table .target-sticky-product { position: sticky; right: 0; z-index: 7; min-width: 230px; background: #fff; }
+.targets-table thead .target-sticky-product { z-index: 12; background: #e7f4f4; }
+.target-sticky-product small,
+.target-product-code { display: block; margin-top: 4px; color: #64748b; font-size: .75rem; }
+.target-qty-input {
+    width: 100%;
+    min-width: 105px;
+    height: 40px;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    text-align: center;
+    font: inherit;
+    font-weight: 800;
+    color: var(--supervisor-navy);
+    background: #fff;
+}
+.target-qty-input:focus { outline: 0; border-color: var(--supervisor-accent); box-shadow: 0 0 0 3px rgba(9,153,153,.11); }
+.target-progress-cell { min-width: 145px; }
+.target-progress-cell > span { display: block; margin-bottom: 5px; font-weight: 900; color: var(--supervisor-accent-dark); }
+.target-progress-track { height: 8px; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+.target-progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #099999, #087174); }
+.target-file-input { display: none; }
+
+@media (max-width: 768px) {
+    .targets-section { padding: 14px; }
+    .targets-toolbar-group,
+    .targets-toolbar-group > button,
+    .targets-toolbar .input-group { width: 100%; }
+}
+
+.all-orders-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.all-orders-header h3 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 1.18rem;
+}
+.all-orders-header h3 i {
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: #fff;
+    background: linear-gradient(135deg, #173a53, var(--supervisor-accent));
+    box-shadow: 0 8px 18px rgba(9, 153, 153, .18);
+}
+
+.premium-stats-grid {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(160px, 1fr));
+    gap: 14px !important;
+    margin: 0 0 18px !important;
+}
+.premium-stat-card {
+    position: relative;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 18px !important;
+    overflow: hidden;
+    text-align: right !important;
+    border: 1px solid rgba(226, 232, 240, .92) !important;
+    border-radius: 20px !important;
+    background: linear-gradient(145deg, rgba(255,255,255,.99), rgba(248,250,252,.96)) !important;
+    box-shadow: var(--supervisor-shadow) !important;
+    transition: transform .20s ease, box-shadow .20s ease, border-color .20s ease;
+}
+.premium-stat-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 5px;
+    background: var(--metric-color, var(--supervisor-accent));
+}
+.premium-stat-card::after {
+    content: '';
+    position: absolute;
+    width: 95px;
+    height: 95px;
+    top: -45px;
+    left: -35px;
+    border-radius: 50%;
+    background: var(--metric-glow, rgba(9, 153, 153, .10));
+}
+.premium-stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--supervisor-shadow-hover) !important;
+    border-color: color-mix(in srgb, var(--metric-color, var(--supervisor-accent)) 28%, #e2e8f0) !important;
+}
+.premium-stat-card.metric-count { --metric-color: #176b8c; --metric-glow: rgba(23, 107, 140, .11); }
+.premium-stat-card.metric-sales { --metric-color: #07966a; --metric-glow: rgba(7, 150, 106, .11); }
+.premium-stat-card.metric-returns { --metric-color: #d23c50; --metric-glow: rgba(210, 60, 80, .10); }
+.premium-stat-card.metric-net { --metric-color: #7250b5; --metric-glow: rgba(114, 80, 181, .11); }
+.metric-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+.metric-icon {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 13px;
+    color: var(--metric-color, var(--supervisor-accent));
+    background: color-mix(in srgb, var(--metric-color, var(--supervisor-accent)) 11%, white);
+    border: 1px solid color-mix(in srgb, var(--metric-color, var(--supervisor-accent)) 18%, white);
+    font-size: 1.25rem;
+}
+.metric-label {
+    color: var(--supervisor-muted);
+    font-weight: 750;
+    font-size: .85rem;
+    line-height: 1.5;
+}
+.metric-value {
+    position: relative;
+    z-index: 1;
+    margin-top: 12px;
+    color: var(--supervisor-navy) !important;
+    font-size: clamp(1.55rem, 2.4vw, 2rem) !important;
+    line-height: 1.15;
+    font-weight: 850 !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.035em;
+}
+
+@media (max-width: 1024px) {
+    .premium-stats-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+}
+@media (max-width: 768px) {
+    .sortable-header-button { justify-content: flex-start; }
+    .manager-sub-tabs.supervisor-premium-tabs .btn-subtab { flex: 1 1 145px; }
+    .premium-actions-toolbar > button,
+    .premium-export-btn,
+    .premium-filter-clear { flex: 1 1 170px; }
+    .supervisor-filter-select,
+    .supervisor-filter-search { min-width: 100%; width: 100%; }
+    .supervisor-filter-bar { padding: 12px; }
+}
+@media (max-width: 560px) {
+    .premium-stats-grid { grid-template-columns: 1fr; }
+    .premium-stat-card { min-height: 116px; }
+    .premium-actions-toolbar { display: grid; grid-template-columns: 1fr; width: 100%; }
+    .premium-actions-toolbar > button { width: 100%; }
+    .all-orders-header { align-items: stretch; }
+    .all-orders-header h3 { width: 100%; }
+    .premium-export-btn { width: 100%; }
+}
+</style></head><body data-page="supervisor"><div class="offline-banner" id="offline-banner">
+<i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال. النظام يعمل محلياً وسيتم المزامنة لاحقاً.
+    </div><div class="saving-indicator" id="saving-indicator">
+<div class="spinner"></div> جارٍ الحفظ والتحديث...
+    </div><div class="bg-shapes">
+<div class="shape shape-1"></div>
+<div class="shape shape-2"></div>
+</div><div class="app-container"><header class="glass-panel">
+<div class="logo-area">
+<img alt="Dar Al Dawaa Logo" class="logo" src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png"/>
+<h1>نظام الطلبيات</h1>
+</div>
+<div class="user-info" id="userInfo" style="display: none;">
+<div class="tabs" id="mainTabs">
+<button class="btn-tab active" id="navOrderBtn" type="button">طلب جديد</button>
+<button class="btn-tab" id="navMyOrdersBtn" type="button">طلبياتي <span id="pendingBadge" style="display:none; background:var(--warning); color:white; border-radius:50%; padding:2px 6px; font-size:10px; margin-right:4px;">0</span></button>
+<button class="btn-tab" id="navReportsBtn" type="button">التقارير</button>
+</div>
+<span id="currentRepName"><i class="ph ph-user"></i> المندوب: <b>-</b></span>
+<button class="btn-icon" id="logoutBtn" title="تسجيل خروج" type="button"><i class="ph ph-sign-out"></i></button>
+</div>
+</header><main class="screen active glass-panel" id="managerScreen" style="display: block;">
+<h2><i class="ph ph-users-four"></i> لوحة تحكم المدير</h2>
+<div class="manager-sub-tabs supervisor-premium-tabs">
+<button class="btn-subtab active" data-target-section="teamOrdersSection" id="managerMyTeamBtn" type="button"><i class="ph ph-users-three"></i><span>طلبيات فريقي</span></button>
+<button class="btn-subtab premium-company-tab" data-target-section="allOrdersSection" id="managerAllOrdersBtn" type="button"><i class="ph ph-buildings"></i><span>جميع طلبيات الشركة</span></button>
+<button class="btn-subtab" data-target-section="setTargetsSection" id="managerSetTargetsBtn" type="button"><i class="ph ph-target"></i><span>تحديد الأهداف</span></button>
+<button class="btn-subtab" data-target-section="targetDashboardSection" id="managerTargetDashboardBtn" type="button"><i class="ph ph-chart-line-up"></i><span>متابعة الأهداف</span></button>
+<button id="managerAddNewOrderBtn" style="background: #004a99; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; margin-right: auto; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.3s; box-shadow: 0 4px 6px rgba(0,74,153,0.2);">
+<i class="ph ph-plus-circle"></i> إضافة طلبية لمندوبي
+                </button>
+</div>
+<!-- Dashboard متقدم للمدير -->
+<div id="advancedManagerDashboard" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
+<!-- عدد الطلبيات -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #004a99; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">عدد الطلبيات المحتسبة</small>
+<h3 id="dashDailyCount" style="margin: 5px 0 0 0; color: var(--primary);">0</h3>
+</div>
+<!-- إجمالي الطلبيات (موجب فقط) -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #28a745; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">إجمالي الطلبيات</small>
+<h3 id="dashTotalValue" style="margin: 5px 0 0 0; color: #059669;">0.00 د.ا</h3>
+</div>
+<!-- إجمالي المرتجعات -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #dc2626; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">إجمالي المرتجعات</small>
+<h3 id="dashReturnsValue" style="margin: 5px 0 0 0; color: #dc2626;">0.00 د.ا</h3>
+</div>
+<!-- صافي المبيعات -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #7c3aed; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">صافي المبيعات</small>
+<h3 id="dashNetValue" style="margin: 5px 0 0 0; color: #059669;">0.00 د.ا</h3>
+</div>
+<!-- نسبة الموافقات -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #10b981; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">نسبة الموافقات</small>
+<h3 id="dashApprovalRate" style="margin: 5px 0 0 0; color: var(--primary);">0%</h3>
+</div>
+<!-- عدد الصيدليات -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #0ea5e9; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">عدد الصيدليات</small>
+<h3 id="dashUniquePharmacies" style="margin: 5px 0 0 0; color: var(--primary);">0</h3>
+</div>
+<!-- الصيدلية الأكثر طلباً -->
+<div class="card" style="padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid #f59e0b; box-shadow: var(--shadow-sm);">
+<small style="color: var(--secondary); font-weight: 700;">الصيدلية الأكثر طلباً</small>
+<h3 id="dashTopPharmacy" style="margin: 5px 0 0 0; color: var(--primary); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</h3>
+</div>
+</div>
+<div class="glass-panel" id="managerDateFilters" style="margin-bottom: 20px; padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0;">
+<div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+<div style="flex: 1; min-width: 140px;">
+<label style="display: block; margin-bottom: 8px; font-weight: bold; color: var(--secondary);"><i class="ph ph-calendar"></i> من تاريخ</label>
+<input id="managerFilterFrom" style="width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #cbd5e1; outline: none; font-family: inherit;" type="date"/>
+</div>
+<div style="flex: 1; min-width: 140px;">
+<label style="display: block; margin-bottom: 8px; font-weight: bold; color: var(--secondary);"><i class="ph ph-calendar"></i> إلى تاريخ</label>
+<input id="managerFilterTo" style="width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #cbd5e1; outline: none; font-family: inherit;" type="date"/>
+</div>
+<div style="display: flex; gap: 10px; flex: 2; min-width: 250px;">
+<button class="btn-primary" id="btnTodayOrders" style="flex: 1; height: 45px; border-radius: 8px;" type="button">
+<i class="ph ph-calendar-star"></i> طلبيات اليوم
+                        </button>
+<button class="premium-filter-clear" id="btnClearManagerFilter" style="flex: 1;" type="button">
+<i class="ph ph-broom"></i> محو جميع الفلاتر
+                        </button>
+</div>
+</div>
+</div>
+<!-- قسم فريقي -->
+<div id="teamOrdersSection">
+<div id="managerControls" style="margin-bottom: 20px;">
+<!-- تم إخفاء البطاقات القديمة لأننا أضفنا Dashboard شامل فوق -->
+<div style="display: none; gap: 15px; margin-bottom: 15px;">
+<div class="card"><strong>عدد الطلبيات:</strong> <span id="managerOrdersCount">0</span></div>
+<div class="card"><strong>قيمة الطلبيات:</strong> <span id="managerOrdersTotal">0.00</span> د.ا</div>
+</div>
+<div class="supervisor-filter-bar">
+<div class="supervisor-filter-search" data-filter-kind="rep">
+<i class="ph ph-user-list supervisor-filter-search-icon"></i>
+<input class="form-control supervisor-search-input" id="managerRepFilter" aria-label="تصفية حسب المندوب" autocomplete="off" placeholder="ابحث أو اختر المندوب..." type="text"/>
+<i class="ph ph-caret-down supervisor-filter-search-chevron"></i>
+<div class="supervisor-filter-suggestions" id="managerRepFilterSuggestions" role="listbox"></div>
+</div>
+<div class="supervisor-filter-search" data-filter-kind="pharmacy">
+<i class="ph ph-first-aid-kit supervisor-filter-search-icon"></i>
+<input class="form-control supervisor-search-input" id="managerPharmacyFilter" aria-label="تصفية حسب الصيدلية" autocomplete="off" placeholder="ابحث أو اختر الصيدلية..." type="text"/>
+<i class="ph ph-caret-down supervisor-filter-search-chevron"></i>
+<div class="supervisor-filter-suggestions" id="managerPharmacyFilterSuggestions" role="listbox"></div>
+</div>
+<select class="form-control supervisor-filter-select" id="managerStatusFilter" aria-label="تصفية حسب الحالة">
+<option value="">جميع الحالات</option>
+</select>
+</div>
+<div class="premium-actions-toolbar">
+<button class="premium-action-btn action-approve" id="bulkApproveBtn" type="button"><i class="ph ph-check-circle"></i><span>موافقة على المحدد</span></button>
+<button class="premium-action-btn action-delete" id="bulkDeleteBtn" type="button"><i class="ph ph-trash"></i><span>حذف المحدد</span></button>
+<button class="premium-action-btn action-print" id="printManagerOrdersBtn" type="button"><i class="ph ph-printer"></i><span>طباعة المحدد</span></button>
+</div>
+</div>
+<div class="table-responsive mobile-cards">
+<table class="order-table" id="managerOrdersTable">
+<thead><tr>
+<th><input id="selectAllOrders" type="checkbox"/></th>
+<th><button class="sortable-header-button active" data-direction="desc" data-sort-table="manager" data-sort-key="date" type="button">التاريخ <i class="ph ph-arrow-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="rep" type="button">المندوب <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="pharmacy" type="button">الصيدلية <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="total" type="button">الإجمالي <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="manager" data-sort-key="status" type="button">الحالة <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th>الإجراءات</th>
+</tr></thead>
+<tbody id="managerOrdersBody"></tbody>
+</table>
+</div>
+</div>
+<!-- قسم جميع الطلبيات -->
+<div id="allOrdersSection" style="display: none;">
+<div class="all-orders-header">
+<h3><i class="ph ph-buildings"></i><span>جميع طلبيات الشركة</span></h3>
+<button class="premium-export-btn" id="exportAllOrdersBtn" type="button"><i class="ph ph-file-xls"></i><span>تصدير جميع الطلبيات</span></button>
+</div>
+<div class="premium-stats-grid" id="allOrdersStats">
+<div class="stat-card premium-stat-card metric-count">
+<div class="metric-card-top"><span class="metric-label">عدد الطلبيات المحتسبة</span><span class="metric-icon"><i class="ph ph-receipt"></i></span></div>
+<div class="metric-value" id="totalOrdersCount">0</div>
+</div>
+<div class="stat-card premium-stat-card metric-sales">
+<div class="metric-card-top"><span class="metric-label">إجمالي الطلبيات (د.ا)</span><span class="metric-icon"><i class="ph ph-trend-up"></i></span></div>
+<div class="metric-value" id="totalOrdersSum">0.00</div>
+</div>
+<div class="stat-card premium-stat-card metric-returns">
+<div class="metric-card-top"><span class="metric-label">إجمالي المرتجعات (د.ا)</span><span class="metric-icon"><i class="ph ph-arrow-u-down-left"></i></span></div>
+<div class="metric-value" id="totalReturnsSum">0.00</div>
+</div>
+<div class="stat-card premium-stat-card metric-net">
+<div class="metric-card-top"><span class="metric-label">صافي المبيعات (د.ا)</span><span class="metric-icon"><i class="ph ph-chart-line-up"></i></span></div>
+<div class="metric-value" id="totalNetSum">0.00</div>
+</div>
+</div>
+<div class="premium-actions-toolbar" style="margin-bottom: 16px;">
+<button class="premium-action-btn action-approve" id="bulkApproveAllBtn" type="button"><i class="ph ph-check-circle"></i><span>موافقة على المحدد</span></button>
+<button class="premium-action-btn action-delete" id="bulkDeleteAllBtn" type="button"><i class="ph ph-trash"></i><span>حذف المحدد</span></button>
+<button class="premium-action-btn action-print" id="printAllOrdersBtn" type="button"><i class="ph ph-printer"></i><span>طباعة المحدد</span></button>
+</div>
+<div class="supervisor-filter-bar">
+<div class="supervisor-filter-search" data-filter-kind="rep">
+<i class="ph ph-user-list supervisor-filter-search-icon"></i>
+<input class="form-control supervisor-search-input" id="filterAllRep" aria-label="تصفية جميع الطلبيات حسب المندوب" autocomplete="off" placeholder="ابحث أو اختر المندوب..." type="text"/>
+<i class="ph ph-caret-down supervisor-filter-search-chevron"></i>
+<div class="supervisor-filter-suggestions" id="filterAllRepSuggestions" role="listbox"></div>
+</div>
+<div class="supervisor-filter-search" data-filter-kind="pharmacy">
+<i class="ph ph-first-aid-kit supervisor-filter-search-icon"></i>
+<input class="form-control supervisor-search-input" id="filterAllPharmacy" aria-label="تصفية جميع الطلبيات حسب الصيدلية" autocomplete="off" placeholder="ابحث أو اختر الصيدلية..." type="text"/>
+<i class="ph ph-caret-down supervisor-filter-search-chevron"></i>
+<div class="supervisor-filter-suggestions" id="filterAllPharmacySuggestions" role="listbox"></div>
+</div>
+<select class="form-control supervisor-filter-select" id="filterAllStatus" aria-label="تصفية جميع الطلبيات حسب الحالة">
+<option value="">جميع الحالات</option>
+</select>
+</div>
+<div class="table-responsive mobile-cards">
+<table class="order-table" id="allOrdersTable">
+<thead><tr>
+<th><input id="selectAllAllOrders" type="checkbox"/></th>
+<th><button class="sortable-header-button active" data-direction="desc" data-sort-table="all" data-sort-key="date" type="button">التاريخ <i class="ph ph-arrow-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="rep" type="button">المندوب <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="pharmacy" type="button">الصيدلية <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="total" type="button">الإجمالي <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th><button class="sortable-header-button" data-sort-table="all" data-sort-key="status" type="button">الحالة <i class="ph ph-arrows-down-up sort-icon"></i></button></th>
+<th>الإجراءات</th>
+</tr></thead>
+<tbody id="allOrdersBody"></tbody>
+</table>
+</div>
+</div>
+<section class="targets-section" id="setTargetsSection" style="display:none;">
+<div class="targets-section-header">
+<div><h3><i class="ph ph-target"></i> تحديد الأهداف الشهرية</h3><p>أدخل الكمية المستهدفة لكل صنف ومندوب، ثم اعتمد بيانات الشهر.</p></div>
+</div>
+<div class="targets-toolbar">
+<div class="targets-toolbar-group"><div class="input-group"><label for="targetMonthPicker">الشهر</label><input id="targetMonthPicker" type="month"/></div></div>
+<div class="targets-toolbar-group">
+<button class="btn-secondary" id="downloadTargetTemplateBtn" type="button"><i class="ph ph-file-xls"></i> تنزيل نموذج Excel</button>
+<button class="btn-secondary" id="uploadTargetTemplateBtn" type="button"><i class="ph ph-upload-simple"></i> رفع ملف Excel</button>
+<input accept=".xlsx,.xls" class="target-file-input" id="targetExcelInput" type="file"/>
+<button class="btn-primary" id="approveTargetsBtn" type="button"><i class="ph ph-check-circle"></i> حفظ واعتماد الهدف</button>
+</div>
+</div>
+<div class="targets-table-wrap">
+<table class="order-table targets-table" id="targetEntryTable"><thead id="targetEntryHead"></thead><tbody id="targetEntryBody"></tbody></table>
+</div>
+</section>
+<section class="targets-section" id="targetDashboardSection" style="display:none;">
+<div class="targets-section-header">
+<div><h3><i class="ph ph-chart-line-up"></i> متابعة الأهداف والتنفيذ</h3><p>المبيعات الفعلية محسوبة من الطلبيات التي تمت فوترتها خلال الشهر المحدد.</p></div>
+</div>
+<div class="targets-toolbar">
+<div class="targets-toolbar-group">
+<div class="input-group"><label for="targetProgressMonth">الشهر</label><input id="targetProgressMonth" type="month"/></div>
+<div class="input-group"><label for="targetProgressRepFilter">المندوب</label><select id="targetProgressRepFilter"><option value="">كل المندوبين</option></select></div>
+<div class="input-group"><label for="targetProgressProductFilter">الصنف</label><select id="targetProgressProductFilter"><option value="">كل الأصناف</option></select></div>
+</div>
+</div>
+<div class="targets-table-wrap">
+<table class="order-table targets-table"><thead><tr><th>المندوب</th><th>الصنف</th><th>الكمية المطلوبة</th><th>الكمية المباعة</th><th>الكمية المتبقية</th><th>نسبة الإنجاز</th></tr></thead><tbody id="targetProgressBody"></tbody></table>
+</div>
+</section>
+</main><div class="modal-overlay" id="detailsModal" style="display: none; z-index: 10010;">
+<div class="modal-content glass-panel">
+<div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+<div>
+<h3 style="color: var(--primary); margin: 0;"><i class="ph ph-receipt"></i> تفاصيل الفاتورة</h3>
+<small id="modalPharmacySubtitle" style="color: var(--secondary); font-weight: 600; display: block; margin-top: 5px;"></small>
+</div>
+<button class="close-modal" onclick="closeModal()" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger);" type="button"><i class="ph ph-x-circle"></i></button>
+</div>
+<div id="modalOrderNoteContainer" style="display: none; background: #fffbeb; color: #b45309; padding: 12px 15px; border-radius: 8px; margin-bottom: 15px; border-right: 4px solid #f59e0b;">
+<i class="ph ph-warning-circle" style="font-size: 1.2rem; vertical-align: text-bottom;"></i>
+<strong>ملاحظة المندوب:</strong> <span id="modalOrderNoteText"></span>
+</div>
+<div class="table-responsive mobile-cards">
+<table class="order-table">
+<thead>
+<tr>
+<th>الصنف</th>
+<th>كود المنتج</th><th>الكمية</th>
+<th>البونص</th>
+<th>السعر</th>
+<th>المجموع</th>
+<th>الملاحظة</th>
+</tr>
+</thead>
+<tbody id="modalItemsBody"></tbody>
+</table>
+</div>
+</div>
+</div><div class="modal-overlay" id="editOrderModal" style="display: none;">
+<div class="modal-content glass-panel" style="max-width: 1200px; padding: 20px;">
+<div id="editOrderContainer"></div>
+</div>
+</div><div class="modal-overlay" id="addPharmacyModal" style="display: none;">
+<div class="modal-content glass-panel" style="max-width: 500px;">
+<div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+<h3><i class="ph ph-storefront"></i> إضافة صيدلية جديدة</h3>
+<button class="close-modal" onclick="document.getElementById('addPharmacyModal').style.display='none'" style="background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--danger);" type="button"><i class="ph ph-x-circle"></i></button>
+</div>
+<div class="input-group">
+<label>اختر المندوب</label>
+<select id="newPharmacyRepSelect">
+<option value="">-- اختر المندوب --</option>
+</select>
+</div>
+<div class="input-group">
+<label>اسم الصيدلية</label>
+<input id="newPharmacyName" placeholder="أدخل اسم الصيدلية..." type="text"/>
+</div>
+<div class="input-group">
+<label>كود الصيدلية</label>
+<input id="newPharmacyCode" placeholder="أدخل كود الصيدلية (اختياري)..." type="text"/>
+</div>
+<button class="btn-primary" id="saveNewPharmacyBtn" style="width: 100%; margin-top: 15px;" type="button">
+                حفظ الصيدلية
+            </button>
+</div>
+</div><div class="modal-overlay" id="featureUpdateModal" style="display: none; z-index: 10000;">
+<div class="modal-content glass-panel" style="max-width: 450px; text-align: center; padding: 40px 30px;">
+<div style="background: rgba(15, 59, 92, 0.1); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+<i class="ph ph-bell-ringing" style="font-size: 3.5rem; color: var(--primary);"></i>
+</div>
+<h2 style="color: var(--primary); margin-bottom: 15px; font-weight: 800;">تنبيهات احترافية! 🚀</h2>
+<p style="color: var(--secondary); font-size: 1.1rem; line-height: 1.7; margin-bottom: 30px;">
+                قمنا باستبدال النوافذ المزعجة السابقة بنظام <strong>إشعارات ذكي ومريح (Toasts)</strong> يظهر أسفل الشاشة ولن يعيق عملك أبداً.
+            </p>
+<button class="btn-primary" id="closeFeatureUpdateBtn" style="width: 100%; height: 50px; font-size: 1.1rem;">
+                علمت ذلك، شكراً
+            </button>
+</div>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20260819_supervisor_remove_reference_v1" type="module"></script><script src="js/targets.js?v=20260819_targets_v3" type="module"></script></body></html>
