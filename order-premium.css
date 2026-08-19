@@ -23,6 +23,14 @@ body.rep-premium-page {
 .rep-premium-page #currentRepName b { color: var(--rep-ink); }
 .rep-premium-page #logoutBtn { flex: 0 0 42px; width: 42px; height: 42px; }
 
+@media (max-width: 1250px) and (min-width: 769px) {
+    .rep-premium-page .rep-app-header { flex-direction: column; align-items: stretch; }
+    .rep-premium-page .logo-area { justify-content: center; }
+    .rep-premium-page .user-info { width: 100%; justify-content: center; gap: 18px; padding-top: 14px; border-top: 1px solid rgba(15,59,92,.08); }
+    .rep-premium-page .tabs { flex: 0 1 auto; min-width: 0; }
+    .rep-premium-page #currentRepName { flex: 0 0 auto; margin-inline-start: auto; }
+}
+
 .rep-premium-page .screen { padding: clamp(18px, 2.5vw, 32px); }
 .rep-premium-page .screen > h2,
 .rep-premium-page .rep-page-title h2,
