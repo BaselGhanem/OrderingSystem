@@ -12,7 +12,9 @@ body.rep-premium-page {
 
 .rep-premium-page .app-container { max-width: 1380px; padding: clamp(10px, 2vw, 24px); }
 .rep-premium-page .glass-panel { border: 1px solid rgba(15,59,92,.08); box-shadow: 0 16px 45px rgba(15,59,92,.08); }
-.rep-premium-page .rep-app-header { min-height: 92px; padding: 18px 22px; margin-bottom: 18px; }
+.rep-premium-page .rep-app-header { min-height: 92px; padding: 18px 22px; margin-bottom: 18px; flex-direction: column; align-items: stretch; }
+.rep-premium-page .rep-app-header .logo-area { justify-content: center; }
+.rep-premium-page .rep-app-header .user-info { width: 100%; justify-content: center; gap: 20px; padding-top: 14px; border-top: 1px solid rgba(15,59,92,.08); }
 .rep-premium-page .logo { height: 46px; max-width: 170px; object-fit: contain; }
 .rep-premium-page .logo-area h1 { font-size: clamp(1.25rem, 2vw, 1.7rem); white-space: nowrap; }
 .rep-premium-page .user-info { min-width: 0; }
