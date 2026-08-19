@@ -23,6 +23,7 @@ const targetState = {
     targetRows: [],
     orders: [],
     repManagerMap: { ...DEFAULT_REP_MANAGER_MAP },
+    repTargetFilter: `all`,
     supervisorLoaded: false,
     repLoaded: false
 };
@@ -487,13 +488,24 @@ async function refreshRepresentativeTarget() {
     const rows = await findRepresentativeTargetRows(month, targetState.repName);
     await loadOrders();
     const progress = progressRows(rows, month, [{ name: targetState.repName }]);
+    const filteredProgress = progress.filter(row => {
+        if (targetState.repTargetFilter === `incomplete`) return row.achievement < 100;
+        if (targetState.repTargetFilter === `low`) return row.achievement <= 50;
+        return true;
+    });
     const body = el(`repTargetBody`);
     if (!body) return;
+    const summary = el(`repTargetResultsSummary`);
+    if (summary) summary.textContent = progress.length > 0 ? `عرض ${filteredProgress.length} من أصل ${progress.length} صنف` : ``;
     if (progress.length === 0) {
         body.innerHTML = `<tr><td colspan="5"><div class="empty-state"><h3>لم يتم تحديد أهداف لهذا الشهر بعد</h3></div></td></tr>`;
         return;
     }
-    body.innerHTML = progress.map(row => `
+    if (filteredProgress.length === 0) {
+        body.innerHTML = `<tr><td colspan="5"><div class="empty-state"><i class="ph ph-check-circle"></i><h3>لا توجد أصناف مطابقة لهذا الفلتر</h3></div></td></tr>`;
+        return;
+    }
+    body.innerHTML = filteredProgress.map(row => `
         <tr>
             <td><strong>${row.product.name}</strong>${productCode(row.product) ? `<small class="target-product-code">${productCode(row.product)}</small>` : ``}</td>
             <td>${row.targetQty.toLocaleString(`en-US`)}</td>
@@ -523,6 +535,11 @@ async function initializeRepresentativeTarget() {
         await refreshRepresentativeTarget();
     });
     el(`repTargetMonth`)?.addEventListener(`change`, refreshRepresentativeTarget);
+    document.querySelectorAll(`.target-filter-chip`).forEach(button => button.addEventListener(`click`, async () => {
+        targetState.repTargetFilter = button.dataset.targetFilter || `all`;
+        document.querySelectorAll(`.target-filter-chip`).forEach(chip => chip.classList.toggle(`active`, chip === button));
+        await refreshRepresentativeTarget();
+    }));
 }
 
 window.addEventListener(`DOMContentLoaded`, async () => {
