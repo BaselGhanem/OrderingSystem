@@ -8,11 +8,16 @@
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="style.css?v=20260629_audit_dynamic_notes_fix1" rel="stylesheet"/>
-<link href="order-premium.css?v=20260819_rep_premium_v2" rel="stylesheet"/>
+<link href="order-premium.css?v=20260819_rep_premium_v3" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
 <style>
+.rep-premium-page .rep-app-header { flex-direction:column; align-items:stretch; }
+.rep-premium-page .rep-app-header .logo-area { justify-content:center; }
+.rep-premium-page .rep-app-header .user-info { width:100%; justify-content:center; gap:20px; padding-top:14px; border-top:1px solid rgba(15,59,92,.08); }
+.rep-premium-page .rep-app-header .tabs { flex:0 1 auto; min-width:0; }
+.rep-premium-page .rep-app-header #currentRepName { flex:0 0 auto; margin-inline-start:auto; white-space:nowrap; }
 .rep-target-header { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
 .rep-target-header h2 { margin:0; }
 .rep-target-filter { min-width:190px; }
