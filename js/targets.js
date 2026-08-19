@@ -1,4 +1,4 @@
-import { db, collection, getDocs, query, where, doc, getDoc, setDoc } from `./firebase.js`;
+import { db, collection, getDocs, query, where, doc, getDoc, setDoc } from './firebase.js';
 
 const TARGETS_COLLECTION = `monthly_targets`;
 const DEFAULT_REP_MANAGER_MAP = {
