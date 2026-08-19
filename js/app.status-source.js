@@ -2247,7 +2247,7 @@ let managerOrdersData = [];
 async function loadManagerOrders() {
     const tbody = document.getElementById('managerOrdersBody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     
     if (unsubManagerOrders) unsubManagerOrders();
 
@@ -2309,7 +2309,7 @@ function renderManagerOrders(orders) {
     tbody.innerHTML = '';
     
     if (orders.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-magnifying-glass"></i><h3>لا توجد طلبيات مطابقة للبحث</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="ph ph-magnifying-glass"></i><h3>لا توجد طلبيات مطابقة للبحث</h3></div></td></tr>`;
         return;
     }
 
@@ -2322,7 +2322,6 @@ function renderManagerOrders(orders) {
         tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
         tr.innerHTML = `
             <td data-label="تحديد"><input type="checkbox" class="order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
-            <td data-label="رقم الطلب">${order.id.substring(0, 6).toUpperCase()}</td>
             <td data-label="التاريخ">${displayDate}</td>
             <td data-label="المندوب">${order.repName || '-'}</td>
             <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
@@ -2437,7 +2436,7 @@ function renderAllOrders(orders) {
     const tbody = document.getElementById('allOrdersBody');
     tbody.innerHTML = '';
     if(orders.length === 0) { 
-        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد بيانات مطابقة</h3></div></td></tr>`; 
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد بيانات مطابقة</h3></div></td></tr>`; 
         updateAllOrdersStats(orders); 
         return; 
     }
@@ -2451,7 +2450,6 @@ function renderAllOrders(orders) {
         const unassignedBadge = isOrderWithoutAssignedSupervisor(order) ? '<small class="workflow-reason" style="color:#92400e;">بدون مشرف محدد</small>' : '';
         tr.innerHTML = `
             <td data-label="تحديد"><input type="checkbox" class="all-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
-            <td data-label="رقم الطلب">${order.id.substring(0,6).toUpperCase()}</td>
             <td data-label="التاريخ">${displayDate}</td>
             <td data-label="المندوب" class="all-rep-col">${order.repName || '-'}</td>
             <td data-label="الصيدلية" class="all-pharm-col">${order.pharmacyName || '-'}${unassignedBadge}</td>
