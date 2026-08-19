@@ -3023,6 +3023,7 @@ if (exportExcelBtn) exportExcelBtn.onclick = async () => {
 
 const navOrderBtn = getEl('navOrderBtn');
 if (navOrderBtn) navOrderBtn.onclick = () => {
+    document.body.dataset.repTab = 'order';
     document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
     getEl('orderScreen').style.display = 'block';
     document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
@@ -3030,6 +3031,7 @@ if (navOrderBtn) navOrderBtn.onclick = () => {
 };
 const navMyOrdersBtn = getEl('navMyOrdersBtn');
 if (navMyOrdersBtn) navMyOrdersBtn.onclick = () => {
+    document.body.dataset.repTab = 'my-orders';
     document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
     getEl('myOrdersScreen').style.display = 'block';
     document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
@@ -3038,6 +3040,7 @@ if (navMyOrdersBtn) navMyOrdersBtn.onclick = () => {
 };
 const navReportsBtn = getEl('navReportsBtn');
 if (navReportsBtn) navReportsBtn.onclick = () => {
+    document.body.dataset.repTab = 'reports';
     document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
     getEl('reportsScreen').style.display = 'block';
     document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
