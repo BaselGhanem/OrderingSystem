@@ -313,6 +313,27 @@ function getRawPrimaryStatus(order = {}) {
     return order.status || order.orderStatus || order.workflowStatus || '';
 }
 
+function isOrderDeleted(order = {}) {
+    const statusFields = [
+        order.status,
+        order.orderStatus,
+        order.workflowStatus,
+        order.workflowStage,
+        order.supervisorStatus,
+        order.marketManagerStatus,
+        order.financeStatus,
+        order.orderStaffStatus
+    ];
+
+    return statusFields.some(value => {
+        const normalized = String(value || '').trim().toLowerCase();
+        return normalized === 'deleted' || normalized.startsWith('deleted_');
+    }) ||
+        order.isDeleted === true ||
+        order.deleted === true ||
+        Boolean(order.deletedAt);
+}
+
 function orderHasAuditAction(order = {}, actions = []) {
     const allowed = new Set(actions);
     const rows = Array.isArray(order.auditTrail) ? order.auditTrail : [];
@@ -1637,6 +1658,8 @@ function applyOrdersStaffFilters() {
     }
 
     state.visibleOrders = state.orders.filter(order => {
+        if (isOrderDeleted(order)) return false;
+
         const status = getPrimaryStatus(order);
         const followUp = getWorkflowFollowUp(order);
         const staffState = order.orderStaffStatus || '';
