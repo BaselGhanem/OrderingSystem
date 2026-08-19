@@ -21,6 +21,15 @@ body.rep-premium-page {
 .rep-premium-page .tabs { gap: 4px; padding: 5px; background: #edf3f4; }
 .rep-premium-page .btn-tab { min-height: 48px; padding: 10px 15px; white-space: nowrap; }
 .rep-premium-page .btn-tab.active { color: var(--rep-teal-dark); box-shadow: 0 5px 16px rgba(15,59,92,.08); }
+.rep-premium-page[data-rep-tab="reports"] #navReportsBtn,
+.rep-premium-page[data-rep-tab="targets"] #navTargetsBtn,
+.rep-premium-page[data-rep-tab="my-orders"] #navMyOrdersBtn,
+.rep-premium-page[data-rep-tab="order"] #navOrderBtn {
+    background: #fff;
+    color: var(--rep-teal-dark);
+    box-shadow: 0 5px 16px rgba(15,59,92,.10);
+    font-weight: 800;
+}
 .rep-premium-page #currentRepName { color: var(--rep-muted); font-size: .9rem; white-space: nowrap; }
 .rep-premium-page #currentRepName b { color: var(--rep-ink); }
 .rep-premium-page #logoutBtn { flex: 0 0 42px; width: 42px; height: 42px; }
