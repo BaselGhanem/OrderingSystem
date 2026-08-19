@@ -2009,9 +2009,28 @@ async function exportOrders(orders) {
             invoicedBy: hide ? 'Ziad/Zakaria' : ''
         }, auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: order.status, orderStaffStatus: order.orderStaffStatus || '' }, { status: hide ? 'orders_staff_hidden' : 'orders_staff_exported', orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported', exportFileName }));
     }));
+    if (hide) await Promise.allSettled(orders.map(order => applyInvoicedBatchDeductions(order)));
     state.suspendRender = false;
     state.onOrdersChange?.();
     showToast(`تم التصدير وتحديث الحالة: ${results.filter(r => r.status === 'fulfilled').length}/${orders.length}`, 'success');
+}
+
+async function applyInvoicedBatchDeductions(order) {
+    const quantities = new Map();
+    (Array.isArray(order.items) ? order.items : []).forEach(item => {
+        if (!item.inventoryBatchId || !item.batch) return;
+        quantities.set(item.inventoryBatchId, (quantities.get(item.inventoryBatchId) || 0) + parseNumber(item.qty));
+    });
+    for (const [inventoryId, soldQty] of quantities) {
+        const ref = doc(db, 'new_inventory_batches', inventoryId);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) continue;
+        await updateDoc(ref, {
+            remainingQty: Math.max(0, parseNumber(snap.data().remainingQty) - soldQty),
+            updatedAt: new Date(),
+            lastInvoicedOrderId: order.id
+        });
+    }
 }
 
 function initOrdersStaff() {
