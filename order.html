@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="style.css?v=20260629_audit_dynamic_notes_fix1" rel="stylesheet"/>
+<link href="order-premium.css?v=20260819_rep_premium_v1" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -28,14 +29,14 @@
 .target-progress-track i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#099999,#087174); }
 @media (max-width:700px) { .rep-target-filter { width:100%; } }
 </style>
-</head><body data-page="order"><div class="offline-banner" id="offline-banner">
+</head><body class="rep-premium-page" data-page="order"><div class="offline-banner" id="offline-banner">
 <i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال. النظام يعمل محلياً وسيتم المزامنة لاحقاً.
     </div><div class="saving-indicator" id="saving-indicator">
 <div class="spinner"></div> جارٍ الحفظ والتحديث...
     </div><div class="bg-shapes">
 <div class="shape shape-1"></div>
 <div class="shape shape-2"></div>
-</div><div class="app-container"><header class="glass-panel">
+</div><div class="app-container"><header class="glass-panel rep-app-header">
 <div class="logo-area">
 <img alt="Dar Al Dawaa Logo" class="logo" src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png"/>
 <h1>نظام الطلبيات</h1>
@@ -50,12 +51,12 @@
 <span id="currentRepName"><i class="ph ph-user"></i> المندوب: <b>-</b></span>
 <button class="btn-icon" id="logoutBtn" title="تسجيل خروج" type="button"><i class="ph ph-sign-out"></i></button>
 </div>
-</header><main class="screen active glass-panel" id="orderScreen" style="display: block;">
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-<div style="display: flex; align-items: center; gap: 10px;">
+</header><main class="screen active glass-panel rep-page-panel" id="orderScreen" style="display: block;">
+<div class="rep-page-heading order-entry-heading">
+<div class="rep-page-title">
 <h2><i class="ph ph-shopping-cart"></i> ادخال طلبية جديدة</h2>
 </div>
-<div style="display: flex; align-items: center; gap: 15px;">
+<div class="rep-page-actions">
                     <h3 id="orderPharmacyName" style="color: var(--primary);">اسم الصيدلية</h3>
                     <button class="btn-secondary" id="changePharmacyBtn" style="padding: 8px 16px; font-size: 0.85rem; border-color: #f59e0b; color: #f59e0b;" type="button">
                         <i class="ph ph-swap"></i> طلبية لصيدلية أخرى
@@ -96,13 +97,13 @@
 </main><main class="screen glass-panel" id="myOrdersScreen" style="display: none;">
 <h2>طلبياتي</h2>
 <!-- 🟢 إضافة: ملخص ذكي للطلبيات -->
-<div id="myOrdersSummary" style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-<div class="card" style="flex: 1; padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid var(--warning); box-shadow: var(--shadow-sm);">
-<small style="color: var(--secondary); font-weight: 700;">قيمة الطلبيات</small>
+<div class="rep-summary-grid" id="myOrdersSummary">
+<div class="card rep-summary-card rep-summary-count">
+<small>عدد الطلبيات</small>
 <h3 id="myOrdersPendingCount" style="margin: 5px 0 0 0; color: var(--primary); font-size: 1.5rem;">0</h3>
 </div>
-<div class="card" style="flex: 1; padding: 15px; background: #fff; border-radius: 12px; border-right: 4px solid var(--primary); box-shadow: var(--shadow-sm);">
-<small style="color: var(--secondary); font-weight: 700;">إجمالي قيمة الطلبيات (د.ا)</small>
+<div class="card rep-summary-card rep-summary-value">
+<small>إجمالي قيمة الطلبيات (د.ا)</small>
 <h3 id="myOrdersTotalValue" style="margin: 5px 0 0 0; color: var(--primary); font-size: 1.5rem;">0.00</h3>
 </div>
 </div><div aria-label="فلاتر طلبياتي" class="filters-card orders-toolbar">
@@ -116,7 +117,7 @@
 </div>
 <div class="table-responsive mobile-cards">
 <table class="order-table" id="myOrdersTable">
-<thead><tr><th><input id="selectAllMyOrders" type="checkbox"/></th><th>رقم الطلب</th><th>التاريخ</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>سبب الرفض/الإرجاع</th><th>التفاصيل</th></tr></thead>
+<thead><tr><th><input id="selectAllMyOrders" type="checkbox"/></th><th>التاريخ</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>سبب الرفض/الإرجاع</th><th>التفاصيل</th></tr></thead>
 <tbody id="myOrdersBody"></tbody>
 </table>
 </div>
@@ -126,6 +127,12 @@
 <div class="rep-target-filter"><label for="repTargetMonth">الشهر</label><input id="repTargetMonth" type="month"/></div>
 </div>
 <div class="rep-target-note"><i class="ph ph-info"></i> الكمية المباعة محسوبة من الطلبيات التي تمت فوترتها خلال الشهر المحدد.</div>
+<div aria-label="فلاتر حالة التارجت" class="target-quick-filters" role="group">
+<button class="target-filter-chip active" data-target-filter="all" type="button"><i class="ph ph-list-bullets"></i> كل الأصناف</button>
+<button class="target-filter-chip" data-target-filter="incomplete" type="button"><i class="ph ph-hourglass-medium"></i> أصناف لم تُغلق</button>
+<button class="target-filter-chip" data-target-filter="low" type="button"><i class="ph ph-trend-down"></i> بيع منخفض ≤ 50%</button>
+</div>
+<div class="target-results-summary" id="repTargetResultsSummary" aria-live="polite"></div>
 <div class="rep-target-table-wrap">
 <table class="order-table rep-target-table"><thead><tr><th>الصنف</th><th>التارجت المطلوب</th><th>الكمية المباعة</th><th>الكمية المتبقية</th><th>نسبة الإنجاز</th></tr></thead><tbody id="repTargetBody"></tbody></table>
 </div>
@@ -142,7 +149,7 @@
 </div>
 <div class="table-responsive mobile-cards">
 <table class="order-table" id="reportsTable">
-<thead><tr><th><input id="selectAllReportsOrders" type="checkbox"/></th><th>رقم</th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>تفاصيل</th></tr></thead>
+<thead><tr><th><input id="selectAllReportsOrders" type="checkbox"/></th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>تفاصيل</th></tr></thead>
 <tbody id="reportsBody"></tbody>
 </table>
 </div>
@@ -229,7 +236,6 @@
 <table class="order-table">
 <thead style="position: sticky; top: 0; z-index: 10;">
 <tr>
-<th>رقم المرجع</th>
 <th>التاريخ</th>
 <th>المندوب</th>
 <th>الإجمالي</th>
@@ -241,4 +247,4 @@
 </table>
 </div>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20260714_rep_order_status_filter1" type="module"></script><script src="js/targets.js?v=20260819_targets_v3" type="module"></script></body></html>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20260819_rep_premium_v1" type="module"></script><script src="js/targets.js?v=20260819_targets_v4" type="module"></script></body></html>
