@@ -1687,7 +1687,6 @@ function bindPharmacyHistoryButton() {
                 const tr = document.createElement('tr');
                 tr.className = `row-${o.status}`;
                 tr.innerHTML = `
-                    <td>${(o.id || '').substring(0,6).toUpperCase()}</td>
                     <td>${formatDateTime(o.createdAt)}</td>
                     <td>${o.repName || '-'}</td>
                     <td>${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ا</td>
@@ -2102,7 +2101,7 @@ async function loadMyOrders() {
     const tbody = getEl('myOrdersBody');
     if (!tbody) return;
     setDefaultMyOrdersFilters();
-    tbody.innerHTML = '<tr><td colspan="9"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     if (unsubMyOrders) unsubMyOrders();
 
     try {
@@ -2178,7 +2177,7 @@ function applyMyOrdersFilters() {
 
     tbody.innerHTML = '';
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات ضمن الفلاتر الحالية</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات ضمن الفلاتر الحالية</h3></div></td></tr>`;
         return;
     }
 
@@ -2188,7 +2187,6 @@ function applyMyOrdersFilters() {
         tr.className = `row-${statusClass}`;
         tr.innerHTML = `
             <td data-label="تحديد"><input type="checkbox" class="my-order-checkbox" value="${order.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
-            <td data-label="رقم الطلب">${order.id.substring(0,6).toUpperCase()}</td>
             <td data-label="التاريخ">${formatDateTime(order.createdAt)}</td>
             <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
             <td data-label="كود الصيدلية">${getPharmacyCodeFromOrder(order) || '-'}</td>
@@ -2951,7 +2949,7 @@ window.closeEditModal = closeEditModal;
 async function loadReports() {
     const body = getEl('reportsBody');
     if (!body) return;
-    body.innerHTML = '<tr><td colspan="8"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
+    body.innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     if(unsubReports) unsubReports();
 
     try {
@@ -2963,7 +2961,7 @@ async function loadReports() {
             reportsOrdersData = os;
             body.innerHTML = '';
             if (os.length === 0) {
-                body.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات</h3></div></td></tr>`;
+                body.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات</h3></div></td></tr>`;
                 return;
             }
             os.forEach(o => {
@@ -2971,7 +2969,6 @@ async function loadReports() {
                 tr.className = `row-${o.status}`;
                 tr.innerHTML = `
                     <td data-label="تحديد"><input type="checkbox" class="report-order-checkbox" value="${o.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
-                    <td data-label="رقم الطلب"><b>${o.id.substring(0,5).toUpperCase()}</b></td>
                     <td data-label="التاريخ">${formatDateTime(o.createdAt)}</td>
                     <td data-label="المندوب" class="rep-col">${o.repName || '-'}</td>
                     <td data-label="الصيدلية" class="pharm-col">${o.pharmacyName || '-'}</td>
