@@ -528,6 +528,7 @@ async function initializeRepresentativeTarget() {
     await loadBaseData();
     if (el(`repTargetMonth`)) el(`repTargetMonth`).value = currentMonthValue();
     el(`navTargetsBtn`)?.addEventListener(`click`, async () => {
+        document.body.dataset.repTab = `targets`;
         document.querySelectorAll(`.screen`).forEach(screen => screen.style.display = `none`);
         if (el(`repTargetScreen`)) el(`repTargetScreen`).style.display = `block`;
         document.querySelectorAll(`.btn-tab`).forEach(button => button.classList.remove(`active`));
