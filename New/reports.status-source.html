@@ -170,6 +170,7 @@
                 <h1>لوحة التقارير الشاملة</h1>
             </div>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="inventory_batches.html" class="btn-secondary" style="text-decoration:none;background:#123047;color:white"><i class="ph ph-package"></i> الأرصدة والـ Batches</a>
                 <button type="button" id="exportAllPdfBtn" class="btn-primary" style="background: linear-gradient(135deg, #e11d48, #be123c);">
                     <i class="ph ph-file-pdf"></i> تصدير الكل (PDF)
                 </button>
@@ -634,9 +635,10 @@
             setDefaultMonthFilter(); // تطبيق التواريخ الافتراضية عند التحميل
             
             try {
-                const [snap, prodSnap] = await Promise.all([
+                const [snap, prodSnap, returnsSnap] = await Promise.all([
                     getDocs(collection(db, "orders")),
-                    getDocs(collection(db, "products"))
+                    getDocs(collection(db, "products")),
+                    getDocs(collection(db, "new_returns"))
                 ]);
                 productsCatalog = [];
                 prodSnap.forEach(document => productsCatalog.push({ id: document.id, ...document.data() }));
@@ -644,6 +646,22 @@
                 snap.forEach(document => {
                     let data = normalizeReportOrder({ id: document.id, ...document.data() });
                     allOrders.push(data);
+                });
+                returnsSnap.forEach(document => {
+                    const returned = document.data();
+                    if (returned.status !== 'approved') return;
+                    allOrders.push(normalizeReportOrder({
+                        id: `RETURN_${document.id}`,
+                        isNewReturn: true,
+                        repName: returned.repName,
+                        managerName: returned.managerName,
+                        pharmacyName: returned.pharmacyName,
+                        pharmacyCode: returned.pharmacyCode,
+                        status: 'returned',
+                        createdAt: returned.approvedAt || returned.marketApprovedAt || returned.updatedAt || returned.createdAt,
+                        grandTotal: -Math.abs(parseReportNumber(returned.totalValue)),
+                        items: (returned.items || []).map(item => ({ name: item.productName, productCode: item.productCode, batch: item.batch, qty: -Math.abs(parseReportNumber(item.qty)), price: parseReportNumber(item.unitPrice), total: -Math.abs(parseReportNumber(item.lineValue)), note: item.reason === 'expired' ? 'Expired' : 'بضاعة جيدة' }))
+                    }));
                 });
                 
                 allOrders.sort((a, b) => {
@@ -990,7 +1008,7 @@
                 let orderTotal = parseReportNumber(order.grandTotal);
                 let orderDate = reportDateText(order.createdAtNormalized || order.createdAt);
                 let statusAr = reportStatusLabel(order.status);
-                let btnHtml = `<button class="btn-action btn-edit" onclick="openOrderModal('${order.id}')"><i class="ph ph-eye"></i> الاصناف</button>`;
+                let btnHtml = order.isNewReturn ? `<span class="status-badge returned">مرتجع معتمد</span>` : `<button class="btn-action btn-edit" onclick="openOrderModal('${order.id}')"><i class="ph ph-eye"></i> الاصناف</button>`;
 
                 // تبقى المرفوضة والمحذوفة ظاهرة في جدول كل الطلبيات، لكنها لا تدخل في أي تجميع مالي/بيعي.
                 const affectsSalesTotals = !isFinanciallyExcludedReportOrder(order);
