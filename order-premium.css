@@ -18,9 +18,8 @@ body.rep-premium-page {
 .rep-premium-page .logo { height: 46px; max-width: 170px; object-fit: contain; }
 .rep-premium-page .logo-area h1 { font-size: clamp(1.25rem, 2vw, 1.7rem); white-space: nowrap; }
 .rep-premium-page .user-info { min-width: 0; }
-.rep-premium-page .tabs { gap: 4px; padding: 5px; background: #edf3f4; }
-.rep-premium-page .btn-tab { min-height: 48px; padding: 10px 15px; white-space: nowrap; }
-.rep-premium-page #navReportsBtn { background: #edf3f4; }
+.rep-premium-page .tabs { width: max-content; max-width: 100%; flex: 0 0 auto; gap: 4px; padding: 5px; background: #edf3f4; }
+.rep-premium-page .btn-tab { flex: 0 0 auto; min-height: 48px; padding: 10px 15px; white-space: nowrap; }
 .rep-premium-page .btn-tab.active { color: var(--rep-teal-dark); box-shadow: 0 5px 16px rgba(15,59,92,.08); }
 .rep-premium-page[data-rep-tab="reports"] #navReportsBtn,
 .rep-premium-page[data-rep-tab="targets"] #navTargetsBtn,
@@ -39,7 +38,7 @@ body.rep-premium-page {
     .rep-premium-page .rep-app-header { flex-direction: column; align-items: stretch; }
     .rep-premium-page .logo-area { justify-content: center; }
     .rep-premium-page .user-info { width: 100%; justify-content: center; gap: 18px; padding-top: 14px; border-top: 1px solid rgba(15,59,92,.08); }
-    .rep-premium-page .tabs { flex: 0 1 auto; min-width: 0; }
+    .rep-premium-page .tabs { flex: 0 0 auto; min-width: 0; }
     .rep-premium-page #currentRepName { flex: 0 0 auto; margin-inline-start: auto; }
 }
 
@@ -98,7 +97,7 @@ body.rep-premium-page {
     .rep-premium-page .logo-area { width: 100%; justify-content: center; gap: 10px; }
     .rep-premium-page .logo { height: 38px; max-width: 132px; }
     .rep-premium-page .user-info { padding-top: 10px; gap: 10px; }
-    .rep-premium-page .tabs { order: 2; width: 100%; overflow-x: auto; scrollbar-width: none; }
+    .rep-premium-page .tabs { order: 2; width: 100%; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
     .rep-premium-page .tabs::-webkit-scrollbar { display: none; }
     .rep-premium-page .btn-tab { flex: 0 0 auto; min-width: 92px; min-height: 44px; padding: 8px 12px; font-size: .84rem; }
     .rep-premium-page #currentRepName { order: 1; flex: 1; overflow: hidden; text-overflow: ellipsis; }
