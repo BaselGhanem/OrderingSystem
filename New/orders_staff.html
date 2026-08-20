@@ -41,8 +41,8 @@
     </section>
     <div class="table-responsive workflow-table-wrap">
         <table class="order-table workflow-table staff-followup-table">
-            <thead><tr><th><input id="selectAllWorkflow" type="checkbox"></th><th>التاريخ</th><th>الصيدلية</th><th>المندوب</th><th>الحالة الحالية</th><th>المطلوب من</th><th>تفصيل المتابعة</th><th>عدد الأصناف</th><th>الإجمالي</th><th>ملاحظة الطلبية</th><th>ملاحظة الإرجاع</th><th>إجراءات</th></tr></thead>
-            <tbody id="ordersStaffBody"><tr><td colspan="12"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr></tbody>
+            <thead><tr><th><input id="selectAllWorkflow" type="checkbox"></th><th>التاريخ</th><th>رقم الفاتورة</th><th>الصيدلية</th><th>المندوب</th><th>الحالة الحالية</th><th>المطلوب من</th><th>تفصيل المتابعة</th><th>عدد الأصناف</th><th>الإجمالي</th><th>ملاحظة الطلبية</th><th>ملاحظة الإرجاع</th><th>إجراءات</th></tr></thead>
+            <tbody id="ordersStaffBody"><tr><td colspan="13"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr></tbody>
         </table>
     </div>
 </main>
@@ -57,7 +57,7 @@
         <div class="workflow-note-box"><strong>ملاحظة الطلبية:</strong> <span id="staffOrderNote">-</span></div>
         <div class="table-responsive workflow-modal-table">
             <table class="order-table workflow-table">
-                <thead><tr><th>#</th><th>كود المنتج</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>نسبة البونص %</th><th>السعر</th><th>المجموع</th><th>ملاحظة الصنف</th><th>حذف</th></tr></thead>
+                <thead><tr><th>#</th><th>كود المنتج</th><th>الصنف</th><th>Batch</th><th>تاريخ الانتهاء</th><th>الكمية</th><th>البونص</th><th>نسبة البونص %</th><th>السعر</th><th>المجموع</th><th>ملاحظة الصنف</th><th>حذف</th></tr></thead>
                 <tbody id="staffOrderItemsBody"></tbody>
             </table>
         </div>
@@ -73,6 +73,6 @@
     </div>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260820_returns_v1" type="module"></script>
+<script src="js/workflow.js?v=20260820_batch_invoice_v3" type="module"></script>
 </body>
 </html>
