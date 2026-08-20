@@ -1,8 +1,9 @@
-import { db, collection, getDocs, query, where, doc, setDoc, updateDoc } from './firebase.js';
+import { db, collection, getDocs, query, where, doc, setDoc, updateDoc } from './firebase.js?v=20260820_batch_invoice_v3';
 
 const INVENTORY = `new_inventory_batches`;
 const SALES = `new_sales_batch_balances`;
 const IMPORTS = `new_return_imports`;
+const INVENTORY_HISTORY = `new_inventory_batch_history`;
 let inventoryRows = [];
 let salesRows = [];
 let inventoryFileMeta = null;
@@ -15,10 +16,20 @@ const number = value => {
     return Number.isFinite(parsed) ? parsed : 0;
 };
 const normalize = value => text(value).toLowerCase();
+const dateValue = value => {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+    const raw = text(value);
+    if (!raw) return ``;
+    if (/^\d{4}-\d{1,2}-\d{1,2}/.test(raw)) return raw.slice(0, 10);
+    const dayFirst = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (dayFirst) return `${dayFirst[3]}-${dayFirst[2].padStart(2, `0`)}-${dayFirst[1].padStart(2, `0`)}`;
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString().slice(0, 10);
+};
 const compactId = value => {
-    let hash = 2166136261;
-    for (const char of String(value)) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
-    return (hash >>> 0).toString(36);
+    let hashA = 2166136261, hashB = 2246822519;
+    for (const char of String(value)) { const code = char.charCodeAt(0); hashA = Math.imul(hashA ^ code, 16777619); hashB = Math.imul(hashB ^ code, 3266489917); }
+    return `${(hashA >>> 0).toString(36)}${(hashB >>> 0).toString(36)}`;
 };
 const timestamp = () => new Date();
 
@@ -54,9 +65,9 @@ function downloadWorkbook(type) {
         XLSX.writeFile(wb, `Template_Inventory_Batches.xlsx`);
         return;
     }
-    const rows = [[`تاريخ البيع`, `رقم الفاتورة`, `كود الصيدلية`, `اسم الصيدلية`, `كود الصنف`, `اسم الصنف`, `Batch`, `الكمية المباعة`, `سعر الوحدة`], [`2025-01-15`, `INV-001`, `PH-001`, `صيدلية مثال`, `P-001`, `مثال صنف`, `BATCH-001`, 10, 2.5]];
+    const rows = [[`تاريخ البيع`, `رقم الفاتورة`, `كود الصيدلية`, `اسم الصيدلية`, `كود الصنف`, `اسم الصنف`, `Batch`, `تاريخ الانتهاء`, `الكمية المباعة`, `الكمية المجانية`, `سعر الوحدة`], [`2025-01-15`, `INV-001`, `PH-001`, `صيدلية مثال`, `P-001`, `مثال صنف`, `BATCH-001`, `2028-12-31`, 10, 2, 2.5]];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws[`!cols`] = [{ wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 18 }, { wch: 34 }, { wch: 20 }, { wch: 18 }, { wch: 16 }];
+    ws[`!cols`] = [{ wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 18 }, { wch: 34 }, { wch: 20 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 16 }];
     XLSX.utils.book_append_sheet(wb, ws, `المبيعات القديمة`);
     XLSX.writeFile(wb, `Template_Historical_Batch_Sales.xlsx`);
 }
@@ -84,7 +95,7 @@ async function parseInventory(file) {
     inventoryRows = source.map((row, index) => {
         const result = {
             productCode: text(row[`كود الصنف`]), productName: text(row[`اسم الصنف`]), batch: text(row[`Batch`] || row[`الباتش`]),
-            expiryDate: text(row[`تاريخ الانتهاء`]), initialQty: number(row[`الكمية المتاحة`])
+            expiryDate: dateValue(row[`تاريخ الانتهاء`]), initialQty: number(row[`الكمية المتاحة`])
         };
         if (!result.productCode || !result.productName || !result.batch || result.initialQty < 0) errors.push(`سطر ${index + 2}: بيانات ناقصة أو كمية غير صحيحة`);
         return result;
@@ -99,17 +110,18 @@ async function parseSales(file) {
     const errors = [];
     const parsedRows = source.map((row, index) => {
         const result = {
-            saleDate: text(row[`تاريخ البيع`]), invoiceNumber: text(row[`رقم الفاتورة`]), pharmacyCode: text(row[`كود الصيدلية`]), pharmacyName: text(row[`اسم الصيدلية`]),
-            productCode: text(row[`كود الصنف`]), productName: text(row[`اسم الصنف`]), batch: text(row[`Batch`] || row[`الباتش`]), soldQty: number(row[`الكمية المباعة`]), unitPrice: number(row[`سعر الوحدة`])
+            saleDate: dateValue(row[`تاريخ البيع`]), invoiceNumber: text(row[`رقم الفاتورة`]), pharmacyCode: text(row[`كود الصيدلية`]), pharmacyName: text(row[`اسم الصيدلية`]),
+            productCode: text(row[`كود الصنف`]), productName: text(row[`اسم الصنف`]), batch: text(row[`Batch`] || row[`الباتش`]), expiryDate: dateValue(row[`تاريخ الانتهاء`]), soldQty: number(row[`الكمية المباعة`]), bonusQty: number(row[`الكمية المجانية`] || row[`البونص`]), unitPrice: number(row[`سعر الوحدة`])
         };
-        if (!result.invoiceNumber || !result.pharmacyCode || !result.productCode || !result.batch || result.soldQty <= 0 || result.unitPrice < 0) errors.push(`سطر ${index + 2}: رقم الفاتورة إلزامي، وتحقق من الكود والباتش والكمية والسعر`);
+        result.totalPurchasedQty = result.soldQty + result.bonusQty;
+        if (!result.invoiceNumber || !result.pharmacyCode || !result.productCode || !result.batch || result.soldQty < 0 || result.bonusQty < 0 || result.totalPurchasedQty <= 0 || result.unitPrice < 0) errors.push(`سطر ${index + 2}: رقم الفاتورة والكود والباتش إلزامية، ويجب أن يكون مجموع الكمية والبونص أكبر من صفر`);
         return result;
-    }).filter(row => row.invoiceNumber && row.pharmacyCode && row.productCode && row.batch && row.soldQty > 0 && row.unitPrice >= 0);
+    }).filter(row => row.invoiceNumber && row.pharmacyCode && row.productCode && row.batch && row.totalPurchasedQty > 0 && row.unitPrice >= 0);
     const aggregated = new Map();
     parsedRows.forEach(row => {
         const key = `${normalize(row.invoiceNumber)}__${normalize(row.pharmacyCode)}__${normalize(row.productCode)}__${normalize(row.batch)}__${row.unitPrice}`;
-        const current = aggregated.get(key) || { ...row, soldQty: 0, sourceRows: 0, firstSaleDate: row.saleDate, lastSaleDate: row.saleDate };
-        current.soldQty += row.soldQty; current.sourceRows += 1;
+        const current = aggregated.get(key) || { ...row, soldQty: 0, bonusQty: 0, totalPurchasedQty: 0, sourceRows: 0, firstSaleDate: row.saleDate, lastSaleDate: row.saleDate };
+        current.soldQty += row.soldQty; current.bonusQty += row.bonusQty; current.totalPurchasedQty += row.totalPurchasedQty; current.sourceRows += 1;
         if (row.saleDate && (!current.firstSaleDate || row.saleDate < current.firstSaleDate)) current.firstSaleDate = row.saleDate;
         if (row.saleDate && (!current.lastSaleDate || row.saleDate > current.lastSaleDate)) current.lastSaleDate = row.saleDate;
         aggregated.set(key, current);
@@ -132,10 +144,16 @@ async function commitInventory() {
         const uploadId = `inventory_${Date.now()}_${compactId(inventoryFileMeta.hash)}`;
         const activeSnap = await getDocs(query(collection(db, INVENTORY), where(`active`, `==`, true)));
         const deactivate = [];
-        activeSnap.forEach(item => deactivate.push(() => updateDoc(item.ref, { active: false, deactivatedAt: timestamp(), replacedBy: uploadId })));
+        activeSnap.forEach(item => {
+            const previous = item.data();
+            deactivate.push(async () => {
+                await setDoc(doc(db, INVENTORY_HISTORY, `${compactId(uploadId)}_${item.id}`), { ...previous, sourceInventoryId: item.id, archivedAt: timestamp(), replacedBy: uploadId });
+                await updateDoc(item.ref, { active: false, deactivatedAt: timestamp(), replacedBy: uploadId });
+            });
+        });
         await writeSequential(deactivate);
         const writes = inventoryRows.map(row => () => {
-            const id = `${compactId(row.productCode)}_${compactId(row.batch)}_${compactId(uploadId)}`;
+            const id = `batch_${compactId(row.productCode)}_${compactId(row.batch)}`;
             return setDoc(doc(db, INVENTORY, id), { ...row, normalizedProductCode: normalize(row.productCode), normalizedBatch: normalize(row.batch), remainingQty: row.initialQty, active: true, uploadId, createdAt: timestamp(), updatedAt: timestamp() });
         });
         await writeSequential(writes);
@@ -155,7 +173,10 @@ async function commitSales() {
         const duplicate = await getDocs(query(collection(db, IMPORTS), where(`fileHash`, `==`, salesFileMeta.hash)));
         if (!duplicate.empty) throw new Error(`DUPLICATE_FILE`);
         const uploadId = `sales_${Date.now()}_${compactId(salesFileMeta.hash)}`;
-        const writes = salesRows.map((row, index) => () => setDoc(doc(db, SALES, `${compactId(uploadId)}_${index}`), { ...row, source: `historical_import`, uploadId, createdAt: timestamp() }));
+        const writes = salesRows.map(row => () => {
+            const ledgerKey = `${normalize(row.invoiceNumber)}__${normalize(row.pharmacyCode)}__${normalize(row.productCode)}__${normalize(row.batch)}__${row.unitPrice}`;
+            return setDoc(doc(db, SALES, `historical_${compactId(ledgerKey)}`), { ...row, ledgerKey, source: `historical_import`, uploadId, createdAt: timestamp() });
+        });
         await writeSequential(writes);
         await setDoc(doc(db, IMPORTS, uploadId), { type: `historical_sales`, fileName: salesFileMeta.name, fileHash: salesFileMeta.hash, records: salesRows.length, status: `active`, createdAt: timestamp() });
         showBanner(`تم حفظ ${salesRows.length} سجل مبيعات قديمة بنجاح.`, `success`);
@@ -185,6 +206,8 @@ document.addEventListener(`DOMContentLoaded`, () => {
         return;
     }
     document.querySelectorAll(`[data-import-tab]`).forEach(button => button.addEventListener(`click`, () => switchTab(button.dataset.importTab)));
+    const requestedTab = new URLSearchParams(location.search).get(`tab`);
+    if ([`inventory`, `sales`, `logs`].includes(requestedTab)) switchTab(requestedTab);
     $(`downloadInventoryTemplate`).onclick = () => downloadWorkbook(`inventory`);
     $(`downloadSalesTemplate`).onclick = () => downloadWorkbook(`sales`);
     $(`inventoryFile`).onchange = event => event.target.files[0] && parseInventory(event.target.files[0]);
