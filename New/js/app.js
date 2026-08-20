@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20260820_returns_v1`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20260820_batch_invoice_v3`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
