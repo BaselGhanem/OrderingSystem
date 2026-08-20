@@ -660,7 +660,8 @@
                         status: 'returned',
                         createdAt: returned.approvedAt || returned.marketApprovedAt || returned.updatedAt || returned.createdAt,
                         grandTotal: -Math.abs(parseReportNumber(returned.totalValue)),
-                        items: (returned.items || []).map(item => ({ name: item.productName, productCode: item.productCode, batch: item.batch, qty: -Math.abs(parseReportNumber(item.qty)), price: parseReportNumber(item.unitPrice), total: -Math.abs(parseReportNumber(item.lineValue)), note: item.reason === 'expired' ? 'Expired' : 'بضاعة جيدة' }))
+                        invoiceNumbers: [...new Set((returned.items || []).map(item => item.invoiceNumber).filter(Boolean))].join(' | '),
+                        items: (returned.items || []).map(item => ({ name: item.productName, productCode: item.productCode, batch: item.batch, batchExpiry: item.expiryDate, invoiceNumber: item.invoiceNumber, qty: -Math.abs(parseReportNumber(item.qty)), price: parseReportNumber(item.unitPrice), total: -Math.abs(parseReportNumber(item.lineValue)), note: item.reason === 'expired' ? 'Expired' : 'بضاعة جيدة' }))
                     }));
                 });
                 
