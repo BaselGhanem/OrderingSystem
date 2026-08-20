@@ -1,4 +1,4 @@
-import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js';
+import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js?v=20260820_batch_invoice_v3';
 
 // ==========================================
 // 🚀 1. نظام الإشعارات (Toasts)
@@ -1833,7 +1833,7 @@ function addNewRow(prefill = null) {
         calcBonus();
         updateGrandTotal(); 
     };
-    b.oninput = () => { calcBonus(); updateGrandTotal(); };
+    b.oninput = () => { validateOrderBatchQuantity(tr); calcBonus(); updateGrandTotal(); };
 
     tr.querySelector('.item-note-input').oninput = () => { autoSaveDraft(); };
 
@@ -1867,8 +1867,8 @@ function populateOrderBatchSelect(row, product, selectedBatch = '') {
     const name = normalizeSupervisorFilterText(product?.name || '');
     const batches = activeInventoryBatches.filter(batch => normalizeSupervisorFilterText(batch.productCode) === code || (!code && normalizeSupervisorFilterText(batch.productName) === name));
     select.innerHTML = batches.length ? `<option value="">اختر Batch</option>${batches.map(batch => `<option value="${escapePrintHtml(batch.batch)}" data-expiry="${escapePrintHtml(batch.expiryDate || '')}" data-inventory-id="${batch.id}" data-remaining="${parseAppNumber(batch.remainingQty)}">${escapePrintHtml(batch.batch)} — متاح ${parseAppNumber(batch.remainingQty).toLocaleString('en-US')}</option>`).join('')}` : `<option value="">لا يوجد Batch مفعل</option>`;
-    select.disabled = batches.length === 0;
-    select.required = batches.length > 0;
+    select.disabled = false;
+    select.required = true;
     if (selectedBatch) select.value = selectedBatch;
     const refresh = () => { const option = select.selectedOptions[0]; balance.textContent = option?.dataset?.remaining ? `الرصيد: ${parseAppNumber(option.dataset.remaining).toLocaleString('en-US')}` : ''; validateOrderBatchQuantity(row); autoSaveDraft(); };
     select.onchange = refresh; refresh();
@@ -1877,11 +1877,14 @@ function populateOrderBatchSelect(row, product, selectedBatch = '') {
 function validateOrderBatchQuantity(row) {
     const select = row.querySelector('.batch-select');
     const qty = row.querySelector('.qty-input');
-    if (!select || select.disabled) return true;
+    if (!select) return false;
     const remaining = parseAppNumber(select.selectedOptions[0]?.dataset?.remaining);
-    const valid = Boolean(select.value) && parseAppNumber(qty?.value) <= remaining;
+    const bonus = row.querySelector('.bonus-input');
+    const requested = parseAppNumber(qty?.value) + parseAppNumber(bonus?.value);
+    const valid = Boolean(select.value) && requested > 0 && requested <= remaining;
     select.classList.toggle('input-error', !valid);
-    qty?.classList.toggle('input-error', Boolean(select.value) && parseAppNumber(qty.value) > remaining);
+    qty?.classList.toggle('input-error', Boolean(select.value) && requested > remaining);
+    bonus?.classList.toggle('input-error', Boolean(select.value) && requested > remaining);
     return valid;
 }
 
@@ -2864,11 +2867,12 @@ ${repFieldHTML}
         if (grandTotalEl) grandTotalEl.innerText = total.toFixed(2);
     }
 
-function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='') {
+function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='', batch='', batchExpiry='', inventoryBatchId='') {
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid #eee";
         tr.innerHTML = `
             <td style="padding: 8px;"><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:200px; padding:8px; border:1px solid #ccc; border-radius:4px; outline:none;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+            <td style="padding:8px"><select class="batch-select" required><option value="">اختر Batch</option></select><small class="batch-balance" style="display:block;margin-top:4px;color:#64748b;font-weight:700"></small></td>
             <td style="padding: 8px; text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 65px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"></td>
             <td style="padding: 8px; text-align: center; position:relative;">
                 <input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 65px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;">
@@ -2883,6 +2887,14 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         const q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
         const b = tr.querySelector('.bonus-input'), bPct = tr.querySelector('.edit-bonus-pct'); // 🟢 جلب حقول البونص
         const productNames = productsList.map(prod => prod.name);
+        const initialProduct = productsList.find(prod => prod.name === productName);
+        if (initialProduct) {
+            s.dataset.productCode = initialProduct.productCode || initialProduct.product_code || initialProduct.code || '';
+            populateOrderBatchSelect(tr, initialProduct, batch);
+            const option = tr.querySelector('.batch-select')?.selectedOptions?.[0];
+            if (option && inventoryBatchId) option.dataset.inventoryId = inventoryBatchId;
+            if (option && batchExpiry) option.dataset.expiry = batchExpiry;
+        }
         
         // 🟢 وظيفة حساب نسبة البونص للتعديل
         function calcEditBonus() {
@@ -2899,6 +2911,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
             const prod = productsList.find(pr => pr.name === selectedName); 
             const pr = prod ? parseFloat(prod.price) : 0; 
             s.dataset.productCode = prod?.productCode || prod?.product_code || prod?.code || ''; 
+            populateOrderBatchSelect(tr, prod);
             p.innerText = pr.toFixed(2); 
             t.innerText = (pr * q.value).toFixed(2); 
             updateEditTotal(); 
@@ -2913,11 +2926,12 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         });
 
         q.oninput = () => { 
+            validateOrderBatchQuantity(tr);
             t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); 
             calcEditBonus(); // 🟢 التحديث عند تغيير الكمية
             updateEditTotal(); 
         };
-        b.oninput = () => { calcEditBonus(); updateEditTotal(); }; // 🟢 التحديث عند تغيير البونص
+        b.oninput = () => { validateOrderBatchQuantity(tr); calcEditBonus(); updateEditTotal(); }; // 🟢 التحديث عند تغيير البونص
 
         tr.querySelector('.del-row').onclick = () => { tr.remove(); updateEditTotal(); };
         
@@ -2926,7 +2940,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         updateEditTotal();
     }    
     if (order.items && order.items.length > 0) {
-        order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total, item.note || ''); });
+        order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total, item.note || '', item.batch || '', item.batchExpiry || '', item.inventoryBatchId || ''); });
     } else { addEditRow(); }   
     const editAddBtn = document.getElementById('editAddRowBtn');
     if (editAddBtn) editAddBtn.onclick = () => addEditRow();
@@ -2956,7 +2970,9 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 if (inp && inp.value.trim() !== "") {
                     const isValid = productsList.some(prod => prod.name === inp.value.trim());
                     if (!isValid) { invalidItem = true; inp.style.border = "2px solid red"; } 
-                    else {
+                    else if (!validateOrderBatchQuantity(r)) {
+                        invalidItem = true;
+                    } else {
                         inp.style.border = "1px solid #ccc";
                         items.push(createProductItemFromRow(r));                    
                     }
