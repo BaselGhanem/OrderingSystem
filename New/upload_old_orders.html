@@ -10,6 +10,8 @@
         .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 700px; margin: auto; }
         .btn { padding: 12px 25px; background: #059669; color: white; border: none; cursor: pointer; border-radius: 8px; font-size: 1rem; font-weight: bold; margin-top: 15px; transition: 0.3s;}
         .btn:hover { background: #047857; }
+        .btn.secondary { background: #0f766e; margin-inline-start: 8px; }
+        .btn.secondary:hover { background: #115e59; }
         input[type="file"] { padding: 10px; border: 1px solid #ccc; border-radius: 8px; width: 100%; margin-top: 15px; box-sizing: border-box;}
         #status { margin-top: 20px; font-size: 1.1rem; font-weight: bold; }
         .info-box { background: #e0f2fe; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: right; font-size: 0.95rem; line-height: 1.6; border: 1px solid #bae6fd;}
@@ -27,7 +29,7 @@
         <div class="info-box">
             <strong>الأعمدة المطلوبة في ملف الإكسل (نفس صيغة التصدير):</strong><br>
             <span style="direction: ltr; display: inline-block; color: #0369a1; font-weight: bold; margin-top: 5px;">
-            التاريخ, المندوب, كود الصيدلية, الصيدلية, الصنف, الكمية, البونص, السعر, المجموع الفرعي, ملاحظة الصنف, الاجمالي الكلي, ملاحظة الطلبية, الحالة
+            التاريخ, رقم الفاتورة, المندوب, كود الصيدلية, الصيدلية, الصنف, الكمية, البونص, السعر, المجموع الفرعي, ملاحظة الصنف, الاجمالي الكلي, ملاحظة الطلبية, الحالة
             </span>
             <br><br>
             <i>* يرجى التأكد من أن عمود "التاريخ" منسق كنص (مثال: 15/02/2026) وليس كأرقام غريبة.</i>
@@ -35,6 +37,7 @@
 
         <input type="file" id="excelFile" accept=".xlsx, .xls">
         <br>
+        <button id="downloadTemplateBtn" class="btn secondary" type="button">تنزيل قالب الطلبيات القديمة</button>
         <button id="startImportBtn" class="btn">بدء رفع الطلبيات لقاعدة البيانات</button>
         <div id="status"></div>
     </div>
@@ -79,6 +82,21 @@
             return new Date(dateStr); // محاولة التفسير الافتراضي
         }
 
+        document.getElementById(`downloadTemplateBtn`).onclick = () => {
+            const rows = [[
+                `التاريخ`, `رقم الفاتورة`, `المندوب`, `كود الصيدلية`, `الصيدلية`, `الصنف`, `الكمية`, `البونص`, `السعر`,
+                `المجموع الفرعي`, `ملاحظة الصنف`, `الاجمالي الكلي`, `ملاحظة الطلبية`, `الحالة`
+            ], [
+                `15/02/2026`, `INV-001`, `اسم المندوب`, `PH-001`, `صيدلية مثال`, `اسم الصنف`, 10, 0, 2.5,
+                25, ``, 25, ``, `orders_staff_hidden`
+            ]];
+            const workbook = XLSX.utils.book_new();
+            const worksheet = XLSX.utils.aoa_to_sheet(rows);
+            worksheet[`!cols`] = rows[0].map((heading) => ({ wch: Math.max(14, String(heading).length + 4) }));
+            XLSX.utils.book_append_sheet(workbook, worksheet, `الطلبيات القديمة`);
+            XLSX.writeFile(workbook, `قالب_الطلبيات_القديمة.xlsx`);
+        };
+
         document.getElementById('startImportBtn').onclick = async () => {
             const file = document.getElementById('excelFile').files[0];
             if (!file) return alert("الرجاء اختيار ملف إكسل أولاً");
@@ -101,6 +119,16 @@
                     return;
                 }
 
+                const missingInvoiceRows = excelData
+                    .map((row, index) => ({ row, line: index + 2 }))
+                    .filter(({ row }) => (row[`المندوب`] || row[`الصيدلية`] || row[`الصنف`]) && !String(row[`رقم الفاتورة`] || ``).trim())
+                    .map(({ line }) => line);
+                if (missingInvoiceRows.length) {
+                    status.innerText = `❌ رقم الفاتورة إلزامي. الأسطر الناقصة: ${missingInvoiceRows.join(`، `)}`;
+                    status.style.color = `red`;
+                    return;
+                }
+
                 try {
                     // 1. تجميع الأسطر (الأصناف) في طلبيات رئيسية
                     const groupedOrders = new Map();
@@ -109,7 +137,8 @@
                         if(!row['المندوب'] || !row['الصيدلية']) return; // تخطي الأسطر الفارغة
 
                         // إنشاء مفتاح فريد لكل طلبية لجمع أصنافها
-                        const orderKey = `${row['التاريخ']}_${row['المندوب']}_${row['الصيدلية']}`;
+                        const invoiceNumber = String(row[`رقم الفاتورة`] || ``).trim();
+                        const orderKey = `${invoiceNumber}_${row[`التاريخ`]}_${row[`المندوب`]}_${row[`الصيدلية`]}`;
 
                         if(!groupedOrders.has(orderKey)) {
                             groupedOrders.set(orderKey, {
@@ -118,6 +147,7 @@
                                 managerName: repManagerMap[String(row['المندوب']).trim()] || "غير محدد",
                                 pharmacyName: String(row['الصيدلية']).trim(),
                                 pharmacyCode: String(row['كود الصيدلية'] || "-").trim(),
+                                invoiceNumber,
                                 orderNote: String(row['ملاحظة الطلبية'] || "").trim(),
                                 grandTotal: parseFloat(row['الاجمالي الكلي']) || 0,
                                 status: String(row['الحالة'] || "approved").trim(),
