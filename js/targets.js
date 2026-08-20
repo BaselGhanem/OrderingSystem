@@ -420,6 +420,58 @@ function renderProgressTable(rows) {
     `).join(``);
 }
 
+function safeTargetSheetName(name, index, usedNames) {
+    const base = String(name || `مندوب ${index + 1}`).replace(/[\\/?*\[\]:]/g, ` `).trim().slice(0, 31) || `مندوب ${index + 1}`;
+    let candidate = base, suffix = 2;
+    while (usedNames.has(candidate)) {
+        const tail = ` ${suffix++}`;
+        candidate = `${base.slice(0, 31 - tail.length)}${tail}`;
+    }
+    usedNames.add(candidate);
+    return candidate;
+}
+
+async function downloadTargetProgressWorkbook() {
+    if (typeof XLSX === `undefined`) return showTargetToast(`مكتبة Excel غير محملة.`, `error`);
+    const button = el(`downloadTargetProgressExcelBtn`);
+    if (button) button.disabled = true;
+    try {
+        const month = el(`targetProgressMonth`)?.value || currentMonthValue();
+        const targetRows = await loadTargetRows(month, targetState.supervisorName);
+        await loadOrders();
+        const progress = progressRows(targetRows, month);
+        const workbook = XLSX.utils.book_new();
+        const usedNames = new Set();
+        const headers = [`كود الصنف`, `اسم الصنف`, `الكمية المطلوبة`, `الكمية المباعة`, `الكمية المتبقية`, `نسبة الإنجاز`];
+        targetState.reps.forEach((rep, index) => {
+            const repName = rep.name || rep.repName || `مندوب ${index + 1}`;
+            const rows = progress.filter(row => normalizeText(row.repName) === normalizeText(repName)).map(row => ({
+                [`كود الصنف`]: productCode(row.product),
+                [`اسم الصنف`]: row.product.name,
+                [`الكمية المطلوبة`]: row.targetQty,
+                [`الكمية المباعة`]: row.soldQty,
+                [`الكمية المتبقية`]: row.remainingQty,
+                [`نسبة الإنجاز`]: row.achievement / 100
+            }));
+            const sheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+            sheet[`!cols`] = [{ wch: 18 }, { wch: 38 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 16 }];
+            sheet[`!freeze`] = { xSplit: 0, ySplit: 1 };
+            sheet[`!autofilter`] = { ref: `A1:F${Math.max(rows.length + 1, 1)}` };
+            for (let rowIndex = 2; rowIndex <= rows.length + 1; rowIndex += 1) if (sheet[`F${rowIndex}`]) sheet[`F${rowIndex}`].z = `0.0%`;
+            XLSX.utils.book_append_sheet(workbook, sheet, safeTargetSheetName(repName, index, usedNames));
+        });
+        if (workbook.SheetNames.length === 0) return showTargetToast(`لا يوجد مندوبون مرتبطون بهذا المشرف.`, `warning`);
+        workbook.Props = { Title: `متابعة أهداف ${month}`, Subject: `تقرير الأهداف الشهري`, Author: targetState.supervisorName || `نظام الطلبيات` };
+        XLSX.writeFile(workbook, `متابعة_الأهداف_${month}.xlsx`);
+        showTargetToast(`تم تنزيل ملف Excel، وكل مندوب موجود في صفحة مستقلة.`, `success`);
+    } catch (error) {
+        console.error(`تعذر تنزيل متابعة الأهداف.`, error);
+        showTargetToast(`تعذر تجهيز ملف متابعة الأهداف.`, `error`);
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
 async function refreshSupervisorProgress() {
     const month = el(`targetProgressMonth`)?.value || currentMonthValue();
     if (el(`targetProgressMonth`)) el(`targetProgressMonth`).value = month;
@@ -463,6 +515,7 @@ async function initializeSupervisorTargets() {
     el(`targetProgressMonth`)?.addEventListener(`change`, refreshSupervisorProgress);
     el(`targetProgressRepFilter`)?.addEventListener(`change`, refreshSupervisorProgress);
     el(`targetProgressProductFilter`)?.addEventListener(`change`, refreshSupervisorProgress);
+    el(`downloadTargetProgressExcelBtn`)?.addEventListener(`click`, downloadTargetProgressWorkbook);
     el(`downloadTargetTemplateBtn`)?.addEventListener(`click`, downloadTargetTemplate);
     el(`uploadTargetTemplateBtn`)?.addEventListener(`click`, () => el(`targetExcelInput`)?.click());
     el(`targetExcelInput`)?.addEventListener(`change`, event => {
