@@ -52,12 +52,12 @@ function isInvoiced(order = {}) {
     return order.isInvoiced === true || order.hiddenByOrderStaff === true || Boolean(order.invoicedAt) || [`orders_staff_hidden`, `orders_staff_invoiced_and_hidden_after_export`].includes(normalize(order.status || order.orderStaffStatus));
 }
 
-function saleKey(row) { return `${normalize(row.productCode || row.productName)}__${normalize(row.batch)}__${number(row.unitPrice)}`; }
+function saleKey(row) { return `${normalize(row.invoiceNumber)}__${normalize(row.productCode || row.productName)}__${normalize(row.batch)}__${number(row.unitPrice)}`; }
 
 function addSale(row) {
     if (!row.batch || number(row.soldQty) <= 0) return;
     const key = saleKey(row);
-    const existing = salesMap.get(key) || { productCode: text(row.productCode), productName: text(row.productName), batch: text(row.batch), unitPrice: number(row.unitPrice), soldQty: 0, usedQty: 0 };
+    const existing = salesMap.get(key) || { invoiceNumber: text(row.invoiceNumber), productCode: text(row.productCode), productName: text(row.productName), batch: text(row.batch), unitPrice: number(row.unitPrice), soldQty: 0, usedQty: 0 };
     existing.soldQty += number(row.soldQty); salesMap.set(key, existing);
 }
 
@@ -73,7 +73,7 @@ async function loadReturnableSales() {
     historicalSnap.forEach(item => addSale(item.data()));
     ordersSnap.forEach(item => {
         const order = item.data(); if (!isInvoiced(order)) return;
-        (Array.isArray(order.items) ? order.items : []).forEach(line => addSale({ productCode: line.productCode, productName: line.name, batch: line.batch, soldQty: line.qty, unitPrice: line.price }));
+        (Array.isArray(order.items) ? order.items : []).forEach(line => addSale({ invoiceNumber: order.invoiceNumber, productCode: line.productCode, productName: line.name, batch: line.batch, soldQty: line.qty, unitPrice: line.price }));
     });
     returnsSnap.forEach(item => {
         const returned = item.data(); if (!ACTIVE_RETURN_STATUSES.has(returned.status)) return;
@@ -110,7 +110,7 @@ function addReturnRow(prefill = null) {
     const productSelect = row.querySelector(`.return-product`), batchSelect = row.querySelector(`.return-batch`), availability = row.querySelector(`.return-availability`), qty = row.querySelector(`.return-qty`);
     const populateBatches = () => {
         const rows = batchOptions(productSelect.value);
-        batchSelect.innerHTML = `<option value="">اختر الباتش</option>${rows.map(([key, sale]) => `<option value="${escapeHtml(key)}">${escapeHtml(sale.batch)} — متاح ${sale.availableQty} — ${formatMoney(sale.unitPrice)} د.ا</option>`).join(``)}`;
+        batchSelect.innerHTML = `<option value="">اختر الباتش والفاتورة</option>${rows.map(([key, sale]) => `<option value="${escapeHtml(key)}">${escapeHtml(sale.batch)} — فاتورة ${escapeHtml(sale.invoiceNumber || `غير مسجل`)} — متاح ${sale.availableQty} — ${formatMoney(sale.unitPrice)} د.ا</option>`).join(``)}`;
         batchSelect.disabled = rows.length === 0;
     };
     productSelect.onchange = () => { populateBatches(); availability.textContent = `0`; updateReturnTotal(); };
@@ -120,7 +120,7 @@ function addReturnRow(prefill = null) {
     $(`returnItems`).appendChild(row);
     if (prefill) {
         const productKey = normalize(prefill.productCode || prefill.productName); productSelect.value = productKey; populateBatches();
-        const match = [...salesMap.entries()].find(([, sale]) => normalize(sale.productCode || sale.productName) === productKey && normalize(sale.batch) === normalize(prefill.batch) && number(sale.unitPrice) === number(prefill.unitPrice));
+        const match = [...salesMap.entries()].find(([, sale]) => normalize(sale.invoiceNumber) === normalize(prefill.invoiceNumber) && normalize(sale.productCode || sale.productName) === productKey && normalize(sale.batch) === normalize(prefill.batch) && number(sale.unitPrice) === number(prefill.unitPrice));
         if (match) { batchSelect.value = match[0]; availability.textContent = match[1].availableQty; }
         qty.value = number(prefill.qty); row.querySelector(`.return-reason`).value = prefill.reason || `good`;
     }
@@ -133,7 +133,7 @@ function collectReturnItems() {
         const key = row.querySelector(`.return-batch`).value; const sale = salesMap.get(key); const qty = number(row.querySelector(`.return-qty`).value);
         if (!sale || qty <= 0) throw new Error(`أكمل الصنف والـ Batch والكمية في السطر ${index + 1}.`);
         requested.set(key, (requested.get(key) || 0) + qty);
-        items.push({ productCode: sale.productCode, productName: sale.productName, batch: sale.batch, qty, unitPrice: sale.unitPrice, lineValue: qty * sale.unitPrice, reason: row.querySelector(`.return-reason`).value, soldQty: sale.soldQty, availableBefore: sale.availableQty });
+        items.push({ invoiceNumber: sale.invoiceNumber, productCode: sale.productCode, productName: sale.productName, batch: sale.batch, qty, unitPrice: sale.unitPrice, lineValue: qty * sale.unitPrice, reason: row.querySelector(`.return-reason`).value, soldQty: sale.soldQty, availableBefore: sale.availableQty });
     });
     requested.forEach((qty, key) => { const sale = salesMap.get(key); if (qty > sale.availableQty) throw new Error(`الكمية المطلوبة للصنف ${sale.productName} والباتش ${sale.batch} هي ${qty}، بينما المتاح ${sale.availableQty} فقط.`); });
     if (items.length === 0) throw new Error(`أضف صنفًا واحدًا على الأقل.`);
@@ -159,7 +159,7 @@ async function loadMyReturns() {
     try {
         const snap = await getDocs(query(collection(db, RETURNS), where(`repName`, `==`, text(context.repName))));
         const rows = []; snap.forEach(item => rows.push({ id: item.id, ...item.data() })); rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-        body.innerHTML = rows.length ? rows.map(row => `<tr><td>${dateText(row.createdAt)}</td><td>${escapeHtml(row.pharmacyName)}</td><td>${(row.items || []).map(item => `${escapeHtml(item.productName)} / ${escapeHtml(item.batch)} × ${item.qty}`).join(`<br>`)}</td><td>${formatMoney(row.totalValue)}</td><td><span class="returns-status ${row.status}">${STATUS_LABELS[row.status] || row.status}</span></td><td>${escapeHtml(row.rejectionReason || `-`)}</td><td>${[`supervisor_rejected`, `market_manager_rejected`].includes(row.status) ? `<button class="returns-btn warning edit-return" data-id="${row.id}" type="button">تعديل</button> <button class="returns-btn danger delete-return" data-id="${row.id}" type="button">حذف</button>` : `مشاهدة فقط`}</td></tr>`).join(``) : `<tr><td colspan="7"><div class="returns-empty">لا توجد مرتجعات بعد.</div></td></tr>`;
+        body.innerHTML = rows.length ? rows.map(row => `<tr><td>${dateText(row.createdAt)}</td><td>${escapeHtml(row.pharmacyName)}</td><td>${(row.items || []).map(item => `${escapeHtml(item.productName)} / ${escapeHtml(item.batch)} / فاتورة ${escapeHtml(item.invoiceNumber || `غير مسجل`)} × ${item.qty}`).join(`<br>`)}</td><td>${formatMoney(row.totalValue)}</td><td><span class="returns-status ${row.status}">${STATUS_LABELS[row.status] || row.status}</span></td><td>${escapeHtml(row.rejectionReason || `-`)}</td><td>${[`supervisor_rejected`, `market_manager_rejected`].includes(row.status) ? `<button class="returns-btn warning edit-return" data-id="${row.id}" type="button">تعديل</button> <button class="returns-btn danger delete-return" data-id="${row.id}" type="button">حذف</button>` : `مشاهدة فقط`}</td></tr>`).join(``) : `<tr><td colspan="7"><div class="returns-empty">لا توجد مرتجعات بعد.</div></td></tr>`;
         body.querySelectorAll(`.edit-return`).forEach(button => button.onclick = () => editReturn(rows.find(row => row.id === button.dataset.id)));
         body.querySelectorAll(`.delete-return`).forEach(button => button.onclick = async () => { if (confirm(`حذف المرتجع المرفوض نهائيًا؟`)) { await deleteDoc(doc(db, RETURNS, button.dataset.id)); loadMyReturns(); } });
     } catch (error) { body.innerHTML = `<tr><td colspan="7"><div class="returns-empty">تعذر تحميل المرتجعات.</div></td></tr>`; }
@@ -213,7 +213,7 @@ function renderReviewRows() {
     const body = $(`reviewReturnsBody`);
     body.innerHTML = filtered.length ? filtered.map(row => {
         const canApprove = (mode === `supervisor` && row.status === `pending_supervisor_approval`) || (mode === `market` && row.status === `market_manager_pending`);
-        return `<tr><td>${dateText(row.createdAt)}</td><td>${escapeHtml(row.repName)}</td><td>${escapeHtml(row.pharmacyCode)}<br><strong>${escapeHtml(row.pharmacyName)}</strong></td><td>${(row.items || []).map(item => `${escapeHtml(item.productName)} — ${escapeHtml(item.batch)} — ${item.qty} × ${formatMoney(item.unitPrice)} — ${item.reason === `expired` ? `Expired` : `بضاعة جيدة`}`).join(`<br>`)}</td><td>${formatMoney(row.totalValue)}</td><td><span class="returns-status ${row.status}">${STATUS_LABELS[row.status] || row.status}</span></td><td>${escapeHtml(row.rejectionReason || `-`)}</td><td>${canApprove ? `<button class="returns-btn success approve-return" data-id="${row.id}" type="button">موافقة</button> <button class="returns-btn danger reject-return" data-id="${row.id}" type="button">رفض</button>` : `مشاهدة`}</td></tr>`;
+        return `<tr><td>${dateText(row.createdAt)}</td><td>${escapeHtml(row.repName)}</td><td>${escapeHtml(row.pharmacyCode)}<br><strong>${escapeHtml(row.pharmacyName)}</strong></td><td>${(row.items || []).map(item => `${escapeHtml(item.productName)} — ${escapeHtml(item.batch)} — فاتورة ${escapeHtml(item.invoiceNumber || `غير مسجل`)} — ${item.qty} × ${formatMoney(item.unitPrice)} — ${item.reason === `expired` ? `Expired` : `بضاعة جيدة`}`).join(`<br>`)}</td><td>${formatMoney(row.totalValue)}</td><td><span class="returns-status ${row.status}">${STATUS_LABELS[row.status] || row.status}</span></td><td>${escapeHtml(row.rejectionReason || `-`)}</td><td>${canApprove ? `<button class="returns-btn success approve-return" data-id="${row.id}" type="button">موافقة</button> <button class="returns-btn danger reject-return" data-id="${row.id}" type="button">رفض</button>` : `مشاهدة`}</td></tr>`;
     }).join(``) : `<tr><td colspan="8"><div class="returns-empty">لا توجد مرتجعات مطابقة.</div></td></tr>`;
     body.querySelectorAll(`.approve-return`).forEach(button => button.onclick = () => approveReturn(button.dataset.id));
     body.querySelectorAll(`.reject-return`).forEach(button => button.onclick = () => rejectReturn(button.dataset.id));
@@ -234,7 +234,7 @@ async function rejectReturn(id) {
 }
 
 function exportVisible() {
-    const rows = currentRows.map(row => ({ [`التاريخ`]: dateText(row.createdAt), [`المندوب`]: row.repName, [`كود الصيدلية`]: row.pharmacyCode, [`الصيدلية`]: row.pharmacyName, [`الأصناف`]: (row.items || []).map(item => `${item.productName}/${item.batch}/${item.qty}`).join(` | `), [`قيمة المرتجع`]: row.totalValue, [`الحالة`]: STATUS_LABELS[row.status] || row.status, [`سبب الرفض`]: row.rejectionReason || `` }));
+    const rows = currentRows.flatMap(row => (row.items || []).map(item => ({ [`التاريخ`]: dateText(row.createdAt), [`رقم الفاتورة`]: item.invoiceNumber || ``, [`المندوب`]: row.repName, [`كود الصيدلية`]: row.pharmacyCode, [`الصيدلية`]: row.pharmacyName, [`الصنف`]: item.productName, [`Batch`]: item.batch, [`الكمية المرتجعة`]: item.qty, [`سعر الوحدة`]: item.unitPrice, [`قيمة السطر`]: item.lineValue, [`قيمة المرتجع`]: row.totalValue, [`الحالة`]: STATUS_LABELS[row.status] || row.status, [`سبب الرفض`]: row.rejectionReason || `` })));
     const wb = XLSX.utils.book_new(), ws = XLSX.utils.json_to_sheet(rows); XLSX.utils.book_append_sheet(wb, ws, `Returns`); XLSX.writeFile(wb, `Returns_${reviewMode()}.xlsx`);
 }
 
