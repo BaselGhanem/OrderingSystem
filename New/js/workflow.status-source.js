@@ -1,4 +1,4 @@
-import { db, collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter, documentId } from './firebase.js';
+import { db, collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter, documentId, runTransaction } from './firebase.js?v=20260820_batch_invoice_v3';
 
 const COMPANY_LOGO_URL = 'https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png';
 const WORKFLOW_PAGE = document.body?.dataset?.page || '';
@@ -89,6 +89,7 @@ function compactOrder(order = {}) {
         pharmacy_code: order.pharmacy_code || '',
         customerCode: order.customerCode || '',
         grandTotal: order.grandTotal || 0,
+        invoiceNumber: order.invoiceNumber || '',
         total: order.total || 0,
         orderNote: order.orderNote || '',
         note: order.note || '',
@@ -962,10 +963,12 @@ function buildWorkflowItemRow(item = {}, index = 0, prefix = 'mm') {
             <td>${index + 1}</td>
             <td class="${prefix}-code-cell" data-original-code="${escapeHtml(getItemProductCode(calc) || '')}">${escapeHtml(getItemProductCode(calc) || '-')}</td>
             <td class="item-name-cell">
-                <select class="${prefix}-product workflow-product-select" style="min-width:${workflowProductFieldWidth(calc.name || '')}ch; width:100%;">
+                <select class="${prefix}-product workflow-product-select" style="min-width:${workflowProductFieldWidth(calc.name || '')}ch; width:100%;" disabled title="تغيير الصنف يتطلب اختيار Batch جديد من شاشة المندوب">
                     ${productOptionsHtml(calc.name || '')}
                 </select>
             </td>
+            <td>${escapeHtml(calc.batch || '-')}</td>
+            <td>${escapeHtml(calc.batchExpiry || '-')}</td>
             <td><input class="${prefix}-qty" type="number" min="0" step="1" value="${calc.qty}"></td>
             <td><input class="${prefix}-bonus" type="number" min="0" step="1" value="${calc.bonus}"></td>
             <td><input class="${prefix}-bonus-pct" type="number" min="0" step="0.01" value="${calc.bonusPct}"></td>
@@ -1066,8 +1069,9 @@ function openMarketOrderModal(order) {
     `;
     $('marketOrderNote').textContent = [getOrderNote(order), getFinanceVisibleNote(order) ? `ملاحظة المالية: ${getFinanceVisibleNote(order)}` : ''].filter(Boolean).join(' | ') || 'لا توجد ملاحظات.';
     renderWorkflowInsights('market', order);
-    $('marketOrderItemsBody').innerHTML = fullOrderRows(order) || `<tr><td colspan="10">لا توجد أصناف.</td></tr>`;
+    $('marketOrderItemsBody').innerHTML = fullOrderRows(order) || `<tr><td colspan="12">لا توجد أصناف.</td></tr>`;
     document.querySelectorAll('#marketOrderItemsBody tr').forEach(bindMarketItemRow);
+    if ($('addMarketItemBtn')) $('addMarketItemBtn').disabled = true;
     if ($('marketModalActionSelect')) $('marketModalActionSelect').value = '';
     $('marketOrderModal').style.display = 'flex';
 }
@@ -1601,6 +1605,7 @@ function initFinanceController() {
 }
 
 const ORDER_STAFF_EXPORT_HEADERS = [
+    'Invoice Number',
     'Order Date&time',
     'Representative Name',
     'Area',
@@ -1608,6 +1613,8 @@ const ORDER_STAFF_EXPORT_HEADERS = [
     'Pharmacy Name',
     'Product Code',
     'Product Name',
+    'Batch',
+    'Expiry Date',
     'Price',
     'Quantity',
     'Bonus Quantity',
@@ -1623,6 +1630,7 @@ function orderToExportRows(order) {
     return items.map(item => {
         const calc = calculateItem(item);
         return {
+            'Invoice Number': order.invoiceNumber || '',
             'Order Date&time': formatDateTime(order.createdAt),
             'Representative Name': order.repName || order.representativeName || '',
             'Area': getOrderArea(order),
@@ -1630,6 +1638,8 @@ function orderToExportRows(order) {
             'Pharmacy Name': order.pharmacyName || '',
             'Product Code': getItemProductCode(calc),
             'Product Name': calc.name || '',
+            'Batch': calc.batch || item.batch || '',
+            'Expiry Date': calc.batchExpiry || item.batchExpiry || '',
             'Price': calc.price,
             'Quantity': calc.qty,
             'Bonus Quantity': calc.bonus,
@@ -1685,7 +1695,7 @@ function renderOrdersStaffRows() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) return setTableEmpty('ordersStaffBody', 12, 'لا توجد طلبيات ضمن الفلاتر الحالية');
+    if (state.visibleOrders.length === 0) return setTableEmpty('ordersStaffBody', 13, 'لا توجد طلبيات ضمن الفلاتر الحالية');
 
     const renderChunk = async (startIndex = 0) => {
         if (token !== state.renderToken) return;
@@ -1701,6 +1711,7 @@ function renderOrdersStaffRows() {
             tr.innerHTML = `
                 <td data-label="تحديد"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
                 <td data-label="التاريخ" class="staff-date-cell">${escapeHtml(formatDateTime(order.createdAt))}</td>
+                <td data-label="رقم الفاتورة"><input class="staff-invoice-input" data-order-id="${order.id}" type="text" value="${escapeHtml(order.invoiceNumber || '')}" placeholder="إلزامي للفوترة" style="min-width:150px;padding:9px 11px;border:1px solid #b9ced2;border-radius:10px;font:700 .86rem Cairo;background:#fff" ${staffCanAct ? '' : 'readonly'}></td>
                 <td data-label="الصيدلية" class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
                 <td data-label="المندوب" class="staff-rep-cell" title="${escapeHtml(order.repName || order.representativeName || '-')}">${escapeHtml(order.repName || order.representativeName || '-')}</td>
                 <td data-label="الحالة"><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span></td>
@@ -1713,6 +1724,7 @@ function renderOrdersStaffRows() {
                 <td data-label="الإجراءات" class="workflow-actions-cell">${staffActionsHtml}</td>
             `;
             tr.querySelectorAll('.staff-edit-btn').forEach(btn => btn.addEventListener('click', () => openStaffOrderModal(order)));
+            tr.querySelector('.staff-invoice-input')?.addEventListener('change', event => saveOrderInvoiceNumber(order, event.target));
             tr.querySelector('.staff-return-btn')?.addEventListener('click', () => {
                 const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
                 if (reason !== null) staffReturnToFinance(order.id, reason);
@@ -1727,6 +1739,20 @@ function renderOrdersStaffRows() {
         }
     };
     renderChunk();
+}
+
+async function saveOrderInvoiceNumber(order, input) {
+    const invoiceNumber = String(input?.value || '').trim();
+    input.value = invoiceNumber;
+    order.invoiceNumber = invoiceNumber;
+    if (!order.id) return;
+    try {
+        await updateDoc(doc(db, 'orders', order.id), { invoiceNumber, updatedAt: new Date() });
+        input.classList.remove('input-error');
+    } catch (error) {
+        input.classList.add('input-error');
+        showToast('تعذر حفظ رقم الفاتورة.', 'error');
+    }
 }
 
 function fullStaffOrderRows(order) {
@@ -1814,8 +1840,9 @@ function openStaffOrderModal(order) {
     `;
     $('staffOrderNote').textContent = [getOrderNote(order), getFinanceVisibleNote(order) ? `ملاحظة المالية: ${getFinanceVisibleNote(order)}` : ''].filter(Boolean).join(' | ') || 'لا توجد ملاحظات.';
     const canEdit = canOrdersStaffTouchOrder(order);
-    ['addStaffItemBtn', 'saveStaffEditsBtn', 'returnStaffToFinanceBtn', 'deleteStaffOrderBtn'].forEach(id => { const btn = $(id); if (btn) btn.disabled = !canEdit; });
-    $('staffOrderItemsBody').innerHTML = fullStaffOrderRows(order) || `<tr><td colspan="10">لا توجد أصناف.</td></tr>`;
+    ['saveStaffEditsBtn', 'returnStaffToFinanceBtn', 'deleteStaffOrderBtn'].forEach(id => { const btn = $(id); if (btn) btn.disabled = !canEdit; });
+    if ($('addStaffItemBtn')) $('addStaffItemBtn').disabled = true;
+    $('staffOrderItemsBody').innerHTML = fullStaffOrderRows(order) || `<tr><td colspan="12">لا توجد أصناف.</td></tr>`;
     document.querySelectorAll('#staffOrderItemsBody tr').forEach(bindStaffItemRow);
     $('staffOrderModal').style.display = 'flex';
 }
@@ -1955,12 +1982,17 @@ function isOrdersStaffExportEligible(order = {}) {
 async function exportOrders(orders) {
     if (orders.length === 0) return showToast('لا توجد طلبيات للتصدير.', 'warning');
     if (typeof XLSX === 'undefined') return showToast('مكتبة Excel غير محملة. أعد فتح الصفحة وحاول مرة أخرى.', 'error');
+    const missingInvoices = orders.filter(order => !String(order.invoiceNumber || '').trim());
+    if (missingInvoices.length) return showToast(`رقم الفاتورة إلزامي قبل التصدير والفوترة. طلبيات ناقصة: ${missingInvoices.length}`, 'error');
+    const invalidBatchOrders = orders.filter(order => (order.items || []).some(item => !String(item.productCode || '').trim() || !String(item.batch || '').trim()));
+    if (invalidBatchOrders.length) return showToast(`لا يمكن فوترة طلبية بدون كود صنف وBatch. طلبيات غير مكتملة: ${invalidBatchOrders.length}`, 'error');
     await loadPharmacyAreas();
     const rows = orders.flatMap(orderToExportRows);
     if (rows.length === 0) return showToast('لا توجد أصناف قابلة للتصدير.', 'warning');
     const exportFileName = `orders_staff_${toDateInputValue(new Date())}.xlsx`;
     const ws = XLSX.utils.json_to_sheet(rows, { header: ORDER_STAFF_EXPORT_HEADERS });
     ws['!cols'] = [
+        { wch: 18 },
         { wch: 22 },
         { wch: 24 },
         { wch: 18 },
@@ -1968,6 +2000,8 @@ async function exportOrders(orders) {
         { wch: 32 },
         { wch: 16 },
         { wch: 34 },
+        { wch: 20 },
+        { wch: 16 },
         { wch: 12 },
         { wch: 10 },
         { wch: 14 },
@@ -1993,9 +2027,27 @@ async function exportOrders(orders) {
 إلغاء = لا، أبقِ الطلبيات ظاهرة.`);
     const action = hide ? 'orders_staff_invoiced_and_hidden_after_export' : 'orders_staff_export';
     state.suspendRender = true;
-    const results = await Promise.allSettled(orders.map(order => {
+    const prepareExportMeta = order => {
         const previousHistory = Array.isArray(order.exportHistory) ? order.exportHistory : [];
         const exportEntry = buildExportEntry('orders_staff_excel', 'Ziad/Zakaria', orders.length, hide, exportFileName);
+        return { previousHistory, exportEntry };
+    };
+    let results = [];
+    if (hide) {
+        for (const order of orders) {
+            const exportMeta = prepareExportMeta(order);
+            try {
+                await finalizeInvoicedOrder(order, exportMeta, exportFileName, action);
+                results.push({ status: 'fulfilled' });
+            } catch (error) {
+                console.error(error);
+                results.push({ status: 'rejected', reason: error });
+                showToast(error.message || `تعذر فوترة الطلبية ${order.invoiceNumber}.`, 'error');
+                break;
+            }
+        }
+    } else results = await Promise.allSettled(orders.map(order => {
+        const { previousHistory, exportEntry } = prepareExportMeta(order);
         return updateOrderWithAudit(order.id, {
             status: hide ? 'orders_staff_hidden' : 'orders_staff_exported',
             orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported',
@@ -2009,28 +2061,62 @@ async function exportOrders(orders) {
             invoicedBy: hide ? 'Ziad/Zakaria' : ''
         }, auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: order.status, orderStaffStatus: order.orderStaffStatus || '' }, { status: hide ? 'orders_staff_hidden' : 'orders_staff_exported', orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported', exportFileName }));
     }));
-    if (hide) await Promise.allSettled(orders.map(order => applyInvoicedBatchDeductions(order)));
     state.suspendRender = false;
     state.onOrdersChange?.();
     showToast(`تم التصدير وتحديث الحالة: ${results.filter(r => r.status === 'fulfilled').length}/${orders.length}`, 'success');
 }
 
-async function applyInvoicedBatchDeductions(order) {
-    const quantities = new Map();
-    (Array.isArray(order.items) ? order.items : []).forEach(item => {
-        if (!item.inventoryBatchId || !item.batch) return;
-        quantities.set(item.inventoryBatchId, (quantities.get(item.inventoryBatchId) || 0) + parseNumber(item.qty));
+async function finalizeInvoicedOrder(order, exportMeta, exportFileName, action) {
+    const activeSnap = await getDocs(query(collection(db, 'new_inventory_batches'), where('active', '==', true)));
+    const activeByKey = new Map();
+    activeSnap.forEach(item => {
+        const data = item.data();
+        activeByKey.set(`${String(data.productCode || '').trim().toLowerCase()}__${String(data.batch || '').trim().toLowerCase()}`, { ref: item.ref, data });
     });
-    for (const [inventoryId, soldQty] of quantities) {
-        const ref = doc(db, 'new_inventory_batches', inventoryId);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) continue;
-        await updateDoc(ref, {
-            remainingQty: Math.max(0, parseNumber(snap.data().remainingQty) - soldQty),
-            updatedAt: new Date(),
-            lastInvoicedOrderId: order.id
+    const requirements = new Map();
+    (order.items || []).forEach(item => {
+        const key = `${String(item.productCode || '').trim().toLowerCase()}__${String(item.batch || '').trim().toLowerCase()}`;
+        const current = requirements.get(key) || { item, requiredQty: 0, inventory: activeByKey.get(key) };
+        current.requiredQty += parseNumber(item.qty) + parseNumber(item.bonus);
+        requirements.set(key, current);
+    });
+    const missing = [...requirements.values()].find(entry => !entry.inventory);
+    if (missing) throw new Error(`لا يوجد رصيد نشط للصنف ${missing.item.name || missing.item.productCode} والـ Batch ${missing.item.batch}.`);
+    const entries = [...requirements.values()];
+    const now = new Date();
+    await runTransaction(db, async transaction => {
+        const orderRef = doc(db, 'orders', order.id);
+        const orderSnap = await transaction.get(orderRef);
+        if (!orderSnap.exists()) throw new Error('الطلبية غير موجودة.');
+        if (orderSnap.data().isInvoiced === true) throw new Error(`الفاتورة ${order.invoiceNumber} مفوترة مسبقًا.`);
+        const inventorySnaps = [];
+        for (const entry of entries) inventorySnaps.push(await transaction.get(entry.inventory.ref));
+        entries.forEach((entry, index) => {
+            if (inventorySnaps[index].data()?.active !== true) throw new Error(`الرصيد المحدد للـ Batch ${entry.item.batch} لم يعد نشطًا. أعد المحاولة بعد تحديث الصفحة.`);
+            const available = parseNumber(inventorySnaps[index].data()?.remainingQty);
+            if (entry.requiredQty > available) throw new Error(`الرصيد غير كافٍ للصنف ${entry.item.name || entry.item.productCode} والـ Batch ${entry.item.batch}. المطلوب شامل البونص ${entry.requiredQty} والمتاح ${available}.`);
         });
-    }
+        entries.forEach((entry, index) => {
+            const available = parseNumber(inventorySnaps[index].data().remainingQty);
+            transaction.update(entry.inventory.ref, { remainingQty: available - entry.requiredQty, updatedAt: now, lastInvoicedOrderId: order.id });
+        });
+        (order.items || []).forEach((item, index) => {
+            const qty = parseNumber(item.qty), bonusQty = parseNumber(item.bonus);
+            transaction.set(doc(db, 'new_sales_batch_balances', `current_${order.id}_${index}`), {
+                source: 'current_invoiced_order', sourceOrderId: order.id, invoiceNumber: String(order.invoiceNumber).trim(), saleDate: now,
+                pharmacyCode: getPharmacyCode(order), pharmacyName: order.pharmacyName || '', repId: order.repId || '', repName: order.repName || '',
+                productCode: getItemProductCode(item), productName: item.name || '', batch: item.batch || '', expiryDate: item.batchExpiry || '',
+                soldQty: qty, bonusQty, totalPurchasedQty: qty + bonusQty, unitPrice: parseNumber(item.price), createdAt: now
+            });
+        });
+        const currentOrder = orderSnap.data();
+        transaction.update(orderRef, {
+            status: 'orders_staff_hidden', orderStaffStatus: 'orders_staff_hidden', exportedBy: 'Ziad/Zakaria', exportedAt: now,
+            exportHistory: [...(currentOrder.exportHistory || exportMeta.previousHistory), exportMeta.exportEntry], hiddenByOrderStaff: true, hiddenAt: now,
+            isInvoiced: true, invoicedAt: now, invoicedBy: 'Ziad/Zakaria',
+            auditTrail: [...(currentOrder.auditTrail || []), auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: currentOrder.status, orderStaffStatus: currentOrder.orderStaffStatus || '' }, { status: 'orders_staff_hidden', orderStaffStatus: 'orders_staff_hidden', exportFileName })]
+        });
+    });
 }
 
 function initOrdersStaff() {
