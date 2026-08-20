@@ -8,7 +8,7 @@
 <body>
 <script>
 (async () => {
-    const response = await fetch(`reports.status-source.html?v=20260820_returns_v1`);
+    const response = await fetch(`reports.status-source.html?v=20260820_batch_invoice_v3`);
     if (!response.ok) throw new Error(`Unable to load reports source: ${response.status}`);
 
     let html = await response.text();
