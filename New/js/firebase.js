@@ -17,7 +17,8 @@ import {
     orderBy,
     limit,
     startAfter,
-    documentId                         
+    documentId,
+    runTransaction                         
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"; // 🟢 تم تعديل الرقم هنا
 
 // إعدادات الاتصال بقاعدة البيانات (كما هي بدون تغيير)
@@ -57,5 +58,6 @@ export {
     orderBy,
     limit,
     startAfter,
-    documentId  
+    documentId,
+    runTransaction  
 };
