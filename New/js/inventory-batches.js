@@ -102,12 +102,12 @@ async function parseSales(file) {
             saleDate: text(row[`تاريخ البيع`]), invoiceNumber: text(row[`رقم الفاتورة`]), pharmacyCode: text(row[`كود الصيدلية`]), pharmacyName: text(row[`اسم الصيدلية`]),
             productCode: text(row[`كود الصنف`]), productName: text(row[`اسم الصنف`]), batch: text(row[`Batch`] || row[`الباتش`]), soldQty: number(row[`الكمية المباعة`]), unitPrice: number(row[`سعر الوحدة`])
         };
-        if (!result.pharmacyCode || !result.productCode || !result.batch || result.soldQty <= 0 || result.unitPrice < 0) errors.push(`سطر ${index + 2}: الكود أو الباتش أو الكمية/السعر غير صحيح`);
+        if (!result.invoiceNumber || !result.pharmacyCode || !result.productCode || !result.batch || result.soldQty <= 0 || result.unitPrice < 0) errors.push(`سطر ${index + 2}: رقم الفاتورة إلزامي، وتحقق من الكود والباتش والكمية والسعر`);
         return result;
-    }).filter(row => row.pharmacyCode && row.productCode && row.batch && row.soldQty > 0 && row.unitPrice >= 0);
+    }).filter(row => row.invoiceNumber && row.pharmacyCode && row.productCode && row.batch && row.soldQty > 0 && row.unitPrice >= 0);
     const aggregated = new Map();
     parsedRows.forEach(row => {
-        const key = `${normalize(row.pharmacyCode)}__${normalize(row.productCode)}__${normalize(row.batch)}__${row.unitPrice}`;
+        const key = `${normalize(row.invoiceNumber)}__${normalize(row.pharmacyCode)}__${normalize(row.productCode)}__${normalize(row.batch)}__${row.unitPrice}`;
         const current = aggregated.get(key) || { ...row, soldQty: 0, sourceRows: 0, firstSaleDate: row.saleDate, lastSaleDate: row.saleDate };
         current.soldQty += row.soldQty; current.sourceRows += 1;
         if (row.saleDate && (!current.firstSaleDate || row.saleDate < current.firstSaleDate)) current.firstSaleDate = row.saleDate;
