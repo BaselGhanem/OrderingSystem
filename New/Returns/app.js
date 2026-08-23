@@ -4,6 +4,10 @@ const SALES = `returns_sales`;
 const PHARMACIES = `returns_pharmacies`;
 const RETURNS = `returns_requests`;
 const IMPORTS = `returns_imports`;
+const ACCESS_SESSION = `returns_access_context`;
+const DEFAULT_REP_SUPERVISOR_MAP = { [`مراد عمر`]: `محمد طوالبه`, [`مؤيد الزعبي`]: `محمد طوالبه`, [`محمد عبدربه`]: `محمد طوالبه`, [`محمد الفاعوري`]: `عبدالله الناطور`, [`اجود التلهوني`]: `عبدالله الناطور`, [`يزيد الرقب`]: `محمد طوالبه`, [`تامر عقل`]: `محمد طوالبه`, [`محمد ابو يامين`]: `عبدالله الناطور`, [`مراد الظاهر`]: `عبدالله الناطور` };
+let repSupervisorMap = { ...DEFAULT_REP_SUPERVISOR_MAP };
+const REP_PASSWORDS = { [`مراد الظاهر`]: `MzQ3OA==`, [`محمد ابو يامين`]: `NDA5OQ==`, [`يزيد الرقب`]: `NDE4Nw==`, [`مؤيد الزعبي`]: `MzQ3OQ==`, [`اجود التلهوني`]: `MzczNw==`, [`تامر عقل`]: `MzU2OQ==`, [`محمد الفاعوري`]: `NDAyMA==`, [`مراد عمر`]: `MTUxMA==`, [`محمد عبدربه`]: `NDAyOQ==` };
 const STATUS_LABELS = {
     pending_returns_manager: `بانتظار رئيس قسم المرتجعات`, returned_to_rep: `معاد للمندوب`, pending_supervisor: `بانتظار المشرف`,
     pending_market_manager: `بانتظار مدير السوق`, returned_to_returns_manager: `معاد لرئيس قسم المرتجعات`,
@@ -26,7 +30,9 @@ const isoDate = value => {
     const parsed = new Date(raw); return Number.isNaN(parsed.getTime()) ? `` : parsed.toISOString().slice(0, 10);
 };
 const params = new URLSearchParams(location.search);
-const actorName = () => text(params.get(`name`) || params.get(`rep`) || document.body.dataset.role || `النظام`);
+const actorName = () => text(readAccessSession()?.name || readAccessSession()?.repName || params.get(`name`) || params.get(`rep`) || document.body.dataset.role || `النظام`);
+function readAccessSession() { try { return JSON.parse(sessionStorage.getItem(ACCESS_SESSION) || `null`); } catch (_) { return null; } }
+function writeAccessSession(value) { sessionStorage.setItem(ACCESS_SESSION, JSON.stringify(value)); }
 
 function showBanner(message, type = `info`) { const banner = $(`banner`); if (!banner) return; banner.className = `banner show ${type}`; banner.textContent = message; window.scrollTo({ top: 0, behavior: `smooth` }); }
 function audit(action, role, details = ``) { return { action, role, actor: actorName(), details: text(details), at: now() }; }
@@ -122,9 +128,9 @@ async function editRepReturn(row) {
 }
 function switchRepTab(tab) { $(`newPanel`).classList.toggle(`hidden`, tab !== `new`); $(`historyPanel`).classList.toggle(`hidden`, tab !== `history`); document.querySelectorAll(`[data-tab]`).forEach(button => button.classList.toggle(`active`, button.dataset.tab === tab)); if (tab === `history`) loadRepHistory(); }
 async function initRep() {
-    repName = text(params.get(`rep`)); if (!repName) { showBanner(`رابط المندوب غير مكتمل. يجب أن يحتوي على اسم المندوب.`, `error`); $(`submitReturn`).disabled = true; return; }
-    $(`pageIdentity`).textContent = repName; await loadRepPharmacies();
-    $(`pharmacySelect`).onchange = async event => { selectedPharmacy = ($(`pharmacySelect`)._rows || []).find(row => row.id === event.target.value) || null; $(`pharmacyCode`).value = selectedPharmacy?.pharmacyCode || ``; $(`returnLines`).innerHTML = ``; if (selectedPharmacy) { await loadPharmacySales(); addLine(); } };
+    const access = readAccessSession(); if (access?.role !== `rep` || !access.repName || !access.pharmacyCode) { location.replace(`login.html`); return; }
+    repName = text(access.repName); selectedPharmacy = { id: access.pharmacyId, repName, repKey: normalize(repName), supervisorName: access.supervisorName, supervisorKey: normalize(access.supervisorName), pharmacyCode: access.pharmacyCode, pharmacyName: access.pharmacyName, repPharmacyKey: `${normalize(repName)}__${normalize(access.pharmacyCode)}` };
+    $(`pageIdentity`).textContent = `${repName} — ${selectedPharmacy.pharmacyName}`; $(`pharmacySelect`).innerHTML = `<option value="${escapeHtml(selectedPharmacy.id)}">${escapeHtml(selectedPharmacy.pharmacyCode)} — ${escapeHtml(selectedPharmacy.pharmacyName)}</option>`; $(`pharmacySelect`).disabled = true; $(`pharmacyCode`).value = selectedPharmacy.pharmacyCode; await loadPharmacySales(); addLine();
     $(`addLine`).onclick = () => addLine(); $(`submitReturn`).onclick = submitRepReturn; document.querySelectorAll(`[data-tab]`).forEach(button => button.onclick = () => switchRepTab(button.dataset.tab));
 }
 
@@ -145,7 +151,7 @@ function renderReviewRows() {
 }
 async function loadReviewRows(role) {
     const statuses = roleStatus(); let snap;
-    if (role === `supervisor`) { const name = text(params.get(`name`)); if (!name) throw new Error(`رابط المشرف غير مكتمل.`); $(`pageIdentity`).textContent = name; snap = await getDocs(query(collection(db, RETURNS), where(`supervisorKey`, `==`, normalize(name)))); }
+    if (role === `supervisor`) { const access = readAccessSession(); if (access?.role !== `supervisor` || !access.name) { location.replace(`login.html`); return; } const name = text(access.name); $(`pageIdentity`).textContent = name; snap = await getDocs(query(collection(db, RETURNS), where(`supervisorKey`, `==`, normalize(name)))); }
     else snap = await getDocs(collection(db, RETURNS));
     reviewRows = []; snap.forEach(item => { const row = item.data(); if (!row.deletedAt && statuses.includes(row.status)) reviewRows.push({ id:item.id,...row }); }); reviewRows.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)); renderReviewRows();
 }
@@ -213,4 +219,19 @@ async function commitSales(){const button=$(`commitSales`);button.disabled=true;
 async function loadUploadLogs(){const snap=await getDocs(collection(db,IMPORTS)),rows=[];snap.forEach(item=>rows.push({id:item.id,...item.data()}));rows.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));$(`uploadLogs`).innerHTML=rows.length?`<div class="table-wrap"><table class="table"><thead><tr><th>التاريخ</th><th>الملف</th><th>السجلات</th><th>الصيدليات</th></tr></thead><tbody>${rows.slice(0,50).map(row=>`<tr><td>${dateText(row.createdAt)}</td><td>${escapeHtml(row.fileName)}</td><td>${row.records||0}</td><td>${row.pharmacies||0}</td></tr>`).join(``)}</tbody></table></div>`:`<div class="empty">لا توجد ملفات مرفوعة.</div>`;}
 async function initAdmin(){if(typeof XLSX===`undefined`)return showBanner(`مكتبة Excel غير محملة.`,`error`);$(`downloadTemplate`).onclick=downloadTemplate;$(`salesFile`).onchange=event=>event.target.files[0]&&parseSales(event.target.files[0]);$(`commitSales`).onclick=commitSales;await loadUploadLogs();}
 
-document.addEventListener(`DOMContentLoaded`,async()=>{try{if(document.body.dataset.page===`rep`)await initRep();else if(document.body.dataset.page===`review`)await initReview();else if(document.body.dataset.page===`admin`)await initAdmin();}catch(error){console.error(error);showBanner(error.message||`حدث خطأ أثناء تحميل الصفحة.`,`error`);}});
+let loginReps = [], loginPharmacies = [], selectedSupervisor = ``;
+function showLoginPanel(role) { $(`roleStep`).classList.add(`hidden`); $(`repLoginPanel`).classList.toggle(`hidden`, role !== `rep`); $(`supervisorLoginPanel`).classList.toggle(`hidden`, role !== `supervisor`); }
+async function loadLoginReps() {
+    const snap = await getDocs(collection(db, `reps`)); loginReps = []; snap.forEach(item => { const row = { id: item.id, ...item.data() }; if (REP_PASSWORDS[text(row.name)]) loginReps.push(row); }); loginReps.sort((a,b)=>text(a.name).localeCompare(text(b.name),`ar`));
+    $(`loginRep`).innerHTML = `<option value="">اختر المندوب</option>${loginReps.map(row=>`<option value="${escapeHtml(row.id)}">${escapeHtml(row.name)}</option>`).join(``)}`;
+}
+async function loadLoginPharmacies(repId) {
+    const select=$(`loginPharmacy`);select.disabled=true;select.innerHTML=`<option value="">جاري تحميل الصيدليات...</option>`;loginPharmacies=[];
+    if(!repId){select.innerHTML=`<option value="">اختر المندوب أولًا</option>`;return;}
+    const snap=await getDocs(query(collection(db,`pharmacies`),where(`rep_id`,`==`,repId)));snap.forEach(item=>loginPharmacies.push({id:item.id,...item.data()}));loginPharmacies.sort((a,b)=>text(a.name).localeCompare(text(b.name),`ar`));select.innerHTML=`<option value="">اختر الصيدلية</option>${loginPharmacies.map(row=>`<option value="${escapeHtml(row.id)}">${escapeHtml(row.pharmacyCode||row.pharmacy_code||row.customerCode||``)} — ${escapeHtml(row.name)}</option>`).join(``)}`;select.disabled=false;
+}
+async function loginRepresentative(){const rep=loginReps.find(row=>row.id===$(`loginRep`).value),pharmacy=loginPharmacies.find(row=>row.id===$(`loginPharmacy`).value),password=text($(`loginRepPassword`).value);if(!rep)return showBanner(`اختر اسم المندوب.`,`error`);if(!pharmacy)return showBanner(`اختر صيدلية صحيحة.`,`error`);if(!password||btoa(password)!==REP_PASSWORDS[text(rep.name)])return showBanner(`كلمة سر المندوب غير صحيحة.`,`error`);const pharmacyCode=text(pharmacy.pharmacyCode||pharmacy.pharmacy_code||pharmacy.customerCode);if(!pharmacyCode)return showBanner(`الصيدلية المختارة لا تحتوي على كود صيدلية.`,`error`);writeAccessSession({role:`rep`,repId:rep.id,repName:text(rep.name),supervisorName:repSupervisorMap[text(rep.name)]||``,pharmacyId:pharmacy.id,pharmacyCode,pharmacyName:text(pharmacy.name),createdAt:Date.now()});location.href=`rep.html`;}
+function loginSupervisor(){const password=text($(`loginSupervisorPassword`).value);if(!selectedSupervisor)return showBanner(`اختر اسم المشرف.`,`error`);if(password!==`202604`)return showBanner(`كلمة سر المشرف غير صحيحة.`,`error`);writeAccessSession({role:`supervisor`,name:selectedSupervisor,createdAt:Date.now()});location.href=`supervisor.html`;}
+async function initLogin(){document.querySelectorAll(`[data-login-role]`).forEach(button=>button.onclick=()=>showLoginPanel(button.dataset.loginRole));document.querySelectorAll(`.back-roles`).forEach(button=>button.onclick=()=>{$(`roleStep`).classList.remove(`hidden`);$(`repLoginPanel`).classList.add(`hidden`);$(`supervisorLoginPanel`).classList.add(`hidden`);});document.querySelectorAll(`[data-supervisor]`).forEach(button=>button.onclick=()=>{selectedSupervisor=button.dataset.supervisor;document.querySelectorAll(`[data-supervisor]`).forEach(card=>card.classList.toggle(`selected`,card===button));$(`supervisorLoginButton`).disabled=false;});$(`loginRep`).onchange=event=>loadLoginPharmacies(event.target.value);$(`repLoginButton`).onclick=loginRepresentative;$(`supervisorLoginButton`).onclick=loginSupervisor;try{const config=await getDoc(doc(db,`system_settings`,`rep_supervisor_assignments`));if(config.exists()&&config.data()?.assignments)repSupervisorMap={...DEFAULT_REP_SUPERVISOR_MAP,...config.data().assignments};}catch(error){console.warn(`تعذر تحميل توزيع المشرفين.`,error);}await loadLoginReps();}
+
+document.addEventListener(`DOMContentLoaded`,async()=>{try{if(document.body.dataset.page===`login`)await initLogin();else if(document.body.dataset.page===`rep`)await initRep();else if(document.body.dataset.page===`review`)await initReview();else if(document.body.dataset.page===`admin`)await initAdmin();}catch(error){console.error(error);showBanner(error.message||`حدث خطأ أثناء تحميل الصفحة.`,`error`);}});
