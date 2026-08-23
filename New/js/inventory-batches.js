@@ -1,4 +1,4 @@
-import { db, collection, getDocs, query, where, doc, setDoc, updateDoc } from './firebase.js?v=20260820_batch_invoice_v3';
+import { db, collection, getDocs, query, where, doc, setDoc, updateDoc } from './firebase.js';
 
 const INVENTORY = `new_inventory_batches`;
 const SALES = `new_sales_batch_balances`;
