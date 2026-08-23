@@ -1,4 +1,4 @@
-import { db, collection, getDocs, query, where, addDoc, doc, setDoc, updateDoc, deleteDoc, getDoc } from `../js/firebase.js`;
+import { db, collection, getDocs, query, where, addDoc, doc, setDoc, updateDoc, deleteDoc, getDoc } from '../js/firebase.js';
 
 const SALES = `returns_sales`;
 const PHARMACIES = `returns_pharmacies`;
