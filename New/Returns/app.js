@@ -79,7 +79,11 @@ let repName = ``;
 let selectedPharmacy = null;
 let pharmacySales = [];
 let salesById = new Map();
+let batchGroups = new Map();
 let editingId = ``;
+
+function salesBatchGroupKey(row) { return `${normalize(row.productCode || row.productName)}__${normalize(row.batch)}`; }
+function returnItemGroupKey(item) { return text(item.returnGroupKey || salesBatchGroupKey(item)); }
 
 async function loadRepPharmacies() {
     const snap = await getDocs(query(collection(db, PHARMACIES), where(`repKey`, `==`, normalize(repName))));
@@ -89,7 +93,7 @@ async function loadRepPharmacies() {
 }
 
 async function loadPharmacySales() {
-    pharmacySales = []; salesById = new Map();
+    pharmacySales = []; salesById = new Map(); batchGroups = new Map();
     if (!selectedPharmacy) return;
     const snap = await getDocs(query(collection(db, SALES), where(`repPharmacyKey`, `==`, selectedPharmacy.repPharmacyKey)));
     snap.forEach(item => { const row = { id: item.id, ...item.data() }; pharmacySales.push(row); salesById.set(item.id, row); });
@@ -98,17 +102,21 @@ async function loadPharmacySales() {
     returnsSnap.forEach(item => {
         const request = item.data(); if (request.deletedAt) return;
         if (request.status === `returned_to_rep` && item.id === editingId) return;
-        (request.items || []).forEach(line => used.set(line.saleId, (used.get(line.saleId) || 0) + number(line.totalReturnQty)));
+        (request.items || []).forEach(line => { const key = returnItemGroupKey(line); used.set(key, (used.get(key) || 0) + number(line.totalReturnQty)); });
     });
-    pharmacySales.forEach(sale => { sale.totalPurchasedQty = number(sale.soldQty) + number(sale.bonusQty); sale.availableReturnQty = Math.max(0, sale.totalPurchasedQty - (used.get(sale.id) || 0)); });
+    pharmacySales.forEach(sale => {
+        sale.totalPurchasedQty = number(sale.soldQty) + number(sale.bonusQty); const key = salesBatchGroupKey(sale), group = batchGroups.get(key) || { id: key, returnGroupKey: key, productCode: sale.productCode, productName: sale.productName, batch: sale.batch, expiryDate: sale.expiryDate, soldQty: 0, bonusQty: 0, totalPurchasedQty: 0, salesValue: 0, unitPrice: number(sale.unitPrice), sales: [], invoiceNumbers: [] };
+        group.soldQty += number(sale.soldQty); group.bonusQty += number(sale.bonusQty); group.totalPurchasedQty += sale.totalPurchasedQty; group.salesValue += number(sale.soldQty) * number(sale.unitPrice); group.sales.push(sale); if (sale.invoiceNumber && !group.invoiceNumbers.includes(sale.invoiceNumber)) group.invoiceNumbers.push(sale.invoiceNumber); if (!group.expiryDate && sale.expiryDate) group.expiryDate = sale.expiryDate; batchGroups.set(key, group);
+    });
+    batchGroups.forEach((group,key) => { group.availableReturnQty = Math.max(0, group.totalPurchasedQty - (used.get(key) || 0)); group.invoiceNumber = group.invoiceNumbers.join(`، `); group.saleIds = group.sales.map(sale => sale.id); if (group.soldQty > 0) group.unitPrice = group.salesValue / group.soldQty; });
 }
 
 function productOptions() {
-    const map = new Map(); pharmacySales.filter(row => row.availableReturnQty > 0).forEach(row => map.set(normalize(row.productCode || row.productName), { code: row.productCode, name: row.productName }));
+    const map = new Map(); [...batchGroups.values()].filter(row => row.availableReturnQty > 0).forEach(row => map.set(normalize(row.productCode || row.productName), { code: row.productCode, name: row.productName }));
     return [...map.values()].sort((a, b) => text(a.name).localeCompare(text(b.name), `ar`));
 }
-function salesForProduct(key) { return pharmacySales.filter(row => normalize(row.productCode || row.productName) === key && row.availableReturnQty > 0); }
-function updateTotal() { let total = 0; document.querySelectorAll(`.line`).forEach(line => { const sale = salesById.get(line.querySelector(`.batch`)?.value); total += number(line.querySelector(`.qty`)?.value) * number(sale?.unitPrice); }); $(`returnTotal`).textContent = money(total); }
+function salesForProduct(key) { return [...batchGroups.values()].filter(row => normalize(row.productCode || row.productName) === key && row.availableReturnQty > 0); }
+function updateTotal() { let total = 0; document.querySelectorAll(`.line`).forEach(line => { const group = batchGroups.get(line.querySelector(`.batch`)?.value); total += number(line.querySelector(`.qty`)?.value) * number(group?.unitPrice); }); $(`returnTotal`).textContent = money(total); }
 
 function addLine(prefill = null) {
     if (!selectedPharmacy) return showBanner(`اختر الصيدلية أولًا.`, `error`);
@@ -116,24 +124,24 @@ function addLine(prefill = null) {
     const line = document.createElement(`div`); line.className = `line`;
     line.innerHTML = `<div><label>الصنف</label><select class="product"><option value="">اختر الصنف</option>${products.map(row => `<option value="${escapeHtml(normalize(row.code || row.name))}">${escapeHtml(row.code)} — ${escapeHtml(row.name)}</option>`).join(``)}</select></div><div><label>Batch / رقم الفاتورة</label><select class="batch" disabled><option value="">اختر</option></select></div><div><label>تاريخ الانتهاء</label><div class="readonly expiry">-</div></div><div><label>المتاح</label><div class="readonly available">0</div></div><div><label>إجمالي المرتجع</label><input class="qty" type="number" min="1" step="1" value="1"></div><div><label>السبب</label><select class="reason"><option value="good">بضاعة جيدة</option><option value="expired">Expired</option></select></div><div><label>&nbsp;</label><button class="btn danger remove"><i class="ph ph-trash"></i></button></div>`;
     const product = line.querySelector(`.product`), batch = line.querySelector(`.batch`), expiry = line.querySelector(`.expiry`), available = line.querySelector(`.available`), qty = line.querySelector(`.qty`);
-    const populate = () => { const rows = salesForProduct(product.value); batch.innerHTML = `<option value="">اختر</option>${rows.map(row => `<option value="${row.id}">${escapeHtml(row.batch)} — فاتورة ${escapeHtml(row.invoiceNumber)} — متاح ${row.availableReturnQty}</option>`).join(``)}`; batch.disabled = rows.length === 0; };
-    const sync = () => { const sale = salesById.get(batch.value); expiry.textContent = sale?.expiryDate || `-`; available.textContent = sale?.availableReturnQty ?? `0`; qty.max = sale?.availableReturnQty || 0; updateTotal(); };
+    const populate = () => { const rows = salesForProduct(product.value); batch.innerHTML = `<option value="">اختر</option>${rows.map(row => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.batch)} — متاح ${row.availableReturnQty} — ${row.invoiceNumbers.length} فاتورة</option>`).join(``)}`; batch.disabled = rows.length === 0; };
+    const sync = () => { const group = batchGroups.get(batch.value); expiry.textContent = group?.expiryDate || `-`; available.textContent = group?.availableReturnQty ?? `0`; qty.max = group?.availableReturnQty || 0; updateTotal(); };
     product.onchange = () => { populate(); batch.value = ``; sync(); }; batch.onchange = sync; qty.oninput = updateTotal; line.querySelector(`.remove`).onclick = () => { line.remove(); updateTotal(); };
     $(`returnLines`).appendChild(line);
     enhanceCombobox(product, { placeholder: `اكتب اسم الصنف أو الكود...` }); enhanceCombobox(batch, { placeholder: `ابحث بالـBatch أو الفاتورة...` }); enhanceCombobox(line.querySelector(`.reason`), { placeholder: `اختر السبب...` });
-    if (prefill) { product.value = normalize(prefill.productCode || prefill.productName); populate(); batch.value = prefill.saleId; qty.value = number(prefill.totalReturnQty); line.querySelector(`.reason`).value = prefill.reason || `good`; sync(); product._searchCombobox.sync(); batch._searchCombobox.sync(); line.querySelector(`.reason`)._searchCombobox.sync(); }
+    if (prefill) { product.value = normalize(prefill.productCode || prefill.productName); populate(); batch.value = returnItemGroupKey(prefill); qty.value = number(prefill.totalReturnQty); line.querySelector(`.reason`).value = prefill.reason || `good`; sync(); product._searchCombobox.sync(); batch._searchCombobox.sync(); line.querySelector(`.reason`)._searchCombobox.sync(); }
     updateTotal();
 }
 
 function collectRepLines() {
     const items = [], totals = new Map();
     document.querySelectorAll(`.line`).forEach((line, index) => {
-        const sale = salesById.get(line.querySelector(`.batch`).value), qty = number(line.querySelector(`.qty`).value);
-        if (!sale || qty <= 0) throw new Error(`أكمل بيانات السطر ${index + 1}.`);
-        totals.set(sale.id, (totals.get(sale.id) || 0) + qty);
-        items.push({ saleId: sale.id, invoiceNumber: sale.invoiceNumber, saleDate: sale.saleDate || ``, productCode: sale.productCode, productName: sale.productName, batch: sale.batch, expiryDate: sale.expiryDate, totalReturnQty: qty, paidReturnQty: null, bonusReturnQty: null, originalSoldQty: number(sale.soldQty), originalBonusQty: number(sale.bonusQty), unitPrice: number(sale.unitPrice), reason: line.querySelector(`.reason`).value, lineValue: qty * number(sale.unitPrice) });
+        const group = batchGroups.get(line.querySelector(`.batch`).value), qty = number(line.querySelector(`.qty`).value);
+        if (!group || qty <= 0) throw new Error(`أكمل بيانات السطر ${index + 1}.`);
+        totals.set(group.id, (totals.get(group.id) || 0) + qty);
+        items.push({ returnGroupKey: group.id, saleId: group.saleIds[0] || ``, saleIds: group.saleIds, invoiceNumber: group.invoiceNumber, invoiceNumbers: group.invoiceNumbers, saleDate: group.sales.map(sale=>sale.saleDate).filter(Boolean).sort()[0] || ``, productCode: group.productCode, productName: group.productName, batch: group.batch, expiryDate: group.expiryDate, totalReturnQty: qty, paidReturnQty: null, bonusReturnQty: null, originalSoldQty: number(group.soldQty), originalBonusQty: number(group.bonusQty), unitPrice: number(group.unitPrice), reason: line.querySelector(`.reason`).value, lineValue: qty * number(group.unitPrice) });
     });
-    totals.forEach((qty, id) => { const sale = salesById.get(id); if (qty > sale.availableReturnQty) throw new Error(`مرتجع ${sale.productName} / ${sale.batch} هو ${qty} بينما المتاح ${sale.availableReturnQty}.`); });
+    totals.forEach((qty, id) => { const group = batchGroups.get(id); if (qty > group.availableReturnQty) throw new Error(`مرتجع ${group.productName} / ${group.batch} هو ${qty} بينما المتاح ${group.availableReturnQty}.`); });
     if (!items.length) throw new Error(`أضف صنفًا واحدًا على الأقل.`); return items;
 }
 
@@ -223,12 +231,12 @@ async function validateHistoricalAllocation(row, items) {
     snap.forEach(document => {
         if (document.id === row.id || document.data().deletedAt) return;
         (document.data().items || []).forEach(item => {
-            const current = used.get(item.saleId) || { paid: 0, bonus: 0 };
-            current.paid += number(item.paidReturnQty); current.bonus += number(item.bonusReturnQty); used.set(item.saleId, current);
+            const key = returnItemGroupKey(item), current = used.get(key) || { paid: 0, bonus: 0 };
+            current.paid += number(item.paidReturnQty); current.bonus += number(item.bonusReturnQty); used.set(key, current);
         });
     });
     items.forEach(item => {
-        const previous = used.get(item.saleId) || { paid: 0, bonus: 0 };
+        const previous = used.get(returnItemGroupKey(item)) || { paid: 0, bonus: 0 };
         const paidAvailable = Math.max(0, number(item.originalSoldQty) - previous.paid), bonusAvailable = Math.max(0, number(item.originalBonusQty) - previous.bonus);
         if (number(item.paidReturnQty) > paidAvailable) throw new Error(`الكمية المدفوعة المتاحة من فاتورة ${item.invoiceNumber} هي ${paidAvailable} فقط.`);
         if (number(item.bonusReturnQty) > bonusAvailable) throw new Error(`البونص المتاح من فاتورة ${item.invoiceNumber} هو ${bonusAvailable} فقط.`);
