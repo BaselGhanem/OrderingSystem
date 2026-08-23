@@ -35,6 +35,39 @@ function readAccessSession() { try { return JSON.parse(sessionStorage.getItem(AC
 function writeAccessSession(value) { sessionStorage.setItem(ACCESS_SESSION, JSON.stringify(value)); }
 
 function showBanner(message, type = `info`) { const banner = $(`banner`); if (!banner) return; banner.className = `banner show ${type}`; banner.textContent = message; window.scrollTo({ top: 0, behavior: `smooth` }); }
+function enhanceCombobox(select, config = {}) {
+    if (!select || select._searchCombobox) { select?._searchCombobox?.sync(); return select?._searchCombobox; }
+    const host = document.createElement(`div`); host.className = `search-combobox`; host.innerHTML = `<div class="combobox-control"><input type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" autocomplete="off"><button type="button" tabindex="-1" aria-label="فتح القائمة"><i class="ph ph-caret-down"></i></button></div><div class="combobox-menu" role="listbox"></div>`;
+    select.insertAdjacentElement(`afterend`, host); select.classList.add(`native-combobox-select`);
+    const input = host.querySelector(`input`), toggle = host.querySelector(`button`), menu = host.querySelector(`.combobox-menu`); let activeIndex = -1, openState = false;
+    const options = () => [...select.options].filter(option => option.value !== `` && !option.disabled);
+    const selectedText = () => select.selectedOptions[0]?.textContent?.trim() || ``;
+    const close = () => { openState = false; activeIndex = -1; host.classList.remove(`open`); input.setAttribute(`aria-expanded`, `false`); };
+    const choose = option => { select.value = option.value; input.value = option.textContent.trim(); input.dataset.selectedText = input.value; select.dispatchEvent(new Event(`change`, { bubbles: true })); close(); };
+    const render = (queryText = ``, showAll = false) => {
+        const queryValue = normalize(showAll ? `` : queryText); const matches = options().filter(option => !queryValue || normalize(option.textContent).includes(queryValue)); activeIndex = Math.min(activeIndex, matches.length - 1);
+        menu.innerHTML = matches.length ? matches.map((option, index) => `<button type="button" role="option" data-value="${escapeHtml(option.value)}" class="combobox-option ${index === activeIndex ? `active` : ``}"><span>${escapeHtml(option.textContent.trim())}</span><i class="ph ph-check"></i></button>`).join(``) : `<div class="combobox-empty"><i class="ph ph-magnifying-glass"></i><span>لا توجد نتائج مطابقة</span></div>`;
+        menu.querySelectorAll(`.combobox-option`).forEach(button => button.onmousedown = event => { event.preventDefault(); const option = options().find(item => item.value === button.dataset.value); if (option) choose(option); });
+        openState = true; host.classList.add(`open`); input.setAttribute(`aria-expanded`, `true`);
+    };
+    const sync = () => { input.disabled = select.disabled; host.classList.toggle(`disabled`, select.disabled); input.placeholder = config.placeholder || select.options[0]?.textContent?.trim() || `اكتب للبحث...`; if (select.value) { input.value = selectedText(); input.dataset.selectedText = input.value; } else if (document.activeElement !== input) { input.value = ``; input.dataset.selectedText = ``; } if (openState) render(input.value, false); };
+    input.onfocus = () => { if (!input.disabled) render(``, true); };
+    input.oninput = () => { if (input.value !== input.dataset.selectedText) select.value = ``; render(input.value, false); };
+    input.onkeydown = event => {
+        const buttons = [...menu.querySelectorAll(`.combobox-option`)];
+        if (event.key === `ArrowDown`) { event.preventDefault(); if (!openState) render(``, true); activeIndex = Math.min(activeIndex + 1, buttons.length - 1); }
+        else if (event.key === `ArrowUp`) { event.preventDefault(); activeIndex = Math.max(activeIndex - 1, 0); }
+        else if (event.key === `Enter` && openState && activeIndex >= 0) { event.preventDefault(); buttons[activeIndex]?.dispatchEvent(new MouseEvent(`mousedown`, { bubbles: true })); return; }
+        else if (event.key === `Escape`) { close(); return; } else return;
+        buttons.forEach((button, index) => button.classList.toggle(`active`, index === activeIndex)); buttons[activeIndex]?.scrollIntoView({ block: `nearest` });
+    };
+    toggle.onclick = () => { if (!input.disabled) { const wasOpen = openState; input.focus(); wasOpen ? close() : render(``, true); } };
+    input.onblur = () => setTimeout(() => { if (!host.matches(`:hover`)) { if (!select.value) input.value = ``; close(); } }, 120);
+    const observer = new MutationObserver(sync); observer.observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: [`disabled`, `selected`] });
+    select._searchCombobox = { sync, close, host }; sync(); return select._searchCombobox;
+}
+function closeAllComboboxes(event) { document.querySelectorAll(`.search-combobox.open`).forEach(host => { if (!host.contains(event.target)) host.previousElementSibling?._searchCombobox?.close(); }); }
+document.addEventListener(`mousedown`, closeAllComboboxes);
 function audit(action, role, details = ``) { return { action, role, actor: actorName(), details: text(details), at: now() }; }
 function auditLabel(entry = {}) {
     const labels = { created: `إنشاء المرتجع`, resubmitted: `إعادة إرسال من المندوب`, returned_to_rep: `إعادة للمندوب`, split_completed: `فصل الكمية والبونص`, supervisor_edited: `تعديل المشرف`, supervisor_approved: `موافقة المشرف`, supervisor_returned: `إعادة من المشرف`, market_edited: `تعديل مدير السوق`, market_approved: `اعتماد مدير السوق`, market_returned: `رفض/إعادة من مدير السوق`, returns_manager_reworked: `إعادة تدقيق رئيس المرتجعات`, exported: `تم سحب المرتجع` }; return labels[entry.action] || entry.action;
@@ -87,7 +120,8 @@ function addLine(prefill = null) {
     const sync = () => { const sale = salesById.get(batch.value); expiry.textContent = sale?.expiryDate || `-`; available.textContent = sale?.availableReturnQty ?? `0`; qty.max = sale?.availableReturnQty || 0; updateTotal(); };
     product.onchange = () => { populate(); batch.value = ``; sync(); }; batch.onchange = sync; qty.oninput = updateTotal; line.querySelector(`.remove`).onclick = () => { line.remove(); updateTotal(); };
     $(`returnLines`).appendChild(line);
-    if (prefill) { product.value = normalize(prefill.productCode || prefill.productName); populate(); batch.value = prefill.saleId; qty.value = number(prefill.totalReturnQty); line.querySelector(`.reason`).value = prefill.reason || `good`; sync(); }
+    enhanceCombobox(product, { placeholder: `اكتب اسم الصنف أو الكود...` }); enhanceCombobox(batch, { placeholder: `ابحث بالـBatch أو الفاتورة...` }); enhanceCombobox(line.querySelector(`.reason`), { placeholder: `اختر السبب...` });
+    if (prefill) { product.value = normalize(prefill.productCode || prefill.productName); populate(); batch.value = prefill.saleId; qty.value = number(prefill.totalReturnQty); line.querySelector(`.reason`).value = prefill.reason || `good`; sync(); product._searchCombobox.sync(); batch._searchCombobox.sync(); line.querySelector(`.reason`)._searchCombobox.sync(); }
     updateTotal();
 }
 
@@ -123,14 +157,14 @@ async function loadRepHistory() {
     } catch (error) { body.innerHTML = `<tr><td colspan="7"><div class="empty">تعذر تحميل البيانات.</div></td></tr>`; }
 }
 async function editRepReturn(row) {
-    editingId = row.id; const options = $(`pharmacySelect`)._rows || []; selectedPharmacy = options.find(item => item.repPharmacyKey === row.repPharmacyKey); if (!selectedPharmacy) return showBanner(`صيدلية المرتجع غير موجودة في ملف المبيعات الحالي.`, `error`);
-    $(`pharmacySelect`).value = selectedPharmacy.id; $(`pharmacyCode`).value = selectedPharmacy.pharmacyCode; await loadPharmacySales(); $(`returnLines`).innerHTML = ``; row.items.forEach(addLine); $(`returnNote`).value = row.note || ``; switchRepTab(`new`); showBanner(`تم فتح المرتجع للتعديل وإعادة الإرسال.`, `info`);
+    editingId = row.id; if (!selectedPharmacy || selectedPharmacy.repPharmacyKey !== row.repPharmacyKey) return showBanner(`هذا المرتجع يعود لصيدلية أخرى. ادخل من الصيدلية الصحيحة لتعديله.`, `error`);
+    $(`pharmacySelect`).value = selectedPharmacy.id; $(`pharmacySelect`)._searchCombobox?.sync(); $(`pharmacyCode`).value = selectedPharmacy.pharmacyCode; await loadPharmacySales(); $(`returnLines`).innerHTML = ``; row.items.forEach(addLine); $(`returnNote`).value = row.note || ``; switchRepTab(`new`); showBanner(`تم فتح المرتجع للتعديل وإعادة الإرسال.`, `info`);
 }
 function switchRepTab(tab) { $(`newPanel`).classList.toggle(`hidden`, tab !== `new`); $(`historyPanel`).classList.toggle(`hidden`, tab !== `history`); document.querySelectorAll(`[data-tab]`).forEach(button => button.classList.toggle(`active`, button.dataset.tab === tab)); if (tab === `history`) loadRepHistory(); }
 async function initRep() {
     const access = readAccessSession(); if (access?.role !== `rep` || !access.repName || !access.pharmacyCode) { location.replace(`login.html`); return; }
     repName = text(access.repName); selectedPharmacy = { id: access.pharmacyId, repName, repKey: normalize(repName), supervisorName: access.supervisorName, supervisorKey: normalize(access.supervisorName), pharmacyCode: access.pharmacyCode, pharmacyName: access.pharmacyName, repPharmacyKey: `${normalize(repName)}__${normalize(access.pharmacyCode)}` };
-    $(`pageIdentity`).textContent = `${repName} — ${selectedPharmacy.pharmacyName}`; $(`pharmacySelect`).innerHTML = `<option value="${escapeHtml(selectedPharmacy.id)}">${escapeHtml(selectedPharmacy.pharmacyCode)} — ${escapeHtml(selectedPharmacy.pharmacyName)}</option>`; $(`pharmacySelect`).disabled = true; $(`pharmacyCode`).value = selectedPharmacy.pharmacyCode; await loadPharmacySales(); addLine();
+    $(`pageIdentity`).textContent = `${repName} — ${selectedPharmacy.pharmacyName}`; $(`pharmacySelect`).innerHTML = `<option value="${escapeHtml(selectedPharmacy.id)}" selected>${escapeHtml(selectedPharmacy.pharmacyCode)} — ${escapeHtml(selectedPharmacy.pharmacyName)}</option>`; $(`pharmacySelect`).disabled = true; enhanceCombobox($(`pharmacySelect`)); $(`pharmacyCode`).value = selectedPharmacy.pharmacyCode; await loadPharmacySales(); addLine();
     $(`addLine`).onclick = () => addLine(); $(`submitReturn`).onclick = submitRepReturn; document.querySelectorAll(`[data-tab]`).forEach(button => button.onclick = () => switchRepTab(button.dataset.tab));
 }
 
@@ -138,7 +172,7 @@ let reviewRows = [];
 function roleStatus() { return Object.keys(STATUS_LABELS); }
 function renderReviewShell() {
     $(`reviewRoot`).innerHTML = `<section class="card"><div class="summary"><div class="stat"><span>عدد المرتجعات</span><strong id="countStat">0</strong></div><div class="stat"><span>إجمالي الكمية</span><strong id="qtyStat">0</strong></div><div class="stat"><span>الكمية المدفوعة</span><strong id="paidStat">0</strong></div><div class="stat"><span>القيمة</span><strong id="valueStat">0.00</strong></div></div><div class="grid"><div class="field"><label>بحث</label><input id="searchFilter" placeholder="الصيدلية، المندوب، الفاتورة"></div><div class="field"><label>الحالة</label><select id="statusFilter"><option value="">جميع الحالات</option>${Object.entries(STATUS_LABELS).map(([key,value]) => `<option value="${key}">${value}</option>`).join(``)}</select></div><div class="field"><label>من تاريخ</label><input id="fromFilter" type="date"></div><div class="field"><label>إلى تاريخ</label><input id="toFilter" type="date"></div></div></section><section class="card"><div class="table-wrap"><table class="table"><thead><tr><th><input id="selectAll" class="check" type="checkbox"></th><th>التاريخ</th><th>المندوب / المشرف</th><th>الصيدلية</th><th>الأصناف</th><th>الكمية / البونص</th><th>القيمة</th><th>الحالة</th><th>الإجراء</th></tr></thead><tbody id="reviewBody"></tbody></table></div></section>`;
-    [`searchFilter`,`statusFilter`,`fromFilter`,`toFilter`].forEach(id => $(id).oninput = renderReviewRows); $(`selectAll`).onchange = event => document.querySelectorAll(`.row-check`).forEach(box => box.checked = event.target.checked);
+    [`searchFilter`,`statusFilter`,`fromFilter`,`toFilter`].forEach(id => $(id).oninput = renderReviewRows); enhanceCombobox($(`statusFilter`), { placeholder: `ابحث عن الحالة...` }); $(`selectAll`).onchange = event => document.querySelectorAll(`.row-check`).forEach(box => box.checked = event.target.checked);
 }
 function filteredReviewRows() {
     const needle = normalize($(`searchFilter`)?.value), status = text($(`statusFilter`)?.value), from = text($(`fromFilter`)?.value), to = text($(`toFilter`)?.value);
@@ -232,6 +266,6 @@ async function loadLoginPharmacies(repId) {
 }
 async function loginRepresentative(){const rep=loginReps.find(row=>row.id===$(`loginRep`).value),pharmacy=loginPharmacies.find(row=>row.id===$(`loginPharmacy`).value),password=text($(`loginRepPassword`).value);if(!rep)return showBanner(`اختر اسم المندوب.`,`error`);if(!pharmacy)return showBanner(`اختر صيدلية صحيحة.`,`error`);if(!password||btoa(password)!==REP_PASSWORDS[text(rep.name)])return showBanner(`كلمة سر المندوب غير صحيحة.`,`error`);const pharmacyCode=text(pharmacy.pharmacyCode||pharmacy.pharmacy_code||pharmacy.customerCode);if(!pharmacyCode)return showBanner(`الصيدلية المختارة لا تحتوي على كود صيدلية.`,`error`);writeAccessSession({role:`rep`,repId:rep.id,repName:text(rep.name),supervisorName:repSupervisorMap[text(rep.name)]||``,pharmacyId:pharmacy.id,pharmacyCode,pharmacyName:text(pharmacy.name),createdAt:Date.now()});location.href=`rep.html`;}
 function loginSupervisor(){const password=text($(`loginSupervisorPassword`).value);if(!selectedSupervisor)return showBanner(`اختر اسم المشرف.`,`error`);if(password!==`202604`)return showBanner(`كلمة سر المشرف غير صحيحة.`,`error`);writeAccessSession({role:`supervisor`,name:selectedSupervisor,createdAt:Date.now()});location.href=`supervisor.html`;}
-async function initLogin(){document.querySelectorAll(`[data-login-role]`).forEach(button=>button.onclick=()=>showLoginPanel(button.dataset.loginRole));document.querySelectorAll(`.back-roles`).forEach(button=>button.onclick=()=>{$(`roleStep`).classList.remove(`hidden`);$(`repLoginPanel`).classList.add(`hidden`);$(`supervisorLoginPanel`).classList.add(`hidden`);});document.querySelectorAll(`[data-supervisor]`).forEach(button=>button.onclick=()=>{selectedSupervisor=button.dataset.supervisor;document.querySelectorAll(`[data-supervisor]`).forEach(card=>card.classList.toggle(`selected`,card===button));$(`supervisorLoginButton`).disabled=false;});$(`loginRep`).onchange=event=>loadLoginPharmacies(event.target.value);$(`repLoginButton`).onclick=loginRepresentative;$(`supervisorLoginButton`).onclick=loginSupervisor;try{const config=await getDoc(doc(db,`system_settings`,`rep_supervisor_assignments`));if(config.exists()&&config.data()?.assignments)repSupervisorMap={...DEFAULT_REP_SUPERVISOR_MAP,...config.data().assignments};}catch(error){console.warn(`تعذر تحميل توزيع المشرفين.`,error);}await loadLoginReps();}
+async function initLogin(){document.querySelectorAll(`[data-login-role]`).forEach(button=>button.onclick=()=>showLoginPanel(button.dataset.loginRole));document.querySelectorAll(`.back-roles`).forEach(button=>button.onclick=()=>{$(`roleStep`).classList.remove(`hidden`);$(`repLoginPanel`).classList.add(`hidden`);$(`supervisorLoginPanel`).classList.add(`hidden`);});document.querySelectorAll(`[data-supervisor]`).forEach(button=>button.onclick=()=>{selectedSupervisor=button.dataset.supervisor;document.querySelectorAll(`[data-supervisor]`).forEach(card=>card.classList.toggle(`selected`,card===button));$(`supervisorLoginButton`).disabled=false;});$(`loginRep`).onchange=event=>loadLoginPharmacies(event.target.value);$(`repLoginButton`).onclick=loginRepresentative;$(`supervisorLoginButton`).onclick=loginSupervisor;try{const config=await getDoc(doc(db,`system_settings`,`rep_supervisor_assignments`));if(config.exists()&&config.data()?.assignments)repSupervisorMap={...DEFAULT_REP_SUPERVISOR_MAP,...config.data().assignments};}catch(error){console.warn(`تعذر تحميل توزيع المشرفين.`,error);}await loadLoginReps();enhanceCombobox($(`loginRep`),{placeholder:`اكتب اسم المندوب...`});enhanceCombobox($(`loginPharmacy`),{placeholder:`اكتب اسم الصيدلية أو الكود...`});}
 
 document.addEventListener(`DOMContentLoaded`,async()=>{try{if(document.body.dataset.page===`login`)await initLogin();else if(document.body.dataset.page===`rep`)await initRep();else if(document.body.dataset.page===`review`)await initReview();else if(document.body.dataset.page===`admin`)await initAdmin();}catch(error){console.error(error);showBanner(error.message||`حدث خطأ أثناء تحميل الصفحة.`,`error`);}});
