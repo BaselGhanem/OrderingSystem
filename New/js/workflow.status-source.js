@@ -1,4 +1,4 @@
-import { db, collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter, documentId, runTransaction } from './firebase.js?v=20260820_batch_invoice_v3';
+import { db, collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter, documentId, runTransaction } from './firebase.js';
 
 const COMPANY_LOGO_URL = 'https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png';
 const WORKFLOW_PAGE = document.body?.dataset?.page || '';
