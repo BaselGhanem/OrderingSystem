@@ -1,4 +1,4 @@
-import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js?v=20260820_batch_invoice_v3';
+import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js';
 
 // ==========================================
 // 🚀 1. نظام الإشعارات (Toasts)
