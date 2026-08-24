@@ -25,7 +25,8 @@ const targetState = {
     repManagerMap: { ...DEFAULT_REP_MANAGER_MAP },
     repTargetFilter: `all`,
     supervisorLoaded: false,
-    repLoaded: false
+    repLoaded: false,
+    ordersScopeKey: ``
 };
 
 function el(id) {
@@ -211,10 +212,24 @@ async function loadBaseData() {
         .sort((a, b) => String(a.name).localeCompare(String(b.name), `ar`));
 }
 
-async function loadOrders() {
-    const snap = await getDocs(collection(db, `orders`));
+async function loadOrders(force = false) {
+    const scopeNames = targetState.repName
+        ? [targetState.repName]
+        : targetState.reps.map(rep => String(rep.name || ``)).filter(Boolean);
+    const scopeKey = scopeNames.map(normalizeText).sort().join(`|`);
+    if (!force && targetState.ordersScopeKey === scopeKey && targetState.orders.length) return;
+    if (!scopeNames.length) {
+        targetState.orders = [];
+        targetState.ordersScopeKey = scopeKey;
+        return;
+    }
+    const source = scopeNames.length === 1
+        ? query(collection(db, `orders`), where(`repName`, `==`, scopeNames[0]))
+        : query(collection(db, `orders`), where(`repName`, `in`, scopeNames.slice(0, 30)));
+    const snap = await getDocs(source);
     targetState.orders = [];
     snap.forEach(orderDoc => targetState.orders.push({ id: orderDoc.id, ...orderDoc.data() }));
+    targetState.ordersScopeKey = scopeKey;
 }
 
 async function loadTargetRows(month, supervisorName) {
