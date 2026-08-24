@@ -404,7 +404,7 @@
     </div>
 
     <script type="module">
-        import { db, collection, getDocs, doc, updateDoc } from './js/firebase.js';
+        import { db, collection, getDocs, query, where, doc, updateDoc } from './js/firebase.js';
 
         let allOrders = [];
         let pharmacyAutocompleteOptions = [];
@@ -416,6 +416,8 @@
         let activeItemOptionIndex = -1;
         let itemFilterTimer = null;
         let productsCatalog = [];
+        let loadedOrdersRangeKey = ``;
+        let ordersRangeRequest = null;
         
         const repManagerMap = {
             "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
@@ -434,6 +436,32 @@
 
             document.getElementById('filterDateFrom').value = firstDay;
             document.getElementById('filterDateTo').value = lastDay;
+        }
+
+        async function loadOrdersForSelectedRange(force = false) {
+            const fromValue = document.getElementById('filterDateFrom').value;
+            const toValue = document.getElementById('filterDateTo').value;
+            const rangeKey = `${fromValue}|${toValue}`;
+            if (!force && loadedOrdersRangeKey === rangeKey) return;
+            if (ordersRangeRequest) await ordersRangeRequest;
+            ordersRangeRequest = (async () => {
+                const constraints = [];
+                if (fromValue) constraints.push(where('createdAt', '>=', new Date(`${fromValue}T00:00:00`)));
+                if (toValue) {
+                    const exclusiveEnd = new Date(`${toValue}T00:00:00`);
+                    exclusiveEnd.setDate(exclusiveEnd.getDate() + 1);
+                    constraints.push(where('createdAt', '<', exclusiveEnd));
+                }
+                const source = constraints.length ? query(collection(db, 'orders'), ...constraints) : collection(db, 'orders');
+                const snap = await getDocs(source);
+                allOrders = [];
+                snap.forEach(document => allOrders.push(normalizeReportOrder({ id: document.id, ...document.data() })));
+                allOrders.sort((a, b) => (b.createdAtNormalized || normalizeReportDate(b.createdAt) || 0) - (a.createdAtNormalized || normalizeReportDate(a.createdAt) || 0));
+                loadedOrdersRangeKey = rangeKey;
+                buildPharmacyAutocompleteIndex();
+                buildItemAutocompleteIndex();
+            })();
+            try { await ordersRangeRequest; } finally { ordersRangeRequest = null; }
         }
 
 
@@ -634,24 +662,13 @@
             setDefaultMonthFilter(); // تطبيق التواريخ الافتراضية عند التحميل
             
             try {
-                const [snap, prodSnap] = await Promise.all([
-                    getDocs(collection(db, "orders")),
+                const [, prodSnap] = await Promise.all([
+                    loadOrdersForSelectedRange(true),
                     getDocs(collection(db, "products"))
                 ]);
                 productsCatalog = [];
                 prodSnap.forEach(document => productsCatalog.push({ id: document.id, ...document.data() }));
                 productsCatalog.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
-                snap.forEach(document => {
-                    let data = normalizeReportOrder({ id: document.id, ...document.data() });
-                    allOrders.push(data);
-                });
-                
-                allOrders.sort((a, b) => {
-                    let dateA = a.createdAtNormalized || normalizeReportDate(a.createdAt) || 0;
-                    let dateB = b.createdAtNormalized || normalizeReportDate(b.createdAt) || 0;
-                    return dateB - dateA;
-                });
-
                 buildPharmacyAutocompleteIndex();
                 buildItemAutocompleteIndex();
                 applyFilters(); 
@@ -889,8 +906,14 @@
             });
         }
 
-        ['filterManager', 'filterRep', 'filterDateFrom', 'filterDateTo'].forEach(id => {
+        ['filterManager', 'filterRep'].forEach(id => {
             document.getElementById(id)?.addEventListener('change', applyFilters);
+        });
+        ['filterDateFrom', 'filterDateTo'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', async () => {
+                await loadOrdersForSelectedRange();
+                applyFilters();
+            });
         });
         const pharmacyInput = document.getElementById('filterPharmacy');
         const pharmacyPanel = document.getElementById('pharmacyAutocompletePanel');
