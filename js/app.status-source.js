@@ -1,4 +1,4 @@
-import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot, orderBy, limit, startAfter } from './firebase.js';
+import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js';
 
 // ==========================================
 // 🚀 1. نظام الإشعارات (Toasts)
@@ -702,7 +702,7 @@ function initializeSupervisorSearchFilter(inputId, onFilterChange) {
 function getSupervisorCascadingConfig(scope) {
     if (scope === 'all') {
         return {
-            data: allOrdersData,
+            data: allOrdersRangeData.length ? allOrdersRangeData : allOrdersData,
             repSelect: getEl('filterAllRep'),
             pharmacySelect: getEl('filterAllPharmacy'),
             statusSelect: getEl('filterAllStatus')
@@ -1402,7 +1402,8 @@ function getCurrentFilteredAllOrders() {
     const selections = synchronizeSupervisorCascadingFilters('all');
     const fromVal = getEl('managerFilterFrom')?.value;
     const toVal = getEl('managerFilterTo')?.value;
-    const filtered = allOrdersData.filter(order => supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal));
+    const source = allOrdersRangeData.length ? allOrdersRangeData : allOrdersData;
+    const filtered = source.filter(order => supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal));
     return sortSupervisorOrders(filtered, 'all');
 }
 
@@ -2245,8 +2246,43 @@ function updateAdvancedManagerDashboard(orders) {
 let managerOrdersData = [];
 const ALL_ORDERS_PAGE_SIZE = 100;
 let allOrdersPageIndex = 0;
-let allOrdersPageCursors = [null];
 let allOrdersHasNextPage = false;
+let allOrdersLastFilterKey = ``;
+let allOrdersRangeData = [];
+let allOrdersRangeKey = ``;
+let allOrdersRangeLoadedAt = 0;
+
+function currentAllOrdersRange() {
+    return {
+        fromValue: document.getElementById('managerFilterFrom')?.value || ``,
+        toValue: document.getElementById('managerFilterTo')?.value || ``
+    };
+}
+
+function allOrdersDateConstraints() {
+    const { fromValue, toValue } = currentAllOrdersRange();
+    const constraints = [];
+    if (fromValue) constraints.push(where("createdAt", ">=", new Date(`${fromValue}T00:00:00`)));
+    if (toValue) {
+        const exclusiveEnd = new Date(`${toValue}T00:00:00`);
+        exclusiveEnd.setDate(exclusiveEnd.getDate() + 1);
+        constraints.push(where("createdAt", "<", exclusiveEnd));
+    }
+    return constraints;
+}
+
+async function loadAllOrdersRangeData(force = false) {
+    const { fromValue, toValue } = currentAllOrdersRange();
+    const rangeKey = `${fromValue}|${toValue}`;
+    const cacheFresh = Date.now() - allOrdersRangeLoadedAt < 5 * 60 * 1000;
+    if (!force && allOrdersRangeKey === rangeKey && cacheFresh) return;
+    const source = query(collection(db, "orders"), ...allOrdersDateConstraints());
+    const snap = await getDocs(source);
+    allOrdersRangeData = [];
+    snap.forEach(item => allOrdersRangeData.push({ id: item.id, ...item.data() }));
+    allOrdersRangeKey = rangeKey;
+    allOrdersRangeLoadedAt = Date.now();
+}
 
 function renderAllOrdersPagination() {
     const table = document.getElementById('allOrdersBody')?.closest('table');
@@ -2262,12 +2298,12 @@ function renderAllOrdersPagination() {
     document.getElementById('allOrdersPrevPage')?.addEventListener('click', () => {
         if (allOrdersPageIndex === 0) return;
         allOrdersPageIndex -= 1;
-        loadAllCompanyOrders();
+        filterAllOrders();
     });
     document.getElementById('allOrdersNextPage')?.addEventListener('click', () => {
         if (!allOrdersHasNextPage) return;
         allOrdersPageIndex += 1;
-        loadAllCompanyOrders();
+        filterAllOrders();
     });
 }
 
@@ -2433,51 +2469,17 @@ async function handleBulkAction(actionType) {
 document.getElementById('bulkApproveBtn')?.addEventListener('click', () => handleBulkAction('approve'));
 document.getElementById('bulkDeleteBtn')?.addEventListener('click', () => handleBulkAction('delete'));
 
-async function loadAllCompanyOrders() {
+async function loadAllCompanyOrders(force = false) {
     const tbody = document.getElementById('allOrdersBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     
-    if (unsubAllOrders) unsubAllOrders();
+    if (unsubAllOrders) { unsubAllOrders(); unsubAllOrders = null; }
 
     try {
-        const cursor = allOrdersPageCursors[allOrdersPageIndex];
-        const constraints = [];
-        const fromValue = document.getElementById('managerFilterFrom')?.value;
-        const toValue = document.getElementById('managerFilterTo')?.value;
-        if (fromValue) constraints.push(where("createdAt", ">=", new Date(`${fromValue}T00:00:00`)));
-        if (toValue) {
-            const exclusiveEnd = new Date(`${toValue}T00:00:00`);
-            exclusiveEnd.setDate(exclusiveEnd.getDate() + 1);
-            constraints.push(where("createdAt", "<", exclusiveEnd));
-        }
-        constraints.push(orderBy("createdAt", "desc"));
-        if (cursor) constraints.push(startAfter(cursor));
-        constraints.push(limit(ALL_ORDERS_PAGE_SIZE + 1));
-        const allOrdersPageQuery = query(collection(db, "orders"), ...constraints);
-        unsubAllOrders = onSnapshot(allOrdersPageQuery, (snap) => {
-            allOrdersData = [];
-            const pageDocs = snap.docs.slice(0, ALL_ORDERS_PAGE_SIZE);
-            allOrdersHasNextPage = snap.docs.length > ALL_ORDERS_PAGE_SIZE;
-            if (pageDocs.length) allOrdersPageCursors[allOrdersPageIndex + 1] = pageDocs[pageDocs.length - 1];
-            pageDocs.forEach(d => {
-                const data = d.data();
-                if (data.createdAt && !isOrderDeleted(data)) {
-                    allOrdersData.push({ id: d.id, ...data });
-                }
-            });
-
-            allOrdersData.sort((a, b) => {
-                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
-                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
-                return dateB - dateA;
-            });
-
-            filterAllOrders();
-            renderAllOrdersPagination();
-        }, (e) => { 
-            showToast("خطأ في تحميل النظام الشامل", "error"); 
-        });
+        await loadAllOrdersRangeData(force);
+        allOrdersData = [...allOrdersRangeData];
+        filterAllOrders();
     } catch(e) { 
         showToast("خطأ في التحميل", "error"); 
     }
@@ -2488,7 +2490,6 @@ function renderAllOrders(orders) {
     tbody.innerHTML = '';
     if(orders.length === 0) { 
         tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد بيانات مطابقة</h3></div></td></tr>`; 
-        updateAllOrdersStats(orders); 
         return; 
     }
     orders.forEach(order => {
@@ -2521,7 +2522,6 @@ function renderAllOrders(orders) {
         });
         tbody.appendChild(tr);
     });
-    updateAllOrdersStats(orders);
 }
 
 function updateAllOrdersStats(orders) {
@@ -2644,16 +2644,26 @@ function filterAllOrders() {
     const selections = synchronizeSupervisorCascadingFilters('all');
     const fromVal = getEl('managerFilterFrom')?.value;
     const toVal = getEl('managerFilterTo')?.value;
+    const filterKey = `${selections.rep}|${selections.pharmacy}|${selections.status}|${fromVal || ``}|${toVal || ``}`;
+    if (allOrdersLastFilterKey && allOrdersLastFilterKey !== filterKey) allOrdersPageIndex = 0;
+    allOrdersLastFilterKey = filterKey;
 
-    const filtered = allOrdersData.filter(order =>
+    const summaryFiltered = allOrdersRangeData.filter(order =>
         !isOrderDeleted(order) &&
         supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal)
     );
-    const sorted = sortSupervisorOrders(filtered, 'all');
+    const sortedAll = sortSupervisorOrders(summaryFiltered, 'all');
+    const totalPages = Math.max(1, Math.ceil(sortedAll.length / ALL_ORDERS_PAGE_SIZE));
+    if (allOrdersPageIndex >= totalPages) allOrdersPageIndex = totalPages - 1;
+    const start = allOrdersPageIndex * ALL_ORDERS_PAGE_SIZE;
+    const sorted = sortedAll.slice(start, start + ALL_ORDERS_PAGE_SIZE);
+    allOrdersHasNextPage = allOrdersPageIndex + 1 < totalPages;
 
     renderAllOrders(sorted);
+    renderAllOrdersPagination();
+    updateAllOrdersStats(summaryFiltered);
     if (getEl('managerAllOrdersBtn')?.classList.contains('active')) {
-        updateAdvancedManagerDashboard(sorted);
+        updateAdvancedManagerDashboard(summaryFiltered);
     }
 }
 
@@ -3226,7 +3236,6 @@ function handleManagerDateChange() {
     applyManagerFilters();
     if (document.getElementById('managerAllOrdersBtn')?.classList.contains('active')) {
         allOrdersPageIndex = 0;
-        allOrdersPageCursors = [null];
         loadAllCompanyOrders();
     } else {
         filterAllOrders();
