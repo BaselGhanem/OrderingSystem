@@ -1,4 +1,4 @@
-import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js';
+import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot, orderBy, limit, startAfter } from './firebase.js';
 
 // ==========================================
 // 🚀 1. نظام الإشعارات (Toasts)
@@ -185,6 +185,7 @@ function initializeManagerView(managerName) {
 
     if (myTeamBtn && allOrdersBtn && teamSection && allSection) {
         myTeamBtn.onclick = () => {
+            if (unsubAllOrders) { unsubAllOrders(); unsubAllOrders = null; }
             myTeamBtn.classList.add('active');
             allOrdersBtn.classList.remove('active');
             teamSection.style.display = 'block';
@@ -192,6 +193,7 @@ function initializeManagerView(managerName) {
             loadManagerOrders();
         };
         allOrdersBtn.onclick = () => {
+            if (unsubManagerOrders) { unsubManagerOrders(); unsubManagerOrders = null; }
             myTeamBtn.classList.remove('active');
             allOrdersBtn.classList.add('active');
             teamSection.style.display = 'none';
@@ -2241,6 +2243,33 @@ function updateAdvancedManagerDashboard(orders) {
 }
 
 let managerOrdersData = [];
+const ALL_ORDERS_PAGE_SIZE = 100;
+let allOrdersPageIndex = 0;
+let allOrdersPageCursors = [null];
+let allOrdersHasNextPage = false;
+
+function renderAllOrdersPagination() {
+    const table = document.getElementById('allOrdersBody')?.closest('table');
+    if (!table) return;
+    let controls = document.getElementById('allOrdersPagination');
+    if (!controls) {
+        controls = document.createElement('div');
+        controls.id = 'allOrdersPagination';
+        controls.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:16px;';
+        table.parentElement.insertAdjacentElement('afterend', controls);
+    }
+    controls.innerHTML = `<button type="button" class="btn-secondary" id="allOrdersPrevPage" ${allOrdersPageIndex === 0 ? 'disabled' : ''}><i class="ph ph-arrow-right"></i> السابق</button><strong>صفحة ${allOrdersPageIndex + 1}</strong><button type="button" class="btn-secondary" id="allOrdersNextPage" ${allOrdersHasNextPage ? '' : 'disabled'}>التالي <i class="ph ph-arrow-left"></i></button>`;
+    document.getElementById('allOrdersPrevPage')?.addEventListener('click', () => {
+        if (allOrdersPageIndex === 0) return;
+        allOrdersPageIndex -= 1;
+        loadAllCompanyOrders();
+    });
+    document.getElementById('allOrdersNextPage')?.addEventListener('click', () => {
+        if (!allOrdersHasNextPage) return;
+        allOrdersPageIndex += 1;
+        loadAllCompanyOrders();
+    });
+}
 
 async function loadManagerOrders() {
     const tbody = document.getElementById('managerOrdersBody');
@@ -2250,7 +2279,14 @@ async function loadManagerOrders() {
     if (unsubManagerOrders) unsubManagerOrders();
 
     try {
-        unsubManagerOrders = onSnapshot(collection(db, "orders"), (snap) => {
+        const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
+        if (!managerReps.length) {
+            managerOrdersData = [];
+            applyManagerFilters();
+            return;
+        }
+        const managerOrdersQuery = query(collection(db, "orders"), where("repName", "in", managerReps));
+        unsubManagerOrders = onSnapshot(managerOrdersQuery, (snap) => {
             let allOrders = [];
             snap.forEach(d => {
                 const data = d.data();
@@ -2265,7 +2301,6 @@ async function loadManagerOrders() {
                 return dateB - dateA;
             });
 
-            const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
             const normalizedUnder = managerReps.map(r => r.trim().toLowerCase());
 
             managerOrdersData = allOrders.filter(o => {
@@ -2406,9 +2441,26 @@ async function loadAllCompanyOrders() {
     if (unsubAllOrders) unsubAllOrders();
 
     try {
-        unsubAllOrders = onSnapshot(collection(db, "orders"), (snap) => {
+        const cursor = allOrdersPageCursors[allOrdersPageIndex];
+        const constraints = [];
+        const fromValue = document.getElementById('managerFilterFrom')?.value;
+        const toValue = document.getElementById('managerFilterTo')?.value;
+        if (fromValue) constraints.push(where("createdAt", ">=", new Date(`${fromValue}T00:00:00`)));
+        if (toValue) {
+            const exclusiveEnd = new Date(`${toValue}T00:00:00`);
+            exclusiveEnd.setDate(exclusiveEnd.getDate() + 1);
+            constraints.push(where("createdAt", "<", exclusiveEnd));
+        }
+        constraints.push(orderBy("createdAt", "desc"));
+        if (cursor) constraints.push(startAfter(cursor));
+        constraints.push(limit(ALL_ORDERS_PAGE_SIZE + 1));
+        const allOrdersPageQuery = query(collection(db, "orders"), ...constraints);
+        unsubAllOrders = onSnapshot(allOrdersPageQuery, (snap) => {
             allOrdersData = [];
-            snap.forEach(d => {
+            const pageDocs = snap.docs.slice(0, ALL_ORDERS_PAGE_SIZE);
+            allOrdersHasNextPage = snap.docs.length > ALL_ORDERS_PAGE_SIZE;
+            if (pageDocs.length) allOrdersPageCursors[allOrdersPageIndex + 1] = pageDocs[pageDocs.length - 1];
+            pageDocs.forEach(d => {
                 const data = d.data();
                 if (data.createdAt && !isOrderDeleted(data)) {
                     allOrdersData.push({ id: d.id, ...data });
@@ -2421,7 +2473,8 @@ async function loadAllCompanyOrders() {
                 return dateB - dateA;
             });
 
-            filterAllOrders(); 
+            filterAllOrders();
+            renderAllOrdersPagination();
         }, (e) => { 
             showToast("خطأ في تحميل النظام الشامل", "error"); 
         });
@@ -2953,7 +3006,10 @@ async function loadReports() {
     if(unsubReports) unsubReports();
 
     try {
-        unsubReports = onSnapshot(collection(db, "orders"), (snap) => {
+        const reportsQuery = !isAdmin && currentRepId
+            ? query(collection(db, "orders"), where("repId", "==", currentRepId))
+            : collection(db, "orders");
+        unsubReports = onSnapshot(reportsQuery, (snap) => {
             let os = [];
             snap.forEach(d => os.push({ id: d.id, ...d.data() }));
             os.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
@@ -3166,8 +3222,18 @@ const managerFilterTo = document.getElementById('managerFilterTo');
 const btnTodayOrders = document.getElementById('btnTodayOrders');
 const btnClearManagerFilter = document.getElementById('btnClearManagerFilter');
 
-managerFilterFrom?.addEventListener('change', () => { applyManagerFilters(); filterAllOrders(); });
-managerFilterTo?.addEventListener('change', () => { applyManagerFilters(); filterAllOrders(); });
+function handleManagerDateChange() {
+    applyManagerFilters();
+    if (document.getElementById('managerAllOrdersBtn')?.classList.contains('active')) {
+        allOrdersPageIndex = 0;
+        allOrdersPageCursors = [null];
+        loadAllCompanyOrders();
+    } else {
+        filterAllOrders();
+    }
+}
+managerFilterFrom?.addEventListener('change', handleManagerDateChange);
+managerFilterTo?.addEventListener('change', handleManagerDateChange);
 
 btnTodayOrders?.addEventListener('click', () => {
     const today = new Date();
@@ -3177,8 +3243,7 @@ btnTodayOrders?.addEventListener('click', () => {
     const todayStr = `${yyyy}-${mm}-${dd}`;
     managerFilterFrom.value = todayStr;
     managerFilterTo.value = todayStr;
-    applyManagerFilters();
-    filterAllOrders();
+    handleManagerDateChange();
 });
 
 btnClearManagerFilter?.addEventListener('click', () => {
@@ -3200,7 +3265,6 @@ btnClearManagerFilter?.addEventListener('click', () => {
         closeSupervisorSearchFilter(control);
     });
 
-    applyManagerFilters();
-    filterAllOrders();
+    handleManagerDateChange();
     showToast('تم محو جميع الفلاتر', 'success');
 });
