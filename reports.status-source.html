@@ -203,6 +203,7 @@
                 <div class="filter-group"><label><i class="ph ph-calendar"></i> إلى تاريخ</label><input type="date" id="filterDateTo" class="filter-select"></div>
                 <div class="filter-group"><label><i class="ph ph-user-gear"></i> المشرف</label><select id="filterManager" class="filter-select"></select></div>
                 <div class="filter-group"><label><i class="ph ph-user"></i> المندوب</label><select id="filterRep" class="filter-select"></select></div>
+                <div class="filter-group"><label><i class="ph ph-funnel"></i> الحالة</label><select id="filterStatus" class="filter-select" aria-label="تصفية التقارير حسب الحالة"><option value="">جميع الحالات</option></select></div>
                 <div class="filter-group">
                     <label><i class="ph ph-storefront"></i> الصيدلية</label>
                     <div class="premium-autocomplete">
@@ -684,18 +685,22 @@
         function applyFilters() {
             const fMan = document.getElementById('filterManager').value;
             const fRep = document.getElementById('filterRep').value;
+            const fStatus = document.getElementById('filterStatus').value;
             const fPharm = document.getElementById('filterPharmacy').value.trim().toLowerCase();
             const fItem = document.getElementById('filterItem').value.trim().toLowerCase();
             const fDateFrom = document.getElementById('filterDateFrom').value;
             const fDateTo = document.getElementById('filterDateTo').value;
             let filteredOrders = [];
             let managers = new Set(), reps = new Set(), pharmacies = new Set(), items = new Set();
+            const statusCounts = new Map();
 
             allOrders.forEach(rawOrder => {
                 const order = rawOrder;
 
                 let matchMan = fMan === '' || order.managerName === fMan;
                 let matchRep = fRep === '' || order.repName === fRep;
+                const effectiveStatus = getReportEffectiveStatus(order);
+                let matchStatus = fStatus === '' || effectiveStatus === fStatus;
                 const pharmacyHaystack = `${order.pharmacyName || ''} ${order.pharmacyCode || ''}`.toLowerCase();
                 let matchPharm = fPharm === '' || pharmacyHaystack.includes(fPharm);
                 let matchDate = true;
@@ -711,12 +716,15 @@
                     matchItem = (order.items || []).some(i => `${i.name || ''} ${i.productCode || i.product_code || i.code || ''}`.toLowerCase().includes(fItem));
                 }
 
-                if (matchRep && matchPharm && matchItem && matchDate) managers.add(order.managerName || 'غير محدد');
-                if (matchMan && matchPharm && matchItem && matchDate) reps.add(order.repName || 'غير محدد');
-                if (matchMan && matchRep && matchItem && matchDate) pharmacies.add(order.pharmacyName || 'غير معروف');
-                if (matchMan && matchRep && matchPharm && matchDate) (order.items || []).forEach(i => items.add(i.name));
+                if (matchRep && matchStatus && matchPharm && matchItem && matchDate) managers.add(order.managerName || 'غير محدد');
+                if (matchMan && matchStatus && matchPharm && matchItem && matchDate) reps.add(order.repName || 'غير محدد');
+                if (matchMan && matchRep && matchStatus && matchItem && matchDate) pharmacies.add(order.pharmacyName || 'غير معروف');
+                if (matchMan && matchRep && matchStatus && matchPharm && matchDate) (order.items || []).forEach(i => items.add(i.name));
+                if (matchMan && matchRep && matchPharm && matchItem && matchDate && effectiveStatus) {
+                    statusCounts.set(effectiveStatus, (statusCounts.get(effectiveStatus) || 0) + 1);
+                }
 
-                if (matchMan && matchRep && matchPharm && matchDate && matchItem) {
+                if (matchMan && matchRep && matchStatus && matchPharm && matchDate && matchItem) {
                     if (fItem !== '') {
                         let matchedItems = (order.items || []).filter(i => `${i.name || ''} ${i.productCode || i.product_code || i.code || ''}`.toLowerCase().includes(fItem));
                         let orderClone = JSON.parse(JSON.stringify(order));
@@ -732,6 +740,7 @@
             document.getElementById('cardExcludedCount').innerText = allOrders.length;
             updateSelect('filterManager', managers, fMan, 'الكل');
             updateSelect('filterRep', reps, fRep, 'الكل');
+            updateStatusSelect(statusCounts, fStatus);
             updatePharmacyAutocompleteOptions(pharmacies);
             updateItemAutocompleteOptions(items);
 
@@ -898,6 +907,21 @@
             });
         }
 
+        function updateStatusSelect(statusCounts, selectedVal) {
+            const sel = document.getElementById('filterStatus');
+            if (!sel) return;
+            const preferredOrder = Object.keys(REPORT_STATUS_LABELS);
+            const dynamicStatuses = Array.from(statusCounts.keys()).filter(status => !preferredOrder.includes(status));
+            const statuses = [...preferredOrder, ...dynamicStatuses]
+                .filter(status => (statusCounts.get(status) || 0) > 0);
+            sel.innerHTML = `<option value="">جميع الحالات</option>` + statuses.map(status => {
+                const count = statusCounts.get(status) || 0;
+                const selected = status === selectedVal ? ' selected' : '';
+                return `<option value="${status}"${selected}>${reportStatusLabel(status)} (${count})</option>`;
+            }).join('');
+            if (selectedVal && !statuses.includes(selectedVal)) sel.value = '';
+        }
+
         function updateDatalist(id, set) {
             const dl = document.getElementById(id);
             dl.innerHTML = '';
@@ -906,7 +930,7 @@
             });
         }
 
-        ['filterManager', 'filterRep'].forEach(id => {
+        ['filterManager', 'filterRep', 'filterStatus'].forEach(id => {
             document.getElementById(id)?.addEventListener('change', applyFilters);
         });
         ['filterDateFrom', 'filterDateTo'].forEach(id => {
@@ -976,6 +1000,7 @@
         document.getElementById('resetFiltersBtn').addEventListener('click', () => {
             document.getElementById('filterManager').value = "";
             document.getElementById('filterRep').value = "";
+            document.getElementById('filterStatus').value = "";
             document.getElementById('filterPharmacy').value = "";
             document.getElementById('filterItem').value = "";
             setDefaultMonthFilter(); // تصفير التواريخ يعيدها للشهر الحالي بدلاً من مسحها
