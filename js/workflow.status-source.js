@@ -15,7 +15,7 @@ const STATUS_LABELS = {
     finance_approved: 'معتمد مالياً',
     finance_rejected: 'مرفوض مالياً',
     orders_staff_pending: 'جاهز للمعالجة',
-    orders_staff_exported: 'تم تصديره',
+    orders_staff_exported: 'تمت الفوترة',
     orders_staff_hidden: 'تمت الفوترة',
     orders_staff_edited_returned_to_finance: 'تم تعديله وإرجاعه للمالية',
     returned_to_rep: 'مرجعة للمندوب',
@@ -1987,11 +1987,8 @@ async function exportOrders(orders) {
         return;
     }
 
-    const hide = confirm(`هل تريد إخفاء هذه الطلبيات بعد التصدير حتى تظهر الطلبيات الجديدة فقط في المرة القادمة؟
-
-موافق = نعم، أخفِ الطلبيات المصدرة.
-إلغاء = لا، أبقِ الطلبيات ظاهرة.`);
-    const action = hide ? 'orders_staff_invoiced_and_hidden_after_export' : 'orders_staff_export';
+    const hide = true;
+    const action = 'orders_staff_invoiced_and_hidden_after_export';
     state.suspendRender = true;
     const results = await Promise.allSettled(orders.map(order => {
         const previousHistory = Array.isArray(order.exportHistory) ? order.exportHistory : [];
@@ -2011,7 +2008,7 @@ async function exportOrders(orders) {
     }));
     state.suspendRender = false;
     state.onOrdersChange?.();
-    showToast(`تم التصدير وتحديث الحالة: ${results.filter(r => r.status === 'fulfilled').length}/${orders.length}`, 'success');
+    showToast(`تم تصدير الملف واعتبار الطلبيات مفوترة: ${results.filter(r => r.status === 'fulfilled').length}/${orders.length}`, 'success');
 }
 
 function initOrdersStaff() {
