@@ -1183,6 +1183,13 @@ async function marketDeleteOrder(orderId) {
     closeMarketOrderModal();
 }
 
+function getMarketManagerDisplayStatus(order = {}) {
+    const status = order.status || '';
+    return ['supervisor_approved', 'market_manager_pending'].includes(status)
+        ? 'market_manager_pending'
+        : status;
+}
+
 function applyMarketFilters() {
     const rep = ($('filterRepresentative')?.value || '').toLowerCase().trim();
     const pharm = ($('filterPharmacy')?.value || '').toLowerCase().trim();
@@ -1192,7 +1199,10 @@ function applyMarketFilters() {
     state.visibleOrders = state.orders.filter(order => {
         const orderStatus = order.status || '';
         const eligible = ['market_manager_pending', 'supervisor_approved', 'returned_to_market_manager'].includes(orderStatus);
-        const statusMatch = status ? orderStatus === status : eligible;
+        const awaitingMarketManager = ['market_manager_pending', 'supervisor_approved'].includes(orderStatus);
+        const statusMatch = status === 'awaiting_market_manager'
+            ? awaitingMarketManager
+            : (status ? orderStatus === status : eligible);
         return statusMatch &&
             inDateRange(order, from, to) &&
             (!rep || (order.repName || '').toLowerCase().includes(rep)) &&
@@ -1271,6 +1281,7 @@ function renderMarketOrders() {
         const chunk = state.visibleOrders.slice(startIndex, startIndex + 50);
         chunk.forEach(order => {
             const tr = document.createElement('tr');
+            const displayStatus = getMarketManagerDisplayStatus(order);
             tr.innerHTML = `
                 <td data-label="تحديد"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
                 <td data-label="التاريخ">${escapeHtml(formatDateTime(order.createdAt))}</td>
@@ -1278,7 +1289,7 @@ function renderMarketOrders() {
                 <td data-label="الصيدلية" class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
                 <td data-label="الأصناف"><button class="action-btn view-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
                 <td data-label="الإجمالي">${formatMoney(order.grandTotal)} د.ا</td>
-                <td data-label="الحالة"><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span></td>
+                <td data-label="الحالة"><span class="status-badge ${escapeHtml(displayStatus)}">${escapeHtml(displayStatus === 'market_manager_pending' ? 'بانتظار اعتماد مدير السوق' : statusLabel(displayStatus))}</span></td>
                 <td data-label="ملاحظة الطلب" class="workflow-note-cell" title="${escapeHtml(getOrderNote(order) || '-')}">${escapeHtml(getOrderNote(order) || '-')}</td>
                 <td data-label="الإجراءات" class="workflow-actions-cell">${buildOrderSummaryRowActions('market')}</td>
             `;
