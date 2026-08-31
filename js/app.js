@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20260824_firestore_reads_v2`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20260831_export_means_invoiced_v1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -28,8 +28,12 @@ try {
     let source = await response.text();
     const resolverPattern = /function getEffectiveOrderStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
     const canonicalResolver = `function getEffectiveOrderStatus(order = {}) {
-    return order.status || order.workflowStage || order.supervisorStatus ||
+    const rawStatus = order.status || order.workflowStage || order.supervisorStatus ||
         order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
+    if (rawStatus === 'orders_staff_exported' || order.orderStaffStatus === 'orders_staff_exported') {
+        return 'orders_staff_hidden';
+    }
+    return rawStatus;
 }`;
 
     const supervisorDeletePattern = /function canCurrentSupervisorDeleteOrder\(order = \{\}\) \{[\s\S]*?\n\}/;
