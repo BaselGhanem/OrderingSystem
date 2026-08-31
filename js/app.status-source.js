@@ -377,7 +377,7 @@ const WORKFLOW_STATUS_LABELS = {
     finance_approved: 'معتمد مالياً',
     finance_rejected: 'مرفوض مالياً',
     orders_staff_pending: 'جاهز للمعالجة',
-    orders_staff_exported: 'تم تصديره',
+    orders_staff_exported: 'تمت الفوترة',
     orders_staff_hidden: 'تمت الفوترة',
     orders_staff_invoiced_and_hidden_after_export: 'تمت الفوترة',
     returned_to_rep: 'مرجعة للمندوب',
