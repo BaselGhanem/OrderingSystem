@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./workflow.status-source.js?v=20260819_hide_deleted_orders_v1`, import.meta.url);
+const sourceUrl = new URL(`./workflow.status-source.js?v=20260831_export_means_invoiced_v1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -31,7 +31,11 @@ try {
         order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
 }`;
     const canonicalPrimaryResolver = `function getPrimaryStatus(order = {}) {
-    return getRawPrimaryStatus(order);
+    const rawStatus = getRawPrimaryStatus(order);
+    if (rawStatus === 'orders_staff_exported' || order.orderStaffStatus === 'orders_staff_exported') {
+        return 'orders_staff_hidden';
+    }
+    return rawStatus;
 }`;
 
     if (!rawResolverPattern.test(source) || !primaryResolverPattern.test(source)) {
