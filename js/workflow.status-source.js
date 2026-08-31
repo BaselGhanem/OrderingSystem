@@ -1663,9 +1663,11 @@ function applyOrdersStaffFilters() {
         const status = getPrimaryStatus(order);
         const followUp = getWorkflowFollowUp(order);
         const staffState = order.orderStaffStatus || '';
-        const isHidden = status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order);
-        const isActive = (status === 'orders_staff_pending' || status === 'finance_approved' || staffState === 'orders_staff_pending' || order.financeStatus === 'finance_approved') && !isHidden && status !== 'orders_staff_exported';
-        const isExported = status === 'orders_staff_exported' || staffState === 'orders_staff_exported' || orderHasStaffExportEvidence(order);
+        const isInvoiced = status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order);
+        const isHidden = isInvoiced && (order.hiddenByOrderStaff === true || !!order.hiddenAt ||
+            (Array.isArray(order.exportHistory) && order.exportHistory.some(entry => entry?.hideAfterExport === true)));
+        const isActive = (status === 'orders_staff_pending' || status === 'finance_approved' || staffState === 'orders_staff_pending' || order.financeStatus === 'finance_approved') && !isInvoiced;
+        const isExported = isInvoiced || orderHasStaffExportEvidence(order);
         let modeOk = isActive;
         if (normalizedStatusMode === 'followup') modeOk = true;
         if (normalizedStatusMode === 'hidden') modeOk = isHidden;
@@ -1987,15 +1989,19 @@ async function exportOrders(orders) {
         return;
     }
 
-    const hide = true;
-    const action = 'orders_staff_invoiced_and_hidden_after_export';
+    const hide = confirm(`تمت فوترة هذه الطلبيات بمجرد تصدير ملف Excel.
+
+هل تريد إخفاءها من العرض الافتراضي؟
+موافق = إخفاء الطلبيات المفوترة.
+إلغاء = إبقاؤها ظاهرة ضمن الطلبيات المفوترة.`);
+    const action = hide ? 'orders_staff_invoiced_and_hidden_after_export' : 'orders_staff_invoiced_after_export';
     state.suspendRender = true;
     const results = await Promise.allSettled(orders.map(order => {
         const previousHistory = Array.isArray(order.exportHistory) ? order.exportHistory : [];
         const exportEntry = buildExportEntry('orders_staff_excel', 'Ziad/Zakaria', orders.length, hide, exportFileName);
         return updateOrderWithAudit(order.id, {
-            status: hide ? 'orders_staff_hidden' : 'orders_staff_exported',
-            orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported',
+            status: 'orders_staff_hidden',
+            orderStaffStatus: 'orders_staff_hidden',
             exportedBy: 'Ziad/Zakaria',
             exportedAt: new Date(),
             exportHistory: [...previousHistory, exportEntry],
@@ -2004,7 +2010,7 @@ async function exportOrders(orders) {
             isInvoiced: !!hide,
             invoicedAt: hide ? new Date() : null,
             invoicedBy: hide ? 'Ziad/Zakaria' : ''
-        }, auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: order.status, orderStaffStatus: order.orderStaffStatus || '' }, { status: hide ? 'orders_staff_hidden' : 'orders_staff_exported', orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported', exportFileName }));
+        }, auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: order.status, orderStaffStatus: order.orderStaffStatus || '' }, { status: 'orders_staff_hidden', orderStaffStatus: 'orders_staff_hidden', hiddenAfterExport: hide, exportFileName }));
     }));
     state.suspendRender = false;
     state.onOrdersChange?.();
