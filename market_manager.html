@@ -33,7 +33,7 @@
         <div><label>إلى تاريخ</label><input id="filterDateTo" type="date"></div>
         <div><label>المندوب</label><input id="filterRepresentative" type="search" placeholder="بحث باسم المندوب"></div>
         <div><label>الصيدلية</label><input id="filterPharmacy" type="search" placeholder="بحث بالصيدلية أو الكود"></div>
-        <div><label>الحالة</label><select id="filterStatus"><option value="">بانتظار مدير السوق فقط</option><option value="market_manager_pending">بانتظار مدير السوق</option><option value="supervisor_approved">معتمد من المشرف</option><option value="returned_to_market_manager">مرجعة لمدير السوق</option></select></div>
+        <div><label>الحالة</label><select id="filterStatus"><option value="">جميع الحالات</option><option value="awaiting_market_manager">بانتظار اعتماد مدير السوق</option><option value="returned_to_market_manager">مرجعة لمدير السوق</option></select></div>
     </section>
     <section class="workflow-toolbar">
         <button class="btn-success" id="bulkApproveBtn" type="button"><i class="ph ph-check-circle"></i> اعتماد المحدد</button>
@@ -78,6 +78,6 @@
     </div>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260625_report_logic_cache_fix1" type="module"></script>
+<script src="js/workflow.js?v=20260831_market_status_unified_v3" type="module"></script>
 </body>
 </html>
