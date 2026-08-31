@@ -477,7 +477,7 @@
             finance_approved: 'معتمد مالياً',
             finance_rejected: 'مرفوض مالياً',
             orders_staff_pending: 'جاهز للمعالجة',
-            orders_staff_exported: 'تم تصديره',
+            orders_staff_exported: 'تمت الفوترة',
             orders_staff_hidden: 'تمت الفوترة',
             orders_staff_edited_returned_to_finance: 'تم تعديله وإرجاعه للمالية',
             returned_to_rep: 'مرجعة للمندوب',
@@ -536,8 +536,12 @@
         }
 
         function getReportEffectiveStatus(order = {}) {
-            return order.status || order.workflowStage || order.supervisorStatus ||
+            const rawStatus = order.status || order.workflowStage || order.supervisorStatus ||
                 order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
+            if (rawStatus === 'orders_staff_exported' || order.orderStaffStatus === 'orders_staff_exported') {
+                return 'orders_staff_hidden';
+            }
+            return rawStatus;
         }
 
         function normalizeReportOrder(order = {}) {
