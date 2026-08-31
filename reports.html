@@ -538,7 +538,12 @@
         function getReportEffectiveStatus(order = {}) {
             const rawStatus = order.status || order.workflowStage || order.supervisorStatus ||
                 order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
-            if (rawStatus === 'orders_staff_exported' || order.orderStaffStatus === 'orders_staff_exported') {
+            const terminalOrReturned = rawStatus.startsWith('deleted_') ||
+                ['returned_to_rep', 'returned_to_supervisor', 'returned_to_market_manager', 'returned_to_finance',
+                    'market_manager_rejected', 'finance_rejected', 'rejected'].includes(rawStatus);
+            if (terminalOrReturned || order.workflowStage === 'deleted') return rawStatus;
+            if (rawStatus === 'orders_staff_hidden' || rawStatus === 'orders_staff_exported' ||
+                order.orderStaffStatus === 'orders_staff_exported' || reportHasHiddenInvoiceEvidence(order)) {
                 return 'orders_staff_hidden';
             }
             return rawStatus;
