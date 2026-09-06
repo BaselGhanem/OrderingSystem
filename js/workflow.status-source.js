@@ -55,6 +55,75 @@ const WORKFLOW_CACHE_VERSION = '20260630_orders_staff_export_columns_finance_not
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
+const RESERVED_ORDER_TYPE = 'reserved';
+const REGULAR_ORDER_TYPE = 'regular';
+const MIXED_ORDER_WARNING = 'يرجى إدخال طلبية منفصلة للأصناف المحجوزة/المقطوعة';
+
+function isReservedOrder(order = {}) {
+    return order.orderType === RESERVED_ORDER_TYPE || order.isReservedOrder === true;
+}
+
+function reservedOrderBadgeHtml(order = {}) {
+    return isReservedOrder(order)
+        ? '<span class="reserved-order-badge"><i class="ph ph-lock-key"></i> أصناف محجوزة / مقطوعة</span>'
+        : '';
+}
+
+function markReservedWorkflowRow(row, order = {}) {
+    if (row) row.classList.toggle('reserved-order-row', isReservedOrder(order));
+}
+
+function normalizeReservationKey(value) {
+    return String(value || '').trim().toLocaleLowerCase('en-US');
+}
+
+function reservationKeys(value = {}) {
+    const keys = [];
+    const productId = value.id || value.productId || value.reservationProductId || '';
+    const productCode = value.productCode || value.product_code || value.code || '';
+    const name = value.name || value.productName || '';
+    if (productId) keys.push(`id:${normalizeReservationKey(productId)}`);
+    if (productCode) keys.push(`code:${normalizeReservationKey(productCode)}`);
+    if (name) keys.push(`name:${normalizeReservationKey(name)}`);
+    return keys;
+}
+
+async function loadReservedProductKeys() {
+    const snap = await getDocs(collection(db, 'inventoryReservations'));
+    const keys = new Set();
+    snap.forEach(row => {
+        const data = row.data();
+        if (data?.active === false) return;
+        reservationKeys({ id: data.productId || row.id, ...data }).forEach(key => keys.add(key));
+    });
+    return keys;
+}
+
+function resolveWorkflowProduct(item = {}) {
+    const byName = state.productsByName.get(String(item.name || '').trim());
+    return byName || item;
+}
+
+async function validateWorkflowEditedItems(items = [], order = {}) {
+    const reservedKeys = await loadReservedProductKeys();
+    const expectedType = isReservedOrder(order) ? RESERVED_ORDER_TYPE : (order.orderType === REGULAR_ORDER_TYPE ? REGULAR_ORDER_TYPE : '');
+    const originalNames = new Set((Array.isArray(order.items) ? order.items : []).map(item => String(item.name || '').trim()));
+    const tagged = items.map(item => {
+        const product = resolveWorkflowProduct(item);
+        const name = String(item.name || '').trim();
+        let reserved;
+        if (expectedType && originalNames.has(name)) reserved = expectedType === RESERVED_ORDER_TYPE;
+        else reserved = reservationKeys(product).some(key => reservedKeys.has(key));
+        return { ...item, isReservedItem: reserved, reservationProductId: reserved ? (product.id || item.reservationProductId || '') : '' };
+    });
+    const types = new Set(tagged.map(item => item.isReservedItem === true ? RESERVED_ORDER_TYPE : REGULAR_ORDER_TYPE));
+    const derivedType = types.size === 1 ? [...types][0] : '';
+    return {
+        ok: types.size <= 1 && (!expectedType || !derivedType || expectedType === derivedType),
+        items: tagged,
+        orderType: expectedType || derivedType || REGULAR_ORDER_TYPE
+    };
+}
 
 function debounce(fn, delay = 160) {
     let timer = null;
@@ -90,6 +159,8 @@ function compactOrder(order = {}) {
         customerCode: order.customerCode || '',
         grandTotal: order.grandTotal || 0,
         total: order.total || 0,
+        orderType: order.orderType || '',
+        isReservedOrder: order.isReservedOrder === true,
         orderNote: order.orderNote || '',
         note: order.note || '',
         notes: order.notes || '',
@@ -1117,17 +1188,28 @@ async function saveMarketEdits(options = {}) {
     if (!state.selectedOrder) return false;
     const { kept, deleted, grandTotal } = collectMarketModalItems();
     if (kept.length === 0) { showToast('لا يمكن حفظ طلبية بدون أصناف.', 'warning'); return false; }
+    let reservationValidation;
+    try {
+        reservationValidation = await validateWorkflowEditedItems(kept, state.selectedOrder);
+    } catch (error) {
+        showToast('تعذر التحقق من حالة الأصناف المحجوزة. لم يتم حفظ التعديل.', 'error');
+        return false;
+    }
+    if (!reservationValidation.ok) { showToast(MIXED_ORDER_WARNING, 'warning'); return false; }
+    const validatedItems = reservationValidation.items;
     const oldValue = {
         items: state.selectedOrder.items || [],
         grandTotal: state.selectedOrder.grandTotal || 0
     };
     await updateOrderWithAudit(state.selectedOrder.id, {
-        items: kept,
+        items: validatedItems,
         grandTotal,
+        orderType: reservationValidation.orderType,
+        isReservedOrder: reservationValidation.orderType === RESERVED_ORDER_TYPE,
         marketManagerEditedAt: new Date(),
         marketManagerEditedBy: 'Market Manager',
         marketManagerDeletedItems: deleted
-    }, auditEntry('market_manager_edit', 'Market Manager', 'market_manager', oldValue, { items: kept, grandTotal }, deleted.length ? `Deleted items: ${deleted.length}` : ''));
+    }, auditEntry('market_manager_edit', 'Market Manager', 'market_manager', oldValue, { items: validatedItems, grandTotal, orderType: reservationValidation.orderType }, deleted.length ? `Deleted items: ${deleted.length}` : ''));
     if (!silent) showToast('تم حفظ تعديلات مدير السوق.', 'success');
     if (close) closeMarketOrderModal();
     return true;
@@ -1282,6 +1364,7 @@ function renderMarketOrders() {
         chunk.forEach(order => {
             const tr = document.createElement('tr');
             const displayStatus = getMarketManagerDisplayStatus(order);
+            markReservedWorkflowRow(tr, order);
             tr.innerHTML = `
                 <td data-label="تحديد"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
                 <td data-label="التاريخ">${escapeHtml(formatDateTime(order.createdAt))}</td>
@@ -1289,7 +1372,7 @@ function renderMarketOrders() {
                 <td data-label="الصيدلية" class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
                 <td data-label="الأصناف"><button class="action-btn view-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
                 <td data-label="الإجمالي">${formatMoney(order.grandTotal)} د.ا</td>
-                <td data-label="الحالة"><span class="status-badge ${escapeHtml(displayStatus)}">${escapeHtml(displayStatus === 'market_manager_pending' ? 'بانتظار اعتماد مدير السوق' : statusLabel(displayStatus))}</span></td>
+                <td data-label="الحالة"><span class="status-badge ${escapeHtml(displayStatus)}">${escapeHtml(displayStatus === 'market_manager_pending' ? 'بانتظار اعتماد مدير السوق' : statusLabel(displayStatus))}</span>${reservedOrderBadgeHtml(order)}</td>
                 <td data-label="ملاحظة الطلب" class="workflow-note-cell" title="${escapeHtml(getOrderNote(order) || '-')}">${escapeHtml(getOrderNote(order) || '-')}</td>
                 <td data-label="الإجراءات" class="workflow-actions-cell">${buildOrderSummaryRowActions('market')}</td>
             `;
@@ -1431,6 +1514,7 @@ function renderFinanceOrders() {
         const chunk = state.visibleOrders.slice(startIndex, startIndex + 75);
         chunk.forEach(order => {
             const tr = document.createElement('tr');
+            markReservedWorkflowRow(tr, order);
             const [financeDate, financeTime] = splitFinanceDateTime(order.createdAt);
             const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
             const isRejected = order.status === 'finance_rejected' || (order.financeStatus || '') === 'finance_rejected';
@@ -1464,7 +1548,7 @@ function renderFinanceOrders() {
                 <td data-column="representative" data-label="المندوب">${escapeHtml(order.repName || order.representativeName || '-')}</td>
                 <td data-column="note" data-label="ملاحظة الطلبية" class="workflow-note-cell">${noteHtml}</td>
                 <td data-column="value" data-label="قيمة الطلبية" class="finance-value-cell">${formatMoney(order.grandTotal)} <small>د.ا</small></td>
-                <td data-column="status" data-label="الحالة" class="finance-status-cell">${statusHtml}</td>
+                <td data-column="status" data-label="الحالة" class="finance-status-cell">${statusHtml}${reservedOrderBadgeHtml(order)}</td>
                 <td data-column="actions" data-label="الإجراءات المالية" class="workflow-actions-cell">${actionHtml}</td>
             `;
             tr.querySelector('.finance-action-select')?.addEventListener('change', event => {
@@ -1707,6 +1791,7 @@ function renderOrdersStaffRows() {
         chunk.forEach(order => {
             const followUp = getWorkflowFollowUp(order);
             const tr = document.createElement('tr');
+            markReservedWorkflowRow(tr, order);
             const staffCanAct = canOrdersStaffTouchOrder(order);
             const staffActionsHtml = staffCanAct
                 ? `<button class="action-btn staff-return-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع للمالية</button><button class="action-btn danger-btn staff-delete-btn" type="button"><i class="ph ph-trash"></i> حذف</button>`
@@ -1716,7 +1801,7 @@ function renderOrdersStaffRows() {
                 <td data-label="التاريخ" class="staff-date-cell">${escapeHtml(formatDateTime(order.createdAt))}</td>
                 <td data-label="الصيدلية" class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
                 <td data-label="المندوب" class="staff-rep-cell" title="${escapeHtml(order.repName || order.representativeName || '-')}">${escapeHtml(order.repName || order.representativeName || '-')}</td>
-                <td data-label="الحالة"><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span></td>
+                <td data-label="الحالة"><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span>${reservedOrderBadgeHtml(order)}</td>
                 <td data-label="المطلوب من">${escapeHtml(followUp.owner || '-')}</td>
                 <td data-label="تفصيل المتابعة" class="workflow-note-cell" title="${escapeHtml(followUp.detail || '-')}">${escapeHtml(followUp.detail || '-')}</td>
                 <td data-label="الأصناف"><button class="action-btn staff-edit-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
@@ -1888,9 +1973,20 @@ async function saveStaffEdits(options = {}) {
 
     const { kept, deleted, grandTotal } = collectStaffModalItems();
     if (kept.length === 0) { showToast('لا يمكن حفظ طلبية بدون أصناف.', 'warning'); return false; }
+    let reservationValidation;
+    try {
+        reservationValidation = await validateWorkflowEditedItems(kept, state.selectedOrder);
+    } catch (error) {
+        showToast('تعذر التحقق من حالة الأصناف المحجوزة. لم يتم حفظ التعديل.', 'error');
+        return false;
+    }
+    if (!reservationValidation.ok) { showToast(MIXED_ORDER_WARNING, 'warning'); return false; }
+    const validatedItems = reservationValidation.items;
     await updateOrderWithAudit(state.selectedOrder.id, {
-        items: kept,
+        items: validatedItems,
         grandTotal,
+        orderType: reservationValidation.orderType,
+        isReservedOrder: reservationValidation.orderType === RESERVED_ORDER_TYPE,
         status: 'returned_to_finance',
         workflowStage: 'finance',
         financeStatus: 'returned_to_finance',
@@ -1904,7 +2000,7 @@ async function saveStaffEdits(options = {}) {
         orderStaffEditedAt: new Date(),
         orderStaffDeletedItems: deleted,
         hiddenByOrderStaff: false
-    }, auditEntry('orders_staff_edit_returned_to_finance', 'Ziad/Zakaria', 'orders_staff', { items: state.selectedOrder.items || [], grandTotal: state.selectedOrder.grandTotal || 0, status: state.selectedOrder.status || '' }, { items: kept, grandTotal, status: 'returned_to_finance' }, reason));
+    }, auditEntry('orders_staff_edit_returned_to_finance', 'Ziad/Zakaria', 'orders_staff', { items: state.selectedOrder.items || [], grandTotal: state.selectedOrder.grandTotal || 0, status: state.selectedOrder.status || '' }, { items: validatedItems, grandTotal, status: 'returned_to_finance', orderType: reservationValidation.orderType }, reason));
     if (!silent) showToast('تم حفظ تعديل قسم الطلبيات وإرجاع الطلبية إلى المالية للمراجعة.', 'success');
     if (close) closeStaffOrderModal();
     return true;

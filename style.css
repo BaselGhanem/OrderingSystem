@@ -3115,3 +3115,51 @@ body[data-page="market-manager"] .workflow-modal-table .workflow-product-select 
         border-radius: 0 !important;
     }
 }
+
+
+/* Inventory reservation / cut-stock order tagging */
+.reserved-order-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-inline-start: 7px;
+    margin-top: 5px;
+    padding: 4px 9px;
+    border: 1px solid rgba(180, 83, 9, .22);
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: .72rem;
+    font-weight: 900;
+    line-height: 1.35;
+    white-space: nowrap;
+}
+.reserved-order-row > td:first-child { box-shadow: inset -4px 0 0 #f59e0b; }
+.reserved-order-row:hover > td:first-child { box-shadow: inset -4px 0 0 #d97706; }
+.order-type-indicator {
+    align-items: center;
+    gap: 7px;
+    width: fit-content;
+    margin-top: 8px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    font-size: .78rem;
+    font-weight: 900;
+}
+.order-type-indicator[data-type="regular"] { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+.order-type-indicator[data-type="reserved"] { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
+.order-type-indicator[data-type="mixed"] { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+.reserved-item-row > td:first-child { position: relative; }
+.reserved-item-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background:#fff7ed;
+    color:#9a3412;
+    border:1px solid #fed7aa;
+    font-size:.7rem;
+    font-weight:900;
+}

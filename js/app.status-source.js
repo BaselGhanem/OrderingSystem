@@ -267,6 +267,13 @@ let currentPharmacyCode = null;
 let currentPharmaciesData = [];
 let currentMyOrdersData = [];
 let reportsOrdersData = [];
+let reservedProductKeys = new Set();
+let reservationStateReady = false;
+let unsubInventoryReservations = null;
+
+const RESERVED_ORDER_TYPE = 'reserved';
+const REGULAR_ORDER_TYPE = 'regular';
+const MIXED_ORDER_WARNING = 'يرجى إدخال طلبية منفصلة للأصناف المحجوزة/المقطوعة';
 
 let unsubMyOrders = null;
 let unsubManagerOrders = null;
@@ -363,6 +370,209 @@ function getProductCodeFromItem(item = {}) {
     if (item.productCode || item.product_code || item.code) return item.productCode || item.product_code || item.code;
     const product = productsList.find(p => p.name === item.name);
     return product?.productCode || product?.product_code || product?.code || '';
+}
+
+function normalizeReservationKey(value) {
+    return String(value || '').trim().toLocaleLowerCase('en-US');
+}
+
+function getReservationKeys(value = {}) {
+    const keys = [];
+    const productId = value.id || value.productId || value.reservationProductId || '';
+    const productCode = value.productCode || value.product_code || value.code || '';
+    const name = value.name || value.productName || '';
+    if (productId) keys.push(`id:${normalizeReservationKey(productId)}`);
+    if (productCode) keys.push(`code:${normalizeReservationKey(productCode)}`);
+    if (name) keys.push(`name:${normalizeReservationKey(name)}`);
+    return keys;
+}
+
+function rebuildReservedProductKeys(snapshot) {
+    const keys = new Set();
+    snapshot.forEach(row => {
+        const data = row.data ? row.data() : row;
+        if (data?.active === false) return;
+        getReservationKeys({ id: data.productId || row.id, ...data }).forEach(key => keys.add(key));
+    });
+    reservedProductKeys = keys;
+    reservationStateReady = true;
+    syncReservationIndicators();
+}
+
+async function refreshInventoryReservations() {
+    const snap = await getDocs(collection(db, 'inventoryReservations'));
+    rebuildReservedProductKeys(snap);
+    return reservedProductKeys;
+}
+
+function subscribeInventoryReservations() {
+    if (unsubInventoryReservations) unsubInventoryReservations();
+    unsubInventoryReservations = onSnapshot(collection(db, 'inventoryReservations'), snapshot => {
+        rebuildReservedProductKeys(snapshot);
+    }, error => {
+        console.error('Inventory reservation listener failed:', error);
+        reservationStateReady = false;
+    });
+}
+
+function resolveProductForReservation(value = {}) {
+    const name = String(value.name || value.productName || '').trim();
+    const code = String(value.productCode || value.product_code || value.code || '').trim();
+    return productsList.find(product =>
+        (name && String(product.name || '').trim() === name) ||
+        (code && String(product.productCode || product.product_code || product.code || '').trim() === code)
+    ) || value;
+}
+
+function isProductReserved(value = {}) {
+    const product = resolveProductForReservation(value);
+    return getReservationKeys(product).some(key => reservedProductKeys.has(key));
+}
+
+function getOrderType(order = {}) {
+    if (order.orderType === RESERVED_ORDER_TYPE || order.isReservedOrder === true) return RESERVED_ORDER_TYPE;
+    return REGULAR_ORDER_TYPE;
+}
+
+function getReservedOrderBadge(order = {}) {
+    return getOrderType(order) === RESERVED_ORDER_TYPE
+        ? '<span class="reserved-order-badge"><i class="ph ph-lock-key"></i> أصناف محجوزة / مقطوعة</span>'
+        : '';
+}
+
+function markReservedOrderRow(row, order = {}) {
+    if (!row) return;
+    row.classList.toggle('reserved-order-row', getOrderType(order) === RESERVED_ORDER_TYPE);
+}
+
+function setOrderTypeIndicator(type = '') {
+    const indicator = getEl('orderTypeIndicator');
+    if (!indicator) return;
+    indicator.dataset.type = type || 'empty';
+    if (type === RESERVED_ORDER_TYPE) {
+        indicator.innerHTML = '<i class="ph ph-lock-key"></i><span>طلبية أصناف محجوزة / مقطوعة</span>';
+        indicator.style.display = 'inline-flex';
+    } else if (type === REGULAR_ORDER_TYPE) {
+        indicator.innerHTML = '<i class="ph ph-package"></i><span>طلبية أصناف عادية</span>';
+        indicator.style.display = 'inline-flex';
+    } else if (type === 'mixed') {
+        indicator.innerHTML = '<i class="ph ph-warning-circle"></i><span>لا يمكن دمج النوعين في طلبية واحدة</span>';
+        indicator.style.display = 'inline-flex';
+    } else {
+        indicator.innerHTML = '';
+        indicator.style.display = 'none';
+    }
+}
+
+function getRowReservationType(row) {
+    const input = row?.querySelector('.product-input');
+    const name = input?.value?.trim() || '';
+    if (!name) return '';
+    const product = productsList.find(prod => String(prod.name || '').trim() === name);
+    if (!product) return '';
+    return isProductReserved(product) ? RESERVED_ORDER_TYPE : REGULAR_ORDER_TYPE;
+}
+
+function syncReservationIndicators() {
+    if (APP_PAGE !== 'order') return;
+    const rows = Array.from(document.querySelectorAll('#orderBody tr'));
+    const types = new Set();
+    rows.forEach(row => {
+        const type = getRowReservationType(row);
+        row.dataset.reservedItem = type === RESERVED_ORDER_TYPE ? 'true' : 'false';
+        row.classList.toggle('reserved-item-row', type === RESERVED_ORDER_TYPE);
+        const firstCell = row.querySelector('td');
+        if (firstCell) {
+            let badge = firstCell.querySelector('.reserved-item-badge');
+            if (type === RESERVED_ORDER_TYPE) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'reserved-item-badge';
+                    badge.innerHTML = '<i class="ph ph-lock-key"></i> محجوز';
+                    firstCell.appendChild(badge);
+                }
+            } else if (badge) {
+                badge.remove();
+            }
+        }
+        if (type) types.add(type);
+    });
+    if (types.size > 1) setOrderTypeIndicator('mixed');
+    else if (types.size === 1) setOrderTypeIndicator([...types][0]);
+    else setOrderTypeIndicator('');
+}
+
+function resetProductRow(row) {
+    if (!row) return;
+    const input = row.querySelector('.product-input');
+    const price = row.querySelector('.price-cell');
+    const total = row.querySelector('.row-total');
+    if (input) { input.value = ''; input.dataset.productCode = ''; }
+    if (price) price.innerText = '0.00';
+    if (total) total.innerText = '0.00';
+    row.dataset.reservedItem = 'false';
+    row.classList.remove('reserved-item-row');
+    row.querySelector('.reserved-item-badge')?.remove();
+    updateGrandTotal();
+    syncReservationIndicators();
+}
+
+function enforceNoMixedOrderForRow(row, selectedProduct) {
+    if (!row || !selectedProduct || !reservationStateReady) return true;
+    const selectedType = isProductReserved(selectedProduct) ? RESERVED_ORDER_TYPE : REGULAR_ORDER_TYPE;
+    const otherTypes = new Set();
+    document.querySelectorAll('#orderBody tr').forEach(otherRow => {
+        if (otherRow === row) return;
+        const type = getRowReservationType(otherRow);
+        if (type) otherTypes.add(type);
+    });
+    if (otherTypes.size > 0 && !otherTypes.has(selectedType)) {
+        showToast(MIXED_ORDER_WARNING, 'warning');
+        resetProductRow(row);
+        return false;
+    }
+    row.dataset.reservedItem = selectedType === RESERVED_ORDER_TYPE ? 'true' : 'false';
+    syncReservationIndicators();
+    return true;
+}
+
+function tagItemsByCurrentReservations(items = []) {
+    return items.map(item => {
+        const product = resolveProductForReservation(item);
+        const reserved = isProductReserved(product);
+        return {
+            ...item,
+            isReservedItem: reserved,
+            reservationProductId: reserved ? (product.id || item.reservationProductId || '') : '',
+            reservationCheckedAt: new Date().toISOString()
+        };
+    });
+}
+
+function tagItemsForExistingOrder(items = [], order = {}) {
+    const expectedType = order.orderType === RESERVED_ORDER_TYPE || order.isReservedOrder === true
+        ? RESERVED_ORDER_TYPE
+        : order.orderType === REGULAR_ORDER_TYPE
+            ? REGULAR_ORDER_TYPE
+            : '';
+    const originalNames = new Set((Array.isArray(order.items) ? order.items : []).map(item => String(item.name || '').trim()));
+    return items.map(item => {
+        const name = String(item.name || '').trim();
+        let reserved;
+        if (expectedType && originalNames.has(name)) reserved = expectedType === RESERVED_ORDER_TYPE;
+        else reserved = isProductReserved(resolveProductForReservation(item));
+        const product = resolveProductForReservation(item);
+        return { ...item, isReservedItem: reserved, reservationProductId: reserved ? (product.id || item.reservationProductId || '') : '' };
+    });
+}
+
+function evaluateOrderItemTypes(items = []) {
+    const types = new Set(items.map(item => item.isReservedItem === true ? RESERVED_ORDER_TYPE : REGULAR_ORDER_TYPE));
+    return {
+        mixed: types.size > 1,
+        orderType: types.size === 1 ? [...types][0] : '',
+        isReservedOrder: types.size === 1 && types.has(RESERVED_ORDER_TYPE)
+    };
 }
 
 
@@ -1198,7 +1408,8 @@ function createProductItemFromRow(row) {
         bonus: row.querySelector('.bonus-input')?.value || 0,
         price: row.querySelector('.price-cell')?.innerText || 0,
         total: row.querySelector('.row-total')?.innerText || 0,
-        note: row.querySelector('.item-note-input')?.value.trim() || ''
+        note: row.querySelector('.item-note-input')?.value.trim() || '',
+        isReservedItem: row.dataset.reservedItem === 'true'
     };
 }
 
@@ -1644,7 +1855,15 @@ async function bootstrapPage() {
                     </button>`;
                 bindPharmacyHistoryButton();
             }
+            try {
+                await refreshInventoryReservations();
+                subscribeInventoryReservations();
+            } catch (error) {
+                reservationStateReady = false;
+                showToast('تعذر تحميل حالة الأصناف المحجوزة. لن يتم إرسال الطلبية قبل نجاح التحقق.', 'error');
+            }
             if (!restoreSavedDraft() && orderBody && orderBody.children.length === 0) addNewRow();
+            syncReservationIndicators();
             loadMyOrders();
         } catch (error) {
             sessionStorage.removeItem('activeOrderContext');
@@ -1789,11 +2008,14 @@ function addNewRow(prefill = null) {
     
     setupAutocomplete(s, sug, productNames, (selectedName) => {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
-        const pr = selectedProd ? parseAppNumber(selectedProd.price) : 0;
+        if (!selectedProd) return;
+        if (!enforceNoMixedOrderForRow(tr, selectedProd)) return;
+        const pr = parseAppNumber(selectedProd.price);
         s.dataset.productCode = selectedProd?.productCode || selectedProd?.product_code || selectedProd?.code || '';
         p.innerText = pr.toFixed(2);
         t.innerText = (pr * q.value).toFixed(2);
         updateGrandTotal();
+        syncReservationIndicators();
     });
 
     s.addEventListener('blur', function() {
@@ -1808,6 +2030,8 @@ function addNewRow(prefill = null) {
             this.classList.remove('input-error');
             const err = this.parentNode.querySelector('.inline-error-msg');
             if(err) err.remove();
+            const selectedProd = productsList.find(prod => prod.name === val);
+            if (selectedProd) enforceNoMixedOrderForRow(tr, selectedProd);
         }
     });
 
@@ -1849,6 +2073,11 @@ function addNewRow(prefill = null) {
         tr.querySelector('.item-note-input').value = prefill.note || '';
         calcBonus();
         updateGrandTotal();
+        const prefillProduct = productsList.find(prod => prod.name === prefill.name);
+        if (prefillProduct) {
+            tr.dataset.reservedItem = (prefill.isReservedItem === true || isProductReserved(prefillProduct)) ? 'true' : 'false';
+        }
+        syncReservationIndicators();
     }
 }
 
@@ -2025,6 +2254,18 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
     }
 
     if (items.length === 0) return showToast("لا يمكن إرسال طلبية فارغة!", "warning");
+
+    let taggedItems;
+    let orderTypeInfo;
+    try {
+        await refreshInventoryReservations();
+        taggedItems = tagItemsByCurrentReservations(items);
+        orderTypeInfo = evaluateOrderItemTypes(taggedItems);
+    } catch (error) {
+        console.error('Reservation validation failed:', error);
+        return showToast('تعذر التحقق من حالة الأصناف المحجوزة. حاول مرة أخرى بعد التأكد من الاتصال.', 'error');
+    }
+    if (orderTypeInfo.mixed) return showToast(MIXED_ORDER_WARNING, 'warning');
     
     const orderNoteEl = document.getElementById('orderNoteInput');
     const orderNoteValue = orderNoteEl ? orderNoteEl.value.trim() : "";
@@ -2044,7 +2285,10 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
             managerName: getManagerName(currentRepName),
             pharmacyName: currentPharmacyName,
             pharmacyCode: currentPharmacyCode, 
-            items: items,
+            items: taggedItems,
+            orderType: orderTypeInfo.orderType || REGULAR_ORDER_TYPE,
+            isReservedOrder: !!orderTypeInfo.isReservedOrder,
+            reservedOrderCreatedAt: orderTypeInfo.isReservedOrder ? now : null,
             orderNote: orderNoteValue,
             grandTotal: parseAppNumber(grandTotalEl.innerText),
             createdAt: now,
@@ -2058,7 +2302,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
             marketManagerStatus: isAdmin ? 'market_manager_pending' : '',
             financeStatus: '',
             orderStaffStatus: '',
-            auditTrail: [buildAuditEntry('order_created', currentRepName, isAdmin ? 'supervisor' : 'representative', null, { status: initialStatus }, orderNoteValue)]
+            auditTrail: [buildAuditEntry('order_created', currentRepName, isAdmin ? 'supervisor' : 'representative', null, { status: initialStatus, orderType: orderTypeInfo.orderType || REGULAR_ORDER_TYPE }, orderNoteValue)]
         });
         
         clearDraft(); // تنظيف المسودة بعد الإرسال الناجح
@@ -2389,13 +2633,14 @@ function renderManagerOrders(orders) {
         const tr = document.createElement('tr');
         const statusClass = getEffectiveOrderStatus(order) || 'pending';
         tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
+        markReservedOrderRow(tr, order);
         tr.innerHTML = `
             <td data-label="تحديد"><input type="checkbox" class="order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
             <td data-label="التاريخ">${displayDate}</td>
             <td data-label="المندوب">${order.repName || '-'}</td>
             <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
             <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getOrderFollowupNote(order) ? `<div class="workflow-reason" style="margin-top:6px;">${escapePrintHtml(getOrderFollowupNote(order))}</div>` : ''}</td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getReservedOrderBadge(order)}${getOrderFollowupNote(order) ? `<div class="workflow-reason" style="margin-top:6px;">${escapePrintHtml(getOrderFollowupNote(order))}</div>` : ''}</td>
             <td data-label="إجراء">
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button><button class="action-btn return-rep-btn" title="إرجاع للمندوب"><i class="ph ph-arrow-u-down-right"></i></button>` : ''}
@@ -2496,6 +2741,7 @@ function renderAllOrders(orders) {
         const tr = document.createElement('tr');
         const statusClass = getEffectiveOrderStatus(order) || 'pending';
         tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
+        markReservedOrderRow(tr, order);
         const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const canApproveFromAll = canCurrentSupervisorApproveOrder(order);
@@ -2506,7 +2752,7 @@ function renderAllOrders(orders) {
             <td data-label="المندوب" class="all-rep-col">${order.repName || '-'}</td>
             <td data-label="الصيدلية" class="all-pharm-col">${order.pharmacyName || '-'}${unassignedBadge}</td>
             <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getReservedOrderBadge(order)}</td>
             <td data-label="إجراء"><button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 ${canApproveFromAll ? `<button class="action-btn approve-all-order-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
@@ -2981,6 +3227,20 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
             if (invalidItem) return showToast("تأكد من صحة الأصناف المختارة.", "error");
             if (items.length === 0) return showToast("لا يمكن حفظ مسودة فارغة!", "warning");
 
+            let validatedItems = items;
+            let editedTypeInfo;
+            try {
+                await refreshInventoryReservations();
+                validatedItems = tagItemsForExistingOrder(items, order);
+                editedTypeInfo = evaluateOrderItemTypes(validatedItems);
+                const expectedType = order.orderType === RESERVED_ORDER_TYPE || order.isReservedOrder === true ? RESERVED_ORDER_TYPE : (order.orderType === REGULAR_ORDER_TYPE ? REGULAR_ORDER_TYPE : '');
+                if (editedTypeInfo.mixed || (expectedType && editedTypeInfo.orderType && editedTypeInfo.orderType !== expectedType)) {
+                    return showToast(MIXED_ORDER_WARNING, 'warning');
+                }
+            } catch (error) {
+                return showToast('تعذر التحقق من حالة الأصناف المحجوزة. لم يتم حفظ التعديل.', 'error');
+            }
+
             try {
                 const grandTotalEl = document.getElementById('editGrandTotal');
                 const newGrandTotal = grandTotalEl ? parseFloat(grandTotalEl.innerText) : 0;
@@ -2992,7 +3252,9 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 await updateOrderWithAudit(editingOrderId, { 
                     repId: newRepId, repName: newRepName, managerName: getManagerName(newRepName), 
                     pharmacyName: newPharmName, pharmacyCode: selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || "",
-                    items: items, grandTotal: newGrandTotal,
+                    items: validatedItems, grandTotal: newGrandTotal,
+                    orderType: order.orderType || editedTypeInfo.orderType || REGULAR_ORDER_TYPE,
+                    isReservedOrder: (order.orderType || editedTypeInfo.orderType) === RESERVED_ORDER_TYPE || order.isReservedOrder === true,
                     lastEditedBy: actorName, lastEditedByRole: isRepresentativeReturnedEdit ? 'representative' : 'supervisor', lastEditedAt: new Date(),
                     ...workflowReset
                 }, buildAuditEntry(isRepresentativeReturnedEdit ? 'representative_resubmitted_returned_order' : 'supervisor_order_edited', actorName, isRepresentativeReturnedEdit ? 'representative' : 'supervisor', { orderId: editingOrderId, status: order.status || '' }, { grandTotal: newGrandTotal, status: workflowReset.status || order.status || '' }));

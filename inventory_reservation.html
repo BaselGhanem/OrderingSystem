@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>حجز الأصناف المقطوعة | نظام الطلبيات</title>
+<link href="favicon.ico?v=20260906_inventory_reservation_v1" rel="icon">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<link href="style.css?v=20260906_inventory_reservation_v1" rel="stylesheet">
+<style>
+:root{--ir-teal:#099999;--ir-navy:#123047;--ir-muted:#64748b;--ir-border:#e2e8f0;--ir-warn:#f59e0b;--ir-danger:#dc2626;--ir-success:#059669}
+body{font-family:'Cairo',sans-serif;background:#f4f7f9;color:#0f172a}
+.ir-shell{width:min(1450px,calc(100% - 28px));margin:18px auto 36px;display:grid;gap:18px}
+.ir-header,.ir-card{background:#fff;border:1px solid rgba(148,163,184,.22);border-radius:22px;box-shadow:0 14px 36px rgba(15,23,42,.07)}
+.ir-header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 24px;flex-wrap:wrap}
+.ir-brand{display:flex;align-items:center;gap:14px}.ir-brand img{width:78px;height:50px;object-fit:contain}.ir-brand h1{margin:0;color:var(--ir-navy);font-size:1.55rem}.ir-brand p{margin:3px 0 0;color:var(--ir-muted);font-weight:600;font-size:.88rem}
+.ir-actions{display:flex;gap:9px;flex-wrap:wrap}.ir-btn{border:0;border-radius:12px;padding:10px 14px;font:inherit;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:7px}.ir-btn.primary{background:var(--ir-teal);color:#fff}.ir-btn.secondary{background:#f8fafc;color:var(--ir-navy);border:1px solid var(--ir-border)}.ir-btn.danger{background:#fff1f2;color:#b91c1c;border:1px solid #fecdd3}.ir-btn.reserve{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}.ir-btn:disabled{opacity:.5;cursor:not-allowed}
+.ir-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.ir-stat{padding:18px 20px;background:#fff;border:1px solid var(--ir-border);border-radius:18px}.ir-stat span{color:var(--ir-muted);font-weight:700;font-size:.82rem}.ir-stat strong{display:block;margin-top:5px;font-size:1.8rem;color:var(--ir-navy)}
+.ir-card{overflow:hidden}.ir-card-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;border-bottom:1px solid var(--ir-border);flex-wrap:wrap}.ir-card-head h2{margin:0;color:var(--ir-navy);font-size:1.12rem}.ir-card-head p{margin:4px 0 0;color:var(--ir-muted);font-size:.8rem;font-weight:600}
+.ir-filters{display:flex;gap:10px;flex-wrap:wrap}.ir-input,.ir-select{min-height:42px;border:1px solid #cbd5e1;border-radius:11px;padding:8px 11px;font:inherit;background:#fff;outline:none}.ir-input{min-width:280px}.ir-input:focus,.ir-select:focus{border-color:var(--ir-teal);box-shadow:0 0 0 3px rgba(9,153,153,.1)}
+.ir-table-wrap{overflow:auto;max-height:58vh}.ir-table{width:100%;border-collapse:collapse;min-width:820px}.ir-table th,.ir-table td{padding:11px 13px;border-bottom:1px solid #edf2f7;text-align:right;vertical-align:middle}.ir-table th{position:sticky;top:0;background:#f8fafc;z-index:2;color:#334155;font-size:.79rem}.ir-table td{font-size:.84rem}.ir-table tr.reserved{background:#fffaf4}.ir-code{font-family:Consolas,monospace;direction:ltr;text-align:left!important}.ir-status{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;font-size:.72rem;font-weight:900}.ir-status.on{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}.ir-status.off{background:#ecfdf5;color:#047857;border:1px solid #a7f3d0}.ir-actor{color:#475569;font-size:.75rem;font-weight:700;margin-top:3px}.ir-empty{padding:32px!important;text-align:center!important;color:#64748b}.ir-audit-wrap{max-height:420px;overflow:auto}.ir-security-note{padding:12px 16px;background:#fffbeb;border:1px solid #fde68a;border-radius:14px;color:#92400e;font-size:.78rem;font-weight:700;line-height:1.7}
+#toast-container{position:fixed;left:20px;bottom:20px;z-index:10000;display:grid;gap:8px}.toast{min-width:280px;max-width:430px;background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 14px 35px rgba(15,23,42,.18);display:flex;align-items:center;gap:8px;border-right:4px solid #64748b}.toast.success{border-right-color:#059669}.toast.error{border-right-color:#dc2626}.toast.warning{border-right-color:#f59e0b}
+@media(max-width:760px){.ir-shell{width:calc(100% - 14px);margin:8px auto 22px}.ir-header{padding:16px}.ir-stats{grid-template-columns:1fr}.ir-input,.ir-select{width:100%;min-width:0}.ir-filters{width:100%}.ir-actions{width:100%}.ir-actions .ir-btn{flex:1}.ir-brand h1{font-size:1.25rem}}
+</style>
+</head>
+<body data-page="inventory-reservation">
+<div class="ir-shell">
+<header class="ir-header">
+  <div class="ir-brand"><img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="Dar Al Dawaa Logo"><div><h1>حجز الأصناف المقطوعة</h1><p id="currentActor">جاري التحقق من الصلاحية...</p></div></div>
+  <div class="ir-actions"><a id="backBtn" class="ir-btn secondary" href="index.html"><i class="ph ph-arrow-right"></i> رجوع</a><button id="refreshBtn" class="ir-btn primary" type="button"><i class="ph ph-arrows-clockwise"></i> تحديث</button></div>
+</header>
+<div class="ir-security-note"><i class="ph ph-shield-check"></i> هذه اللوحة متاحة داخل النظام فقط لعبدالله الناطور، محمد طوالبه، وحساب لوحة التقارير المستخدم من المدير العام. كل حجز أو فك حجز يُسجل تلقائياً في سجل التدقيق أدناه.</div>
+<section class="ir-stats"><article class="ir-stat"><span>إجمالي الأصناف</span><strong id="statProducts">0</strong></article><article class="ir-stat"><span>الأصناف المحجوزة حالياً</span><strong id="statReserved">0</strong></article><article class="ir-stat"><span>حركات التدقيق</span><strong id="statAudit">0</strong></article></section>
+<section class="ir-card">
+  <div class="ir-card-head"><div><h2><i class="ph ph-package"></i> الأصناف المسجلة</h2><p>الحجز هنا يحدد الأصناف التي يجب أن تدخل في طلبية منفصلة.</p></div><div class="ir-filters"><input id="searchInput" class="ir-input" type="search" placeholder="بحث باسم الصنف أو الكود..."><select id="statusFilter" class="ir-select"><option value="">كل الأصناف</option><option value="reserved">المحجوزة فقط</option><option value="available">غير المحجوزة فقط</option></select></div></div>
+  <div class="ir-table-wrap"><table class="ir-table"><thead><tr><th>الحالة</th><th>كود الصنف</th><th>اسم الصنف</th><th>السعر</th><th>آخر حجز بواسطة</th><th>الإجراء</th></tr></thead><tbody id="productsBody"><tr><td colspan="6" class="ir-empty">جاري تحميل الأصناف...</td></tr></tbody></table></div>
+</section>
+<section class="ir-card">
+  <div class="ir-card-head"><div><h2><i class="ph ph-clock-counter-clockwise"></i> سجل تغييرات الحجز (Audit Log)</h2><p>يعرض من قام بالحجز أو فك الحجز وتاريخ العملية.</p></div></div>
+  <div class="ir-audit-wrap"><table class="ir-table"><thead><tr><th>التاريخ</th><th>الإجراء</th><th>كود الصنف</th><th>الصنف</th><th>المستخدم</th><th>الصلاحية</th></tr></thead><tbody id="auditBody"><tr><td colspan="6" class="ir-empty">جاري تحميل السجل...</td></tr></tbody></table></div>
+</section>
+</div>
+<div id="toast-container"></div>
+<script type="module" src="js/inventory-reservation.js?v=20260906_inventory_reservation_v1"></script>
+</body>
+</html>
