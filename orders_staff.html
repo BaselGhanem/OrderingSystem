@@ -34,6 +34,7 @@
         <div><label>الصنف</label><input id="filterProduct" type="search" placeholder="بحث بالصنف أو كود المنتج"></div>
         <div><label>العرض</label><select id="showHiddenMode"><option value="active" selected>جاهزة لقسم الطلبيات فقط</option><option value="followup">متابعة كل الطلبيات</option><option value="exported">المفوترة الظاهرة</option><option value="hidden">المفوترة المخفية</option></select></div>
         <div><label>المطلوب من</label><select id="filterRequiredOwner"><option value="">الكل</option><option value="supervisor">المشرف</option><option value="market_manager">مدير السوق</option><option value="finance_controller">المراقب المالي</option><option value="orders_staff">قسم الطلبيات</option><option value="representative">المندوب</option></select></div>
+        <div><label>نوع الطلبية</label><select id="filterOrderType"><option value="">جميع أنواع الطلبيات</option><option value="regular">طلبيات أصناف متاحة</option><option value="reserved">طلبيات أصناف مقطوعة</option></select></div>
     </section>
     <section class="workflow-toolbar">
         <button class="btn-success" id="exportSelectedBtn" type="button"><i class="ph ph-file-xls"></i> تصدير المحدد</button>
@@ -73,6 +74,6 @@
     </div>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260906_inventory_reservation_v1" type="module"></script>
+<script src="js/workflow.js?v=20260907_order_type_filter_v2" type="module"></script>
 </body>
 </html>

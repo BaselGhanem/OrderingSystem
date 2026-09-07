@@ -28,6 +28,7 @@
         <div><label>إلى تاريخ</label><input id="filterDateTo" type="date"></div>
         <div><label>الصيدلية</label><input id="filterPharmacy" type="search" placeholder="بحث بالصيدلية أو الكود"></div>
         <div><label>الحالة</label><select id="filterStatus"><option value="">الكل</option><option value="finance_pending">بانتظار المالية</option><option value="finance_rejected">مرفوض مالياً</option><option value="returned_to_finance">مرجعة للمالية</option></select></div>
+        <div><label>نوع الطلبية</label><select id="filterOrderType"><option value="">جميع أنواع الطلبيات</option><option value="regular">طلبيات أصناف متاحة</option><option value="reserved">طلبيات أصناف مقطوعة</option></select></div>
         <div class="finance-filter-actions"><button class="btn-secondary" id="financeExportVisibleBtn" type="button"><i class="ph ph-download-simple"></i> تصدير كل الظاهر</button><button class="btn-success" id="financeExportSelectedBtn" type="button"><i class="ph ph-file-xls"></i> تصدير المحدد</button></div>
     </section>
     <div class="finance-table-heading"><div><h2>الطلبيات المالية</h2><p><i class="ph ph-arrows-down-up"></i> اضغط على عنوان العمود للترتيب تصاعدياً أو تنازلياً</p></div></div>
@@ -40,6 +41,6 @@
 </main>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20260906_inventory_reservation_v1" type="module"></script>
+<script src="js/workflow.js?v=20260907_order_type_filter_v2" type="module"></script>
 </body>
 </html>

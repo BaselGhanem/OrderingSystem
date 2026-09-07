@@ -63,6 +63,10 @@ function isReservedOrder(order = {}) {
     return order.orderType === RESERVED_ORDER_TYPE || order.isReservedOrder === true;
 }
 
+function getOrderTypeForFilter(order = {}) {
+    return isReservedOrder(order) ? RESERVED_ORDER_TYPE : REGULAR_ORDER_TYPE;
+}
+
 function reservedOrderBadgeHtml(order = {}) {
     return isReservedOrder(order)
         ? '<span class="reserved-order-badge"><i class="ph ph-lock-key"></i> أصناف محجوزة / مقطوعة</span>'
@@ -955,7 +959,7 @@ function setTableEmpty(tbodyId, colspan, message) {
 
 function bindCommonFilters(applyFn) {
     const debouncedApply = debounce(applyFn, 180);
-    ['filterDateFrom', 'filterDateTo', 'filterPharmacy', 'filterRepresentative', 'filterProduct', 'filterStatus', 'showHiddenMode', 'filterRequiredOwner'].forEach(id => {
+    ['filterDateFrom', 'filterDateTo', 'filterPharmacy', 'filterRepresentative', 'filterProduct', 'filterStatus', 'showHiddenMode', 'filterRequiredOwner', `filterOrderType`].forEach(id => {
         $(id)?.addEventListener('input', debouncedApply);
         $(id)?.addEventListener('change', debouncedApply);
     });
@@ -1276,6 +1280,7 @@ function applyMarketFilters() {
     const rep = ($('filterRepresentative')?.value || '').toLowerCase().trim();
     const pharm = ($('filterPharmacy')?.value || '').toLowerCase().trim();
     const status = $('filterStatus')?.value || '';
+    const orderType = $(`filterOrderType`)?.value || ``;
     const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
     state.visibleOrders = state.orders.filter(order => {
@@ -1286,6 +1291,7 @@ function applyMarketFilters() {
             ? awaitingMarketManager
             : (status ? orderStatus === status : eligible);
         return statusMatch &&
+            (!orderType || getOrderTypeForFilter(order) === orderType) &&
             inDateRange(order, from, to) &&
             (!rep || (order.repName || '').toLowerCase().includes(rep)) &&
             (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
@@ -1484,6 +1490,7 @@ async function exportFinanceOrders(orders, scope = 'visible') {
 function applyFinanceFilters() {
     const pharm = ($('filterPharmacy')?.value || '').toLowerCase().trim();
     const status = $('filterStatus')?.value || '';
+    const orderType = $(`filterOrderType`)?.value || ``;
     const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
     state.visibleOrders = state.orders.filter(order => {
@@ -1494,7 +1501,10 @@ function applyFinanceFilters() {
         const statusMatch = status
             ? order.status === status || financeState === status
             : (isFinancePending || isFinanceRejected || isReturnedToFinance);
-        return statusMatch && inDateRange(order, from, to) && (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
+        return statusMatch &&
+            (!orderType || getOrderTypeForFilter(order) === orderType) &&
+            inDateRange(order, from, to) &&
+            (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
     });
     renderFinanceOrders();
 }
@@ -1743,6 +1753,7 @@ function applyOrdersStaffFilters() {
     const product = ($('filterProduct')?.value || '').toLowerCase().trim();
     const statusMode = $('showHiddenMode')?.value || 'active';
     const requiredOwner = $('filterRequiredOwner')?.value || '';
+    const orderType = $(`filterOrderType`)?.value || ``;
     const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
 
@@ -1768,7 +1779,9 @@ function applyOrdersStaffFilters() {
         if (normalizedStatusMode === 'hidden') modeOk = isHidden;
         if (normalizedStatusMode === 'exported') modeOk = isExported && !isHidden;
         const itemMatch = !product || (Array.isArray(order.items) && order.items.some(item => `${item.name || ''} ${getItemProductCode(item)}`.toLowerCase().includes(product)));
-        return modeOk && itemMatch && inDateRange(order, from, to) &&
+        return modeOk && itemMatch &&
+            (!orderType || getOrderTypeForFilter(order) === orderType) &&
+            inDateRange(order, from, to) &&
             (!requiredOwner || followUp.ownerKey === requiredOwner) &&
             (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm)) &&
             (!rep || (order.repName || order.representativeName || '').toLowerCase().includes(rep));

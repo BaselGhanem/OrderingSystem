@@ -118,11 +118,14 @@ window.addEventListener('DOMContentLoaded', () => {
     initializeSupervisorSearchFilter('managerPharmacyFilter', applyManagerFilters);
     initializeSupervisorSearchFilter('filterAllRep', filterAllOrders);
     initializeSupervisorSearchFilter('filterAllPharmacy', filterAllOrders);
-    getEl('filterAllStatus')?.addEventListener('change', filterAllOrders);
+    getEl(`managerOrderTypeFilter`)?.addEventListener(`change`, applyManagerFilters);
+    getEl(`filterAllStatus`)?.addEventListener(`change`, filterAllOrders);
+    getEl(`filterAllOrderType`)?.addEventListener(`change`, filterAllOrders);
     getEl('myOrdersDateFrom')?.addEventListener('change', applyMyOrdersFilters);
     getEl('myOrdersDateTo')?.addEventListener('change', applyMyOrdersFilters);
     getEl('myOrdersPharmacyFilter')?.addEventListener('input', applyMyOrdersFilters);
     getEl('myOrdersStatusFilter')?.addEventListener('change', applyMyOrdersFilters);
+    getEl(`myOrdersOrderTypeFilter`)?.addEventListener(`change`, applyMyOrdersFilters);
     getEl('selectAllMyOrders')?.addEventListener('change', function() {
         document.querySelectorAll('.my-order-checkbox').forEach(cb => cb.checked = this.checked);
     });
@@ -740,10 +743,12 @@ function supervisorOrderMatchesSelections(order, selections, ignoredFilter, from
     const repName = normalizeSupervisorFilterText(order.repName);
     const pharmacyName = normalizeSupervisorFilterText(order.pharmacyName);
     const status = normalizeSupervisorFilterText(getEffectiveOrderStatus(order));
+    const orderType = normalizeSupervisorFilterText(getOrderType(order));
 
     if (ignoredFilter !== 'rep' && selections.rep && !repName.includes(selections.rep)) return false;
     if (ignoredFilter !== 'pharmacy' && selections.pharmacy && !pharmacyName.includes(selections.pharmacy)) return false;
     if (ignoredFilter !== 'status' && selections.status && status !== selections.status) return false;
+    if (ignoredFilter !== `orderType` && selections.orderType && orderType !== selections.orderType) return false;
     return isOrderInDateRange(order, fromVal, toVal);
 }
 
@@ -915,14 +920,16 @@ function getSupervisorCascadingConfig(scope) {
             data: allOrdersRangeData.length ? allOrdersRangeData : allOrdersData,
             repSelect: getEl('filterAllRep'),
             pharmacySelect: getEl('filterAllPharmacy'),
-            statusSelect: getEl('filterAllStatus')
+            statusSelect: getEl('filterAllStatus'),
+            orderTypeSelect: getEl(`filterAllOrderType`)
         };
     }
     return {
         data: managerOrdersData,
         repSelect: getEl('managerRepFilter'),
         pharmacySelect: getEl('managerPharmacyFilter'),
-        statusSelect: getEl('managerStatusFilter')
+        statusSelect: getEl('managerStatusFilter'),
+        orderTypeSelect: getEl(`managerOrderTypeFilter`)
     };
 }
 
@@ -934,7 +941,8 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
     const selections = {
         rep: normalizeSupervisorFilterText(config.repSelect?.value),
         pharmacy: normalizeSupervisorFilterText(config.pharmacySelect?.value),
-        status: normalizeSupervisorFilterText(config.statusSelect?.value)
+        status: normalizeSupervisorFilterText(config.statusSelect?.value),
+        orderType: normalizeSupervisorFilterText(config.orderTypeSelect?.value)
     };
 
     for (let pass = 0; pass < 4; pass += 1) {
@@ -950,6 +958,10 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
         const availableStatus = new Set(data
             .filter(order => supervisorOrderMatchesSelections(order, selections, 'status', fromVal, toVal))
             .map(order => normalizeSupervisorFilterText(getEffectiveOrderStatus(order)))
+            .filter(Boolean));
+        const availableOrderType = new Set(data
+            .filter(order => supervisorOrderMatchesSelections(order, selections, `orderType`, fromVal, toVal))
+            .map(order => normalizeSupervisorFilterText(getOrderType(order)))
             .filter(Boolean));
 
         const committedRep = normalizeSupervisorFilterText(config.repSelect?._supervisorSelectedValue);
@@ -971,6 +983,11 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
             selections.status = '';
             changed = true;
         }
+        if (selections.orderType && !availableOrderType.has(selections.orderType)) {
+            selections.orderType = ``;
+            if (config.orderTypeSelect) config.orderTypeSelect.value = ``;
+            changed = true;
+        }
         if (!changed) break;
     }
 
@@ -985,6 +1002,10 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
     const statusCounts = countSupervisorFilterValues(
         data.filter(order => supervisorOrderMatchesSelections(order, selections, 'status', fromVal, toVal)),
         order => getEffectiveOrderStatus(order)
+    );
+    const orderTypeCounts = countSupervisorFilterValues(
+        data.filter(order => supervisorOrderMatchesSelections(order, selections, `orderType`, fromVal, toVal)),
+        order => getOrderType(order)
     );
 
     const textSort = (a, b) => a.localeCompare(b, 'ar', { numeric: true, sensitivity: 'base' });
@@ -1007,9 +1028,15 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
             label: `${getWorkflowStatusLabel(row.value)} (${row.count})`
         }));
 
+    const orderTypeRows = [
+        { value: REGULAR_ORDER_TYPE, label: `طلبيات أصناف متاحة (${orderTypeCounts.get(REGULAR_ORDER_TYPE) || 0})` },
+        { value: RESERVED_ORDER_TYPE, label: `طلبيات أصناف مقطوعة (${orderTypeCounts.get(RESERVED_ORDER_TYPE) || 0})` }
+    ].filter(row => orderTypeCounts.get(row.value) > 0);
+
     setSupervisorAutocompleteOptions(config.repSelect, repRows);
     setSupervisorAutocompleteOptions(config.pharmacySelect, pharmacyRows);
     setSupervisorSelectOptions(config.statusSelect, 'جميع الحالات', statusRows, selections.status);
+    setSupervisorSelectOptions(config.orderTypeSelect, `جميع أنواع الطلبيات`, orderTypeRows, selections.orderType);
 
     return selections;
 }
@@ -2370,6 +2397,7 @@ function synchronizeMyOrdersStatusFilter() {
     const fromVal = getEl('myOrdersDateFrom')?.value || '';
     const toVal = getEl('myOrdersDateTo')?.value || '';
     const pharmacyFilter = (getEl('myOrdersPharmacyFilter')?.value || '').toLowerCase().trim();
+    const orderTypeFilter = normalizeSupervisorFilterText(getEl(`myOrdersOrderTypeFilter`)?.value);
     let selectedStatus = normalizeSupervisorFilterText(statusSelect.value);
 
     const statusCounts = countSupervisorFilterValues(
@@ -2377,7 +2405,8 @@ function synchronizeMyOrdersStatusFilter() {
             const pharmacyName = (order.pharmacyName || '').toLowerCase();
             const pharmacyCode = String(getPharmacyCodeFromOrder(order) || '').toLowerCase();
             const pharmacyMatches = !pharmacyFilter || pharmacyName.includes(pharmacyFilter) || pharmacyCode.includes(pharmacyFilter);
-            return isOrderInDateRange(order, fromVal, toVal) && pharmacyMatches;
+            const orderTypeMatches = !orderTypeFilter || getOrderType(order) === orderTypeFilter;
+            return isOrderInDateRange(order, fromVal, toVal) && pharmacyMatches && orderTypeMatches;
         }),
         order => getEffectiveOrderStatus(order)
     );
@@ -2406,6 +2435,7 @@ function applyMyOrdersFilters() {
     const fromVal = getEl('myOrdersDateFrom')?.value || '';
     const toVal = getEl('myOrdersDateTo')?.value || '';
     const pharmacyFilter = (getEl('myOrdersPharmacyFilter')?.value || '').toLowerCase().trim();
+    const orderTypeFilter = normalizeSupervisorFilterText(getEl(`myOrdersOrderTypeFilter`)?.value);
     const statusFilter = synchronizeMyOrdersStatusFilter();
     const filtered = currentMyOrdersData.filter(order => {
         const pharmacyName = (order.pharmacyName || '').toLowerCase();
@@ -2413,7 +2443,8 @@ function applyMyOrdersFilters() {
         const status = normalizeSupervisorFilterText(getEffectiveOrderStatus(order));
         return isOrderInDateRange(order, fromVal, toVal) &&
             (!pharmacyFilter || pharmacyName.includes(pharmacyFilter) || pharmacyCode.includes(pharmacyFilter)) &&
-            (!statusFilter || status === statusFilter);
+            (!statusFilter || status === statusFilter) &&
+            (!orderTypeFilter || getOrderType(order) === orderTypeFilter);
     });
 
     const totalVal = filtered.reduce((sum, order) => sum + parseAppNumber(order.grandTotal), 0);
@@ -2890,7 +2921,7 @@ function filterAllOrders() {
     const selections = synchronizeSupervisorCascadingFilters('all');
     const fromVal = getEl('managerFilterFrom')?.value;
     const toVal = getEl('managerFilterTo')?.value;
-    const filterKey = `${selections.rep}|${selections.pharmacy}|${selections.status}|${fromVal || ``}|${toVal || ``}`;
+    const filterKey = `${selections.rep}|${selections.pharmacy}|${selections.status}|${selections.orderType}|${fromVal || ``}|${toVal || ``}`;
     if (allOrdersLastFilterKey && allOrdersLastFilterKey !== filterKey) allOrdersPageIndex = 0;
     allOrdersLastFilterKey = filterKey;
 
@@ -3525,9 +3556,11 @@ btnClearManagerFilter?.addEventListener('click', () => {
         'managerRepFilter',
         'managerPharmacyFilter',
         'managerStatusFilter',
+        `managerOrderTypeFilter`,
         'filterAllRep',
         'filterAllPharmacy',
-        'filterAllStatus'
+        'filterAllStatus',
+        `filterAllOrderType`
     ].forEach(id => {
         const control = getEl(id);
         if (!control) return;

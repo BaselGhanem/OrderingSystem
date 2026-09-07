@@ -658,6 +658,11 @@
 <select class="form-control supervisor-filter-select" id="managerStatusFilter" aria-label="تصفية حسب الحالة">
 <option value="">جميع الحالات</option>
 </select>
+<select class="form-control supervisor-filter-select" id="managerOrderTypeFilter" aria-label="تصفية حسب نوع الطلبية">
+<option value="">جميع أنواع الطلبيات</option>
+<option value="regular">طلبيات أصناف متاحة</option>
+<option value="reserved">طلبيات أصناف مقطوعة</option>
+</select>
 </div>
 <div class="premium-actions-toolbar">
 <button class="premium-action-btn action-approve" id="bulkApproveBtn" type="button"><i class="ph ph-check-circle"></i><span>موافقة على المحدد</span></button>
@@ -724,6 +729,11 @@
 </div>
 <select class="form-control supervisor-filter-select" id="filterAllStatus" aria-label="تصفية جميع الطلبيات حسب الحالة">
 <option value="">جميع الحالات</option>
+</select>
+<select class="form-control supervisor-filter-select" id="filterAllOrderType" aria-label="تصفية جميع الطلبيات حسب نوع الطلبية">
+<option value="">جميع أنواع الطلبيات</option>
+<option value="regular">طلبيات أصناف متاحة</option>
+<option value="reserved">طلبيات أصناف مقطوعة</option>
 </select>
 </div>
 <div class="table-responsive mobile-cards">
@@ -844,4 +854,4 @@
                 علمت ذلك، شكراً
             </button>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20260906_inventory_reservation_v1" type="module"></script><script src="js/targets.js?v=20260824_firestore_reads_v2" type="module"></script></body></html>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20260907_order_type_filter_v2" type="module"></script><script src="js/targets.js?v=20260824_firestore_reads_v2" type="module"></script></body></html>
