@@ -578,9 +578,9 @@
             input[type="file"] { width: 100%; }
         }
     </style>
+<link rel="stylesheet" href="admin-responsive.css?v=20260911">
 </head>
 <body>
-<a href="supervisor-assignment.html" style="position:fixed;left:18px;bottom:18px;z-index:9999;background:#099999;color:#fff;text-decoration:none;padding:12px 16px;border-radius:14px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.18)">تغيير مشرف مندوب</a>
     <div class="bg-shapes"><div class="shape shape-1"></div><div class="shape shape-2"></div></div>
 
     <div class="settings-shell">
@@ -593,6 +593,7 @@
                 </div>
             </div>
             <div class="settings-actions">
+<a href="audit.html" class="settings-action-btn btn-teal"><i class="ph ph-shield-check"></i> التدقيق</a>
                 <a href="reports.html" class="settings-action-btn btn-muted"><i class="ph ph-chart-line-up"></i> التقارير</a>
                 <a href="index.html?switch=1" class="settings-action-btn"><i class="ph ph-house"></i> الرئيسية</a>
             </div>
@@ -604,8 +605,12 @@
             <button type="button" class="tab-button" data-target="exportPanel"><i class="ph ph-download-simple"></i> التصدير</button>
             <button type="button" class="tab-button" data-target="oldOrdersPanel"><i class="ph ph-archive-box"></i> الطلبيات السابقة</button>
             <button type="button" class="tab-button" data-target="oldReturnsPanel"><i class="ph ph-arrow-counter-clockwise"></i> المرتجعات السابقة</button>
+            <button type="button" class="tab-button" data-target="assignmentsPanel" data-tool="assignments">المشرفون</button>
+            <button type="button" class="tab-button" data-target="areasPanel" data-tool="areas">تدقيق المناطق</button>
         </nav>
 
+        <section id="assignmentsPanel" class="settings-card"><div class="admin-tool-host" data-tool-host="assignments"></div></section>
+        <section id="areasPanel" class="settings-card"><div class="admin-tool-host" data-tool-host="areas"></div></section>
         <section id="productsPanel" class="settings-card active">
             <div class="card-heading">
                 <div>
@@ -706,6 +711,34 @@
                 <button type="button" id="reloadPharmaciesBtn" class="btn-local btn-muted"><i class="ph ph-arrows-clockwise"></i> تحديث الجدول</button>
             </div>
 
+            <div class="pharmacy-search-panel">
+                <label for="pharmacySearchInput">ابحث عن الصيدلية</label>
+                <input type="search" id="pharmacySearchInput" class="settings-search" autocomplete="off" placeholder="اكتب جزءًا من الاسم…" aria-controls="pharmacyMatches">
+                <p id="pharmacySearchStatus" role="status" aria-live="polite">ابدأ بكتابة اسم الصيدلية لعرض الخيارات المطابقة.</p>
+                <div id="pharmacyMatches" class="pharmacy-matches"></div>
+                <button type="button" id="morePharmaciesBtn" class="btn-local btn-muted" hidden>عرض المزيد من النتائج</button>
+            </div>
+            <div id="pharmaciesStatus" class="status-box"></div>
+            <div class="table-wrap pharmacies-table-wrap">
+                <table class="settings-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 18%;">Document_ID</th>
+                            <th style="width: 22%;">اسم الصيدلية</th>
+                            <th style="width: 14%;">كود الصيدلية</th>
+                            <th style="width: 18%;">المندوب</th>
+                            <th style="width: 11%;">المشرف</th>
+                            <th style="width: 9%;">المنطقة</th>
+                            <th style="width: 8%; text-align:center;">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pharmaciesTableBody">
+                        <tr><td colspan="7" style="text-align:center; color:#64748b;">اكتب جزءًا من اسم الصيدلية ثم اختر نتيجة لتعديلها.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+<details class="settings-disclosure"><summary>استيراد وتحديث الصيدليات من Excel</summary>
             <div class="info-panel">
                 <strong>الأعمدة المطلوبة في السطر الأول عند الاستيراد:</strong><br>
                 <code>Name</code> <code>rep_id</code> <code>pharmacy_code</code> <code>Supervisor</code> <code>Area</code>
@@ -718,6 +751,8 @@
                 </div>
             </div>
 
+</details>
+<details class="settings-disclosure"><summary>إضافة صيدلية جديدة</summary>
             <div class="manual-entry-panel" aria-label="إضافة صيدلية جديدة">
                 <strong><i class="ph ph-plus-circle"></i> إضافة صيدلية جديدة</strong>
                 <div class="manual-form-grid">
@@ -749,25 +784,7 @@
                 </div>
             </div>
 
-            <div id="pharmaciesStatus" class="status-box"></div>
-            <div class="table-wrap pharmacies-table-wrap">
-                <table class="settings-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 18%;">Document_ID</th>
-                            <th style="width: 22%;">اسم الصيدلية</th>
-                            <th style="width: 14%;">كود الصيدلية</th>
-                            <th style="width: 18%;">المندوب</th>
-                            <th style="width: 11%;">المشرف</th>
-                            <th style="width: 9%;">المنطقة</th>
-                            <th style="width: 8%; text-align:center;">إجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pharmaciesTableBody">
-                        <tr><td colspan="7" style="text-align:center; color:#64748b;">جاري تحميل الصيدليات...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+</details>
         </section>
 
         <section id="exportPanel" class="settings-card">
@@ -782,8 +799,9 @@
                 <button type="button" id="exportPharmaciesBtn" class="btn-local btn-green"><i class="ph ph-storefront"></i> تحميل الصيدليات</button>
                 <button type="button" id="exportRepsBtn" class="btn-local btn-blue"><i class="ph ph-user-list"></i> تحميل المناديب</button>
                 <button type="button" id="exportProductsBtn" class="btn-local btn-orange"><i class="ph ph-package"></i> تحميل المنتجات</button>
-                <a href="pharmacy-areas.html" class="btn-local btn-teal" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;"><i class="ph ph-map-pin"></i> تدقيق مناطق الصيدليات</a>
+                <a href="#areas" class="btn-local btn-teal" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;"><i class="ph ph-map-pin"></i> تدقيق مناطق الصيدليات</a>
             </div>
+            <button type="button" id="exportProductsRawBtn" class="btn-local btn-muted">تنزيل بيانات الأصناف الأصلية</button>
             <div id="exportStatus" class="status-box"></div>
         </section>
 
@@ -1180,7 +1198,7 @@
                 document.querySelectorAll('.settings-card').forEach(panel => panel.classList.remove('active'));
                 button.classList.add('active');
                 document.getElementById(button.dataset.target)?.classList.add('active');
-                if (button.dataset.target === 'pharmaciesPanel' && !pharmaciesLoaded) await loadPharmacies();
+
             });
         });
 
@@ -1671,28 +1689,9 @@
             }
         }
 
-        async function loadPharmacies() {
-            const tableBody = document.getElementById('pharmaciesTableBody');
-            if (!tableBody) return;
-
-            setStatus('pharmaciesStatus', 'جاري تحميل الصيدليات...', '#f59e0b');
-
-            try {
-                if (repsOptions.length === 0) await loadRepsForSettings();
-
-                const snap = await getDocs(collection(db, 'pharmacies'));
-                tableBody.innerHTML = '';
-
-                if (snap.empty) {
-                    pharmaciesLoaded = true;
-                    tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#64748b;">لا توجد صيدليات حالياً في قاعدة البيانات.</td></tr>`;
-                    setStatus('pharmaciesStatus', 'لا توجد صيدليات حالياً.', '#64748b');
-                    return;
-                }
-
-                const rows = snap.docs.map(item => ({ id: item.id, ...item.data() }));
-                rows.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-
+        function renderPharmacySelection(rows) {
+            const tableBody = document.getElementById(`pharmaciesTableBody`);
+            tableBody.innerHTML = ``;
                 rows.forEach((pharmacy) => {
                     const repId = String(pharmacy.rep_id || pharmacy.repId || '').trim();
                     const pharmacyCode = pharmacy.pharmacyCode || pharmacy.pharmacy_code || '';
@@ -1722,15 +1721,16 @@
                     button.addEventListener('click', () => deleteSinglePharmacy(button));
                 });
 
-                pharmaciesLoaded = true;
-                setStatus('pharmaciesStatus', `تم تحميل ${snap.size} صيدلية.`, '#10b981');
-            } catch (error) {
-                console.error('Error loading pharmacies:', error);
-                tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#dc2626;">حدث خطأ أثناء تحميل البيانات.</td></tr>`;
-                setStatus('pharmaciesStatus', 'حدث خطأ أثناء تحميل الصيدليات.', '#dc2626');
-            }
-        }
 
+            window.dispatchEvent(new Event(`admin:rows`));
+        }
+        async function loadPharmacies() {
+            window.dispatchEvent(new Event(`pharmacies:refresh`));
+        }
+        window.addEventListener(`pharmacies:select`, event => {
+            renderPharmacySelection([event.detail]);
+            document.querySelector(`.pharmacies-table-wrap`).scrollIntoView({behavior: `smooth`, block: `nearest`});
+        });
         async function addNewPharmacy() {
             const nameInput = document.getElementById('newPharmacyName');
             const codeInput = document.getElementById('newPharmacyCode');
@@ -1827,6 +1827,7 @@
                 invalidateOperationalCaches('all');
                 button.innerText = 'تم';
                 setStatus('pharmaciesStatus', 'تم حفظ تعديل الصيدلية ومزامنته مع Firebase بنجاح.', '#10b981');
+                await loadPharmacies();
             } catch (error) {
                 console.error('Error updating pharmacy:', error);
                 alert('حدث خطأ أثناء حفظ تعديل الصيدلية.');
@@ -1847,6 +1848,7 @@
                 invalidateOperationalCaches('all');
                 button.closest('tr')?.remove();
                 setStatus('pharmaciesStatus', 'تم حذف الصيدلية من Firebase بنجاح.', '#10b981');
+                await loadPharmacies();
             } catch (error) {
                 console.error('Error deleting pharmacy:', error);
                 alert('حدث خطأ أثناء محاولة حذف الصيدلية.');
@@ -1926,7 +1928,7 @@
             }
         }
 
-        async function downloadCollection(collectionName, arabicName) {
+        async function downloadCollection(collectionName, arabicName, raw = false) {
             setStatus('exportStatus', `جاري جلب بيانات ${arabicName}...`, '#f59e0b');
 
             try {
@@ -1934,10 +1936,10 @@
                 const data = [];
                 snap.forEach(item => {
                     const row = { Document_ID: item.id, ...item.data() };
-                    if (collectionName === 'products') {
+                    if (!raw && collectionName === 'products') {
                         row['Product Code'] = row.productCode || row.product_code || row.code || '';
                     }
-                    if (collectionName === 'pharmacies') {
+                    if (!raw && collectionName === 'pharmacies') {
                         row['Pharmacy Code'] = row.pharmacyCode || row.pharmacy_code || '';
                     }
                     data.push(row);
@@ -2137,6 +2139,7 @@
         document.getElementById('reloadPharmaciesBtn').addEventListener('click', loadPharmacies);
         document.getElementById('addPharmacyBtn').addEventListener('click', addNewPharmacy);
         document.getElementById('pharmaciesImportBtn').addEventListener('click', importPharmacies);
+        document.getElementById(`exportProductsRawBtn`).addEventListener(`click`, () => downloadCollection(`products`, `المنتجات`, true));
         document.getElementById('exportPharmaciesBtn').addEventListener('click', () => downloadCollection('pharmacies', 'الصيدليات'));
         document.getElementById('exportRepsBtn').addEventListener('click', () => downloadCollection('reps', 'المناديب'));
         document.getElementById('exportProductsBtn').addEventListener('click', () => exportProductsEditable('exportStatus'));
@@ -2148,5 +2151,7 @@
             await loadRepsForSettings();
         });
     </script>
+<script type="module" src="js/admin-hub.js?v=20260911"></script>
+<script type="module" src="js/pharmacy-search.js?v=20260911"></script>
 </body>
 </html>

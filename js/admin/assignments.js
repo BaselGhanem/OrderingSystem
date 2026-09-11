@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+export default `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
@@ -15,8 +15,9 @@
     .current{margin:20px 0;padding:14px 16px;border-radius:14px;background:#f0f8f8;border:1px solid #cae7e7;color:#31575a}.actions{display:flex;gap:12px;flex-wrap:wrap}.btn{border:0;border-radius:14px;min-height:50px;padding:0 22px;font:inherit;font-weight:800;cursor:pointer}.save{background:var(--primary);color:#fff;flex:1}.save:hover{background:var(--primary-dark)}.save:disabled{opacity:.55;cursor:not-allowed}.status{display:none;margin-top:18px;padding:14px;border-radius:14px;font-weight:700}.status.show{display:block}.status.success{background:#e8f7f0;color:var(--success)}.status.error{background:#fff0ef;color:var(--danger)}
     .note{margin-top:18px;color:var(--muted);font-size:.92rem;line-height:1.7}@media(max-width:640px){.shell{margin:18px auto}.top{align-items:flex-start}.grid{grid-template-columns:1fr}.card{border-radius:18px}.save{width:100%;flex:auto}}
   </style>
+<link rel="stylesheet" href="admin-responsive.css?v=20260911">
 </head>
-<body>
+<body class="admin-embedded">
   <main class="shell">
     <div class="top"><h1>تغيير مشرف المندوب</h1><a class="back" href="setting.html"><i class="ph ph-arrow-right"></i> الإعدادات</a></div>
     <section class="card">
@@ -52,11 +53,11 @@ const statusBox=document.getElementById('status');
 let assignments={...DEFAULT_ASSIGNMENTS};
 let reps=[];
 
-function showStatus(message,type){statusBox.textContent=message;statusBox.className=`status show ${type}`;}
+function showStatus(message,type){statusBox.textContent=message;statusBox.className=\`status show \${type}\`;}
 function updateView(){
   const repName=repSelect.options[repSelect.selectedIndex]?.dataset?.name||'';
   const current=assignments[repName]||'غير محدد';
-  currentAssignment.textContent=repName?`المشرف الحالي للمندوب ${repName}: ${current}`:'اختر مندوبًا لعرض المشرف الحالي.';
+  currentAssignment.textContent=repName?\`المشرف الحالي للمندوب \${repName}: \${current}\`:'اختر مندوبًا لعرض المشرف الحالي.';
   if(repName && current!=='غير محدد') supervisorSelect.value=current;
   saveBtn.disabled=!(repName&&supervisorSelect.value);
 }
@@ -76,7 +77,7 @@ async function loadPage(){
 }
 
 repSelect.addEventListener('change',updateView);
-supervisorSelect.addEventListener('change',updateView);
+supervisorSelect.addEventListener(\`change\`, () => { saveBtn.disabled = !(repSelect.value && supervisorSelect.value); });
 saveBtn.addEventListener('click',async()=>{
   const repName=repSelect.options[repSelect.selectedIndex]?.dataset?.name||'';
   const supervisorName=supervisorSelect.value;
@@ -93,7 +94,7 @@ saveBtn.addEventListener('click',async()=>{
     let updatedOrders=0;
     ordersSnap.forEach(orderDoc=>{
       const order=orderDoc.data();
-      const status=String(order.status||order.workflowStage||'').trim();
+      const status=String(order.status||order.workflowStage||order.supervisorStatus||order.marketManagerStatus||order.financeStatus||order.orderStaffStatus||'').trim();
       if(ACTIVE_STATUSES.has(status)){
         updates.push(updateDoc(doc(db,'orders',orderDoc.id),{
           managerName:supervisorName,
@@ -105,8 +106,8 @@ saveBtn.addEventListener('click',async()=>{
     });
     await Promise.all(updates);
     localStorage.setItem('dad_cache_invalidated_at',new Date().toISOString());
-    currentAssignment.textContent=`المشرف الحالي للمندوب ${repName}: ${supervisorName}`;
-    showStatus(`تم تغيير مشرف ${repName} إلى ${supervisorName} وتحديث ${updatedOrders} طلبية نشطة. قم بتحديث صفحات النظام المفتوحة لتطبيق الربط فورًا.`,'success');
+    currentAssignment.textContent=\`المشرف الحالي للمندوب \${repName}: \${supervisorName}\`;
+    showStatus(\`تم تغيير مشرف \${repName} إلى \${supervisorName} وتحديث \${updatedOrders} طلبية نشطة. قم بتحديث صفحات النظام المفتوحة لتطبيق الربط فورًا.\`,'success');
   }catch(error){console.error(error);showStatus('حدث خطأ أثناء الحفظ أو تحديث الطلبيات. لم يكتمل التغيير.','error');}
   finally{saveBtn.disabled=false;saveBtn.innerHTML='<i class="ph ph-floppy-disk"></i> حفظ وتطبيق التغيير';}
 });
@@ -114,3 +115,4 @@ loadPage();
 </script>
 </body>
 </html>
+`;

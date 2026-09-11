@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+export default `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <link rel="icon" href="./favicon.ico?v=20260628_monthly_report_cache_fix1">
@@ -1013,21 +1013,22 @@
       *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
     }
   </style>
+<link rel="stylesheet" href="admin-responsive.css?v=20260911">
 </head>
-<body>
+<body class="admin-embedded">
   <div class="offline-banner" id="offlineBanner"><i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال</div>
 
   <main class="app-shell">
     <section class="hero glass" id="top">
       <div class="hero-content">
-        <div class="eyebrow"><span class="pulse-dot"></span> Control Center — Basel + Audit Experience</div>
-        <h1>غرفة تحكم <span class="accent">ملكية</span> لنظام الطلبيات</h1>
+        <div class="eyebrow"><span class="pulse-dot"></span> ORDERING SYSTEM</div>
+        <h1>لوحة القيادة والمتابعة</h1>
         <p class="hero-copy">ملف واحد يجمع إدارة الحالات، مراقبة مسار الطلبية، قراءة سجلات التدقيق والتصدير والطباعة، التصفية الذكية، والتصدير إلى Excel بتجربة مصممة لتكون سريعة، واضحة، وفخمة.</p>
         <div class="hero-actions">
           <button class="btn" type="button" id="refreshTopBtn"><i class="ph ph-arrow-clockwise"></i> تحديث البيانات</button>
           <button class="btn secondary" type="button" id="exportTopBtn"><i class="ph ph-file-xls"></i> تصدير المعروض</button>
-          <a class="btn ghost" href="basel.html?v=20260628_monthly_report_cache_fix1"><i class="ph ph-sliders-horizontal"></i> Basel.html</a>
-          <a class="btn ghost" href="audit.html"><i class="ph ph-shield-check"></i> Audit.html</a>
+          <a class="btn ghost" href="audit.html#manage"><i class="ph ph-sliders-horizontal"></i> إدارة الطلبيات</a>
+          <a class="btn ghost" href="audit.html"><i class="ph ph-shield-check"></i> سجل التدقيق</a>
         </div>
       </div>
       <aside class="hero-side">
@@ -1257,9 +1258,9 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const ACTION_BY = `Control Center`;
-    const CONTROL_VERSION = `20260628_monthly_report_cache_fix1`;
-    const ORDERS_CACHE_PREFIX = `dad_control_orders_cache_`;
+    const ACTION_BY = \`Control Center\`;
+    const CONTROL_VERSION = \`20260628_monthly_report_cache_fix1\`;
+    const ORDERS_CACHE_PREFIX = \`dad_control_orders_cache_\`;
     const ORDERS_CACHE_TTL_MS = 10 * 60 * 1000;
     const HISTORICAL_ORDERS_CACHE_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
@@ -1273,134 +1274,134 @@
       statusTargets: [],
       loading: false,
       loadingPromise: null,
-      loadedRangeKey: ``
+      loadedRangeKey: \`\`
     };
 
     const STATUS_LABELS = {
-      pending: `قيد موافقة المشرف`,
-      pending_supervisor_approval: `قيد موافقة المشرف`,
-      supervisor_approved: `معتمد من المشرف`,
-      market_manager_pending: `بانتظار مدير السوق`,
-      market_manager_approved: `معتمد من مدير السوق`,
-      market_manager_rejected: `مرفوض من مدير السوق`,
-      finance_pending: `بانتظار المالية`,
-      finance_approved: `معتمد مالياً`,
-      finance_rejected: `مرفوض مالياً`,
-      orders_staff_pending: `جاهز لقسم الطلبيات`,
-      orders_staff_exported: `تم تصديره`,
-      orders_staff_hidden: `تمت الفوترة`,
-      orders_staff_invoiced_and_hidden_after_export: `تمت الفوترة`,
-      orders_staff_edited_returned_to_finance: `تم تعديله وإرجاعه للمالية`,
-      returned_to_rep: `مرجعة للمندوب`,
-      returned_to_supervisor: `مرجعة للمشرف`,
-      returned_to_market_manager: `مرجعة لمدير السوق`,
-      returned_to_finance: `مرجعة للمالية`,
-      returned: `مرتجع`,
-      approved: `موافق عليه`,
-      rejected: `مرفوض`,
-      deleted: `محذوف`,
-      deleted_by_supervisor: `محذوف من المشرف`,
-      deleted_by_market_manager: `محذوف من مدير السوق`,
-      deleted_by_orders_staff: `محذوف من قسم الطلبيات`,
-      deleted_by_reports: `محذوف من التقارير`,
-      representative: `المندوب`,
-      supervisor: `المشرف`,
-      market_manager: `مدير السوق`,
-      finance_controller: `المالية`,
-      finance: `المالية`,
-      orders_staff: `قسم الطلبيات`,
-      none: `مغلق / لا يوجد`
+      pending: \`قيد موافقة المشرف\`,
+      pending_supervisor_approval: \`قيد موافقة المشرف\`,
+      supervisor_approved: \`معتمد من المشرف\`,
+      market_manager_pending: \`بانتظار مدير السوق\`,
+      market_manager_approved: \`معتمد من مدير السوق\`,
+      market_manager_rejected: \`مرفوض من مدير السوق\`,
+      finance_pending: \`بانتظار المالية\`,
+      finance_approved: \`معتمد مالياً\`,
+      finance_rejected: \`مرفوض مالياً\`,
+      orders_staff_pending: \`جاهز للمعالجة\`,
+      orders_staff_exported: \`تم تصديره\`,
+      orders_staff_hidden: \`تمت الفوترة\`,
+      orders_staff_invoiced_and_hidden_after_export: \`تمت الفوترة\`,
+      orders_staff_edited_returned_to_finance: \`تم تعديله وإرجاعه للمالية\`,
+      returned_to_rep: \`مرجعة للمندوب\`,
+      returned_to_supervisor: \`مرجعة للمشرف\`,
+      returned_to_market_manager: \`مرجعة لمدير السوق\`,
+      returned_to_finance: \`مرجعة للمالية\`,
+      returned: \`مرتجع\`,
+      approved: \`موافق عليه\`,
+      rejected: \`مرفوض\`,
+      deleted: \`محذوف\`,
+      deleted_by_supervisor: \`محذوف من المشرف\`,
+      deleted_by_market_manager: \`محذوف من مدير السوق\`,
+      deleted_by_orders_staff: \`محذوف من قسم الطلبيات\`,
+      deleted_by_reports: \`محذوف من التقارير\`,
+      representative: \`المندوب\`,
+      supervisor: \`المشرف\`,
+      market_manager: \`مدير السوق\`,
+      finance_controller: \`المالية\`,
+      finance: \`المالية\`,
+      orders_staff: \`قسم الطلبيات\`,
+      none: \`مغلق / لا يوجد\`
     };
 
     const WORKFLOW_STATUSES = [
-      `pending_supervisor_approval`,
-      `pending`,
-      `supervisor_approved`,
-      `market_manager_pending`,
-      `market_manager_approved`,
-      `market_manager_rejected`,
-      `finance_pending`,
-      `finance_approved`,
-      `finance_rejected`,
-      `orders_staff_pending`,
-      `orders_staff_exported`,
-      `orders_staff_hidden`,
-      `orders_staff_invoiced_and_hidden_after_export`,
-      `returned_to_rep`,
-      `returned_to_supervisor`,
-      `returned_to_market_manager`,
-      `returned_to_finance`,
-      `approved`,
-      `returned`,
-      `rejected`,
-      `deleted_by_supervisor`,
-      `deleted_by_market_manager`,
-      `deleted_by_orders_staff`,
-      `deleted_by_reports`
+      \`pending_supervisor_approval\`,
+      \`pending\`,
+      \`supervisor_approved\`,
+      \`market_manager_pending\`,
+      \`market_manager_approved\`,
+      \`market_manager_rejected\`,
+      \`finance_pending\`,
+      \`finance_approved\`,
+      \`finance_rejected\`,
+      \`orders_staff_pending\`,
+      \`orders_staff_exported\`,
+      \`orders_staff_hidden\`,
+      \`orders_staff_invoiced_and_hidden_after_export\`,
+      \`returned_to_rep\`,
+      \`returned_to_supervisor\`,
+      \`returned_to_market_manager\`,
+      \`returned_to_finance\`,
+      \`approved\`,
+      \`returned\`,
+      \`rejected\`,
+      \`deleted_by_supervisor\`,
+      \`deleted_by_market_manager\`,
+      \`deleted_by_orders_staff\`,
+      \`deleted_by_reports\`
     ];
 
     const OWNER_LABELS = {
-      representative: `المندوب`,
-      supervisor: `المشرف`,
-      market_manager: `مدير السوق`,
-      finance: `المالية`,
-      orders_staff: `قسم الطلبيات`,
-      none: `مغلق / لا يوجد`
+      representative: \`المندوب\`,
+      supervisor: \`المشرف\`,
+      market_manager: \`مدير السوق\`,
+      finance: \`المالية\`,
+      orders_staff: \`قسم الطلبيات\`,
+      none: \`مغلق / لا يوجد\`
     };
 
     const OWNER_ICONS = {
-      representative: `ph-user`,
-      supervisor: `ph-user-circle-gear`,
-      market_manager: `ph-chart-pie-slice`,
-      finance: `ph-bank`,
-      orders_staff: `ph-package`,
-      none: `ph-lock-key`
+      representative: \`ph-user\`,
+      supervisor: \`ph-user-circle-gear\`,
+      market_manager: \`ph-chart-pie-slice\`,
+      finance: \`ph-bank\`,
+      orders_staff: \`ph-package\`,
+      none: \`ph-lock-key\`
     };
 
     function escapeHtml(value) {
-      return String(value ?? ``)
-        .replace(/&/g, `&amp;`)
-        .replace(/</g, `&lt;`)
-        .replace(/>/g, `&gt;`)
-        .replace(/"/g, `&quot;`)
-        .replace(/'/g, `&#039;`);
+      return String(value ?? \`\`)
+        .replace(/&/g, \`&amp;\`)
+        .replace(/</g, \`&lt;\`)
+        .replace(/>/g, \`&gt;\`)
+        .replace(/"/g, \`&quot;\`)
+        .replace(/'/g, \`&#039;\`);
     }
 
     function escapeAttr(value) {
-      return escapeHtml(value).replace(/`/g, `&#096;`);
+      return escapeHtml(value).replace(/\`/g, \`&#096;\`);
     }
 
     function parseNumber(value) {
-      const normalized = String(value ?? `0`)
-        .replace(/,/g, ``)
-        .replace(/[٠-٩]/g, d => String(`٠١٢٣٤٥٦٧٨٩`.indexOf(d)))
-        .replace(/[^0-9.\-]/g, ``)
+      const normalized = String(value ?? \`0\`)
+        .replace(/,/g, \`\`)
+        .replace(/[٠-٩]/g, d => String(\`٠١٢٣٤٥٦٧٨٩\`.indexOf(d)))
+        .replace(/[^0-9.\\-]/g, \`\`)
         .trim();
       const n = Number(normalized);
       return Number.isFinite(n) ? n : 0;
     }
 
     function formatMoney(value) {
-      return parseNumber(value).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return parseNumber(value).toLocaleString(\`en-US\`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function formatCount(value) {
-      return Number(value || 0).toLocaleString(`en-US`);
+      return Number(value || 0).toLocaleString(\`en-US\`);
     }
 
     function normalizeDate(value) {
       if (!value) return null;
-      if (value.toDate && typeof value.toDate === `function`) return value.toDate();
-      if (typeof value === `object` && typeof value.seconds === `number`) {
+      if (value.toDate && typeof value.toDate === \`function\`) return value.toDate();
+      if (typeof value === \`object\` && typeof value.seconds === \`number\`) {
         return new Date(value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1000000));
       }
       if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
-      if (typeof value === `string`) {
+      if (typeof value === \`string\`) {
         const trimmed = value.trim();
         if (!trimmed) return null;
-        const slash = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(.+))?$/);
+        const slash = trimmed.match(/^(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})(?:\\s+(.+))?$/);
         if (slash) {
-          const parsedSlash = new Date(`${slash[3]}-${String(slash[2]).padStart(2, `0`)}-${String(slash[1]).padStart(2, `0`)}${slash[4] ? ` ${slash[4]}` : ``}`);
+          const parsedSlash = new Date(\`\${slash[3]}-\${String(slash[2]).padStart(2, \`0\`)}-\${String(slash[1]).padStart(2, \`0\`)}\${slash[4] ? \` \${slash[4]}\` : \`\`}\`);
           if (!Number.isNaN(parsedSlash.getTime())) return parsedSlash;
         }
         const parsed = new Date(trimmed);
@@ -1411,9 +1412,9 @@
 
     function toDateInputValue(date = new Date()) {
       const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, `0`);
-      const d = String(date.getDate()).padStart(2, `0`);
-      return `${y}-${m}-${d}`;
+      const m = String(date.getMonth() + 1).padStart(2, \`0\`);
+      const d = String(date.getDate()).padStart(2, \`0\`);
+      return \`\${y}-\${m}-\${d}\`;
     }
 
     function dateValue(order = {}) {
@@ -1422,48 +1423,48 @@
 
     function dateOnly(order = {}) {
       const d = dateValue(order);
-      return d ? d.toLocaleDateString(`en-GB`) : `-`;
+      return d ? d.toLocaleDateString(\`en-GB\`) : \`-\`;
     }
 
     function timeOnly(order = {}) {
       const d = dateValue(order);
-      return d ? d.toLocaleTimeString(`en-GB`, { hour: `2-digit`, minute: `2-digit` }) : `-`;
+      return d ? d.toLocaleTimeString(\`en-GB\`, { hour: \`2-digit\`, minute: \`2-digit\` }) : \`-\`;
     }
 
     function dateTimeText(value) {
       const d = normalizeDate(value);
-      return d ? d.toLocaleString(`en-GB`) : `-`;
+      return d ? d.toLocaleString(\`en-GB\`) : \`-\`;
     }
 
     function normalizeSearch(value) {
-      return String(value || ``)
+      return String(value || \`\`)
         .toLowerCase()
-        .normalize(`NFD`)
-        .replace(/[ً-ٰٟـ]/g, ``)
-        .replace(/[̀-ͯ]/g, ``)
-        .replace(/[^\p{L}\p{N}]+/gu, ` `)
+        .normalize(\`NFD\`)
+        .replace(/[ً-ٰٟـ]/g, \`\`)
+        .replace(/[̀-ͯ]/g, \`\`)
+        .replace(/[^\\p{L}\\p{N}]+/gu, \` \`)
         .trim()
-        .replace(/\s+/g, ` `);
+        .replace(/\\s+/g, \` \`);
     }
 
     function searchWords(value) {
-      return normalizeSearch(value).split(` `).filter(Boolean);
+      return normalizeSearch(value).split(\` \`).filter(Boolean);
     }
 
     function getPharmacyCode(order = {}) {
-      return order.pharmacyCode || order.pharmacy_code || order.customerCode || order.customer_code || ``;
+      return order.pharmacyCode || order.pharmacy_code || order.customerCode || order.customer_code || \`\`;
     }
 
     function getPharmacyName(order = {}) {
-      return order.pharmacyName || order.customerName || order.clientName || order.pharmacy || `-`;
+      return order.pharmacyName || order.customerName || order.clientName || order.pharmacy || \`-\`;
     }
 
     function getRepName(order = {}) {
-      return order.repName || order.representativeName || order.medicalRep || order.rep || order.createdByName || order.userName || `-`;
+      return order.repName || order.representativeName || order.medicalRep || order.rep || order.createdByName || order.userName || \`-\`;
     }
 
     function getOrderNote(order = {}) {
-      return order.orderNote || order.note || order.notes || order.repNote || order.representativeNote || order.order_note || ``;
+      return order.orderNote || order.note || order.notes || order.repNote || order.representativeNote || order.order_note || \`\`;
     }
 
     function getOrderItems(order = {}) {
@@ -1498,15 +1499,15 @@
     }
 
     function statusLabel(status) {
-      return STATUS_LABELS[status] || status || `بدون حالة`;
+      return STATUS_LABELS[status] || status || \`بدون حالة\`;
     }
 
     function extractStatusFromLogEntry(entry = {}) {
-      const actionStatus = WORKFLOW_STATUSES.includes(String(entry.action || ``).trim()) ? String(entry.action).trim() : ``;
-      const direct = entry.to || entry.newStatus || entry.targetStatus || entry.status || entry.value || ``;
-      const nested = entry.newValue?.status || entry.after?.status || entry.data?.status || ``;
-      const status = String(nested || direct || actionStatus || ``).trim();
-      return status && WORKFLOW_STATUSES.includes(status) ? status : ``;
+      const actionStatus = WORKFLOW_STATUSES.includes(String(entry.action || \`\`).trim()) ? String(entry.action).trim() : \`\`;
+      const direct = entry.to || entry.newStatus || entry.targetStatus || entry.status || entry.value || \`\`;
+      const nested = entry.newValue?.status || entry.after?.status || entry.data?.status || \`\`;
+      const status = String(nested || direct || actionStatus || \`\`).trim();
+      return status && WORKFLOW_STATUSES.includes(status) ? status : \`\`;
     }
 
     function logEntryDate(entry = {}) {
@@ -1515,7 +1516,7 @@
 
     function latestStatusFromLogs(order = {}) {
       const collections = [order.auditTrail, order.auditLog, order.workflowLog, order.statusLog, order.statusHistory, order.history, order.logs].filter(Array.isArray);
-      let latest = { status: ``, time: 0 };
+      let latest = { status: \`\`, time: 0 };
       collections.flat().forEach(entry => {
         const status = extractStatusFromLogEntry(entry);
         if (!status) return;
@@ -1526,38 +1527,26 @@
     }
 
     function primaryStatus(order = {}) {
-      const rawStatus = String(order.status || order.orderStatus || order.workflowStatus || ``).trim();
-      const terminalOrReturned = rawStatus.startsWith(`deleted_`) || [`returned_to_rep`, `returned_to_supervisor`, `returned_to_market_manager`, `returned_to_finance`, `market_manager_rejected`, `finance_rejected`, `rejected`].includes(rawStatus);
-      if (terminalOrReturned || order.workflowStage === `deleted`) return rawStatus || `deleted`;
-      if (rawStatus === `orders_staff_hidden` || rawStatus === `orders_staff_invoiced_and_hidden_after_export` || order.orderStaffStatus === `orders_staff_hidden` || order.orderStaffStatus === `orders_staff_invoiced_and_hidden_after_export` || order.hiddenByOrderStaff === true || order.isInvoiced === true) return `orders_staff_hidden`;
-      if (rawStatus === `orders_staff_exported` || order.orderStaffStatus === `orders_staff_exported` || order.orderStaffExported === true || !!order.exportedAt) return `orders_staff_exported`;
-      if (rawStatus) return rawStatus;
-      const stage = String(order.workflowStage || order.currentStep || ``).trim();
-      if (stage === `orders_staff`) return order.orderStaffStatus || (order.financeStatus === `finance_approved` ? `orders_staff_pending` : ``);
-      if (stage === `finance`) return order.financeStatus || `finance_pending`;
-      if (stage === `market_manager`) return order.marketManagerStatus || `market_manager_pending`;
-      if (stage === `supervisor`) return order.supervisorStatus || `pending_supervisor_approval`;
-      if (stage === `representative`) return `returned_to_rep`;
-      return order.orderStaffStatus || order.financeStatus || order.marketManagerStatus || order.supervisorStatus || latestStatusFromLogs(order) || ``;
+      return order.status || order.workflowStage || order.supervisorStatus || order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || \`\`;
     }
 
     function getWorkflowFollowUp(order = {}) {
       const status = primaryStatus(order);
-      if (String(status).startsWith(`deleted_`) || order.workflowStage === `deleted`) return { ownerKey: `none`, owner: OWNER_LABELS.none, detail: `طلبية محذوفة` };
-      if ([`rejected`, `market_manager_rejected`, `finance_rejected`].includes(status)) return { ownerKey: `none`, owner: OWNER_LABELS.none, detail: `طلبية مرفوضة` };
-      if (status === `orders_staff_hidden`) return { ownerKey: `none`, owner: OWNER_LABELS.none, detail: `تمت الفوترة` };
-      if ([`returned`, `approved`].includes(status)) return { ownerKey: `none`, owner: OWNER_LABELS.none, detail: `حالة قديمة / Legacy` };
-      if (status === `returned_to_rep`) return { ownerKey: `representative`, owner: OWNER_LABELS.representative, detail: `مرجعة للمندوب للتعديل` };
-      if (status === `returned_to_supervisor`) return { ownerKey: `supervisor`, owner: OWNER_LABELS.supervisor, detail: `مرجعة للمشرف` };
-      if (status === `returned_to_market_manager`) return { ownerKey: `market_manager`, owner: OWNER_LABELS.market_manager, detail: `مرجعة لمدير السوق` };
-      if (status === `returned_to_finance`) return { ownerKey: `finance`, owner: OWNER_LABELS.finance, detail: `مرجعة للمالية` };
-      if ([`orders_staff_pending`, `orders_staff_exported`, `finance_approved`].includes(status)) return { ownerKey: `orders_staff`, owner: OWNER_LABELS.orders_staff, detail: `بانتظار قسم الطلبيات` };
-      if ([`finance_pending`, `market_manager_approved`].includes(status)) return { ownerKey: `finance`, owner: OWNER_LABELS.finance, detail: `بانتظار المالية` };
-      if ([`market_manager_pending`, `supervisor_approved`].includes(status)) return { ownerKey: `market_manager`, owner: OWNER_LABELS.market_manager, detail: `بانتظار مدير السوق` };
-      if ([`pending`, `pending_supervisor_approval`].includes(status)) return { ownerKey: `supervisor`, owner: OWNER_LABELS.supervisor, detail: `بانتظار المشرف` };
-      const stage = String(order.workflowStage || ``).trim();
-      if (OWNER_LABELS[stage]) return { ownerKey: stage, owner: OWNER_LABELS[stage], detail: `حسب مرحلة workflowStage` };
-      return { ownerKey: `none`, owner: OWNER_LABELS.none, detail: `غير محدد` };
+      if (String(status).startsWith(\`deleted_\`) || order.workflowStage === \`deleted\`) return { ownerKey: \`none\`, owner: OWNER_LABELS.none, detail: \`طلبية محذوفة\` };
+      if ([\`rejected\`, \`market_manager_rejected\`, \`finance_rejected\`].includes(status)) return { ownerKey: \`none\`, owner: OWNER_LABELS.none, detail: \`طلبية مرفوضة\` };
+      if (status === \`orders_staff_hidden\`) return { ownerKey: \`none\`, owner: OWNER_LABELS.none, detail: \`تمت الفوترة\` };
+      if ([\`returned\`, \`approved\`].includes(status)) return { ownerKey: \`none\`, owner: OWNER_LABELS.none, detail: \`حالة قديمة / Legacy\` };
+      if (status === \`returned_to_rep\`) return { ownerKey: \`representative\`, owner: OWNER_LABELS.representative, detail: \`مرجعة للمندوب للتعديل\` };
+      if (status === \`returned_to_supervisor\`) return { ownerKey: \`supervisor\`, owner: OWNER_LABELS.supervisor, detail: \`مرجعة للمشرف\` };
+      if (status === \`returned_to_market_manager\`) return { ownerKey: \`market_manager\`, owner: OWNER_LABELS.market_manager, detail: \`مرجعة لمدير السوق\` };
+      if (status === \`returned_to_finance\`) return { ownerKey: \`finance\`, owner: OWNER_LABELS.finance, detail: \`مرجعة للمالية\` };
+      if ([\`orders_staff_pending\`, \`orders_staff_exported\`, \`finance_approved\`].includes(status)) return { ownerKey: \`orders_staff\`, owner: OWNER_LABELS.orders_staff, detail: \`بانتظار قسم الطلبيات\` };
+      if ([\`finance_pending\`, \`market_manager_approved\`].includes(status)) return { ownerKey: \`finance\`, owner: OWNER_LABELS.finance, detail: \`بانتظار المالية\` };
+      if ([\`market_manager_pending\`, \`supervisor_approved\`].includes(status)) return { ownerKey: \`market_manager\`, owner: OWNER_LABELS.market_manager, detail: \`بانتظار مدير السوق\` };
+      if ([\`pending\`, \`pending_supervisor_approval\`].includes(status)) return { ownerKey: \`supervisor\`, owner: OWNER_LABELS.supervisor, detail: \`بانتظار المشرف\` };
+      const stage = String(order.workflowStage || \`\`).trim();
+      if (OWNER_LABELS[stage]) return { ownerKey: stage, owner: OWNER_LABELS[stage], detail: \`حسب مرحلة workflowStage\` };
+      return { ownerKey: \`none\`, owner: OWNER_LABELS.none, detail: \`غير محدد\` };
     }
 
     function arrayCount(value) {
@@ -1572,52 +1561,52 @@
       return arrayCount(order.printHistory) + (order.lastPrintedAt ? 1 : 0);
     }
 
-    function statusBadgeClass(status = ``) {
-      if (String(status).startsWith(`deleted_`)) return `danger`;
-      if ([`rejected`, `market_manager_rejected`, `finance_rejected`].includes(status)) return `danger`;
-      if ([`returned_to_rep`, `returned_to_supervisor`, `returned_to_market_manager`, `returned_to_finance`, `returned`].includes(status)) return `warn`;
-      if ([`orders_staff_hidden`, `approved`].includes(status)) return `success`;
-      return `neutral`;
+    function statusBadgeClass(status = \`\`) {
+      if (String(status).startsWith(\`deleted_\`)) return \`danger\`;
+      if ([\`rejected\`, \`market_manager_rejected\`, \`finance_rejected\`].includes(status)) return \`danger\`;
+      if ([\`returned_to_rep\`, \`returned_to_supervisor\`, \`returned_to_market_manager\`, \`returned_to_finance\`, \`returned\`].includes(status)) return \`warn\`;
+      if ([\`orders_staff_hidden\`, \`approved\`].includes(status)) return \`success\`;
+      return \`neutral\`;
     }
 
-    function workflowStepState(order = {}, stepKey = ``) {
+    function workflowStepState(order = {}, stepKey = \`\`) {
       const status = primaryStatus(order);
-      if (String(status).startsWith(`deleted_`)) return `deleted`;
-      if ([`rejected`, `market_manager_rejected`, `finance_rejected`].includes(status)) return `rejected`;
+      if (String(status).startsWith(\`deleted_\`)) return \`deleted\`;
+      if ([\`rejected\`, \`market_manager_rejected\`, \`finance_rejected\`].includes(status)) return \`rejected\`;
       const completed = {
         representative: true,
-        supervisor: [`supervisor_approved`, `market_manager_pending`, `market_manager_approved`, `finance_pending`, `finance_approved`, `orders_staff_pending`, `orders_staff_exported`, `orders_staff_hidden`, `approved`].includes(status),
-        market_manager: [`market_manager_approved`, `finance_pending`, `finance_approved`, `orders_staff_pending`, `orders_staff_exported`, `orders_staff_hidden`, `approved`].includes(status),
-        finance: [`finance_approved`, `orders_staff_pending`, `orders_staff_exported`, `orders_staff_hidden`, `approved`].includes(status),
-        orders_staff: [`orders_staff_hidden`, `approved`].includes(status)
+        supervisor: [\`supervisor_approved\`, \`market_manager_pending\`, \`market_manager_approved\`, \`finance_pending\`, \`finance_approved\`, \`orders_staff_pending\`, \`orders_staff_exported\`, \`orders_staff_hidden\`, \`approved\`].includes(status),
+        market_manager: [\`market_manager_approved\`, \`finance_pending\`, \`finance_approved\`, \`orders_staff_pending\`, \`orders_staff_exported\`, \`orders_staff_hidden\`, \`approved\`].includes(status),
+        finance: [\`finance_approved\`, \`orders_staff_pending\`, \`orders_staff_exported\`, \`orders_staff_hidden\`, \`approved\`].includes(status),
+        orders_staff: [\`orders_staff_hidden\`, \`approved\`].includes(status)
       };
       const follow = getWorkflowFollowUp(order);
-      if (follow.ownerKey === stepKey) return `current`;
-      return completed[stepKey] ? `done` : `pending`;
+      if (follow.ownerKey === stepKey) return \`current\`;
+      return completed[stepKey] ? \`done\` : \`pending\`;
     }
 
     function timelineHtml(order = {}) {
       const steps = [
-        { key: `representative`, title: `المندوب`, detail: `إنشاء الطلبية` },
-        { key: `supervisor`, title: `المشرف`, detail: order.supervisorStatus || `—` },
-        { key: `market_manager`, title: `مدير السوق`, detail: order.marketManagerStatus || `—` },
-        { key: `finance`, title: `المالية`, detail: order.financeStatus || `—` },
-        { key: `orders_staff`, title: `قسم الطلبيات`, detail: order.orderStaffStatus || `—` }
+        { key: \`representative\`, title: \`المندوب\`, detail: \`إنشاء الطلبية\` },
+        { key: \`supervisor\`, title: \`المشرف\`, detail: order.supervisorStatus || \`—\` },
+        { key: \`market_manager\`, title: \`مدير السوق\`, detail: order.marketManagerStatus || \`—\` },
+        { key: \`finance\`, title: \`المالية\`, detail: order.financeStatus || \`—\` },
+        { key: \`orders_staff\`, title: \`قسم الطلبيات\`, detail: order.orderStaffStatus || \`—\` }
       ];
-      return `<div class="timeline">${steps.map(step => {
+      return \`<div class="timeline">\${steps.map(step => {
         const stateName = workflowStepState(order, step.key);
-        return `<div class="step ${stateName}"><span>${escapeHtml(step.title)}</span><strong>${escapeHtml(statusLabel(step.detail))}</strong></div>`;
-      }).join(``)}</div>`;
+        return \`<div class="step \${stateName}"><span>\${escapeHtml(step.title)}</span><strong>\${escapeHtml(statusLabel(step.detail))}</strong></div>\`;
+      }).join(\`\`)}</div>\`;
     }
 
     function serializeForPre(value) {
       try {
         return JSON.stringify(value, (key, val) => {
-          if (val && typeof val.toDate === `function`) return val.toDate().toISOString();
+          if (val && typeof val.toDate === \`function\`) return val.toDate().toISOString();
           return val;
         }, 2);
       } catch (error) {
-        return String(value ?? ``);
+        return String(value ?? \`\`);
       }
     }
 
@@ -1627,71 +1616,71 @@
 
     function auditListHtml(order = {}) {
       const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
-      if (!trail.length) return `<div class="empty-state">لا يوجد سجل تدقيق لهذه الطلبية.</div>`;
+      if (!trail.length) return \`<div class="empty-state">لا يوجد سجل تدقيق لهذه الطلبية.</div>\`;
       const sorted = [...trail].sort((a, b) => (logEntryDate(b)?.getTime() || 0) - (logEntryDate(a)?.getTime() || 0));
-      return `<div class="audit-list">${sorted.map(entry => {
-        const action = entry.action || entry.type || `إجراء`;
-        const user = entry.user || entry.actor || entry.changedBy || entry.by || `System`;
-        const role = entry.role || entry.changedByRole || `-`;
+      return \`<div class="audit-list">\${sorted.map(entry => {
+        const action = entry.action || entry.type || \`إجراء\`;
+        const user = entry.user || entry.actor || entry.changedBy || entry.by || \`System\`;
+        const role = entry.role || entry.changedByRole || \`-\`;
         const ts = entry.timestamp || entry.at || entry.changedAt || entry.createdAt;
-        const notes = entry.notes || entry.note || entry.reason || ``;
-        return `
+        const notes = entry.notes || entry.note || entry.reason || \`\`;
+        return \`
           <div class="audit-entry">
-            <div class="audit-entry-head"><span>${escapeHtml(statusLabel(action))}</span><span>${escapeHtml(historyDate(ts))}</span></div>
-            <p>${escapeHtml(user)} / ${escapeHtml(role)}</p>
-            ${notes ? `<p>${escapeHtml(notes)}</p>` : ``}
+            <div class="audit-entry-head"><span>\${escapeHtml(statusLabel(action))}</span><span>\${escapeHtml(historyDate(ts))}</span></div>
+            <p>\${escapeHtml(user)} / \${escapeHtml(role)}</p>
+            \${notes ? \`<p>\${escapeHtml(notes)}</p>\` : \`\`}
           </div>
-        `;
-      }).join(``)}</div>`;
+        \`;
+      }).join(\`\`)}</div>\`;
     }
 
     function exportListHtml(order = {}) {
       const history = Array.isArray(order.exportHistory) ? order.exportHistory : [];
-      const rows = history.length ? history : (order.exportedAt ? [{ exportedAt: order.exportedAt, exportedBy: order.exportedBy || `-`, source: `legacy_export`, fileName: order.exportFileName || `` }] : []);
-      if (!rows.length) return `<div class="empty-state">لا يوجد سجل تصدير لهذه الطلبية.</div>`;
-      return `<div class="audit-list">${rows.map(entry => `
+      const rows = history.length ? history : (order.exportedAt ? [{ exportedAt: order.exportedAt, exportedBy: order.exportedBy || \`-\`, source: \`legacy_export\`, fileName: order.exportFileName || \`\` }] : []);
+      if (!rows.length) return \`<div class="empty-state">لا يوجد سجل تصدير لهذه الطلبية.</div>\`;
+      return \`<div class="audit-list">\${rows.map(entry => \`
         <div class="audit-entry">
-          <div class="audit-entry-head"><span>${escapeHtml(entry.fileName || entry.source || `تصدير`)}</span><span>${escapeHtml(historyDate(entry.exportedAt || entry.timestamp || entry.at))}</span></div>
-          <p>${escapeHtml(entry.exportedBy || entry.user || `-`)}</p>
-          ${entry.hideAfterExport || entry.invoiced ? `<p>تمت الفوترة / إخفاء بعد التصدير</p>` : ``}
+          <div class="audit-entry-head"><span>\${escapeHtml(entry.fileName || entry.source || \`تصدير\`)}</span><span>\${escapeHtml(historyDate(entry.exportedAt || entry.timestamp || entry.at))}</span></div>
+          <p>\${escapeHtml(entry.exportedBy || entry.user || \`-\`)}</p>
+          \${entry.hideAfterExport || entry.invoiced ? \`<p>تمت الفوترة / إخفاء بعد التصدير</p>\` : \`\`}
         </div>
-      `).join(``)}</div>`;
+      \`).join(\`\`)}</div>\`;
     }
 
     function printListHtml(order = {}) {
       const history = Array.isArray(order.printHistory) ? order.printHistory : [];
-      const rows = history.length ? history : (order.lastPrintedAt ? [{ printedAt: order.lastPrintedAt, printedBy: order.lastPrintedBy || `-`, source: `legacy_print` }] : []);
-      if (!rows.length) return `<div class="empty-state">لا يوجد سجل طباعة لهذه الطلبية.</div>`;
-      return `<div class="audit-list">${rows.map(entry => `
+      const rows = history.length ? history : (order.lastPrintedAt ? [{ printedAt: order.lastPrintedAt, printedBy: order.lastPrintedBy || \`-\`, source: \`legacy_print\` }] : []);
+      if (!rows.length) return \`<div class="empty-state">لا يوجد سجل طباعة لهذه الطلبية.</div>\`;
+      return \`<div class="audit-list">\${rows.map(entry => \`
         <div class="audit-entry">
-          <div class="audit-entry-head"><span>${escapeHtml(entry.source || `طباعة`)}</span><span>${escapeHtml(historyDate(entry.printedAt || entry.timestamp || entry.at))}</span></div>
-          <p>${escapeHtml(entry.printedBy || entry.user || `-`)}</p>
+          <div class="audit-entry-head"><span>\${escapeHtml(entry.source || \`طباعة\`)}</span><span>\${escapeHtml(historyDate(entry.printedAt || entry.timestamp || entry.at))}</span></div>
+          <p>\${escapeHtml(entry.printedBy || entry.user || \`-\`)}</p>
         </div>
-      `).join(``)}</div>`;
+      \`).join(\`\`)}</div>\`;
     }
 
     function itemsTableHtml(order = {}) {
       const items = getOrderItems(order);
-      if (!items.length) return `<div class="empty-state">لا توجد أصناف مسجلة.</div>`;
-      return `
+      if (!items.length) return \`<div class="empty-state">لا توجد أصناف مسجلة.</div>\`;
+      return \`
         <div class="mini-table-wrap">
           <table class="mini-table">
             <thead><tr><th>#</th><th>كود الصنف</th><th>الصنف</th><th>الكمية</th><th>البونص</th><th>السعر</th><th>القيمة</th><th>ملاحظة</th></tr></thead>
-            <tbody>${items.map((item, index) => `
+            <tbody>\${items.map((item, index) => \`
               <tr>
-                <td>${index + 1}</td>
-                <td>${escapeHtml(item.code || item.itemCode || item.productCode || item.sapCode || `-`)}</td>
-                <td>${escapeHtml(item.name || item.itemName || item.productName || item.product || `-`)}</td>
-                <td class="money">${formatCount(getItemQty(item))}</td>
-                <td class="money">${formatCount(getItemBonus(item))}</td>
-                <td class="money">${formatMoney(getItemPrice(item))}</td>
-                <td class="money">${formatMoney(getItemTotal(item))}</td>
-                <td>${escapeHtml(item.note || item.notes || `-`)}</td>
+                <td>\${index + 1}</td>
+                <td>\${escapeHtml(item.code || item.itemCode || item.productCode || item.sapCode || \`-\`)}</td>
+                <td>\${escapeHtml(item.name || item.itemName || item.productName || item.product || \`-\`)}</td>
+                <td class="money">\${formatCount(getItemQty(item))}</td>
+                <td class="money">\${formatCount(getItemBonus(item))}</td>
+                <td class="money">\${formatMoney(getItemPrice(item))}</td>
+                <td class="money">\${formatMoney(getItemTotal(item))}</td>
+                <td>\${escapeHtml(item.note || item.notes || \`-\`)}</td>
               </tr>
-            `).join(``)}</tbody>
+            \`).join(\`\`)}</tbody>
           </table>
         </div>
-      `;
+      \`;
     }
 
     function enrichOrder(order = {}) {
@@ -1717,104 +1706,104 @@
         __repName: repName,
         __note: note,
         __total: total,
-        __search: normalizeSearch(`${order.id || ``} ${pharmacyCode} ${pharmacyName} ${repName} ${note} ${status} ${statusLabel(status)}`),
-        __pharmacySearch: normalizeSearch(`${pharmacyCode} ${pharmacyName}`)
+        __search: normalizeSearch(\`\${order.id || \`\`} \${pharmacyCode} \${pharmacyName} \${repName} \${note} \${status} \${statusLabel(status)}\`),
+        __pharmacySearch: normalizeSearch(\`\${pharmacyCode} \${pharmacyName}\`)
       };
     }
 
     function setDefaultDates() {
       const today = new Date();
       const first = new Date(today.getFullYear(), today.getMonth(), 1);
-      $(`dateFrom`).value = toDateInputValue(first);
-      $(`dateTo`).value = toDateInputValue(today);
+      $(\`dateFrom\`).value = toDateInputValue(first);
+      $(\`dateTo\`).value = toDateInputValue(today);
     }
 
     function inDateRange(order = {}) {
       const ts = order.__dateTs || 0;
       if (!ts) return true;
-      const from = $(`dateFrom`).value ? new Date(`${$(`dateFrom`).value}T00:00:00`).getTime() : null;
-      const to = $(`dateTo`).value ? new Date(`${$(`dateTo`).value}T23:59:59`).getTime() : null;
+      const from = $(\`dateFrom\`).value ? new Date(\`\${$(\`dateFrom\`).value}T00:00:00\`).getTime() : null;
+      const to = $(\`dateTo\`).value ? new Date(\`\${$(\`dateTo\`).value}T23:59:59\`).getTime() : null;
       if (from && ts < from) return false;
       if (to && ts > to) return false;
       return true;
     }
 
     function historyMatches(order = {}) {
-      const mode = $(`historyFilter`).value || ``;
+      const mode = $(\`historyFilter\`).value || \`\`;
       if (!mode) return true;
-      if (mode === `audit`) return arrayCount(order.auditTrail) > 0;
-      if (mode === `export`) return exportCount(order) > 0;
-      if (mode === `print`) return printCount(order) > 0;
-      if (mode === `no_audit`) return arrayCount(order.auditTrail) === 0;
+      if (mode === \`audit\`) return arrayCount(order.auditTrail) > 0;
+      if (mode === \`export\`) return exportCount(order) > 0;
+      if (mode === \`print\`) return printCount(order) > 0;
+      if (mode === \`no_audit\`) return arrayCount(order.auditTrail) === 0;
       return true;
     }
 
 
-    function rebuildControlSelect(id, values = [], labels = {}, defaultText = `الكل`) {
+    function rebuildControlSelect(id, values = [], labels = {}, defaultText = \`الكل\`) {
       const el = $(id);
       if (!el) return false;
-      const current = el.value || ``;
-      const unique = Array.from(new Set(values.map(value => String(value || ``).trim()).filter(Boolean)))
-        .sort((a, b) => (labels[a] || statusLabel(a)).localeCompare(labels[b] || statusLabel(b), `ar`));
-      const nextValue = !current || unique.includes(current) ? current : ``;
-      el.innerHTML = `<option value="">${escapeHtml(defaultText)}</option>${unique.map(value => `<option value="${escapeAttr(value)}">${escapeHtml(labels[value] || statusLabel(value))}</option>`).join(``)}`;
+      const current = el.value || \`\`;
+      const unique = Array.from(new Set(values.map(value => String(value || \`\`).trim()).filter(Boolean)))
+        .sort((a, b) => (labels[a] || statusLabel(a)).localeCompare(labels[b] || statusLabel(b), \`ar\`));
+      const nextValue = !current || unique.includes(current) ? current : \`\`;
+      el.innerHTML = \`<option value="">\${escapeHtml(defaultText)}</option>\${unique.map(value => \`<option value="\${escapeAttr(value)}">\${escapeHtml(labels[value] || statusLabel(value))}</option>\`).join(\`\`)}\`;
       el.value = nextValue;
       return current !== nextValue;
     }
 
-    function controlHistoryMatches(order = {}, mode = ``) {
+    function controlHistoryMatches(order = {}, mode = \`\`) {
       if (!mode) return true;
-      if (mode === `audit`) return arrayCount(order.auditTrail) > 0;
-      if (mode === `export`) return exportCount(order) > 0;
-      if (mode === `print`) return printCount(order) > 0;
-      if (mode === `no_audit`) return arrayCount(order.auditTrail) === 0;
+      if (mode === \`audit\`) return arrayCount(order.auditTrail) > 0;
+      if (mode === \`export\`) return exportCount(order) > 0;
+      if (mode === \`print\`) return printCount(order) > 0;
+      if (mode === \`no_audit\`) return arrayCount(order.auditTrail) === 0;
       return true;
     }
 
-    function controlOrderMatchesFilters(order = {}, values = {}, ignore = ``) {
-      const textMatch = ignore === `search` || !values.words.length || values.words.every(word => order.__search.includes(word));
-      const pharmacyMatch = ignore === `pharmacy` || !values.pharmacyWords.length || values.pharmacyWords.every(word => order.__pharmacySearch.includes(word));
-      const statusMatch = ignore === `status` || !values.status || order.__status === values.status;
-      const ownerMatch = ignore === `owner` || !values.owner || order.__ownerKey === values.owner;
-      const dateMatch = ignore === `date` || inDateRange(order);
-      const historyMatch = ignore === `history` || controlHistoryMatches(order, values.history);
+    function controlOrderMatchesFilters(order = {}, values = {}, ignore = \`\`) {
+      const textMatch = ignore === \`search\` || !values.words.length || values.words.every(word => order.__search.includes(word));
+      const pharmacyMatch = ignore === \`pharmacy\` || !values.pharmacyWords.length || values.pharmacyWords.every(word => order.__pharmacySearch.includes(word));
+      const statusMatch = ignore === \`status\` || !values.status || order.__status === values.status;
+      const ownerMatch = ignore === \`owner\` || !values.owner || order.__ownerKey === values.owner;
+      const dateMatch = ignore === \`date\` || inDateRange(order);
+      const historyMatch = ignore === \`history\` || controlHistoryMatches(order, values.history);
       return textMatch && pharmacyMatch && statusMatch && ownerMatch && dateMatch && historyMatch;
     }
 
     function refreshControlDynamicFilters() {
       const values = {
-        words: searchWords($(`searchBox`).value),
-        pharmacyWords: searchWords($(`pharmacySearch`).value),
-        status: $(`statusFilter`).value || ``,
-        owner: $(`ownerFilter`).value || ``,
-        history: $(`historyFilter`).value || ``
+        words: searchWords($(\`searchBox\`).value),
+        pharmacyWords: searchWords($(\`pharmacySearch\`).value),
+        status: $(\`statusFilter\`).value || \`\`,
+        owner: $(\`ownerFilter\`).value || \`\`,
+        history: $(\`historyFilter\`).value || \`\`
       };
       const statuses = [];
       const owners = [];
       const histories = [];
       state.orders.forEach(order => {
-        if (controlOrderMatchesFilters(order, values, `status`)) statuses.push(order.__status);
-        if (controlOrderMatchesFilters(order, values, `owner`)) owners.push(order.__ownerKey || `none`);
-        if (controlOrderMatchesFilters(order, values, `history`)) {
-          if (arrayCount(order.auditTrail) > 0) histories.push(`audit`); else histories.push(`no_audit`);
-          if (exportCount(order) > 0) histories.push(`export`);
-          if (printCount(order) > 0) histories.push(`print`);
+        if (controlOrderMatchesFilters(order, values, \`status\`)) statuses.push(order.__status);
+        if (controlOrderMatchesFilters(order, values, \`owner\`)) owners.push(order.__ownerKey || \`none\`);
+        if (controlOrderMatchesFilters(order, values, \`history\`)) {
+          if (arrayCount(order.auditTrail) > 0) histories.push(\`audit\`); else histories.push(\`no_audit\`);
+          if (exportCount(order) > 0) histories.push(\`export\`);
+          if (printCount(order) > 0) histories.push(\`print\`);
         }
       });
       let changed = false;
-      changed = rebuildControlSelect(`statusFilter`, statuses, {}, `كل الحالات`) || changed;
-      changed = rebuildControlSelect(`ownerFilter`, owners, { representative: `المندوب`, supervisor: `المشرف`, market_manager: `مدير السوق`, finance: `المالية`, finance_controller: `المالية`, orders_staff: `قسم الطلبيات`, none: `مغلق / لا يوجد` }, `كل الجهات`) || changed;
-      changed = rebuildControlSelect(`historyFilter`, histories, { audit: `لديها سجل تدقيق`, export: `لديها سجل تصدير`, print: `لديها سجل طباعة`, no_audit: `بدون سجل تدقيق` }, `كل السجلات`) || changed;
+      changed = rebuildControlSelect(\`statusFilter\`, statuses, {}, \`كل الحالات\`) || changed;
+      changed = rebuildControlSelect(\`ownerFilter\`, owners, { representative: \`المندوب\`, supervisor: \`المشرف\`, market_manager: \`مدير السوق\`, finance: \`المالية\`, finance_controller: \`المالية\`, orders_staff: \`قسم الطلبيات\`, none: \`مغلق / لا يوجد\` }, \`كل الجهات\`) || changed;
+      changed = rebuildControlSelect(\`historyFilter\`, histories, { audit: \`لديها سجل تدقيق\`, export: \`لديها سجل تصدير\`, print: \`لديها سجل طباعة\`, no_audit: \`بدون سجل تدقيق\` }, \`كل السجلات\`) || changed;
       return changed;
     }
 
     function applyFilters() {
       if (refreshControlDynamicFilters()) return applyFilters();
-      const words = searchWords($(`searchBox`).value);
-      const pharmacyWords = searchWords($(`pharmacySearch`).value);
-      const status = $(`statusFilter`).value || ``;
-      const owner = $(`ownerFilter`).value || ``;
-      const sortMode = $(`sortMode`).value || `date_desc`;
+      const words = searchWords($(\`searchBox\`).value);
+      const pharmacyWords = searchWords($(\`pharmacySearch\`).value);
+      const status = $(\`statusFilter\`).value || \`\`;
+      const owner = $(\`ownerFilter\`).value || \`\`;
+      const sortMode = $(\`sortMode\`).value || \`date_desc\`;
 
       state.visible = state.orders.filter(order => {
         const textMatch = !words.length || words.every(word => order.__search.includes(word));
@@ -1825,10 +1814,10 @@
       });
 
       state.visible.sort((a, b) => {
-        if (sortMode === `date_asc`) return a.__dateTs - b.__dateTs;
-        if (sortMode === `value_desc`) return b.__total - a.__total;
-        if (sortMode === `value_asc`) return a.__total - b.__total;
-        if (sortMode === `status`) return a.__statusLabel.localeCompare(b.__statusLabel, `ar`) || b.__dateTs - a.__dateTs;
+        if (sortMode === \`date_asc\`) return a.__dateTs - b.__dateTs;
+        if (sortMode === \`value_desc\`) return b.__total - a.__total;
+        if (sortMode === \`value_asc\`) return a.__total - b.__total;
+        if (sortMode === \`status\`) return a.__statusLabel.localeCompare(b.__statusLabel, \`ar\`) || b.__dateTs - a.__dateTs;
         return b.__dateTs - a.__dateTs;
       });
 
@@ -1839,13 +1828,13 @@
     function buildStatusOptions() {
       const counts = new Map();
       state.orders.forEach(order => counts.set(order.__status, (counts.get(order.__status) || 0) + 1));
-      const options = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || statusLabel(a[0]).localeCompare(statusLabel(b[0]), `ar`));
-      const current = $(`statusFilter`).value;
-      $(`statusFilter`).innerHTML = `<option value="">كل الحالات</option>${options.map(([status, count]) => `<option value="${escapeAttr(status)}">${escapeHtml(statusLabel(status))} — ${escapeHtml(status)} (${formatCount(count)})</option>`).join(``)}`;
-      if (current && options.some(([status]) => status === current)) $(`statusFilter`).value = current;
+      const options = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || statusLabel(a[0]).localeCompare(statusLabel(b[0]), \`ar\`));
+      const current = $(\`statusFilter\`).value;
+      $(\`statusFilter\`).innerHTML = \`<option value="">كل الحالات</option>\${options.map(([status, count]) => \`<option value="\${escapeAttr(status)}">\${escapeHtml(statusLabel(status))} — \${escapeHtml(status)} (\${formatCount(count)})</option>\`).join(\`\`)}\`;
+      if (current && options.some(([status]) => status === current)) $(\`statusFilter\`).value = current;
 
       state.statusTargets = WORKFLOW_STATUSES.map(status => ({ status, label: statusLabel(status) }));
-      $(`targetStatus`).innerHTML = state.statusTargets.map(item => `<option value="${escapeAttr(item.status)}">${escapeHtml(item.label)} — ${escapeHtml(item.status)}</option>`).join(``);
+      $(\`targetStatus\`).innerHTML = state.statusTargets.map(item => \`<option value="\${escapeAttr(item.status)}">\${escapeHtml(item.label)} — \${escapeHtml(item.status)}</option>\`).join(\`\`);
     }
 
     function renderKpis() {
@@ -1854,19 +1843,19 @@
       const audit = state.visible.reduce((sum, order) => sum + arrayCount(order.auditTrail), 0);
       const exports = state.visible.reduce((sum, order) => sum + exportCount(order), 0);
       const prints = state.visible.reduce((sum, order) => sum + printCount(order), 0);
-      $(`kpiOrders`).textContent = formatCount(count);
-      $(`kpiValue`).textContent = formatMoney(total);
-      $(`heroValue`).textContent = formatMoney(total);
-      $(`kpiAvg`).textContent = formatMoney(count ? total / count : 0);
-      $(`kpiAudit`).textContent = formatCount(audit);
-      $(`kpiExport`).textContent = formatCount(exports);
-      $(`kpiPrint`).textContent = formatCount(prints);
-      $(`visibleSummary`).textContent = `${formatCount(count)} طلبية ظاهرة`;
-      $(`databaseCount`).textContent = formatCount(state.orders.length);
-      $(`selectedCount`).textContent = formatCount(state.selected.size);
-      $(`bulkStatusBtn`).disabled = !state.selected.size;
-      $(`selectAllVisible`).checked = state.visible.length > 0 && state.visible.every(order => state.selected.has(order.id));
-      $(`selectAllVisible`).indeterminate = state.visible.some(order => state.selected.has(order.id)) && !$(`selectAllVisible`).checked;
+      $(\`kpiOrders\`).textContent = formatCount(count);
+      $(\`kpiValue\`).textContent = formatMoney(total);
+      $(\`heroValue\`).textContent = formatMoney(total);
+      $(\`kpiAvg\`).textContent = formatMoney(count ? total / count : 0);
+      $(\`kpiAudit\`).textContent = formatCount(audit);
+      $(\`kpiExport\`).textContent = formatCount(exports);
+      $(\`kpiPrint\`).textContent = formatCount(prints);
+      $(\`visibleSummary\`).textContent = \`\${formatCount(count)} طلبية ظاهرة\`;
+      $(\`databaseCount\`).textContent = formatCount(state.orders.length);
+      $(\`selectedCount\`).textContent = formatCount(state.selected.size);
+      $(\`bulkStatusBtn\`).disabled = !state.selected.size;
+      $(\`selectAllVisible\`).checked = state.visible.length > 0 && state.visible.every(order => state.selected.has(order.id));
+      $(\`selectAllVisible\`).indeterminate = state.visible.some(order => state.selected.has(order.id)) && !$(\`selectAllVisible\`).checked;
     }
 
     function renderOwnerBoard() {
@@ -1880,83 +1869,83 @@
       };
       const values = { representative: 0, supervisor: 0, market_manager: 0, finance: 0, orders_staff: 0, none: 0 };
       state.visible.forEach(order => {
-        const key = counts[order.__ownerKey] === undefined ? `none` : order.__ownerKey;
+        const key = counts[order.__ownerKey] === undefined ? \`none\` : order.__ownerKey;
         counts[key] += 1;
         values[key] += order.__total;
       });
-      $(`ownerBoard`).innerHTML = Object.keys(counts).map(key => `
-        <button class="queue-card" type="button" data-owner-card="${escapeAttr(key)}">
-          <span><i class="ph ${OWNER_ICONS[key] || `ph-user`}"></i> ${escapeHtml(OWNER_LABELS[key])}</span>
-          <strong>${formatCount(counts[key])}</strong>
-          <small>${formatMoney(values[key])} د.أ</small>
+      $(\`ownerBoard\`).innerHTML = Object.keys(counts).map(key => \`
+        <button class="queue-card" type="button" data-owner-card="\${escapeAttr(key)}">
+          <span><i class="ph \${OWNER_ICONS[key] || \`ph-user\`}"></i> \${escapeHtml(OWNER_LABELS[key])}</span>
+          <strong>\${formatCount(counts[key])}</strong>
+          <small>\${formatMoney(values[key])} د.أ</small>
         </button>
-      `).join(``);
+      \`).join(\`\`);
     }
 
     function renderStatusCloud() {
       const counts = new Map();
       state.visible.forEach(order => counts.set(order.__status, (counts.get(order.__status) || 0) + 1));
-      const cards = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || statusLabel(a[0]).localeCompare(statusLabel(b[0]), `ar`));
-      $(`statusCloud`).innerHTML = cards.length ? cards.map(([status, count]) => `
-        <button class="status-card" type="button" data-status-card="${escapeAttr(status)}">
-          <span>${escapeHtml(statusLabel(status))}</span>
-          <strong>${formatCount(count)}</strong>
-          <small>${escapeHtml(status)}</small>
+      const cards = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || statusLabel(a[0]).localeCompare(statusLabel(b[0]), \`ar\`));
+      $(\`statusCloud\`).innerHTML = cards.length ? cards.map(([status, count]) => \`
+        <button class="status-card" type="button" data-status-card="\${escapeAttr(status)}">
+          <span>\${escapeHtml(statusLabel(status))}</span>
+          <strong>\${formatCount(count)}</strong>
+          <small>\${escapeHtml(status)}</small>
         </button>
-      `).join(``) : `<div class="empty-state">لا توجد حالات ضمن الفلاتر الحالية.</div>`;
+      \`).join(\`\`) : \`<div class="empty-state">لا توجد حالات ضمن الفلاتر الحالية.</div>\`;
     }
 
     function rowHtml(order = {}) {
       const statusClass = statusBadgeClass(order.__status);
-      return `
+      return \`
         <tr>
-          <td class="check-cell"><input class="order-check row-check" type="checkbox" data-select-id="${escapeAttr(order.id)}" ${state.selected.has(order.id) ? `checked` : ``} /></td>
-          <td><span class="order-id">${escapeHtml(String(order.id || ``).slice(0, 12).toUpperCase())}</span></td>
-          <td>${escapeHtml(dateOnly(order))}</td>
-          <td>${escapeHtml(timeOnly(order))}</td>
-          <td><div class="pharmacy-cell"><strong title="${escapeAttr(order.__pharmacyName)}">${escapeHtml(order.__pharmacyName)}</strong><small>${escapeHtml(order.__pharmacyCode || `بدون كود`)}</small></div></td>
-          <td>${escapeHtml(order.__repName)}</td>
-          <td class="money">${formatMoney(order.__total)}</td>
-          <td><span class="badge ${statusClass}">${escapeHtml(order.__statusLabel)}</span><div class="muted">${escapeHtml(order.__status || `-`)}</div></td>
-          <td><span class="badge ${order.__ownerKey === `none` ? `neutral` : `warn`}">${escapeHtml(order.__owner)}</span><div class="muted">${escapeHtml(order.__ownerDetail)}</div></td>
-          <td><span class="badge neutral">A ${formatCount(arrayCount(order.auditTrail))}</span> <span class="badge neutral">E ${formatCount(exportCount(order))}</span> <span class="badge neutral">P ${formatCount(printCount(order))}</span></td>
-          <td><div class="row-actions"><button class="mini-btn dark" type="button" data-open-id="${escapeAttr(order.id)}"><i class="ph ph-eye"></i> التفاصيل</button><button class="mini-btn gold" type="button" data-status-id="${escapeAttr(order.id)}"><i class="ph ph-git-branch"></i> الحالة</button></div></td>
+          <td class="check-cell"><input class="order-check row-check" type="checkbox" data-select-id="\${escapeAttr(order.id)}" \${state.selected.has(order.id) ? \`checked\` : \`\`} /></td>
+          <td><span class="order-id">\${escapeHtml(String(order.id || \`\`).slice(0, 12).toUpperCase())}</span></td>
+          <td>\${escapeHtml(dateOnly(order))}</td>
+          <td>\${escapeHtml(timeOnly(order))}</td>
+          <td><div class="pharmacy-cell"><strong title="\${escapeAttr(order.__pharmacyName)}">\${escapeHtml(order.__pharmacyName)}</strong><small>\${escapeHtml(order.__pharmacyCode || \`بدون كود\`)}</small></div></td>
+          <td>\${escapeHtml(order.__repName)}</td>
+          <td class="money">\${formatMoney(order.__total)}</td>
+          <td><span class="badge \${statusClass}">\${escapeHtml(order.__statusLabel)}</span><div class="muted">\${escapeHtml(order.__status || \`-\`)}</div></td>
+          <td><span class="badge \${order.__ownerKey === \`none\` ? \`neutral\` : \`warn\`}">\${escapeHtml(order.__owner)}</span><div class="muted">\${escapeHtml(order.__ownerDetail)}</div></td>
+          <td><span class="badge neutral">A \${formatCount(arrayCount(order.auditTrail))}</span> <span class="badge neutral">E \${formatCount(exportCount(order))}</span> <span class="badge neutral">P \${formatCount(printCount(order))}</span></td>
+          <td><div class="row-actions"><button class="mini-btn dark" type="button" data-open-id="\${escapeAttr(order.id)}"><i class="ph ph-eye"></i> التفاصيل</button><button class="mini-btn gold" type="button" data-status-id="\${escapeAttr(order.id)}"><i class="ph ph-git-branch"></i> الحالة</button></div></td>
         </tr>
-      `;
+      \`;
     }
 
     function mobileCardHtml(order = {}) {
-      return `
+      return \`
         <article class="mobile-order-card">
           <div class="top">
             <div>
-              <h3>${escapeHtml(order.__pharmacyName)}</h3>
-              <p>${escapeHtml(order.__pharmacyCode || `بدون كود`)} / ${escapeHtml(order.__repName)}</p>
+              <h3>\${escapeHtml(order.__pharmacyName)}</h3>
+              <p>\${escapeHtml(order.__pharmacyCode || \`بدون كود\`)} / \${escapeHtml(order.__repName)}</p>
             </div>
-            <input class="order-check row-check" type="checkbox" data-select-id="${escapeAttr(order.id)}" ${state.selected.has(order.id) ? `checked` : ``} />
+            <input class="order-check row-check" type="checkbox" data-select-id="\${escapeAttr(order.id)}" \${state.selected.has(order.id) ? \`checked\` : \`\`} />
           </div>
-          <div><span class="badge ${statusBadgeClass(order.__status)}">${escapeHtml(order.__statusLabel)}</span> <span class="badge neutral">${escapeHtml(dateOnly(order))}</span></div>
-          <p>المطلوب من: <b>${escapeHtml(order.__owner)}</b> — ${escapeHtml(order.__ownerDetail)}</p>
-          <p class="money">${formatMoney(order.__total)} د.أ</p>
-          <div class="row-actions"><button class="mini-btn dark" type="button" data-open-id="${escapeAttr(order.id)}"><i class="ph ph-eye"></i> التفاصيل</button><button class="mini-btn gold" type="button" data-status-id="${escapeAttr(order.id)}"><i class="ph ph-git-branch"></i> الحالة</button></div>
+          <div><span class="badge \${statusBadgeClass(order.__status)}">\${escapeHtml(order.__statusLabel)}</span> <span class="badge neutral">\${escapeHtml(dateOnly(order))}</span></div>
+          <p>المطلوب من: <b>\${escapeHtml(order.__owner)}</b> — \${escapeHtml(order.__ownerDetail)}</p>
+          <p class="money">\${formatMoney(order.__total)} د.أ</p>
+          <div class="row-actions"><button class="mini-btn dark" type="button" data-open-id="\${escapeAttr(order.id)}"><i class="ph ph-eye"></i> التفاصيل</button><button class="mini-btn gold" type="button" data-status-id="\${escapeAttr(order.id)}"><i class="ph ph-git-branch"></i> الحالة</button></div>
         </article>
-      `;
+      \`;
     }
 
     function renderTable() {
       if (state.loading) {
-        $(`ordersBody`).innerHTML = `<tr><td colspan="11"><div class="empty-state"><span class="skeleton" style="width: 76%;"></span></div></td></tr>`;
-        $(`mobileCards`).innerHTML = `<div class="empty-state"><span class="skeleton" style="width: 76%;"></span></div>`;
+        $(\`ordersBody\`).innerHTML = \`<tr><td colspan="11"><div class="empty-state"><span class="skeleton" style="width: 76%;"></span></div></td></tr>\`;
+        $(\`mobileCards\`).innerHTML = \`<div class="empty-state"><span class="skeleton" style="width: 76%;"></span></div>\`;
         return;
       }
       if (!state.visible.length) {
-        const empty = `<div class="empty-state">لا توجد طلبيات مطابقة للفلاتر الحالية.</div>`;
-        $(`ordersBody`).innerHTML = `<tr><td colspan="11">${empty}</td></tr>`;
-        $(`mobileCards`).innerHTML = empty;
+        const empty = \`<div class="empty-state">لا توجد طلبيات مطابقة للفلاتر الحالية.</div>\`;
+        $(\`ordersBody\`).innerHTML = \`<tr><td colspan="11">\${empty}</td></tr>\`;
+        $(\`mobileCards\`).innerHTML = empty;
         return;
       }
-      $(`ordersBody`).innerHTML = state.visible.map(rowHtml).join(``);
-      $(`mobileCards`).innerHTML = state.visible.slice(0, 80).map(mobileCardHtml).join(``) + (state.visible.length > 80 ? `<div class="empty-state">تم عرض أول 80 طلبية على الموبايل. استخدم البحث لتضييق النتائج.</div>` : ``);
+      $(\`ordersBody\`).innerHTML = state.visible.map(rowHtml).join(\`\`);
+      $(\`mobileCards\`).innerHTML = state.visible.slice(0, 80).map(mobileCardHtml).join(\`\`) + (state.visible.length > 80 ? \`<div class="empty-state">تم عرض أول 80 طلبية على الموبايل. استخدم البحث لتضييق النتائج.</div>\` : \`\`);
     }
 
     function renderAll() {
@@ -1970,37 +1959,37 @@
       const order = state.orders.find(item => item.id === orderId);
       if (!order) return;
       state.activeOrderId = orderId;
-      $(`detailsTitle`).textContent = `طلبية ${String(order.id || ``).slice(0, 12).toUpperCase()}`;
-      $(`detailsSubtitle`).textContent = `${order.__pharmacyName} / ${order.__repName} / ${order.__statusLabel}`;
-      $(`drawerActions`).innerHTML = `
+      $(\`detailsTitle\`).textContent = \`طلبية \${String(order.id || \`\`).slice(0, 12).toUpperCase()}\`;
+      $(\`detailsSubtitle\`).textContent = \`\${order.__pharmacyName} / \${order.__repName} / \${order.__statusLabel}\`;
+      $(\`drawerActions\`).innerHTML = \`
         <button class="btn gold" type="button" id="drawerStatusBtn"><i class="ph ph-git-branch"></i> تغيير الحالة</button>
         <button class="btn secondary" type="button" id="copyOrderIdBtn"><i class="ph ph-copy"></i> نسخ رقم الطلبية</button>
-      `;
-      $(`detailsBody`).innerHTML = `
+      \`;
+      $(\`detailsBody\`).innerHTML = \`
         <div class="detail-grid">
-          <div class="info-box"><span>تاريخ الطلبية</span><strong>${escapeHtml(dateTimeText(order.createdAt || order.date || order.timestamp))}</strong></div>
-          <div class="info-box"><span>آخر تحديث</span><strong>${escapeHtml(dateTimeText(order.updatedAt || order.changedAt || order.modifiedAt))}</strong></div>
-          <div class="info-box"><span>الصيدلية</span><strong>${escapeHtml(order.__pharmacyName)}</strong></div>
-          <div class="info-box"><span>كود الصيدلية</span><strong>${escapeHtml(order.__pharmacyCode || `-`)}</strong></div>
-          <div class="info-box"><span>المندوب</span><strong>${escapeHtml(order.__repName)}</strong></div>
-          <div class="info-box"><span>قيمة الطلبية</span><strong class="money">${formatMoney(order.__total)} د.أ</strong></div>
-          <div class="info-box"><span>الحالة الحالية</span><strong>${escapeHtml(order.__statusLabel)}<br>${escapeHtml(order.__status || `-`)}</strong></div>
-          <div class="info-box"><span>المطلوب من</span><strong>${escapeHtml(order.__owner)}<br>${escapeHtml(order.__ownerDetail)}</strong></div>
+          <div class="info-box"><span>تاريخ الطلبية</span><strong>\${escapeHtml(dateTimeText(order.createdAt || order.date || order.timestamp))}</strong></div>
+          <div class="info-box"><span>آخر تحديث</span><strong>\${escapeHtml(dateTimeText(order.updatedAt || order.changedAt || order.modifiedAt))}</strong></div>
+          <div class="info-box"><span>الصيدلية</span><strong>\${escapeHtml(order.__pharmacyName)}</strong></div>
+          <div class="info-box"><span>كود الصيدلية</span><strong>\${escapeHtml(order.__pharmacyCode || \`-\`)}</strong></div>
+          <div class="info-box"><span>المندوب</span><strong>\${escapeHtml(order.__repName)}</strong></div>
+          <div class="info-box"><span>قيمة الطلبية</span><strong class="money">\${formatMoney(order.__total)} د.أ</strong></div>
+          <div class="info-box"><span>الحالة الحالية</span><strong>\${escapeHtml(order.__statusLabel)}<br>\${escapeHtml(order.__status || \`-\`)}</strong></div>
+          <div class="info-box"><span>المطلوب من</span><strong>\${escapeHtml(order.__owner)}<br>\${escapeHtml(order.__ownerDetail)}</strong></div>
         </div>
-        <div class="history-card"><h3><i class="ph ph-note"></i> ملاحظة الطلبية</h3><div class="history-content"><p class="muted">${escapeHtml(order.__note || `لا توجد ملاحظات.`)}</p></div></div>
-        <div class="history-card"><h3><i class="ph ph-list-bullets"></i> الأصناف</h3><div class="history-content">${itemsTableHtml(order)}</div></div>
-        <div class="history-card"><h3><i class="ph ph-git-branch"></i> مسار الطلبية</h3><div class="history-content">${timelineHtml(order)}</div></div>
-        <div class="history-card"><h3><i class="ph ph-clock-counter-clockwise"></i> سجل التدقيق</h3><div class="history-content">${auditListHtml(order)}</div></div>
-        <div class="history-card"><h3><i class="ph ph-file-arrow-down"></i> سجل التصدير</h3><div class="history-content">${exportListHtml(order)}</div></div>
-        <div class="history-card"><h3><i class="ph ph-printer"></i> سجل الطباعة</h3><div class="history-content">${printListHtml(order)}</div></div>
-      `;
-      $(`detailsOverlay`).classList.add(`open`);
-      $(`detailsOverlay`).setAttribute(`aria-hidden`, `false`);
+        <div class="history-card"><h3><i class="ph ph-note"></i> ملاحظة الطلبية</h3><div class="history-content"><p class="muted">\${escapeHtml(order.__note || \`لا توجد ملاحظات.\`)}</p></div></div>
+        <div class="history-card"><h3><i class="ph ph-list-bullets"></i> الأصناف</h3><div class="history-content">\${itemsTableHtml(order)}</div></div>
+        <div class="history-card"><h3><i class="ph ph-git-branch"></i> مسار الطلبية</h3><div class="history-content">\${timelineHtml(order)}</div></div>
+        <div class="history-card"><h3><i class="ph ph-clock-counter-clockwise"></i> سجل التدقيق</h3><div class="history-content">\${auditListHtml(order)}</div></div>
+        <div class="history-card"><h3><i class="ph ph-file-arrow-down"></i> سجل التصدير</h3><div class="history-content">\${exportListHtml(order)}</div></div>
+        <div class="history-card"><h3><i class="ph ph-printer"></i> سجل الطباعة</h3><div class="history-content">\${printListHtml(order)}</div></div>
+      \`;
+      $(\`detailsOverlay\`).classList.add(\`open\`);
+      $(\`detailsOverlay\`).setAttribute(\`aria-hidden\`, \`false\`);
     }
 
     function closeDetails() {
-      $(`detailsOverlay`).classList.remove(`open`);
-      $(`detailsOverlay`).setAttribute(`aria-hidden`, `true`);
+      $(\`detailsOverlay\`).classList.remove(\`open\`);
+      $(\`detailsOverlay\`).setAttribute(\`aria-hidden\`, \`true\`);
       state.activeOrderId = null;
     }
 
@@ -2014,30 +2003,30 @@
         lastManualStatusChangeValue: targetStatus
       };
       const patches = {
-        pending: { status: `pending`, workflowStage: `supervisor`, supervisorStatus: `pending_supervisor_approval`, marketManagerStatus: ``, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
-        pending_supervisor_approval: { status: `pending_supervisor_approval`, workflowStage: `supervisor`, supervisorStatus: `pending_supervisor_approval`, marketManagerStatus: ``, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
-        supervisor_approved: { status: `market_manager_pending`, workflowStage: `market_manager`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_pending`, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
-        market_manager_pending: { status: `market_manager_pending`, workflowStage: `market_manager`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_pending`, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
-        market_manager_approved: { status: `finance_pending`, workflowStage: `finance`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_pending`, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
-        finance_pending: { status: `finance_pending`, workflowStage: `finance`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_pending`, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
-        finance_approved: { status: `orders_staff_pending`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_pending`, hiddenByOrderStaff: false, isInvoiced: false },
-        orders_staff_pending: { status: `orders_staff_pending`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_pending`, hiddenByOrderStaff: false, isInvoiced: false },
-        orders_staff_exported: { status: `orders_staff_exported`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_exported`, hiddenByOrderStaff: false, isInvoiced: false },
-        orders_staff_hidden: { status: `orders_staff_hidden`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_hidden`, hiddenByOrderStaff: true, isInvoiced: true, invoicedAt: nowServer },
-        orders_staff_invoiced_and_hidden_after_export: { status: `orders_staff_hidden`, workflowStage: `orders_staff`, supervisorStatus: `supervisor_approved`, marketManagerStatus: `market_manager_approved`, financeStatus: `finance_approved`, orderStaffStatus: `orders_staff_hidden`, hiddenByOrderStaff: true, isInvoiced: true, invoicedAt: nowServer },
-        market_manager_rejected: { status: `market_manager_rejected`, workflowStage: `market_manager`, marketManagerStatus: `market_manager_rejected`, financeStatus: ``, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
-        finance_rejected: { status: `finance_rejected`, workflowStage: `finance`, financeStatus: `finance_rejected`, orderStaffStatus: ``, hiddenByOrderStaff: false, isInvoiced: false },
-        returned_to_rep: { status: `returned_to_rep`, workflowStage: `representative`, hiddenByOrderStaff: false, isInvoiced: false },
-        returned_to_supervisor: { status: `returned_to_supervisor`, workflowStage: `supervisor`, supervisorStatus: `pending_supervisor_approval`, hiddenByOrderStaff: false, isInvoiced: false },
-        returned_to_market_manager: { status: `returned_to_market_manager`, workflowStage: `market_manager`, marketManagerStatus: `market_manager_pending`, hiddenByOrderStaff: false, isInvoiced: false },
-        returned_to_finance: { status: `returned_to_finance`, workflowStage: `finance`, financeStatus: `returned_to_finance`, orderStaffStatus: `orders_staff_edited_returned_to_finance`, hiddenByOrderStaff: false, isInvoiced: false },
-        approved: { status: `approved`, workflowStage: ``, hiddenByOrderStaff: false, isInvoiced: false },
-        returned: { status: `returned`, workflowStage: ``, hiddenByOrderStaff: false, isInvoiced: false },
-        rejected: { status: `rejected`, workflowStage: ``, hiddenByOrderStaff: false, isInvoiced: false },
-        deleted_by_supervisor: { status: `deleted_by_supervisor`, workflowStage: `deleted`, supervisorStatus: `deleted_by_supervisor` },
-        deleted_by_market_manager: { status: `deleted_by_market_manager`, workflowStage: `deleted`, marketManagerStatus: `deleted_by_market_manager` },
-        deleted_by_orders_staff: { status: `deleted_by_orders_staff`, workflowStage: `deleted`, orderStaffStatus: `deleted_by_orders_staff` },
-        deleted_by_reports: { status: `deleted_by_reports`, workflowStage: `deleted` }
+        pending: { status: \`pending\`, workflowStage: \`supervisor\`, supervisorStatus: \`pending_supervisor_approval\`, marketManagerStatus: \`\`, financeStatus: \`\`, orderStaffStatus: \`\`, hiddenByOrderStaff: false, isInvoiced: false },
+        pending_supervisor_approval: { status: \`pending_supervisor_approval\`, workflowStage: \`supervisor\`, supervisorStatus: \`pending_supervisor_approval\`, marketManagerStatus: \`\`, financeStatus: \`\`, orderStaffStatus: \`\`, hiddenByOrderStaff: false, isInvoiced: false },
+        supervisor_approved: { status: \`market_manager_pending\`, workflowStage: \`market_manager\`, supervisorStatus: \`supervisor_approved\`, marketManagerStatus: \`market_manager_pending\`, financeStatus: \`\`, orderStaffStatus: \`\`, hiddenByOrderStaff: false, isInvoiced: false },
+        market_manager_pending: { status: \`market_manager_pending\`, workflowStage: \`market_manager\`, supervisorStatus: \`supervisor_approved\`, marketManagerStatus: \`market_manager_pending\`, financeStatus: \`\`, orderStaffStatus: \`\`, hiddenByOrderStaff: false, isInvoiced: false },
+        market_manager_approved: { status: \`finance_pending\`, workflowStage: \`finance\`, supervisorStatus: \`supervisor_approved\`, marketManagerStatus: \`market_manager_approved\`, financeStatus: \`finance_pending\`, orderStaffStatus: \`\`, hiddenByOrderStaff: false, isInvoiced: false },
+        finance_pending: { status: \`finance_pending\`, workflowStage: \`finance\`, supervisorStatus: \`supervisor_approved\`, marketManagerStatus: \`market_manager_approved\`, financeStatus: \`finance_pending\`, orderStaffStatus: \`\`, hiddenByOrderStaff: false, isInvoiced: false },
+        finance_approved: { status: \`orders_staff_pending\`, workflowStage: \`orders_staff\`, supervisorStatus: \`supervisor_approved\`, marketManagerStatus: \`market_manager_approved\`, financeStatus: \`finance_approved\`, orderStaffStatus: \`orders_staff_pending\`, hiddenByOrderStaff: false, isInvoiced: false },
+        orders_staff_pending: { status: \`orders_staff_pending\`, workflowStage: \`orders_staff\`, supervisorStatus: \`supervisor_approved\`, marketManagerStatus: \`market_manager_approved\`, financeStatus: \`finance_approved\`, orderStaffStatus: \`orders_staff_pending\`, hiddenByOrderStaff: false, isInvoiced: false },
+        orders_staff_exported: { status: \`orders_staff_exported\`, workflowStage: \`orders_staff\`, supervisorStatus: \`supervisor_approved\`, marketManagerStatus: \`market_manager_approved\`, financeStatus: \`finance_approved\`, orderStaffStatus: \`orders_staff_exported\`, hiddenByOrderStaff: false, isInvoiced: false },
+        orders_staff_hidden: { status: \`orders_staff_hidden\`, workflowStage: \`orders_staff\`, supervisorStatus: \`supervisor_approved\`, marketManagerStatus: \`market_manager_approved\`, financeStatus: \`finance_approved\`, orderStaffStatus: \`orders_staff_hidden\`, hiddenByOrderStaff: true, isInvoiced: true, invoicedAt: nowServer },
+        orders_staff_invoiced_and_hidden_after_export: { status: \`orders_staff_hidden\`, workflowStage: \`orders_staff\`, supervisorStatus: \`supervisor_approved\`, marketManagerStatus: \`market_manager_approved\`, financeStatus: \`finance_approved\`, orderStaffStatus: \`orders_staff_hidden\`, hiddenByOrderStaff: true, isInvoiced: true, invoicedAt: nowServer },
+        market_manager_rejected: { status: \`market_manager_rejected\`, workflowStage: \`market_manager\`, marketManagerStatus: \`market_manager_rejected\`, financeStatus: \`\`, orderStaffStatus: \`\`, hiddenByOrderStaff: false, isInvoiced: false },
+        finance_rejected: { status: \`finance_rejected\`, workflowStage: \`finance\`, financeStatus: \`finance_rejected\`, orderStaffStatus: \`\`, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_rep: { status: \`returned_to_rep\`, workflowStage: \`representative\`, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_supervisor: { status: \`returned_to_supervisor\`, workflowStage: \`supervisor\`, supervisorStatus: \`pending_supervisor_approval\`, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_market_manager: { status: \`returned_to_market_manager\`, workflowStage: \`market_manager\`, marketManagerStatus: \`market_manager_pending\`, hiddenByOrderStaff: false, isInvoiced: false },
+        returned_to_finance: { status: \`returned_to_finance\`, workflowStage: \`finance\`, financeStatus: \`returned_to_finance\`, orderStaffStatus: \`orders_staff_edited_returned_to_finance\`, hiddenByOrderStaff: false, isInvoiced: false },
+        approved: { status: \`approved\`, workflowStage: \`\`, hiddenByOrderStaff: false, isInvoiced: false },
+        returned: { status: \`returned\`, workflowStage: \`\`, hiddenByOrderStaff: false, isInvoiced: false },
+        rejected: { status: \`rejected\`, workflowStage: \`\`, hiddenByOrderStaff: false, isInvoiced: false },
+        deleted_by_supervisor: { status: \`deleted_by_supervisor\`, workflowStage: \`deleted\`, supervisorStatus: \`deleted_by_supervisor\` },
+        deleted_by_market_manager: { status: \`deleted_by_market_manager\`, workflowStage: \`deleted\`, marketManagerStatus: \`deleted_by_market_manager\` },
+        deleted_by_orders_staff: { status: \`deleted_by_orders_staff\`, workflowStage: \`deleted\`, orderStaffStatus: \`deleted_by_orders_staff\` },
+        deleted_by_reports: { status: \`deleted_by_reports\`, workflowStage: \`deleted\` }
       };
       return { ...base, ...(patches[targetStatus] || { status: targetStatus }) };
     }
@@ -2047,24 +2036,24 @@
         action: actionName,
         by: ACTION_BY,
         user: ACTION_BY,
-        role: `control_admin`,
+        role: \`control_admin\`,
         timestamp: new Date().toISOString(),
         orderId,
         oldValue: {
-          status: order.status || ``,
-          workflowStage: order.workflowStage || ``,
-          supervisorStatus: order.supervisorStatus || ``,
-          marketManagerStatus: order.marketManagerStatus || ``,
-          financeStatus: order.financeStatus || ``,
-          orderStaffStatus: order.orderStaffStatus || ``
+          status: order.status || \`\`,
+          workflowStage: order.workflowStage || \`\`,
+          supervisorStatus: order.supervisorStatus || \`\`,
+          marketManagerStatus: order.marketManagerStatus || \`\`,
+          financeStatus: order.financeStatus || \`\`,
+          orderStaffStatus: order.orderStaffStatus || \`\`
         },
         newValue: {
           status: patch.status,
-          workflowStage: patch.workflowStage || ``,
-          supervisorStatus: patch.supervisorStatus ?? order.supervisorStatus ?? ``,
-          marketManagerStatus: patch.marketManagerStatus ?? order.marketManagerStatus ?? ``,
-          financeStatus: patch.financeStatus ?? order.financeStatus ?? ``,
-          orderStaffStatus: patch.orderStaffStatus ?? order.orderStaffStatus ?? ``
+          workflowStage: patch.workflowStage || \`\`,
+          supervisorStatus: patch.supervisorStatus ?? order.supervisorStatus ?? \`\`,
+          marketManagerStatus: patch.marketManagerStatus ?? order.marketManagerStatus ?? \`\`,
+          financeStatus: patch.financeStatus ?? order.financeStatus ?? \`\`,
+          orderStaffStatus: patch.orderStaffStatus ?? order.orderStaffStatus ?? \`\`
         },
         notes: note
       };
@@ -2082,8 +2071,8 @@
           if (!order) return;
           const patch = buildWorkflowPatch(targetStatus);
           patch.lastManualStatusChangeNote = note;
-          patch.auditTrail = arrayUnion(buildStatusAuditRecord(order, orderId, targetStatus, patch, note, ids.length > 1 ? `control_bulk_workflow_status_change` : `control_manual_workflow_status_change`));
-          batch.update(doc(db, `orders`, orderId), patch);
+          patch.auditTrail = arrayUnion(buildStatusAuditRecord(order, orderId, targetStatus, patch, note, ids.length > 1 ? \`control_bulk_workflow_status_change\` : \`control_manual_workflow_status_change\`));
+          batch.update(doc(db, \`orders\`, orderId), patch);
         });
         await batch.commit();
       }
@@ -2091,80 +2080,80 @@
 
     function openStatusModal(orderIds) {
       const ids = Array.from(new Set(orderIds)).filter(Boolean);
-      if (!ids.length) return toast(`حدد طلبية واحدة على الأقل.`, `warning`);
+      if (!ids.length) return toast(\`حدد طلبية واحدة على الأقل.\`, \`warning\`);
       state.pendingStatusIds = ids;
-      $(`statusModalTitle`).textContent = ids.length > 1 ? `تغيير حالة ${formatCount(ids.length)} طلبية` : `تغيير حالة الطلبية`;
-      $(`statusModalSubtitle`).textContent = ids.length > 1 ? `سيتم تطبيق التغيير على كل الطلبيات المحددة وتسجيل الحركة في Audit Trail.` : `سيتم تحديث حقول workflow الأساسية وتسجيل الحركة في Audit Trail.`;
+      $(\`statusModalTitle\`).textContent = ids.length > 1 ? \`تغيير حالة \${formatCount(ids.length)} طلبية\` : \`تغيير حالة الطلبية\`;
+      $(\`statusModalSubtitle\`).textContent = ids.length > 1 ? \`سيتم تطبيق التغيير على كل الطلبيات المحددة وتسجيل الحركة في Audit Trail.\` : \`سيتم تحديث حقول workflow الأساسية وتسجيل الحركة في Audit Trail.\`;
       const first = state.orders.find(order => order.id === ids[0]);
-      if (first && WORKFLOW_STATUSES.includes(first.__status)) $(`targetStatus`).value = first.__status;
-      $(`statusNote`).value = ``;
-      $(`statusModal`).classList.add(`open`);
-      $(`statusModal`).setAttribute(`aria-hidden`, `false`);
+      if (first && WORKFLOW_STATUSES.includes(first.__status)) $(\`targetStatus\`).value = first.__status;
+      $(\`statusNote\`).value = \`\`;
+      $(\`statusModal\`).classList.add(\`open\`);
+      $(\`statusModal\`).setAttribute(\`aria-hidden\`, \`false\`);
     }
 
     function closeStatusModal() {
-      $(`statusModal`).classList.remove(`open`);
-      $(`statusModal`).setAttribute(`aria-hidden`, `true`);
+      $(\`statusModal\`).classList.remove(\`open\`);
+      $(\`statusModal\`).setAttribute(\`aria-hidden\`, \`true\`);
       state.pendingStatusIds = [];
     }
 
     async function confirmStatusChange() {
       const ids = Array.isArray(state.pendingStatusIds) ? state.pendingStatusIds : [];
-      const targetStatus = $(`targetStatus`).value;
-      const note = $(`statusNote`).value.trim();
-      if (!ids.length) return toast(`لا توجد طلبيات محددة.`, `warning`);
-      if (!targetStatus) return toast(`اختر الحالة الجديدة.`, `warning`);
-      if (!note) return toast(`الملاحظة إجبارية.`, `warning`);
-      const message = `هل أنت متأكد من تغيير حالة ${formatCount(ids.length)} طلبية إلى: ${statusLabel(targetStatus)}؟`;
+      const targetStatus = $(\`targetStatus\`).value;
+      const note = $(\`statusNote\`).value.trim();
+      if (!ids.length) return toast(\`لا توجد طلبيات محددة.\`, \`warning\`);
+      if (!targetStatus) return toast(\`اختر الحالة الجديدة.\`, \`warning\`);
+      if (!note) return toast(\`الملاحظة إجبارية.\`, \`warning\`);
+      const message = \`هل أنت متأكد من تغيير حالة \${formatCount(ids.length)} طلبية إلى: \${statusLabel(targetStatus)}؟\`;
       if (!confirm(message)) return;
       try {
-        setBusy(true, `جاري تغيير الحالة...`);
+        setBusy(true, \`جاري تغيير الحالة...\`);
         await applyStatusPatch(ids, targetStatus, note);
         closeStatusModal();
         closeDetails();
         state.selected.clear();
-        toast(`تم تغيير الحالة وتسجيل الحركة بنجاح.`, `success`);
+        toast(\`تم تغيير الحالة وتسجيل الحركة بنجاح.\`, \`success\`);
         await loadOrders(true, true);
       } catch (error) {
         console.error(error);
-        toast(`فشل تغيير الحالة: ${error.message}`, `error`);
+        toast(\`فشل تغيير الحالة: \${error.message}\`, \`error\`);
       } finally {
         setBusy(false);
       }
     }
 
-    function setBusy(isBusy, label = `جاري التحميل...`) {
+    function setBusy(isBusy, label = \`جاري التحميل...\`) {
       state.loading = isBusy;
-      $(`loadingState`).innerHTML = isBusy ? `<i class="ph ph-circle-notch"></i> ${escapeHtml(label)}` : `<i class="ph ph-check-circle"></i> جاهز`;
+      $(\`loadingState\`).innerHTML = isBusy ? \`<i class="ph ph-circle-notch"></i> \${escapeHtml(label)}\` : \`<i class="ph ph-check-circle"></i> جاهز\`;
       renderTable();
     }
 
     function selectedOrdersRange() {
       const today = new Date();
-      let fromValue = $(`dateFrom`).value;
-      let toValue = $(`dateTo`).value;
+      let fromValue = $(\`dateFrom\`).value;
+      let toValue = $(\`dateTo\`).value;
       if (!fromValue && !toValue) {
         const first = new Date(today.getFullYear(), today.getMonth(), 1);
         fromValue = toDateInputValue(first);
         toValue = toDateInputValue(today);
-        $(`dateFrom`).value = fromValue;
-        $(`dateTo`).value = toValue;
+        $(\`dateFrom\`).value = fromValue;
+        $(\`dateTo\`).value = toValue;
       }
-      if (!fromValue) fromValue = `2000-01-01`;
+      if (!fromValue) fromValue = \`2000-01-01\`;
       if (!toValue) toValue = toDateInputValue(today);
-      const fromDate = new Date(`${fromValue}T00:00:00`);
-      const toDate = new Date(`${toValue}T23:59:59`);
+      const fromDate = new Date(\`\${fromValue}T00:00:00\`);
+      const toDate = new Date(\`\${toValue}T23:59:59\`);
       return {
         fromValue,
         toValue,
         fromDate,
         toDate,
-        key: `${CONTROL_VERSION}_${fromValue}_${toValue}`
+        key: \`\${CONTROL_VERSION}_\${fromValue}_\${toValue}\`
       };
     }
 
     function ordersCacheKey(range) {
-      return `${ORDERS_CACHE_PREFIX}${range.key}`;
+      return \`\${ORDERS_CACHE_PREFIX}\${range.key}\`;
     }
     function isHistoricalOrdersRange(range) {
       const now = new Date();
@@ -2187,7 +2176,7 @@
         if (!allowExpired && age > ordersCacheTtl(range)) return null;
         return parsed.orders;
       } catch (error) {
-        console.warn(`Control cache read failed`, error);
+        console.warn(\`Control cache read failed\`, error);
         return null;
       }
     }
@@ -2199,7 +2188,7 @@
           orders
         }));
       } catch (error) {
-        console.warn(`Control cache write failed`, error);
+        console.warn(\`Control cache write failed\`, error);
       }
     }
 
@@ -2212,10 +2201,10 @@
 
     function buildOrdersQuery(range) {
       return query(
-        collection(db, `orders`),
-        where(`createdAt`, `>=`, range.fromDate),
-        where(`createdAt`, `<=`, range.toDate),
-        orderBy(`createdAt`, `desc`)
+        collection(db, \`orders\`),
+        where(\`createdAt\`, \`>=\`, range.fromDate),
+        where(\`createdAt\`, \`<=\`, range.toDate),
+        orderBy(\`createdAt\`, \`desc\`)
       );
     }
 
@@ -2226,35 +2215,35 @@
       if (cachedOrders && !forceRemote) {
         hydrateOrders(cachedOrders);
         state.loadedRangeKey = range.key;
-        $(`lastLoadedAt`).textContent = new Date().toLocaleString(`en-GB`);
-        $(`connectionHint`).textContent = `تم عرض ${formatCount(state.orders.length)} طلبية من الكاش المحلي${isHistoricalOrdersRange(range) ? ' طويل المدى' : ''}`;
-        if (!quiet) toast(`تم عرض البيانات من الكاش المحلي.`, `success`);
+        $(\`lastLoadedAt\`).textContent = new Date().toLocaleString(\`en-GB\`);
+        $(\`connectionHint\`).textContent = \`تم عرض \${formatCount(state.orders.length)} طلبية من الكاش المحلي\${isHistoricalOrdersRange(range) ? ' طويل المدى' : ''}\`;
+        if (!quiet) toast(\`تم عرض البيانات من الكاش المحلي.\`, \`success\`);
         return;
       }
 
       state.loadingPromise = (async () => {
         try {
-          if (!quiet) setBusy(true, `جاري تحميل Firebase حسب التاريخ...`);
+          if (!quiet) setBusy(true, \`جاري تحميل Firebase حسب التاريخ...\`);
           const snap = await getDocs(buildOrdersQuery(range));
           const rawOrders = snap.docs.map(item => ({ id: item.id, ...item.data() }));
           writeOrdersCache(range, rawOrders);
           hydrateOrders(rawOrders);
           state.loadedRangeKey = range.key;
-          $(`lastLoadedAt`).textContent = new Date().toLocaleString(`en-GB`);
-          $(`connectionHint`).textContent = `تم تحميل ${formatCount(state.orders.length)} طلبية من ${range.fromValue} إلى ${range.toValue}`;
-          toast(`تم تحديث البيانات.`, `success`);
+          $(\`lastLoadedAt\`).textContent = new Date().toLocaleString(\`en-GB\`);
+          $(\`connectionHint\`).textContent = \`تم تحميل \${formatCount(state.orders.length)} طلبية من \${range.fromValue} إلى \${range.toValue}\`;
+          toast(\`تم تحديث البيانات.\`, \`success\`);
         } catch (error) {
           console.error(error);
           const fallbackOrders = readOrdersCache(range, true);
           if (fallbackOrders) {
             hydrateOrders(fallbackOrders);
             state.loadedRangeKey = range.key;
-            $(`connectionHint`).textContent = `تعذر التحديث بسبب كوتا Firebase؛ تم عرض آخر نسخة محفوظة`;
-            toast(`تم عرض آخر نسخة محفوظة لأن كوتا Firebase ممتلئة.`, `warning`);
+            $(\`connectionHint\`).textContent = \`تعذر التحديث بسبب كوتا Firebase؛ تم عرض آخر نسخة محفوظة\`;
+            toast(\`تم عرض آخر نسخة محفوظة لأن كوتا Firebase ممتلئة.\`, \`warning\`);
             return;
           }
-          toast(`تعذر تحميل البيانات: كوتا Firebase ممتلئة أو الاتصال غير متاح.`, `error`);
-          $(`ordersBody`).innerHTML = `<tr><td colspan="11"><div class="empty-state">تعذر تحميل البيانات من Firebase. قلل مدى التاريخ أو انتظر تجدد الكوتا.</div></td></tr>`;
+          toast(\`تعذر تحميل البيانات: كوتا Firebase ممتلئة أو الاتصال غير متاح.\`, \`error\`);
+          $(\`ordersBody\`).innerHTML = \`<tr><td colspan="11"><div class="empty-state">تعذر تحميل البيانات من Firebase. قلل مدى التاريخ أو انتظر تجدد الكوتا.</div></td></tr>\`;
         } finally {
           state.loadingPromise = null;
           setBusy(false);
@@ -2275,7 +2264,7 @@
       if (checked) state.selected.add(orderId);
       else state.selected.delete(orderId);
       renderKpis();
-      document.querySelectorAll(`[data-select-id="${CSS.escape(orderId)}"]`).forEach(input => { input.checked = checked; });
+      document.querySelectorAll(\`[data-select-id="\${CSS.escape(orderId)}"]\`).forEach(input => { input.checked = checked; });
     }
 
     function toggleSelectAll(checked) {
@@ -2287,70 +2276,70 @@
     }
 
     function exportVisibleExcel() {
-      if (!state.visible.length) return toast(`لا توجد بيانات ظاهرة للتصدير.`, `warning`);
-      if (typeof XLSX === `undefined`) return toast(`مكتبة Excel غير محملة.`, `error`);
+      if (!state.visible.length) return toast(\`لا توجد بيانات ظاهرة للتصدير.\`, \`warning\`);
+      if (typeof XLSX === \`undefined\`) return toast(\`مكتبة Excel غير محملة.\`, \`error\`);
       const rows = [];
       state.visible.forEach(order => {
         const base = {
-          'رقم الطلبية': order.id || ``,
+          'رقم الطلبية': order.id || \`\`,
           'تاريخ الطلبية': dateOnly(order),
           'وقت الطلبية': timeOnly(order),
-          'كود الصيدلية': order.__pharmacyCode || ``,
-          'اسم الصيدلية': order.__pharmacyName || ``,
-          'المندوب': order.__repName || ``,
-          'الحالة': order.__statusLabel || ``,
-          'كود الحالة': order.__status || ``,
-          'المطلوب من': order.__owner || ``,
-          'تفصيل المطلوب': order.__ownerDetail || ``,
+          'كود الصيدلية': order.__pharmacyCode || \`\`,
+          'اسم الصيدلية': order.__pharmacyName || \`\`,
+          'المندوب': order.__repName || \`\`,
+          'الحالة': order.__statusLabel || \`\`,
+          'كود الحالة': order.__status || \`\`,
+          'المطلوب من': order.__owner || \`\`,
+          'تفصيل المطلوب': order.__ownerDetail || \`\`,
           'قيمة الطلبية': order.__total,
           'عدد الأصناف': getOrderItems(order).length,
           'حركات التدقيق': arrayCount(order.auditTrail),
           'سجلات التصدير': exportCount(order),
           'سجلات الطباعة': printCount(order),
-          'ملاحظة الطلبية': order.__note || ``
+          'ملاحظة الطلبية': order.__note || \`\`
         };
         rows.push({ ...base, 'نوع السجل': 'Order Summary', 'الإجراء': '', 'المستخدم': '', 'وقت الحركة': '', 'ملاحظة الحركة': '', 'Old Value': '', 'New Value': '' });
         const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
         trail.forEach(entry => rows.push({
           ...base,
           'نوع السجل': 'Audit',
-          'الإجراء': statusLabel(entry.action || entry.type || ``),
-          'المستخدم': entry.user || entry.actor || entry.changedBy || entry.by || ``,
+          'الإجراء': statusLabel(entry.action || entry.type || \`\`),
+          'المستخدم': entry.user || entry.actor || entry.changedBy || entry.by || \`\`,
           'وقت الحركة': historyDate(entry.timestamp || entry.at || entry.changedAt || entry.createdAt),
-          'ملاحظة الحركة': entry.notes || entry.note || entry.reason || ``,
-          'Old Value': serializeForPre(entry.oldValue || entry.previousValue || entry.from || ``),
-          'New Value': serializeForPre(entry.newValue || entry.to || ``)
+          'ملاحظة الحركة': entry.notes || entry.note || entry.reason || \`\`,
+          'Old Value': serializeForPre(entry.oldValue || entry.previousValue || entry.from || \`\`),
+          'New Value': serializeForPre(entry.newValue || entry.to || \`\`)
         }));
       });
       const ws = XLSX.utils.json_to_sheet(rows);
-      ws[`!cols`] = [
+      ws[\`!cols\`] = [
         { wch: 28 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 34 }, { wch: 24 },
         { wch: 22 }, { wch: 26 }, { wch: 18 }, { wch: 36 }, { wch: 14 }, { wch: 12 },
         { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 42 }, { wch: 14 }, { wch: 28 },
         { wch: 24 }, { wch: 22 }, { wch: 42 }, { wch: 42 }, { wch: 42 }
       ];
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, `Control`);
-      XLSX.writeFile(wb, `orders_control_${toDateInputValue(new Date())}.xlsx`);
-      toast(`تم تصدير Excel بنجاح.`, `success`);
+      XLSX.utils.book_append_sheet(wb, ws, \`Control\`);
+      XLSX.writeFile(wb, \`orders_control_\${toDateInputValue(new Date())}.xlsx\`);
+      toast(\`تم تصدير Excel بنجاح.\`, \`success\`);
     }
 
     function resetFilters() {
       setDefaultDates();
-      $(`searchBox`).value = ``;
-      $(`pharmacySearch`).value = ``;
-      $(`statusFilter`).value = ``;
-      $(`ownerFilter`).value = ``;
-      $(`historyFilter`).value = ``;
-      $(`sortMode`).value = `date_desc`;
+      $(\`searchBox\`).value = \`\`;
+      $(\`pharmacySearch\`).value = \`\`;
+      $(\`statusFilter\`).value = \`\`;
+      $(\`ownerFilter\`).value = \`\`;
+      $(\`historyFilter\`).value = \`\`;
+      $(\`sortMode\`).value = \`date_desc\`;
       loadOrders(false, false);
     }
 
-    function toast(message, type = `info`) {
-      const el = document.createElement(`div`);
-      el.className = `toast ${type}`;
+    function toast(message, type = \`info\`) {
+      const el = document.createElement(\`div\`);
+      el.className = \`toast \${type}\`;
       el.textContent = message;
-      $(`toastStack`).appendChild(el);
+      $(\`toastStack\`).appendChild(el);
       setTimeout(() => el.remove(), 3600);
     }
 
@@ -2364,67 +2353,67 @@
 
     function bindEvents() {
       const debouncedDateLoad = debounce(() => loadOrders(false, false), 250);
-      [`statusFilter`, `ownerFilter`, `historyFilter`, `sortMode`].forEach(id => $(id).addEventListener(`change`, applyFilters));
-      [`dateFrom`, `dateTo`].forEach(id => $(id).addEventListener(`change`, debouncedDateLoad));
-      [`searchBox`, `pharmacySearch`].forEach(id => $(id).addEventListener(`input`, debounce(applyFilters, 120)));
-      $(`resetFiltersBtn`).addEventListener(`click`, resetFilters);
-      $(`refreshBtn`).addEventListener(`click`, () => loadOrders(false, true));
-      $(`refreshTopBtn`).addEventListener(`click`, () => loadOrders(false, true));
-      $(`exportBtn`).addEventListener(`click`, exportVisibleExcel);
-      $(`exportTopBtn`).addEventListener(`click`, exportVisibleExcel);
-      $(`bulkStatusBtn`).addEventListener(`click`, () => openStatusModal(Array.from(state.selected)));
-      $(`selectAllVisible`).addEventListener(`change`, event => toggleSelectAll(event.target.checked));
-      $(`closeDetailsBtn`).addEventListener(`click`, closeDetails);
-      $(`detailsOverlay`).addEventListener(`click`, event => { if (event.target.id === `detailsOverlay`) closeDetails(); });
-      $(`closeStatusModalBtn`).addEventListener(`click`, closeStatusModal);
-      $(`cancelStatusBtn`).addEventListener(`click`, closeStatusModal);
-      $(`statusModal`).addEventListener(`click`, event => { if (event.target.id === `statusModal`) closeStatusModal(); });
-      $(`confirmStatusBtn`).addEventListener(`click`, confirmStatusChange);
+      [\`statusFilter\`, \`ownerFilter\`, \`historyFilter\`, \`sortMode\`].forEach(id => $(id).addEventListener(\`change\`, applyFilters));
+      [\`dateFrom\`, \`dateTo\`].forEach(id => $(id).addEventListener(\`change\`, debouncedDateLoad));
+      [\`searchBox\`, \`pharmacySearch\`].forEach(id => $(id).addEventListener(\`input\`, debounce(applyFilters, 120)));
+      $(\`resetFiltersBtn\`).addEventListener(\`click\`, resetFilters);
+      $(\`refreshBtn\`).addEventListener(\`click\`, () => loadOrders(false, true));
+      $(\`refreshTopBtn\`).addEventListener(\`click\`, () => loadOrders(false, true));
+      $(\`exportBtn\`).addEventListener(\`click\`, exportVisibleExcel);
+      $(\`exportTopBtn\`).addEventListener(\`click\`, exportVisibleExcel);
+      $(\`bulkStatusBtn\`).addEventListener(\`click\`, () => openStatusModal(Array.from(state.selected)));
+      $(\`selectAllVisible\`).addEventListener(\`change\`, event => toggleSelectAll(event.target.checked));
+      $(\`closeDetailsBtn\`).addEventListener(\`click\`, closeDetails);
+      $(\`detailsOverlay\`).addEventListener(\`click\`, event => { if (event.target.id === \`detailsOverlay\`) closeDetails(); });
+      $(\`closeStatusModalBtn\`).addEventListener(\`click\`, closeStatusModal);
+      $(\`cancelStatusBtn\`).addEventListener(\`click\`, closeStatusModal);
+      $(\`statusModal\`).addEventListener(\`click\`, event => { if (event.target.id === \`statusModal\`) closeStatusModal(); });
+      $(\`confirmStatusBtn\`).addEventListener(\`click\`, confirmStatusChange);
 
-      document.addEventListener(`click`, event => {
-        const scrollButton = event.target.closest(`[data-scroll-target]`);
+      document.addEventListener(\`click\`, event => {
+        const scrollButton = event.target.closest(\`[data-scroll-target]\`);
         if (scrollButton) {
-          document.querySelectorAll(`.nav-pill`).forEach(btn => btn.classList.remove(`active`));
-          scrollButton.classList.add(`active`);
-          $(scrollButton.dataset.scrollTarget)?.scrollIntoView({ behavior: `smooth`, block: `start` });
+          document.querySelectorAll(\`.nav-pill\`).forEach(btn => btn.classList.remove(\`active\`));
+          scrollButton.classList.add(\`active\`);
+          $(scrollButton.dataset.scrollTarget)?.scrollIntoView({ behavior: \`smooth\`, block: \`start\` });
         }
-        const openButton = event.target.closest(`[data-open-id]`);
+        const openButton = event.target.closest(\`[data-open-id]\`);
         if (openButton) openDetails(openButton.dataset.openId);
-        const statusButton = event.target.closest(`[data-status-id]`);
+        const statusButton = event.target.closest(\`[data-status-id]\`);
         if (statusButton) openStatusModal([statusButton.dataset.statusId]);
-        const ownerCard = event.target.closest(`[data-owner-card]`);
+        const ownerCard = event.target.closest(\`[data-owner-card]\`);
         if (ownerCard) {
-          $(`ownerFilter`).value = ownerCard.dataset.ownerCard;
+          $(\`ownerFilter\`).value = ownerCard.dataset.ownerCard;
           applyFilters();
-          $(`ordersSection`).scrollIntoView({ behavior: `smooth`, block: `start` });
+          $(\`ordersSection\`).scrollIntoView({ behavior: \`smooth\`, block: \`start\` });
         }
-        const statusCard = event.target.closest(`[data-status-card]`);
+        const statusCard = event.target.closest(\`[data-status-card]\`);
         if (statusCard) {
-          $(`statusFilter`).value = statusCard.dataset.statusCard;
+          $(\`statusFilter\`).value = statusCard.dataset.statusCard;
           applyFilters();
-          $(`ordersSection`).scrollIntoView({ behavior: `smooth`, block: `start` });
+          $(\`ordersSection\`).scrollIntoView({ behavior: \`smooth\`, block: \`start\` });
         }
-        if (event.target.closest(`#drawerStatusBtn`) && state.activeOrderId) openStatusModal([state.activeOrderId]);
-        if (event.target.closest(`#copyOrderIdBtn`) && state.activeOrderId) {
+        if (event.target.closest(\`#drawerStatusBtn\`) && state.activeOrderId) openStatusModal([state.activeOrderId]);
+        if (event.target.closest(\`#copyOrderIdBtn\`) && state.activeOrderId) {
           navigator.clipboard?.writeText(state.activeOrderId);
-          toast(`تم نسخ رقم الطلبية.`, `success`);
+          toast(\`تم نسخ رقم الطلبية.\`, \`success\`);
         }
       });
 
-      document.addEventListener(`change`, event => {
-        const check = event.target.closest(`[data-select-id]`);
+      document.addEventListener(\`change\`, event => {
+        const check = event.target.closest(\`[data-select-id]\`);
         if (check) toggleSelection(check.dataset.selectId, check.checked);
       });
 
-      window.addEventListener(`online`, () => {
-        $(`offlineBanner`).classList.remove(`show`);
-        $(`connectionHint`).textContent = `متصل بـ Firebase مباشرة`;
+      window.addEventListener(\`online\`, () => {
+        $(\`offlineBanner\`).classList.remove(\`show\`);
+        $(\`connectionHint\`).textContent = \`متصل بـ Firebase مباشرة\`;
       });
-      window.addEventListener(`offline`, () => {
-        $(`offlineBanner`).classList.add(`show`);
-        $(`connectionHint`).textContent = `وضع عدم الاتصال`;
+      window.addEventListener(\`offline\`, () => {
+        $(\`offlineBanner\`).classList.add(\`show\`);
+        $(\`connectionHint\`).textContent = \`وضع عدم الاتصال\`;
       });
-      if (!navigator.onLine) $(`offlineBanner`).classList.add(`show`);
+      if (!navigator.onLine) $(\`offlineBanner\`).classList.add(\`show\`);
     }
 
     bindEvents();
@@ -2433,3 +2422,4 @@
   </script>
 </body>
 </html>
+`;
