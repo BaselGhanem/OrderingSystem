@@ -444,17 +444,18 @@
 }
 .premium-stat-card {
     position: relative;
-    min-height: 130px;
+    min-height: 148px;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    padding: 18px !important;
+    justify-content: flex-start;
+    padding: 17px 18px !important;
     overflow: hidden;
     text-align: right !important;
     border: 1px solid rgba(226, 232, 240, .92) !important;
     border-radius: 20px !important;
-    background: linear-gradient(145deg, rgba(255,255,255,.99), rgba(248,250,252,.96)) !important;
-    box-shadow: var(--supervisor-shadow) !important;
+    background: linear-gradient(145deg, rgba(255,255,255,.995), rgba(248,250,252,.97)) !important;
+    box-shadow: 0 10px 28px rgba(15, 59, 92, .075) !important;
     transition: transform .20s ease, box-shadow .20s ease, border-color .20s ease;
 }
 .premium-stat-card::before {
@@ -484,10 +485,11 @@
 .premium-stat-card.metric-returns { --metric-color: #d23c50; --metric-glow: rgba(210, 60, 80, .10); }
 .premium-stat-card.metric-net { --metric-color: #7250b5; --metric-glow: rgba(114, 80, 181, .11); }
 .metric-card-top {
+    min-height: 44px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
     position: relative;
     z-index: 1;
 }
@@ -505,39 +507,47 @@
 }
 .metric-label {
     color: var(--supervisor-muted);
-    font-weight: 750;
-    font-size: .85rem;
-    line-height: 1.5;
+    font-weight: 780;
+    font-size: .86rem;
+    line-height: 1.45;
+    max-width: calc(100% - 54px);
 }
 .metric-value {
     position: relative;
     z-index: 1;
-    margin-top: 12px;
+    width: 100%;
+    max-width: 100%;
+    margin-top: auto;
+    padding-top: 12px;
     color: var(--supervisor-navy) !important;
-    font-size: clamp(1.55rem, 2.4vw, 2rem) !important;
-    line-height: 1.15;
-    font-weight: 850 !important;
+    font-size: 2rem !important;
+    line-height: 1.06;
+    font-weight: 860 !important;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -.035em;
+    letter-spacing: -.045em;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
 }
 
 #allOrdersStats { grid-template-columns: repeat(3, minmax(160px, 1fr)) !important; }
 .supervisor-summary-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(6, minmax(190px, 1fr)) !important;
+    align-items: stretch;
     margin-bottom: 20px !important;
 }
-.supervisor-summary-grid .premium-stat-card { min-height: 142px; }
+.supervisor-summary-grid .premium-stat-card { min-height: 148px; }
 .premium-stat-card.metric-target { --metric-color: #099999; --metric-glow: rgba(9, 153, 153, .12); }
 .premium-stat-card.metric-remaining { --metric-color: #0f766e; --metric-glow: rgba(15, 118, 110, .11); }
 .premium-stat-card.metric-pharmacies { --metric-color: #0e86b7; --metric-glow: rgba(14, 134, 183, .10); }
 .metric-context {
     position: relative;
     z-index: 1;
-    margin-top: 9px;
+    margin-top: 7px;
     color: #64748b;
-    font-size: .78rem;
+    font-size: .77rem;
     font-weight: 700;
-    line-height: 1.55;
+    line-height: 1.5;
 }
 .metric-progress {
     position: relative;
@@ -634,11 +644,11 @@
 </div>
 <div class="stat-card premium-stat-card metric-sales">
 <div class="metric-card-top"><span class="metric-label">إجمالي الطلبيات</span><span class="metric-icon"><i class="ph ph-trend-up"></i></span></div>
-<div class="metric-value" id="dashTotalValue">0.00 د.ا</div>
+<div class="metric-value" id="dashTotalValue">0</div>
 </div>
 <div class="stat-card premium-stat-card metric-net">
 <div class="metric-card-top"><span class="metric-label">صافي المبيعات</span><span class="metric-icon"><i class="ph ph-chart-line-up"></i></span></div>
-<div class="metric-value" id="dashNetValue">0.00 د.ا</div>
+<div class="metric-value" id="dashNetValue">0</div>
 <div class="metric-context" id="dashTargetAchievement">نسبة المبيعات من التارجت: -</div>
 <div class="metric-progress" aria-hidden="true"><span id="dashTargetAchievementBar"></span></div>
 </div>
@@ -893,4 +903,4 @@
                 علمت ذلك، شكراً
             </button>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20260913_supervisor_cards_others_v2" type="module"></script><script src="js/targets.js?v=20260913_others_split_v2" type="module"></script></body></html>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20260913_supervisor_metrics_cache_v3" type="module"></script><script src="js/targets.js?v=20260913_others_split_v2" type="module"></script></body></html>

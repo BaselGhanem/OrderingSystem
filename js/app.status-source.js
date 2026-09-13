@@ -2562,11 +2562,53 @@ function applyMyOrdersFilters() {
     });
 }
 
-// التارجت الشهري للمشرفين محفوظ داخل system_settings لتفادي أي اعتماد على Collection جديدة.
-// يتم تخزين وثيقة الشهر كاملة في الذاكرة حتى لا نقرأ نفس وثيقة Firestore مرتين عند عرض "جميع طلبيات الشركة".
+// التارجت الشهري للمشرفين محفوظ داخل system_settings، مع نسخة محلية دائمة على الجهاز.
+// نعرض النسخة المحلية فورًا، ونبقي Listener واحد فقط للشهر الحالي حتى يصل التغيير عند حدوثه بدل إعادة getDoc مع كل تحديث للبطاقات.
 const supervisorTargetCache = new Map();
-const SUPERVISOR_TARGET_CACHE_TTL = 5 * 60 * 1000;
+const SUPERVISOR_TARGET_STORAGE_PREFIX = `dad_supervisor_targets_v1_`;
+let supervisorTargetListenerMonth = ``;
+let supervisorTargetListenerUnsubscribe = null;
+let supervisorTargetListenerPromise = null;
 let supervisorTargetRenderToken = 0;
+
+function normalizeSupervisorTargetValues(value = {}) {
+    const normalized = {};
+    SUPERVISOR_TARGET_NAMES.forEach(name => {
+        const raw = value?.[name];
+        if (raw !== null && raw !== undefined && raw !== ``) normalized[name] = raw;
+    });
+    return normalized;
+}
+
+function readSupervisorTargetsFromDevice(month) {
+    if (!month) return null;
+    try {
+        const raw = localStorage.getItem(`${SUPERVISOR_TARGET_STORAGE_PREFIX}${month}`);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.targets || typeof parsed.targets !== `object`) return null;
+        return normalizeSupervisorTargetValues(parsed.targets);
+    } catch (error) {
+        console.warn(`تعذر قراءة تارجت ${month} من التخزين المحلي.`, error);
+        return null;
+    }
+}
+
+function persistSupervisorTargetsOnDevice(month, targets = {}) {
+    if (!month) return;
+    try {
+        localStorage.setItem(`${SUPERVISOR_TARGET_STORAGE_PREFIX}${month}`, JSON.stringify({
+            targets: normalizeSupervisorTargetValues(targets),
+            syncedAt: new Date().toISOString()
+        }));
+    } catch (error) {
+        console.warn(`تعذر حفظ تارجت ${month} على الجهاز.`, error);
+    }
+}
+
+function areSupervisorTargetsEqual(left = {}, right = {}) {
+    return SUPERVISOR_TARGET_NAMES.every(name => String(left?.[name] ?? ``) === String(right?.[name] ?? ``));
+}
 
 function resolveSupervisorTargetMonth() {
     const fromValue = getEl(`managerFilterFrom`)?.value || ``;
@@ -2582,22 +2624,86 @@ function isAllCompanyDashboardScope() {
     return !!getEl(`managerAllOrdersBtn`)?.classList.contains(`active`);
 }
 
+function ensureSupervisorTargetListener(month) {
+    if (!month) return Promise.resolve({});
+
+    const memoryTargets = supervisorTargetCache.get(month) || null;
+    const deviceTargets = memoryTargets || readSupervisorTargetsFromDevice(month);
+    if (deviceTargets && !memoryTargets) supervisorTargetCache.set(month, deviceTargets);
+
+    if (supervisorTargetListenerMonth === month && supervisorTargetListenerPromise) {
+        return deviceTargets ? Promise.resolve(deviceTargets) : supervisorTargetListenerPromise;
+    }
+
+    if (typeof supervisorTargetListenerUnsubscribe === `function`) {
+        supervisorTargetListenerUnsubscribe();
+        supervisorTargetListenerUnsubscribe = null;
+    }
+
+    supervisorTargetListenerMonth = month;
+    let initialSettled = false;
+    supervisorTargetListenerPromise = new Promise(resolve => {
+        supervisorTargetListenerUnsubscribe = onSnapshot(
+            doc(db, `system_settings`, `supervisor_targets_${month}`),
+            snap => {
+                const storedTargets = readSupervisorTargetsFromDevice(month);
+                if (snap.metadata.fromCache && storedTargets) {
+                    if (!initialSettled) {
+                        initialSettled = true;
+                        resolve(storedTargets);
+                    }
+                    return;
+                }
+
+                const incoming = snap.exists() && snap.data()?.targets && typeof snap.data().targets === `object`
+                    ? normalizeSupervisorTargetValues(snap.data().targets)
+                    : {};
+                const previous = supervisorTargetCache.get(month) || storedTargets || {};
+                const changed = !areSupervisorTargetsEqual(previous, incoming);
+
+                supervisorTargetCache.set(month, incoming);
+                persistSupervisorTargetsOnDevice(month, incoming);
+
+                if (!initialSettled) {
+                    initialSettled = true;
+                    resolve(incoming);
+                }
+
+                if (changed && resolveSupervisorTargetMonth().month === month) {
+                    requestAnimationFrame(() => updateSupervisorMonthlyTargetCard());
+                }
+            },
+            error => {
+                console.warn(`تعذر متابعة تغييرات تارجت المشرفين للشهر ${month}.`, error);
+                const fallback = supervisorTargetCache.get(month) || readSupervisorTargetsFromDevice(month) || {};
+                if (!initialSettled) {
+                    initialSettled = true;
+                    resolve(fallback);
+                }
+            }
+        );
+    });
+
+    return deviceTargets ? Promise.resolve(deviceTargets) : supervisorTargetListenerPromise;
+}
+
 async function loadSupervisorMonthlyTargets(month) {
     if (!month) return {};
-    const cached = supervisorTargetCache.get(month);
-    if (cached && Date.now() - cached.loadedAt < SUPERVISOR_TARGET_CACHE_TTL) return cached.targets;
 
-    try {
-        const snap = await getDoc(doc(db, `system_settings`, `supervisor_targets_${month}`));
-        const rawTargets = snap.exists() && snap.data()?.targets && typeof snap.data().targets === `object`
-            ? snap.data().targets
-            : {};
-        supervisorTargetCache.set(month, { loadedAt: Date.now(), targets: rawTargets });
-        return rawTargets;
-    } catch (error) {
-        console.warn(`تعذر تحميل تارجت المشرفين للشهر ${month}.`, error);
-        return {};
+    const memoryTargets = supervisorTargetCache.get(month);
+    if (memoryTargets) {
+        ensureSupervisorTargetListener(month);
+        return memoryTargets;
     }
+
+    const deviceTargets = readSupervisorTargetsFromDevice(month);
+    if (deviceTargets) {
+        supervisorTargetCache.set(month, deviceTargets);
+        ensureSupervisorTargetListener(month);
+        return deviceTargets;
+    }
+
+    return ensureSupervisorTargetListener(month);
 }
 
 function getSupervisorTargetSalesOrders() {
@@ -2608,6 +2714,39 @@ function getSupervisorTargetSalesOrders() {
         !isOrderDeleted(order) && isOrderInDateRange(order, fromValue, toValue)
     );
 }
+
+function formatDashboardInteger(value) {
+    const parsed = parseAppNumber(value);
+    if (!Number.isFinite(parsed)) return `0`;
+    return Math.trunc(parsed).toLocaleString(`en-US`, { maximumFractionDigits: 0 });
+}
+
+function fitDashboardMetricValue(element) {
+    if (!element) return;
+    element.style.removeProperty(`font-size`);
+    requestAnimationFrame(() => {
+        let size = parseFloat(getComputedStyle(element).fontSize) || 32;
+        const minimumSize = 18;
+        while (element.scrollWidth > element.clientWidth && size > minimumSize) {
+            size -= 1;
+            element.style.setProperty(`font-size`, `${size}px`, `important`);
+        }
+    });
+}
+
+function setDashboardMetricText(element, text) {
+    if (!element) return;
+    element.innerText = text;
+    fitDashboardMetricValue(element);
+}
+
+let dashboardMetricResizeTimer = 0;
+window.addEventListener(`resize`, () => {
+    clearTimeout(dashboardMetricResizeTimer);
+    dashboardMetricResizeTimer = window.setTimeout(() => {
+        document.querySelectorAll(`#advancedManagerDashboard .metric-value`).forEach(fitDashboardMetricValue);
+    }, 120);
+});
 
 function setTargetAchievementDisplay(value = null, isCompanyScope = false) {
     const achievementEl = getEl(`dashTargetAchievement`);
@@ -2641,17 +2780,17 @@ async function updateSupervisorMonthlyTargetCard() {
 
     if (spansMultipleMonths) {
         title.innerText = `التارجت الشهري`;
-        targetEl.innerText = `اختر شهرًا واحدًا`;
+        setDashboardMetricText(targetEl, `اختر شهرًا واحدًا`);
         scopeEl.innerText = `الفترة المختارة تشمل أكثر من شهر`;
-        remainingValueEl.innerText = `-`;
+        setDashboardMetricText(remainingValueEl, `-`);
         remainingNoteEl.innerText = `التارجت شهري، لذلك يجب أن تكون الفترة ضمن شهر واحد.`;
         return;
     }
     if (!month) {
         title.innerText = `التارجت الشهري`;
-        targetEl.innerText = `-`;
+        setDashboardMetricText(targetEl, `-`);
         scopeEl.innerText = `اختر فترة لعرض التارجت`;
-        remainingValueEl.innerText = `-`;
+        setDashboardMetricText(remainingValueEl, `-`);
         remainingNoteEl.innerText = `-`;
         return;
     }
@@ -2662,8 +2801,8 @@ async function updateSupervisorMonthlyTargetCard() {
     scopeEl.innerText = isCompanyScope
         ? `مجموع تارجت عبدالله الناطور + محمد طوالبه`
         : `تارجت ${currentManagerName || `المشرف`}`;
-    targetEl.innerText = `جاري التحميل...`;
-    remainingValueEl.innerText = `...`;
+    setDashboardMetricText(targetEl, `جاري التحميل...`);
+    setDashboardMetricText(remainingValueEl, `...`);
     remainingNoteEl.innerText = ``;
 
     const monthTargets = await loadSupervisorMonthlyTargets(month);
@@ -2681,8 +2820,8 @@ async function updateSupervisorMonthlyTargetCard() {
     });
 
     if (missingNames.length) {
-        targetEl.innerText = isCompanyScope ? `غير مكتمل` : `غير مدخل`;
-        remainingValueEl.innerText = `-`;
+        setDashboardMetricText(targetEl, isCompanyScope ? `غير مكتمل` : `غير مدخل`);
+        setDashboardMetricText(remainingValueEl, `-`);
         remainingNoteEl.innerText = `أدخل التارجت لـ ${missingNames.join(` و `)} من الإعدادات.`;
         return;
     }
@@ -2691,17 +2830,15 @@ async function updateSupervisorMonthlyTargetCard() {
     const actualSales = summary.netTotal;
     const remaining = target - actualSales;
     const achievement = target > 0 ? (actualSales / target) * 100 : null;
-    const formatMoney = value => value.toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    targetEl.innerText = `${formatMoney(target)} د.ا`;
+    setDashboardMetricText(targetEl, formatDashboardInteger(target));
     if (remaining > 0) {
         remainingCard.dataset.state = `pending`;
-        remainingValueEl.innerText = `${formatMoney(remaining)} د.ا`;
-        remainingNoteEl.innerText = `مبيعات الفترة: ${formatMoney(actualSales)} د.ا`;
+        setDashboardMetricText(remainingValueEl, formatDashboardInteger(remaining));
+        remainingNoteEl.innerText = `مبيعات الفترة: ${formatDashboardInteger(actualSales)}`;
     } else {
         remainingCard.dataset.state = `achieved`;
-        remainingValueEl.innerText = `0.00 د.ا`;
-        remainingNoteEl.innerText = `تم تجاوز التارجت بـ ${formatMoney(Math.abs(remaining))} د.ا · مبيعات الفترة: ${formatMoney(actualSales)} د.ا`;
+        setDashboardMetricText(remainingValueEl, `0`);
+        remainingNoteEl.innerText = `تم تجاوز التارجت بـ ${formatDashboardInteger(Math.abs(remaining))} · مبيعات الفترة: ${formatDashboardInteger(actualSales)}`;
     }
     setTargetAchievementDisplay(achievement, isCompanyScope);
 }
@@ -2716,11 +2853,10 @@ function updateAdvancedManagerDashboard(orders) {
         if (order.pharmacyName) uniquePharms.add(order.pharmacyName);
     });
 
-    const money = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " د.ا";
-    const countEl = getEl('dashDailyCount'); if (countEl) countEl.innerText = summary.countedCount;
-    const totalEl = getEl('dashTotalValue'); if (totalEl) totalEl.innerText = money(summary.ordersTotal);
-    const netEl = getEl('dashNetValue'); if (netEl) netEl.innerText = money(summary.netTotal);
-    const pharmaciesEl = getEl('dashUniquePharmacies'); if (pharmaciesEl) pharmaciesEl.innerText = uniquePharms.size;
+    const countEl = getEl(`dashDailyCount`); if (countEl) setDashboardMetricText(countEl, summary.countedCount.toLocaleString(`en-US`));
+    const totalEl = getEl(`dashTotalValue`); if (totalEl) setDashboardMetricText(totalEl, formatDashboardInteger(summary.ordersTotal));
+    const netEl = getEl(`dashNetValue`); if (netEl) setDashboardMetricText(netEl, formatDashboardInteger(summary.netTotal));
+    const pharmaciesEl = getEl(`dashUniquePharmacies`); if (pharmaciesEl) setDashboardMetricText(pharmaciesEl, uniquePharms.size.toLocaleString(`en-US`));
     updateSupervisorMonthlyTargetCard();
 }
 

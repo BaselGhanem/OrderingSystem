@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20260913_supervisor_cards_others_v2`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20260913_supervisor_metrics_cache_v3`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
