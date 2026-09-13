@@ -2851,11 +2851,11 @@ async function updateSupervisorMonthlyTargetCard() {
     if (remaining > 0) {
         remainingCard.dataset.state = `pending`;
         setDashboardMetricText(remainingValueEl, formatDashboardInteger(remaining));
-        remainingNoteEl.innerText = `مبيعات الفترة: ${formatDashboardInteger(actualSales)}`;
+        remainingNoteEl.innerText = ``;
     } else {
         remainingCard.dataset.state = `achieved`;
         setDashboardMetricText(remainingValueEl, `0`);
-        remainingNoteEl.innerText = `تم تجاوز التارجت بـ ${formatDashboardInteger(Math.abs(remaining))} · مبيعات الفترة: ${formatDashboardInteger(actualSales)}`;
+        remainingNoteEl.innerText = `تم تجاوز التارجت بـ ${formatDashboardInteger(Math.abs(remaining))}`;
     }
     setTargetAchievementDisplay(achievement, isCompanyScope);
 }
