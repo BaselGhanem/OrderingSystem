@@ -602,12 +602,45 @@
         <nav class="settings-tabs" aria-label="أقسام إعدادات الموقع">
             <button type="button" class="tab-button active" data-target="productsPanel"><i class="ph ph-package"></i> الأصناف</button>
             <button type="button" class="tab-button" data-target="pharmaciesPanel"><i class="ph ph-storefront"></i> الصيدليات</button>
+            <button type="button" class="tab-button" data-target="supervisorTargetsPanel"><i class="ph ph-crosshair"></i> تارجت المشرفين</button>
             <button type="button" class="tab-button" data-target="exportPanel"><i class="ph ph-download-simple"></i> التصدير</button>
             <button type="button" class="tab-button" data-target="oldOrdersPanel"><i class="ph ph-archive-box"></i> الطلبيات السابقة</button>
             <button type="button" class="tab-button" data-target="oldReturnsPanel"><i class="ph ph-arrow-counter-clockwise"></i> المرتجعات السابقة</button>
             <button type="button" class="tab-button" data-target="assignmentsPanel" data-tool="assignments">المشرفون</button>
             <button type="button" class="tab-button" data-target="areasPanel" data-tool="areas">تدقيق المناطق</button>
         </nav>
+
+        <section id="supervisorTargetsPanel" class="settings-card">
+            <div class="card-heading">
+                <div>
+                    <h2><i class="ph ph-crosshair"></i> التارجت الشهري للمشرفين</h2>
+                    <p>أدخل تارجت كل شهر لعبدالله الناطور ومحمد طوالبه. يظهر التارجت والمتبقي تلقائيًا في لوحة المشرف حسب الفترة المختارة.</p>
+                </div>
+            </div>
+            <div class="manual-entry-panel" style="margin-top:0;">
+                <div class="manual-form-grid">
+                    <div class="settings-field">
+                        <label for="supervisorTargetMonth">الشهر</label>
+                        <input type="month" id="supervisorTargetMonth" class="table-input">
+                    </div>
+                    <div class="settings-field">
+                        <label for="targetAbdullah">عبدالله الناطور</label>
+                        <input type="number" id="targetAbdullah" class="table-input" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+                    </div>
+                    <div class="settings-field">
+                        <label for="targetMohammad">محمد طوالبه</label>
+                        <input type="number" id="targetMohammad" class="table-input" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+                    </div>
+                    <div class="settings-form-actions">
+                        <button type="button" id="saveSupervisorTargetsBtn" class="btn-local btn-teal"><i class="ph ph-floppy-disk"></i> حفظ التارجت</button>
+                    </div>
+                </div>
+                <div class="info-panel" style="margin-top:14px;">
+                    المتبقي في لوحة المشرف = <strong>تارجت الشهر − صافي مبيعات الفريق ضمن الفترة المختارة</strong>. إذا كانت الفترة تشمل أكثر من شهر، سيطلب النظام اختيار فترة ضمن شهر واحد.
+                </div>
+            </div>
+            <div id="supervisorTargetsStatus" class="status-box"></div>
+        </section>
 
         <section id="assignmentsPanel" class="settings-card"><div class="admin-tool-host" data-tool-host="assignments"></div></section>
         <section id="areasPanel" class="settings-card"><div class="admin-tool-host" data-tool-host="areas"></div></section>
@@ -852,7 +885,7 @@
     </div>
 
     <script type="module">
-        import { db, collection, getDocs, deleteDoc, setDoc, doc, addDoc, updateDoc } from './js/firebase.js';
+        import { db, collection, getDocs, deleteDoc, setDoc, doc, addDoc, updateDoc, getDoc } from './js/firebase.js';
 
         const repManagerMap = {
             "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
@@ -1674,18 +1707,30 @@
 
         async function loadRepsForSettings() {
             try {
-                const snap = await getDocs(collection(db, 'reps'));
-                repsOptions = snap.docs.map(item => ({
+                const [repsSnap, pharmaciesSnap] = await Promise.all([
+                    getDocs(collection(db, `reps`)),
+                    getDocs(collection(db, `pharmacies`))
+                ]);
+                const activeIds = new Set();
+                const activeNames = new Set();
+                pharmaciesSnap.forEach(item => {
+                    const row = item.data() || {};
+                    const repId = String(row.rep_id || row.repId || ``).trim();
+                    const repName = String(row.repName || row.rep_name || row.rep || ``).trim().toLocaleLowerCase();
+                    if (repId) activeIds.add(repId);
+                    if (repName) activeNames.add(repName);
+                });
+                repsOptions = repsSnap.docs.map(item => ({
                     id: item.id,
                     name: String(item.data().name || item.id).trim()
-                })).filter(rep => rep.id && rep.name);
-                repsOptions.sort((a, b) => a.name.localeCompare(b.name));
+                })).filter(rep => rep.id && rep.name && (activeIds.has(rep.id) || activeNames.has(rep.name.toLocaleLowerCase())));
+                repsOptions.sort((a, b) => a.name.localeCompare(b.name, `ar`));
                 renderNewPharmacyRepSelect();
             } catch (error) {
-                console.error('Error loading reps:', error);
+                console.error(`Error loading reps:`, error);
                 repsOptions = [];
                 renderNewPharmacyRepSelect();
-                setStatus('pharmaciesStatus', 'حدث خطأ أثناء تحميل المناديب.', '#dc2626');
+                setStatus(`pharmaciesStatus`, `حدث خطأ أثناء تحميل المناديب.`, `#dc2626`);
             }
         }
 
@@ -1962,6 +2007,92 @@
             }
         }
 
+        const SUPERVISOR_TARGET_NAMES = [`عبدالله الناطور`, `محمد طوالبه`];
+
+        function currentMonthValue(date = new Date()) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, `0`)}`;
+        }
+
+        async function loadSupervisorTargetsForSettings() {
+            const monthInput = document.getElementById(`supervisorTargetMonth`);
+            const month = monthInput?.value || currentMonthValue();
+            if (monthInput && !monthInput.value) monthInput.value = month;
+            setStatus(`supervisorTargetsStatus`, `جاري تحميل تارجت ${month}...`, `#f59e0b`);
+            try {
+                const snap = await getDoc(doc(db, `system_settings`, `supervisor_targets_${month}`));
+                const targets = snap.exists() && snap.data()?.targets ? snap.data().targets : {};
+                document.getElementById(`targetAbdullah`).value = targets[`عبدالله الناطور`] ?? ``;
+                document.getElementById(`targetMohammad`).value = targets[`محمد طوالبه`] ?? ``;
+                setStatus(`supervisorTargetsStatus`, snap.exists() ? `تم تحميل تارجت ${month}.` : `لا يوجد تارجت محفوظ لهذا الشهر بعد.`, snap.exists() ? `#10b981` : `#64748b`);
+            } catch (error) {
+                console.error(`Error loading supervisor targets:`, error);
+                setStatus(`supervisorTargetsStatus`, `تعذر تحميل تارجت المشرفين.`, `#dc2626`);
+            }
+        }
+
+        async function saveSupervisorTargets() {
+            const month = document.getElementById(`supervisorTargetMonth`)?.value || ``;
+            if (!month) {
+                setStatus(`supervisorTargetsStatus`, `اختر الشهر أولاً.`, `#dc2626`);
+                return;
+            }
+            const targets = {
+                [`عبدالله الناطور`]: Math.max(0, parseSafeNumber(document.getElementById(`targetAbdullah`)?.value)),
+                [`محمد طوالبه`]: Math.max(0, parseSafeNumber(document.getElementById(`targetMohammad`)?.value))
+            };
+            const button = document.getElementById(`saveSupervisorTargetsBtn`);
+            const originalHtml = button?.innerHTML || ``;
+            if (button) { button.disabled = true; button.innerHTML = `<i class="ph ph-spinner-gap ph-spin"></i> جاري الحفظ...`; }
+            try {
+                await setDoc(doc(db, `system_settings`, `supervisor_targets_${month}`), {
+                    month,
+                    targets,
+                    supervisorNames: SUPERVISOR_TARGET_NAMES,
+                    updatedAt: new Date()
+                }, { merge: true });
+                setStatus(`supervisorTargetsStatus`, `تم حفظ تارجت ${month} لعبدالله الناطور ومحمد طوالبه بنجاح.`, `#10b981`);
+            } catch (error) {
+                console.error(`Error saving supervisor targets:`, error);
+                setStatus(`supervisorTargetsStatus`, `حدث خطأ أثناء حفظ التارجت.`, `#dc2626`);
+            } finally {
+                if (button) { button.disabled = false; button.innerHTML = originalHtml; }
+            }
+        }
+
+        async function downloadActiveReps() {
+            setStatus(`exportStatus`, `جاري جلب المناديب المرتبطين بصيدليات...`, `#f59e0b`);
+            try {
+                const [repsSnap, pharmaciesSnap] = await Promise.all([
+                    getDocs(collection(db, `reps`)),
+                    getDocs(collection(db, `pharmacies`))
+                ]);
+                const activeIds = new Set();
+                const activeNames = new Set();
+                pharmaciesSnap.forEach(item => {
+                    const row = item.data() || {};
+                    const repId = String(row.rep_id || row.repId || ``).trim();
+                    const repName = String(row.repName || row.rep_name || row.rep || ``).trim().toLocaleLowerCase();
+                    if (repId) activeIds.add(repId);
+                    if (repName) activeNames.add(repName);
+                });
+                const data = repsSnap.docs
+                    .map(item => ({ Document_ID: item.id, ...item.data() }))
+                    .filter(row => activeIds.has(row.Document_ID) || activeNames.has(String(row.name || ``).trim().toLocaleLowerCase()));
+                if (!data.length) {
+                    setStatus(`exportStatus`, `لا يوجد مناديب مرتبطون بصيدليات.`, `#dc2626`);
+                    return;
+                }
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, `المناديب`);
+                XLSX.writeFile(wb, `المناديب_Export.xlsx`);
+                setStatus(`exportStatus`, `تم تحميل ${data.length} مندوب مرتبط بصيدليات.`, `#10b981`);
+            } catch (error) {
+                console.error(`Error exporting active reps:`, error);
+                setStatus(`exportStatus`, `حدث خطأ أثناء سحب بيانات المناديب.`, `#dc2626`);
+            }
+        }
+
         async function importOldOrders() {
             const file = document.getElementById('oldOrdersFile').files[0];
             if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
@@ -2141,17 +2272,18 @@
         document.getElementById('pharmaciesImportBtn').addEventListener('click', importPharmacies);
         document.getElementById(`exportProductsRawBtn`).addEventListener(`click`, () => downloadCollection(`products`, `المنتجات`, true));
         document.getElementById('exportPharmaciesBtn').addEventListener('click', () => downloadCollection('pharmacies', 'الصيدليات'));
-        document.getElementById('exportRepsBtn').addEventListener('click', () => downloadCollection('reps', 'المناديب'));
+        document.getElementById(`exportRepsBtn`).addEventListener(`click`, downloadActiveReps);
         document.getElementById('exportProductsBtn').addEventListener('click', () => exportProductsEditable('exportStatus'));
         document.getElementById('oldOrdersImportBtn').addEventListener('click', importOldOrders);
         document.getElementById('oldReturnsImportBtn').addEventListener('click', importOldReturns);
+        document.getElementById(`saveSupervisorTargetsBtn`).addEventListener(`click`, saveSupervisorTargets);
+        document.getElementById(`supervisorTargetMonth`).addEventListener(`change`, loadSupervisorTargetsForSettings);
 
         window.addEventListener('DOMContentLoaded', async () => {
-            await loadProducts();
-            await loadRepsForSettings();
+            await Promise.all([loadProducts(), loadRepsForSettings(), loadSupervisorTargetsForSettings()]);
         });
     </script>
-<script type="module" src="js/admin-hub.js?v=20260911"></script>
+<script type="module" src="js/admin-hub.js?v=20260913_active_reps_v1"></script>
 <script type="module" src="js/pharmacy-search.js?v=20260911"></script>
 </body>
 </html>

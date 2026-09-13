@@ -190,9 +190,10 @@ async function loadAssignments() {
 }
 
 async function loadBaseData() {
-    const [productsSnap, repsSnap] = await Promise.all([
+    const [productsSnap, repsSnap, pharmaciesSnap] = await Promise.all([
         getDocs(collection(db, `products`)),
-        getDocs(collection(db, `reps`))
+        getDocs(collection(db, `reps`)),
+        getDocs(collection(db, `pharmacies`))
     ]);
     targetState.products = [];
     productsSnap.forEach(productDoc => {
@@ -201,14 +202,28 @@ async function loadBaseData() {
     });
     targetState.products.sort((a, b) => String(a.name).localeCompare(String(b.name), `ar`));
 
+    const activeRepIds = new Set();
+    const activeRepNames = new Set();
+    pharmaciesSnap.forEach(pharmacyDoc => {
+        const pharmacy = pharmacyDoc.data() || {};
+        const repId = String(pharmacy.rep_id || pharmacy.repId || ``).trim();
+        const repName = normalizeText(pharmacy.repName || pharmacy.rep_name || pharmacy.rep);
+        if (repId) activeRepIds.add(repId);
+        if (repName) activeRepNames.add(repName);
+    });
+
     const repsByName = new Map();
     repsSnap.forEach(repDoc => {
         const rep = { id: repDoc.id, ...repDoc.data() };
-        if (rep.name) repsByName.set(normalizeText(rep.name), rep);
+        const repName = normalizeText(rep.name);
+        if (!repName) return;
+        if (!activeRepIds.has(repDoc.id) && !activeRepNames.has(repName)) return;
+        repsByName.set(repName, rep);
     });
     targetState.reps = Object.entries(targetState.repManagerMap)
-        .filter(([, manager]) => normalizeText(manager) === normalizeText(targetState.supervisorName))
-        .map(([name]) => repsByName.get(normalizeText(name)) || { id: ``, name })
+        .filter(([name, manager]) => normalizeText(manager) === normalizeText(targetState.supervisorName) && repsByName.has(normalizeText(name)))
+        .map(([name]) => repsByName.get(normalizeText(name)))
+        .filter(Boolean)
         .sort((a, b) => String(a.name).localeCompare(String(b.name), `ar`));
 }
 

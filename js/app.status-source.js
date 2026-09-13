@@ -1814,19 +1814,66 @@ async function loadInitialData() {
         const now = new Date().getTime();
         let repsData = [];
         let prodsData = [];
+        let activeRepIds = [];
+        let activeRepNames = [];
+
+        const collectActiveRepKeys = (pharmaciesSnap) => {
+            const ids = new Set();
+            const names = new Set();
+            pharmaciesSnap.forEach(item => {
+                const data = item.data() || {};
+                const repId = String(data.rep_id || data.repId || ``).trim();
+                const repName = String(data.repName || data.rep_name || data.rep || ``).trim().toLocaleLowerCase();
+                if (repId) ids.add(repId);
+                if (repName) names.add(repName);
+            });
+            return { ids: [...ids], names: [...names] };
+        };
 
         if (cachedDataStr && cacheTimeStr && (now - parseInt(cacheTimeStr, 10) < CACHE_EXPIRY)) {
             const parsed = JSON.parse(cachedDataStr);
             repsData = parsed.reps || [];
             prodsData = parsed.products || [];
+            activeRepIds = parsed.activeRepIds || [];
+            activeRepNames = parsed.activeRepNames || [];
+            if (!activeRepIds.length && !activeRepNames.length) {
+                const pharmaciesSnap = await getDocs(collection(db, `pharmacies`));
+                const active = collectActiveRepKeys(pharmaciesSnap);
+                activeRepIds = active.ids;
+                activeRepNames = active.names;
+            }
         } else {
-            const repsSnap = await getDocs(collection(db, "reps"));
-            const prodSnap = await getDocs(collection(db, "products"));
+            const [repsSnap, prodSnap, pharmaciesSnap] = await Promise.all([
+                getDocs(collection(db, `reps`)),
+                getDocs(collection(db, `products`)),
+                getDocs(collection(db, `pharmacies`))
+            ]);
             repsSnap.forEach(d => repsData.push({ id: d.id, ...d.data() }));
             prodSnap.forEach(d => prodsData.push({ id: d.id, ...d.data() }));
-            localStorage.setItem(CACHE_KEY, JSON.stringify({ reps: repsData, products: prodsData }));
-            localStorage.setItem(CACHE_TIME_KEY, now.toString());
+            const active = collectActiveRepKeys(pharmaciesSnap);
+            activeRepIds = active.ids;
+            activeRepNames = active.names;
         }
+
+        const activeIdSet = new Set(activeRepIds);
+        const activeNameSet = new Set(activeRepNames.map(name => String(name || ``).trim().toLocaleLowerCase()));
+        repsData = repsData.filter(rep => {
+            const repNameKey = String(rep.name || ``).trim().toLocaleLowerCase();
+            return activeIdSet.has(String(rep.id || ``)) || activeNameSet.has(repNameKey);
+        });
+
+        const activeVisibleNames = new Set(repsData.map(rep => String(rep.name || ``).trim().toLocaleLowerCase()));
+        repManagerMap = Object.fromEntries(
+            Object.entries(repManagerMap).filter(([repName]) => activeVisibleNames.has(String(repName || ``).trim().toLocaleLowerCase()))
+        );
+
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+            reps: repsData,
+            products: prodsData,
+            activeRepIds,
+            activeRepNames
+        }));
+        localStorage.setItem(CACHE_TIME_KEY, now.toString());
 
         if (repSelect) {
             repSelect.innerHTML = '<option value="">-- اختر المندوب --</option>';
@@ -2482,6 +2529,85 @@ function applyMyOrdersFilters() {
     });
 }
 
+// التارجت الشهري للمشرفين محفوظ داخل system_settings لتفادي أي اعتماد على Collection جديدة.
+const supervisorTargetCache = new Map();
+
+function resolveSupervisorTargetMonth() {
+    const fromValue = getEl(`managerFilterFrom`)?.value || ``;
+    const toValue = getEl(`managerFilterTo`)?.value || ``;
+    const fromMonth = fromValue ? fromValue.slice(0, 7) : ``;
+    const toMonth = toValue ? toValue.slice(0, 7) : ``;
+
+    if (fromMonth && toMonth && fromMonth !== toMonth) return { month: ``, spansMultipleMonths: true };
+    return { month: fromMonth || toMonth || ``, spansMultipleMonths: false };
+}
+
+async function loadSupervisorMonthlyTarget(month, supervisorName) {
+    if (!month || !supervisorName) return null;
+    const key = `${month}__${supervisorName}`;
+    if (supervisorTargetCache.has(key)) return supervisorTargetCache.get(key);
+
+    try {
+        const snap = await getDoc(doc(db, `system_settings`, `supervisor_targets_${month}`));
+        const raw = snap.exists() ? snap.data()?.targets?.[supervisorName] : null;
+        const target = raw === null || raw === undefined || raw === `` ? null : parseAppNumber(raw);
+        supervisorTargetCache.set(key, target);
+        return target;
+    } catch (error) {
+        console.warn(`تعذر تحميل تارجت المشرف للشهر ${month}.`, error);
+        return null;
+    }
+}
+
+async function updateSupervisorMonthlyTargetCard(orders = []) {
+    const card = getEl(`dashSupervisorTargetCard`);
+    const title = getEl(`dashSupervisorTargetTitle`);
+    const targetEl = getEl(`dashSupervisorTargetValue`);
+    const remainingEl = getEl(`dashSupervisorTargetRemaining`);
+    if (!card || !title || !targetEl || !remainingEl) return;
+
+    const { month, spansMultipleMonths } = resolveSupervisorTargetMonth();
+    if (spansMultipleMonths) {
+        card.style.display = `block`;
+        title.innerText = `التارجت الشهري`;
+        targetEl.innerText = `اختر فترة ضمن شهر واحد`;
+        remainingEl.innerText = `لا يمكن ربط فترة تشمل أكثر من شهر بتارجت شهري واحد.`;
+        return;
+    }
+    if (!month) {
+        card.style.display = `none`;
+        return;
+    }
+
+    card.style.display = `block`;
+    const [year, monthNumber] = month.split(`-`);
+    title.innerText = `تارجت ${monthNumber}/${year}`;
+    targetEl.innerText = `جاري التحميل...`;
+    remainingEl.innerText = ``;
+
+    const target = await loadSupervisorMonthlyTarget(month, currentManagerName);
+    if (target === null) {
+        targetEl.innerText = `غير مدخل`;
+        remainingEl.innerText = `أدخل التارجت من الإعدادات.`;
+        return;
+    }
+
+    const fromValue = getEl(`managerFilterFrom`)?.value || ``;
+    const toValue = getEl(`managerFilterTo`)?.value || ``;
+    const teamPeriodOrders = managerOrdersData.filter(order =>
+        !isOrderDeleted(order) && isOrderInDateRange(order, fromValue, toValue)
+    );
+    const summary = summarizeOrdersBySalesStatus(teamPeriodOrders);
+    const actualSales = summary.netTotal;
+    const remaining = target - actualSales;
+    const formatMoney = value => value.toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    targetEl.innerText = `${formatMoney(target)} د.ا`;
+    remainingEl.innerText = remaining > 0
+        ? `المتبقي: ${formatMoney(remaining)} د.ا · مبيعات الفترة: ${formatMoney(actualSales)} د.ا`
+        : `تم تجاوز التارجت بـ ${formatMoney(Math.abs(remaining))} د.ا · مبيعات الفترة: ${formatMoney(actualSales)} د.ا`;
+}
+
 // 💡 تحديث الـ Dashboard المتقدم للمدير
 // 💡 تحديث الـ Dashboard المتقدم للمدير (ديناميكي 100%)
 function updateAdvancedManagerDashboard(orders) {
@@ -2516,6 +2642,7 @@ function updateAdvancedManagerDashboard(orders) {
     const e3 = getEl('dashApprovalRate'); if(e3) e3.innerText = appRate + "%";
     const e4 = getEl('dashTopPharmacy'); if(e4) e4.innerText = topPharm;
     const e5 = getEl('dashUniquePharmacies'); if(e5) e5.innerText = uniquePharms.size;
+    updateSupervisorMonthlyTargetCard(orders);
 }
 
 let managerOrdersData = [];

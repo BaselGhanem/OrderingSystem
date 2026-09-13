@@ -36,6 +36,9 @@ const app = initializeApp(firebaseConfig);
 
 // 2. تهيئة Firestore مع تفعيل "وضع عدم الاتصال" (Offline Persistence)
 const db = initializeFirestore(app, {
+    // بعض الشبكات/برامج الحماية تقطع WebChannel وتظهر Listen 400/404.
+    // إجبار long-polling يحافظ على onSnapshot مع نقل أكثر توافقاً.
+    experimentalForceLongPolling: true,
     localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager()
     })

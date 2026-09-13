@@ -64,12 +64,16 @@ function updateView(){
 
 async function loadPage(){
   try{
-    const [repsSnap,configSnap]=await Promise.all([
-      getDocs(collection(db,'reps')),
-      getDoc(doc(db,'system_settings','rep_supervisor_assignments'))
+    const [repsSnap,pharmaciesSnap,configSnap]=await Promise.all([
+      getDocs(collection(db,\`reps\`)),
+      getDocs(collection(db,\`pharmacies\`)),
+      getDoc(doc(db,\`system_settings\`,\`rep_supervisor_assignments\`))
     ]);
     if(configSnap.exists()&&configSnap.data()?.assignments){assignments={...DEFAULT_ASSIGNMENTS,...configSnap.data().assignments};}
-    reps=repsSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.name).sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+    const activeIds=new Set();
+    const activeNames=new Set();
+    pharmaciesSnap.forEach(d=>{const row=d.data()||{};const id=String(row.rep_id||row.repId||\`\`).trim();const name=String(row.repName||row.rep_name||row.rep||\`\`).trim().toLocaleLowerCase();if(id)activeIds.add(id);if(name)activeNames.add(name);});
+    reps=repsSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.name&&(activeIds.has(r.id)||activeNames.has(String(r.name).trim().toLocaleLowerCase()))).sort((a,b)=>a.name.localeCompare(b.name,\`ar\`));
     repSelect.innerHTML='<option value="">-- اختر المندوب --</option>';
     reps.forEach(rep=>{const o=document.createElement('option');o.value=rep.id;o.textContent=rep.name;o.dataset.name=rep.name;repSelect.appendChild(o);});
     updateView();
