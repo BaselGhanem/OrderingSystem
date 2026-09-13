@@ -297,6 +297,7 @@ let editingOrderId = null;
 let allOrdersData = [];
 let detailsModalOrder = null;
 let currentPharmacyCode = null;
+let currentPharmacyId = null;
 let currentPharmaciesData = [];
 let currentMyOrdersData = [];
 let reportsOrdersData = [];
@@ -393,6 +394,18 @@ function isOrderInDateRange(order, fromVal, toVal) {
 function formatDateTime(value) {
     const d = normalizeDateValue(value);
     return d ? d.toLocaleString('en-GB') : 'غير متوفر';
+}
+
+function getOrderLastActionDate(order = {}) {
+    const dates = [order.changedAt, order.updatedAt, order.createdAt]
+        .map(value => normalizeDateValue(value))
+        .filter(Boolean);
+    if (!dates.length) return null;
+    return new Date(Math.max(...dates.map(date => date.getTime())));
+}
+
+function formatOrderLastAction(order = {}) {
+    return formatDateTime(getOrderLastActionDate(order));
 }
 
 function getPharmacyCodeFromOrder(order = {}) {
@@ -677,7 +690,7 @@ function normalizeSupervisorFilterText(value) {
 }
 
 function getSupervisorOrderDateTimestamp(order = {}) {
-    const date = normalizeDateValue(order.createdAt || order.updatedAt);
+    const date = getOrderLastActionDate(order);
     return date ? date.getTime() : 0;
 }
 
@@ -1556,7 +1569,7 @@ function buildPrintableOrder(order) {
                 </div>
             </header>
             <div class="print-info-grid">
-                <div><span>التاريخ</span><strong>${escapePrintHtml(formatDateTime(order.createdAt))}</strong></div>
+                <div><span>آخر تحديث</span><strong>${escapePrintHtml(formatOrderLastAction(order))}</strong></div>
                 <div><span>المندوب</span><strong>${escapePrintHtml(order.repName || '-')}</strong></div>
                 <div><span>العميل / الصيدلية</span><strong>${escapePrintHtml(order.pharmacyName || '-')}</strong></div>
                 <div><span>كود الصيدلية</span><strong>${escapePrintHtml(getPharmacyCodeFromOrder(order) || '-')}</strong></div>
@@ -1947,6 +1960,7 @@ async function bootstrapPage() {
             currentRepName = ctx.repName;
             currentPharmacyName = ctx.pharmacyName;
             currentPharmacyCode = ctx.pharmacyCode || '';
+            currentPharmacyId = ctx.pharmacyId || '';
             isAdmin = !!ctx.isAdminOrder;
             currentManagerName = ctx.managerName || null;
             saveRepSession(currentRepId, currentRepName);
@@ -2006,7 +2020,7 @@ function bindPharmacyHistoryButton() {
             let history = [];
             snap.forEach(d => history.push({ id: d.id, ...d.data() }));
             if (history.length === 0) return showToast("لا توجد طلبيات سابقة لهذه الصيدلية.", "warning");
-            history.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
+            history.sort((a,b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
             const historyBody = getEl('pharmacyHistoryBody');
             if (!historyBody) return;
             historyBody.innerHTML = '';
@@ -2015,7 +2029,7 @@ function bindPharmacyHistoryButton() {
                 const tr = document.createElement('tr');
                 tr.className = `row-${o.status}`;
                 tr.innerHTML = `
-                    <td>${formatDateTime(o.createdAt)}</td>
+                    <td>${formatOrderLastAction(o)}</td>
                     <td>${o.repName || '-'}</td>
                     <td>${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ا</td>
                     <td><span class="status-badge ${getEffectiveOrderStatus(o)}">${getWorkflowStatusLabel(getEffectiveOrderStatus(o))}</span></td>
@@ -2225,7 +2239,7 @@ if (repSelect) repSelect.onchange = async (e) => {
         let pharmacyNames = [];
         currentPharmaciesData = []; 
         snap.forEach(d => {
-            currentPharmaciesData.push(d.data()); 
+            currentPharmaciesData.push({ id: d.id, ...d.data() }); 
             pharmacyNames.push(d.data().name);
         });
         setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => startOrderBtn.disabled = false);
@@ -2309,6 +2323,7 @@ if (expectedHash && btoa(enteredPass) !== expectedHash) {
     localStorage.setItem('dad_last_rep_id', currentRepId);
     currentPharmacyName = pharmacyName;
     currentPharmacyCode = selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || selectedPharm.customerCode || "";
+    currentPharmacyId = selectedPharm.id || '';
 
     const adminOrderSession = getAdminSession();
     const isAdminOrder = sessionStorage.getItem('adminOrderMode') === '1' && adminOrderSession?.type === 'manager';
@@ -2317,6 +2332,7 @@ if (expectedHash && btoa(enteredPass) !== expectedHash) {
         repName: currentRepName,
         pharmacyName: currentPharmacyName,
         pharmacyCode: currentPharmacyCode,
+        pharmacyId: currentPharmacyId,
         isAdminOrder,
         managerName: isAdminOrder ? adminOrderSession.name : null
     }));
@@ -2392,6 +2408,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
             managerName: getManagerName(currentRepName),
             pharmacyName: currentPharmacyName,
             pharmacyCode: currentPharmacyCode, 
+            pharmacyId: currentPharmacyId || '',
             items: taggedItems,
             orderType: orderTypeInfo.orderType || REGULAR_ORDER_TYPE,
             isReservedOrder: !!orderTypeInfo.isReservedOrder,
@@ -2463,7 +2480,7 @@ async function loadMyOrders() {
         unsubMyOrders = onSnapshot(q, (snap) => {
             let orders = [];
             snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
-            orders.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
+            orders.sort((a,b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
             currentMyOrdersData = orders.filter(o => isRepVisibleOrderStatus(getEffectiveOrderStatus(o)));
             applyMyOrdersFilters();
         }, () => showToast("خطأ في جلب البيانات.", "error"));
@@ -2545,7 +2562,7 @@ function applyMyOrdersFilters() {
         tr.className = `row-${statusClass}`;
         tr.innerHTML = `
             <td data-label="تحديد"><input type="checkbox" class="my-order-checkbox" value="${order.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
-            <td data-label="التاريخ">${formatDateTime(order.createdAt)}</td>
+            <td data-label="آخر تحديث">${formatOrderLastAction(order)}</td>
             <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
             <td data-label="كود الصيدلية">${getPharmacyCodeFromOrder(order) || '-'}</td>
             <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -2949,8 +2966,8 @@ async function loadManagerOrders() {
             });
 
             allOrders.sort((a, b) => {
-                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
-                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+                const dateA = getOrderLastActionDate(a)?.getTime() || 0;
+                const dateB = getOrderLastActionDate(b)?.getTime() || 0;
                 return dateB - dateA;
             });
 
@@ -3001,7 +3018,7 @@ function renderManagerOrders(orders) {
 
     orders.forEach(order => {
         const isApproved = !isSupervisorPendingStatus(order.status);
-        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
+        const displayDate = formatOrderLastAction(order);
         
         const tr = document.createElement('tr');
         const statusClass = getEffectiveOrderStatus(order) || 'pending';
@@ -3009,7 +3026,7 @@ function renderManagerOrders(orders) {
         markReservedOrderRow(tr, order);
         tr.innerHTML = `
             <td data-label="تحديد"><input type="checkbox" class="order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
-            <td data-label="التاريخ">${displayDate}</td>
+            <td data-label="آخر تحديث">${displayDate}</td>
             <td data-label="المندوب">${order.repName || '-'}</td>
             <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
             <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -3115,13 +3132,13 @@ function renderAllOrders(orders) {
         const statusClass = getEffectiveOrderStatus(order) || 'pending';
         tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
         markReservedOrderRow(tr, order);
-        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
+        const displayDate = formatOrderLastAction(order);
         
         const canApproveFromAll = canCurrentSupervisorApproveOrder(order);
         const unassignedBadge = isOrderWithoutAssignedSupervisor(order) ? '<small class="workflow-reason" style="color:#92400e;">بدون مشرف محدد</small>' : '';
         tr.innerHTML = `
             <td data-label="تحديد"><input type="checkbox" class="all-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
-            <td data-label="التاريخ">${displayDate}</td>
+            <td data-label="آخر تحديث">${displayDate}</td>
             <td data-label="المندوب" class="all-rep-col">${order.repName || '-'}</td>
             <td data-label="الصيدلية" class="all-pharm-col">${order.pharmacyName || '-'}${unassignedBadge}</td>
             <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -3374,7 +3391,7 @@ async function openEditOrder(orderId, userType) {
         }
         pharmSnap.forEach(d => {
             const data = d.data();
-            editPharmaciesData.push(data);
+            editPharmaciesData.push({ id: d.id, ...data });
             if (data.name) editPharmacyNames.push(data.name);
         });
         if (order.pharmacyName && !editPharmacyNames.includes(order.pharmacyName)) {
@@ -3382,6 +3399,7 @@ async function openEditOrder(orderId, userType) {
                 name: order.pharmacyName,
                 pharmacyCode: getPharmacyCodeFromOrder(order),
                 pharmacy_code: getPharmacyCodeFromOrder(order),
+                id: order.pharmacyId || '',
                 rep_id: originalRepId
             });
             editPharmacyNames.push(order.pharmacyName);
@@ -3471,7 +3489,7 @@ ${repFieldHTML}
                 const pharmSnap = await getDocs(q);
                 pharmSnap.forEach(d => {
                     const data = d.data();
-                    editPharmaciesData.push(data);
+                    editPharmaciesData.push({ id: d.id, ...data });
                     if (data.name) editPharmacyNames.push(data.name);
                 });
                 editPharmInput.placeholder = 'ابحث عن الصيدلية...';
@@ -3579,7 +3597,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
             const newPharmName = editPharmInput.value.trim();
             let selectedPharm = editPharmaciesData.find(p => p.name === newPharmName);
             if (!selectedPharm && newPharmName === (order.pharmacyName || '')) {
-                selectedPharm = { pharmacyCode: getPharmacyCodeFromOrder(order), pharmacy_code: getPharmacyCodeFromOrder(order) };
+                selectedPharm = { id: order.pharmacyId || '', pharmacyCode: getPharmacyCodeFromOrder(order), pharmacy_code: getPharmacyCodeFromOrder(order) };
             }
             
             if (!selectedPharm) { editPharmInput.style.border = "2px solid red"; return showToast("يرجى اختيار صيدلية صحيحة من القائمة.", "error"); }
@@ -3625,6 +3643,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 await updateOrderWithAudit(editingOrderId, { 
                     repId: newRepId, repName: newRepName, managerName: getManagerName(newRepName), 
                     pharmacyName: newPharmName, pharmacyCode: selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || "",
+                    pharmacyId: selectedPharm.id || order.pharmacyId || '',
                     items: validatedItems, grandTotal: newGrandTotal,
                     orderType: order.orderType || editedTypeInfo.orderType || REGULAR_ORDER_TYPE,
                     isReservedOrder: (order.orderType || editedTypeInfo.orderType) === RESERVED_ORDER_TYPE || order.isReservedOrder === true,
@@ -3657,7 +3676,7 @@ async function loadReports() {
         unsubReports = onSnapshot(reportsQuery, (snap) => {
             let os = [];
             snap.forEach(d => os.push({ id: d.id, ...d.data() }));
-            os.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
+            os.sort((a,b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
             if (!isAdmin && currentRepName) os = os.filter(o => o.repName === currentRepName);
             reportsOrdersData = os;
             body.innerHTML = '';
@@ -3670,7 +3689,7 @@ async function loadReports() {
                 tr.className = `row-${o.status}`;
                 tr.innerHTML = `
                     <td data-label="تحديد"><input type="checkbox" class="report-order-checkbox" value="${o.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
-                    <td data-label="التاريخ">${formatDateTime(o.createdAt)}</td>
+                    <td data-label="آخر تحديث">${formatOrderLastAction(o)}</td>
                     <td data-label="المندوب" class="rep-col">${o.repName || '-'}</td>
                     <td data-label="الصيدلية" class="pharm-col">${o.pharmacyName || '-'}</td>
                     <td data-label="القيمة">${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>

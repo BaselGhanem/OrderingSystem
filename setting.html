@@ -790,6 +790,17 @@
                 </table>
             </div>
 
+<details class="settings-disclosure" id="pharmacyMergeTool"><summary>معالجة ودمج الصيدليات المكررة حسب الكود</summary>
+            <div class="warning-panel" style="margin-top:14px;">
+                <strong><i class="ph ph-warning"></i> أداة معالجة آمنة:</strong> تفحص فقط الصيدليات التي تحمل نفس كود الصيدلية. اختر السجل الأساسي الذي سيبقى، ثم يتم توحيد الصيدلية في الطلبيات القديمة وحذف السجلات المكررة فقط بعد نجاح تحديث الطلبيات.
+            </div>
+            <div class="utility-grid" style="margin-top:14px;">
+                <button type="button" id="scanDuplicatePharmaciesBtn" class="btn-local btn-blue"><i class="ph ph-magnifying-glass"></i> فحص التكرارات</button>
+            </div>
+            <div id="pharmacyMergeStatus" class="status-box"></div>
+            <div id="duplicatePharmacyGroups" style="display:grid; gap:12px; margin-top:14px;"></div>
+</details>
+
 <details class="settings-disclosure"><summary>استيراد وتحديث الصيدليات من Excel</summary>
             <div class="info-panel">
                 <strong>الأعمدة المطلوبة في السطر الأول عند الاستيراد:</strong><br>
@@ -924,6 +935,18 @@
         let productsRowsCache = [];
         let productsCurrentPage = 1;
         const PRODUCTS_PAGE_SIZE = 50;
+        const duplicatePharmacyGroups = new Map();
+
+        const normalizePharmacyMergeCode = (value = '') => String(value ?? '')
+            .normalize('NFKC')
+            .trim()
+            .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)));
+
+        const normalizePharmacyMergeName = (value = '') => String(value ?? '')
+            .normalize('NFKC')
+            .trim()
+            .replace(/\s+/g, ' ')
+            .toLocaleLowerCase('ar');
 
         const invalidateOperationalCaches = (scope = 'all') => {
             const prefixes = ['dad_app_cache', 'dad_app_cache_time', 'dad_orders_', 'dad_products_'];
@@ -998,7 +1021,7 @@
             return updated;
         }
 
-        async function syncOrdersForPharmacyRoute({ name, pharmacyCode, repId, operationalRepName, supervisorName }) {
+        async function syncOrdersForPharmacyRoute({ name, pharmacyCode, pharmacyId = '', repId, operationalRepName, supervisorName }) {
             if (!isOthersRepName(operationalRepName) || !operationalRepName.includes('-')) return 0;
             const snapshots = [];
             const normalizedCode = String(pharmacyCode || '').trim();
@@ -1019,8 +1042,13 @@
                 const orderRepId = String(data.repId || data.rep_id || '').trim();
                 if (orderRepId && repId && orderRepId !== repId && !isOthersRepName(data.repName)) return;
                 if (!orderRepId && !isOthersRepName(data.repName)) return;
-                if (String(data.repName || '').trim() === operationalRepName && String(data.managerName || '').trim() === supervisorName) return;
-                updates.push({ ref: orderDoc.ref, payload: { repName: operationalRepName, managerName: supervisorName } });
+                const payload = { repName: operationalRepName, managerName: supervisorName };
+                if (pharmacyId) payload.pharmacyId = pharmacyId;
+                const alreadySynced = String(data.repName || '').trim() === operationalRepName &&
+                    String(data.managerName || '').trim() === supervisorName &&
+                    (!pharmacyId || String(data.pharmacyId || '').trim() === pharmacyId);
+                if (alreadySynced) return;
+                updates.push({ ref: orderDoc.ref, payload });
             }));
             return commitOrderRoutingUpdates(updates);
         }
@@ -1056,10 +1084,193 @@
                 const name = normalizeRoutingName(data.pharmacyName || '');
                 const route = (code && byCode.get(code)) || byName.get(name);
                 if (!route) return;
-                if (String(data.repName || '').trim() === route.operationalRepName && String(data.managerName || '').trim() === route.supervisorName) return;
-                updates.push({ ref: orderDoc.ref, payload: { repName: route.operationalRepName, managerName: route.supervisorName } });
+                const payload = { repName: route.operationalRepName, managerName: route.supervisorName };
+                if (route.pharmacyId) payload.pharmacyId = route.pharmacyId;
+                if (String(data.repName || '').trim() === route.operationalRepName &&
+                    String(data.managerName || '').trim() === route.supervisorName &&
+                    (!route.pharmacyId || String(data.pharmacyId || '').trim() === route.pharmacyId)) return;
+                updates.push({ ref: orderDoc.ref, payload });
             });
             return commitOrderRoutingUpdates(updates);
+        }
+
+        function renderDuplicatePharmacyGroups() {
+            const host = document.getElementById('duplicatePharmacyGroups');
+            if (!host) return;
+            host.innerHTML = '';
+            if (!duplicatePharmacyGroups.size) {
+                host.innerHTML = `<div class="info-panel">لا توجد صيدليات مكررة تحمل نفس كود الصيدلية.</div>`;
+                return;
+            }
+
+            duplicatePharmacyGroups.forEach((rows, codeKey) => {
+                const card = document.createElement('div');
+                card.style.cssText = 'border:1px solid #dbe4ee;border-radius:14px;padding:14px;background:#fff;box-shadow:0 4px 14px rgba(15,23,42,.05);';
+                const options = rows.map((row, index) => {
+                    const data = row.data || {};
+                    const label = `${row.id} — ${data.name || 'بدون اسم'} — ${data.repName || data.baseRepName || data.rep_id || '-'}`;
+                    return `<option value="${escapeHtml(row.id)}" ${index === 0 ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                }).join('');
+                const rowsHtml = rows.map(row => {
+                    const data = row.data || {};
+                    return `<tr>
+                        <td class="doc-id-text">${escapeHtml(row.id)}</td>
+                        <td>${escapeHtml(data.name || '-')}</td>
+                        <td>${escapeHtml(data.pharmacyCode || data.pharmacy_code || '-')}</td>
+                        <td>${escapeHtml(data.repName || data.baseRepName || data.rep_id || '-')}</td>
+                        <td>${escapeHtml(data.supervisor || '-')}</td>
+                    </tr>`;
+                }).join('');
+                card.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+                        <div><strong>كود الصيدلية: ${escapeHtml(codeKey)}</strong><div style="color:#64748b;font-size:.88rem;margin-top:3px;">${rows.length} سجلات تحمل نفس الكود</div></div>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <label style="font-weight:700;">السجل الأساسي:</label>
+                            <select class="settings-select duplicate-canonical-select" data-code="${escapeHtml(codeKey)}" style="min-width:320px;max-width:100%;">${options}</select>
+                            <button type="button" class="btn-local btn-red merge-duplicate-pharmacy-btn" data-code="${escapeHtml(codeKey)}"><i class="ph ph-git-merge"></i> دمج المجموعة</button>
+                        </div>
+                    </div>
+                    <div class="table-wrap"><table class="settings-table"><thead><tr><th>Document_ID</th><th>الاسم</th><th>الكود</th><th>المندوب</th><th>المشرف</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
+                    <div style="margin-top:10px;color:#64748b;font-size:.86rem;">لن يتم تغيير مندوب الطلبات التاريخية. سيتم توحيد هوية الصيدلية فقط إلى السجل الأساسي المختار.</div>`;
+                host.appendChild(card);
+            });
+
+            host.querySelectorAll('.merge-duplicate-pharmacy-btn').forEach(button => {
+                button.addEventListener('click', () => mergeDuplicatePharmacyGroup(button));
+            });
+            window.dispatchEvent(new Event('admin:rows'));
+        }
+
+        async function scanDuplicatePharmacies() {
+            const button = document.getElementById('scanDuplicatePharmaciesBtn');
+            if (button) button.disabled = true;
+            setStatus('pharmacyMergeStatus', 'جاري فحص الصيدليات حسب الكود...', '#004a99');
+            try {
+                const snapshot = await getDocs(collection(db, 'pharmacies'));
+                const groups = new Map();
+                snapshot.docs.forEach(item => {
+                    const data = item.data() || {};
+                    const codeKey = normalizePharmacyMergeCode(data.pharmacyCode || data.pharmacy_code || '');
+                    if (!codeKey || codeKey === '-') return;
+                    if (!groups.has(codeKey)) groups.set(codeKey, []);
+                    groups.get(codeKey).push({ id: item.id, data });
+                });
+                duplicatePharmacyGroups.clear();
+                [...groups.entries()]
+                    .filter(([, rows]) => rows.length > 1)
+                    .sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))
+                    .forEach(([code, rows]) => duplicatePharmacyGroups.set(code, rows.sort((a, b) => a.id.localeCompare(b.id))));
+                renderDuplicatePharmacyGroups();
+                const duplicateDocs = [...duplicatePharmacyGroups.values()].reduce((sum, rows) => sum + rows.length, 0);
+                const message = duplicatePharmacyGroups.size
+                    ? `تم العثور على ${duplicatePharmacyGroups.size} كود مكرر ضمن ${duplicateDocs} سجل. اختر السجل الأساسي لكل مجموعة ثم نفذ الدمج.`
+                    : 'لا توجد أكواد صيدليات مكررة حالياً.';
+                setStatus('pharmacyMergeStatus', message, duplicatePharmacyGroups.size ? '#f59e0b' : '#10b981');
+            } catch (error) {
+                console.error('Duplicate pharmacy scan failed:', error);
+                setStatus('pharmacyMergeStatus', 'تعذر فحص الصيدليات المكررة. لم يتم تعديل أي بيانات.', '#dc2626');
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
+
+        async function collectOrdersForDuplicatePharmacyGroup(rows, codeKey) {
+            const candidates = new Map();
+            const codes = [...new Set(rows.flatMap(row => [row.data?.pharmacyCode, row.data?.pharmacy_code]).map(value => String(value || '').trim()).filter(value => value && value !== '-'))];
+            const ids = [...new Set(rows.map(row => row.id).filter(Boolean))];
+            const names = [...new Set(rows.map(row => String(row.data?.name || '').trim()).filter(Boolean))];
+            const requests = [];
+            codes.forEach(code => {
+                requests.push(getDocs(query(collection(db, 'orders'), where('pharmacyCode', '==', code))));
+                requests.push(getDocs(query(collection(db, 'orders'), where('pharmacy_code', '==', code))));
+                requests.push(getDocs(query(collection(db, 'orders'), where('customerCode', '==', code))));
+            });
+            ids.forEach(id => requests.push(getDocs(query(collection(db, 'orders'), where('pharmacyId', '==', id)))));
+            names.forEach(name => requests.push(getDocs(query(collection(db, 'orders'), where('pharmacyName', '==', name)))));
+            const results = await Promise.allSettled(requests);
+            results.forEach(result => {
+                if (result.status !== 'fulfilled') return;
+                result.value.docs.forEach(orderDoc => candidates.set(orderDoc.id, orderDoc));
+            });
+
+            const groupIds = new Set(ids);
+            const groupNames = new Set(names.map(normalizePharmacyMergeName));
+            return [...candidates.values()].filter(orderDoc => {
+                const data = orderDoc.data() || {};
+                const orderCode = normalizePharmacyMergeCode(data.pharmacyCode || data.pharmacy_code || data.customerCode || '');
+                const orderId = String(data.pharmacyId || '').trim();
+                const orderName = normalizePharmacyMergeName(data.pharmacyName || '');
+                if (groupIds.has(orderId)) return true;
+                if (orderCode && orderCode === codeKey) return true;
+                return !orderCode && groupNames.has(orderName);
+            });
+        }
+
+        async function mergeDuplicatePharmacyGroup(button) {
+            const codeKey = String(button.dataset.code || '').trim();
+            const card = button.closest('div[style*="border:1px"]') || button.parentElement?.parentElement?.parentElement;
+            const select = card?.querySelector('.duplicate-canonical-select');
+            const canonicalId = select?.value || '';
+            const originalRows = duplicatePharmacyGroups.get(codeKey) || [];
+            if (!canonicalId || originalRows.length < 2) return;
+
+            button.disabled = true;
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="ph ph-circle-notch ph-spin"></i> جاري التحقق...';
+            try {
+                const freshSnapshot = await getDocs(collection(db, 'pharmacies'));
+                const rows = freshSnapshot.docs
+                    .map(item => ({ id: item.id, data: item.data() || {} }))
+                    .filter(row => normalizePharmacyMergeCode(row.data.pharmacyCode || row.data.pharmacy_code || '') === codeKey);
+                if (rows.length < 2) {
+                    setStatus('pharmacyMergeStatus', `لم تعد مجموعة الكود ${codeKey} مكررة. أعد الفحص.`, '#f59e0b');
+                    await scanDuplicatePharmacies();
+                    return;
+                }
+                const canonical = rows.find(row => row.id === canonicalId);
+                if (!canonical) {
+                    setStatus('pharmacyMergeStatus', 'السجل الأساسي المختار لم يعد موجوداً. أعد الفحص قبل الدمج.', '#dc2626');
+                    return;
+                }
+                const duplicateIds = rows.filter(row => row.id !== canonicalId).map(row => row.id);
+                const canonicalName = String(canonical.data.name || '').trim();
+                const canonicalCode = String(canonical.data.pharmacyCode || canonical.data.pharmacy_code || codeKey).trim() || codeKey;
+                if (!confirm(`سيبقى السجل ${canonicalId} كصيدلية أساسية للكود ${canonicalCode}. سيتم تحديث كل الطلبيات المرتبطة بهذه المجموعة ثم حذف ${duplicateIds.length} سجل مكرر. هل تريد المتابعة؟`)) return;
+
+                button.innerHTML = '<i class="ph ph-circle-notch ph-spin"></i> تحديث الطلبيات...';
+                const orders = await collectOrdersForDuplicatePharmacyGroup(rows, codeKey);
+                const orderUpdates = orders.map(orderDoc => ({
+                    ref: orderDoc.ref,
+                    payload: {
+                        pharmacyId: canonicalId,
+                        pharmacyName: canonicalName || String(orderDoc.data()?.pharmacyName || '').trim(),
+                        pharmacyCode: canonicalCode,
+                        pharmacy_code: canonicalCode
+                    }
+                }));
+                const updatedOrders = await commitOrderRoutingUpdates(orderUpdates);
+
+                button.innerHTML = '<i class="ph ph-circle-notch ph-spin"></i> حذف النسخ المكررة...';
+                const previousMergedIds = Array.isArray(canonical.data.mergedFromDocumentIds) ? canonical.data.mergedFromDocumentIds : [];
+                await updateDoc(doc(db, 'pharmacies', canonicalId), {
+                    pharmacyCode: canonicalCode,
+                    pharmacy_code: canonicalCode,
+                    mergedFromDocumentIds: [...new Set([...previousMergedIds, ...duplicateIds])],
+                    lastDuplicateMergeAt: new Date()
+                });
+                await Promise.all(duplicateIds.map(id => deleteDoc(doc(db, 'pharmacies', id))));
+
+                invalidateOperationalCaches('all');
+                window.dispatchEvent(new Event('pharmacies:refresh'));
+                setStatus('pharmacyMergeStatus', `تم دمج الكود ${canonicalCode} بنجاح: تم توحيد ${updatedOrders} طلبية وحذف ${duplicateIds.length} سجل مكرر، وبقي Document_ID: ${canonicalId}.`, '#10b981');
+                await scanDuplicatePharmacies();
+            } catch (error) {
+                console.error('Duplicate pharmacy merge failed:', error);
+                setStatus('pharmacyMergeStatus', 'توقفت عملية الدمج بسبب خطأ. يتم تحديث الطلبيات أولاً ثم يبدأ حذف المكرر؛ افحص المجموعة مرة أخرى قبل إعادة المحاولة للتأكد من الحالة الحالية.', '#dc2626');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
         }
 
         const refreshPharmacyRoutingPreview = (row) => {
@@ -1998,16 +2209,15 @@
 
             try {
                 const snap = await getDocs(collection(db, 'pharmacies'));
-                const duplicate = snap.docs.some(item => {
-                    const data = item.data();
-                    const existingCode = String(data.pharmacyCode || data.pharmacy_code || '').trim();
-                    const existingName = String(data.name || '').trim();
-                    return (codeVal && existingCode === codeVal) || existingName === nameVal;
-                });
+                const duplicateByCode = codeVal && snap.docs.find(item => normalizePharmacyMergeCode(item.data()?.pharmacyCode || item.data()?.pharmacy_code || '') === normalizePharmacyMergeCode(codeVal));
+                const duplicateByName = snap.docs.find(item => normalizePharmacyMergeName(item.data()?.name || '') === normalizePharmacyMergeName(nameVal));
+                if (duplicateByCode) {
+                    alert(`يوجد سجل صيدلية بنفس الكود (${codeVal}) تحت Document_ID: ${duplicateByCode.id}. تم إيقاف الإضافة لمنع إنشاء نسخة مكررة. استخدم أداة دمج الصيدليات المكررة عند الحاجة.`);
+                    return;
+                }
+                if (duplicateByName && !confirm('توجد صيدلية بنفس الاسم ولكن بكود مختلف. هل تريد الإضافة؟')) return;
 
-                if (duplicate && !confirm('توجد صيدلية بنفس الاسم أو الكود. هل تريد الإضافة رغم ذلك؟')) return;
-
-                await addDoc(collection(db, 'pharmacies'), {
+                const newPharmacyRef = await addDoc(collection(db, 'pharmacies'), {
                     name: nameVal,
                     rep_id: repId,
                     repId,
@@ -2021,6 +2231,7 @@
                 const syncedOrders = await syncOrdersForPharmacyRoute({
                     name: nameVal,
                     pharmacyCode: codeVal || '-',
+                    pharmacyId: newPharmacyRef.id,
                     repId,
                     operationalRepName,
                     supervisorName: supervisorVal
@@ -2072,6 +2283,14 @@
             button.disabled = true;
 
             try {
+                if (codeVal && codeVal !== '-') {
+                    const pharmaciesSnap = await getDocs(collection(db, 'pharmacies'));
+                    const conflicting = pharmaciesSnap.docs.find(item => item.id !== id && normalizePharmacyMergeCode(item.data()?.pharmacyCode || item.data()?.pharmacy_code || '') === normalizePharmacyMergeCode(codeVal));
+                    if (conflicting) {
+                        alert(`لا يمكن حفظ هذا الكود لأنه موجود مسبقاً تحت Document_ID: ${conflicting.id}. استخدم أداة دمج الصيدليات المكررة بدلاً من إنشاء تكرار جديد.`);
+                        return;
+                    }
+                }
                 await updateDoc(doc(db, 'pharmacies', id), {
                     name: nameVal,
                     rep_id: repId,
@@ -2086,6 +2305,7 @@
                 const syncedOrders = await syncOrdersForPharmacyRoute({
                     name: nameVal,
                     pharmacyCode: codeVal || '-',
+                    pharmacyId: id,
                     repId,
                     operationalRepName,
                     supervisorName: supervisorVal
@@ -2172,40 +2392,98 @@
                     return;
                 }
 
-                const duplicatePharmacyCodes = duplicateValues(validRows.map(row => row.pharmacyCode));
+                const normalizedImportCodes = validRows.map(row => normalizePharmacyMergeCode(row.pharmacyCode)).filter(code => code && code !== '-');
+                const duplicatePharmacyCodes = duplicateValues(normalizedImportCodes);
+                if (duplicatePharmacyCodes.length) {
+                    setStatus('pharmaciesStatus', `❌ تم إيقاف الرفع لحماية البيانات. الملف يحتوي على أكواد صيدليات مكررة: ${duplicatePharmacyCodes.slice(0, 8).join('، ')}${duplicatePharmacyCodes.length > 8 ? '...' : ''}. صحح الملف أولاً؛ لن يسمح النظام بإنشاء Document_ID جديد لنفس الكود.`, '#dc2626');
+                    return;
+                }
+
                 const pharmacyWizardOk = await confirmImportWizard({
                     title: 'معاينة رفع الصيدليات',
-                    summary: [`عدد الصفوف المقروءة: ${excelData.length}`, `عدد الصيدليات الصالحة: ${validRows.length}`, 'سيتم تحديث master data للصيدليات بعد التأكيد.'],
-                    warnings: ['هذا الإجراء يستبدل قائمة الصيدليات الحالية حسب منطق النسخة الحالية.', ...duplicatePharmacyCodes.slice(0, 8).map(code => `كود صيدلية مكرر داخل الملف: ${code}`)],
+                    summary: [`عدد الصفوف المقروءة: ${excelData.length}`, `عدد الصيدليات الصالحة: ${validRows.length}`, 'سيتم تحديث master data مع الحفاظ على Document_ID الحالي عند تطابق الكود أو الاسم بشكل آمن.'],
+                    warnings: ['السجلات غير الموجودة في الملف ستُحذف بعد نجاح تحديث السجلات المطابقة والجديدة.'],
                     previewHeaders: ['name', 'rep_id', 'pharmacyCode', 'supervisor', 'area'],
                     previewRows: validRows,
                     confirmText: 'تنفيذ رفع الصيدليات'
                 });
                 if (!pharmacyWizardOk) return;
 
-                setStatus('pharmaciesStatus', 'الملف سليم.. جاري حذف الصيدليات القديمة...', '#004a99');
-                const snap = await getDocs(collection(db, 'pharmacies'));
-                await Promise.all(snap.docs.map(item => deleteDoc(doc(db, 'pharmacies', item.id))));
+                setStatus('pharmaciesStatus', 'جاري مطابقة الصيدليات الحالية والحفاظ على Document_ID...', '#004a99');
+                const existingSnap = await getDocs(collection(db, 'pharmacies'));
+                const existingRows = existingSnap.docs.map(item => ({ id: item.id, data: item.data() || {} }));
+                const existingByCode = new Map();
+                const existingByName = new Map();
+                existingRows.forEach(row => {
+                    const codeKey = normalizePharmacyMergeCode(row.data.pharmacyCode || row.data.pharmacy_code || '');
+                    const nameKey = normalizePharmacyMergeName(row.data.name || '');
+                    if (codeKey && codeKey !== '-') {
+                        if (!existingByCode.has(codeKey)) existingByCode.set(codeKey, []);
+                        existingByCode.get(codeKey).push(row);
+                    }
+                    if (nameKey) {
+                        if (!existingByName.has(nameKey)) existingByName.set(nameKey, []);
+                        existingByName.get(nameKey).push(row);
+                    }
+                });
+                const existingDuplicateCodes = [...existingByCode.entries()].filter(([, rows]) => rows.length > 1).map(([code]) => code);
+                if (existingDuplicateCodes.length) {
+                    setStatus('pharmaciesStatus', `❌ تم إيقاف الرفع قبل تعديل أي صيدلية. قاعدة البيانات الحالية تحتوي على أكواد مكررة (${existingDuplicateCodes.slice(0, 8).join('، ')}${existingDuplicateCodes.length > 8 ? '...' : ''}). استخدم أولاً أداة "معالجة ودمج الصيدليات المكررة حسب الكود" ثم أعد الرفع.`, '#dc2626');
+                    return;
+                }
 
-                setStatus('pharmaciesStatus', `جاري إضافة ${routeRows.length} صيدلية جديدة...`, '#f59e0b');
-                await Promise.all(routeRows.map(row => addDoc(collection(db, 'pharmacies'), {
-                    name: row.name,
-                    rep_id: row.rep_id,
-                    repId: row.rep_id,
-                    baseRepName: row.baseRepName,
-                    repName: row.operationalRepName,
-                    pharmacy_code: row.pharmacyCode || '-',
-                    pharmacyCode: row.pharmacyCode || '-',
-                    supervisor: row.supervisorName || '-',
-                    area: row.area || '-'
-                })));
+                const retainedIds = new Set();
+                const claimedExistingIds = new Set();
+                const upsertedRoutes = [];
+                let preservedCount = 0;
+                let createdCount = 0;
+
+                for (const row of routeRows) {
+                    const codeKey = normalizePharmacyMergeCode(row.pharmacyCode);
+                    const nameKey = normalizePharmacyMergeName(row.name);
+                    let match = codeKey && codeKey !== '-' ? (existingByCode.get(codeKey)?.[0] || null) : null;
+                    if (!match && nameKey) {
+                        const nameMatches = (existingByName.get(nameKey) || []).filter(item => !claimedExistingIds.has(item.id));
+                        if (nameMatches.length === 1) match = nameMatches[0];
+                    }
+                    if (match && claimedExistingIds.has(match.id)) match = null;
+
+                    const payload = {
+                        name: row.name,
+                        rep_id: row.rep_id,
+                        repId: row.rep_id,
+                        baseRepName: row.baseRepName,
+                        repName: row.operationalRepName,
+                        pharmacy_code: row.pharmacyCode || '-',
+                        pharmacyCode: row.pharmacyCode || '-',
+                        supervisor: row.supervisorName || '-',
+                        area: row.area || '-'
+                    };
+
+                    let pharmacyId;
+                    if (match) {
+                        pharmacyId = match.id;
+                        claimedExistingIds.add(match.id);
+                        retainedIds.add(match.id);
+                        await setDoc(doc(db, 'pharmacies', match.id), payload);
+                        preservedCount += 1;
+                    } else {
+                        const newRef = await addDoc(collection(db, 'pharmacies'), payload);
+                        pharmacyId = newRef.id;
+                        createdCount += 1;
+                    }
+                    upsertedRoutes.push({ ...row, pharmacyId });
+                }
+
+                const staleDocs = existingSnap.docs.filter(item => !retainedIds.has(item.id));
+                if (staleDocs.length) await Promise.all(staleDocs.map(item => deleteDoc(doc(db, 'pharmacies', item.id))));
 
                 setStatus('pharmaciesStatus', 'تم تحديث الصيدليات. جاري مزامنة طلبيات مندوب "آخرين" السابقة...', '#f59e0b');
-                const syncedOrders = await syncImportedOthersRoutes(routeRows);
+                const syncedOrders = await syncImportedOthersRoutes(upsertedRoutes);
                 invalidateOperationalCaches('all');
                 fileInput.value = '';
                 const syncText = syncedOrders ? ` وتم تصحيح ربط ${syncedOrders} طلبية سابقة لمندوب "آخرين".` : '';
-                setStatus('pharmaciesStatus', `تم التحديث بنجاح. تمت إضافة ${routeRows.length} صيدلية إلى النظام.${syncText}`, '#10b981');
+                setStatus('pharmaciesStatus', `تم التحديث بنجاح: تم الحفاظ على Document_ID لـ ${preservedCount} صيدلية، وإنشاء ${createdCount} صيدلية جديدة، وحذف ${staleDocs.length} سجل لم يعد موجوداً في الملف.${syncText}`, '#10b981');
                 await loadPharmacies();
             } catch (error) {
                 console.error('Error during pharmacies import:', error);
@@ -2508,6 +2786,7 @@
             renderProductsTable();
         });
         document.getElementById('reloadPharmaciesBtn').addEventListener('click', loadPharmacies);
+        document.getElementById('scanDuplicatePharmaciesBtn')?.addEventListener('click', scanDuplicatePharmacies);
         document.getElementById('addPharmacyBtn').addEventListener('click', addNewPharmacy);
         document.getElementById('newPharmacyRep')?.addEventListener('change', refreshNewPharmacyRoutingPreview);
         document.getElementById('newPharmacySupervisor')?.addEventListener('input', refreshNewPharmacyRoutingPreview);

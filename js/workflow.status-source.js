@@ -1,4 +1,4 @@
-import { db, collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter, documentId } from './firebase.js';
+import { db, collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter, documentId, onSnapshot } from './firebase.js';
 
 const COMPANY_LOGO_URL = 'https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png';
 const WORKFLOW_PAGE = document.body?.dataset?.page || '';
@@ -203,7 +203,7 @@ function compactOrder(order = {}) {
 }
 
 function sortOrders(orders) {
-    return [...orders].sort((a, b) => (normalizeDate(b.createdAt)?.getTime() || 0) - (normalizeDate(a.createdAt)?.getTime() || 0));
+    return [...orders].sort((a, b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
 }
 
 function readCache(key) {
@@ -328,6 +328,18 @@ function normalizeDate(value) {
 function formatDateTime(value) {
     const d = normalizeDate(value);
     return d ? d.toLocaleString('en-GB') : '-';
+}
+
+function getOrderLastActionDate(order = {}) {
+    const dates = [order.changedAt, order.updatedAt, order.createdAt]
+        .map(value => normalizeDate(value))
+        .filter(Boolean);
+    if (!dates.length) return null;
+    return new Date(Math.max(...dates.map(date => date.getTime())));
+}
+
+function formatOrderLastAction(order = {}) {
+    return formatDateTime(getOrderLastActionDate(order));
 }
 
 function toDateInputValue(date = new Date()) {
@@ -916,7 +928,44 @@ function subscribeOrders(onChange) {
         const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 9] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 10] : ['ordersStaffBody', 12];
         setLoadingRow(target[0], target[1]);
     }
-    refreshOrdersFromFirebase();
+
+    if (state.unsub) {
+        try { state.unsub(); } catch (_) {}
+        state.unsub = null;
+    }
+
+    const sources = Array.isArray(currentPageOrderSource()) ? currentPageOrderSource() : [currentPageOrderSource()];
+    const sourceMaps = new Map();
+    const unsubscribers = sources.map((source, sourceIndex) => onSnapshot(source, snapshot => {
+        const rows = new Map();
+        snapshot.forEach(item => rows.set(item.id, { id: item.id, ...item.data() }));
+        sourceMaps.set(sourceIndex, rows);
+        if (sourceMaps.size < sources.length) return;
+
+        const liveById = new Map();
+        sourceMaps.forEach(map => map.forEach((order, id) => liveById.set(id, order)));
+
+        if (WORKFLOW_PAGE === 'orders-staff' && state.allOrdersLoaded) {
+            const merged = new Map(state.orders.map(order => [order.id, order]));
+            liveById.forEach((order, id) => merged.set(id, order));
+            state.orders = sortOrders(Array.from(merged.values()));
+        } else {
+            state.orders = sortOrders(Array.from(liveById.values()));
+        }
+
+        state.lastRefreshAt = Date.now();
+        writeCache(PAGE_CACHE_KEY, state.orders);
+        showDataModeNotice(`مزامنة مباشرة: ${new Date().toLocaleTimeString('en-GB')} — ${state.orders.length} طلبية`);
+        state.onOrdersChange?.();
+    }, error => {
+        console.warn(`Workflow realtime listener failed (${WORKFLOW_PAGE})`, error);
+        sourceMaps.set(sourceIndex, new Map());
+        showDataModeNotice('تعذر التحديث المباشر مؤقتًا؛ آخر بيانات مخزنة ما زالت ظاهرة.');
+    }));
+
+    state.unsub = () => unsubscribers.forEach(unsubscribe => {
+        try { unsubscribe(); } catch (_) {}
+    });
 }
 
 async function ensureOrdersStaffAllLoaded() {
@@ -1134,7 +1183,7 @@ function openMarketOrderModal(order) {
     state.selectedOrder = order;
     $('marketModalTitle').textContent = `طلبية ${order.id.substring(0, 8).toUpperCase()}`;
     $('marketModalMeta').innerHTML = `
-        <span><b>التاريخ:</b> ${escapeHtml(formatDateTime(order.createdAt))}</span>
+        <span><b>آخر تحديث:</b> ${escapeHtml(formatOrderLastAction(order))}</span>
         <span><b>المندوب:</b> ${escapeHtml(order.repName || '-')}</span>
         <span><b>الصيدلية:</b> ${escapeHtml(order.pharmacyName || '-')}</span>
         <span><b>كود الصيدلية:</b> ${escapeHtml(getPharmacyCode(order) || '-')}</span>
@@ -1373,7 +1422,7 @@ function renderMarketOrders() {
             markReservedWorkflowRow(tr, order);
             tr.innerHTML = `
                 <td data-label="تحديد"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
-                <td data-label="التاريخ">${escapeHtml(formatDateTime(order.createdAt))}</td>
+                <td data-label="آخر تحديث">${escapeHtml(formatOrderLastAction(order))}</td>
                 <td data-label="المندوب">${escapeHtml(order.repName || '-')}</td>
                 <td data-label="الصيدلية" class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
                 <td data-label="الأصناف"><button class="action-btn view-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
@@ -1525,7 +1574,7 @@ function renderFinanceOrders() {
         chunk.forEach(order => {
             const tr = document.createElement('tr');
             markReservedWorkflowRow(tr, order);
-            const [financeDate, financeTime] = splitFinanceDateTime(order.createdAt);
+            const [financeDate, financeTime] = splitFinanceDateTime(getOrderLastActionDate(order));
             const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
             const isRejected = order.status === 'finance_rejected' || (order.financeStatus || '') === 'finance_rejected';
             const isReturnedToFinance = order.status === 'returned_to_finance' || (order.financeStatus || '') === 'returned_to_finance';
@@ -1609,7 +1658,7 @@ function financeTimestamp(value) {
 }
 
 function financeSortValue(order, key) {
-    const timestamp = financeTimestamp(order.createdAt);
+    const timestamp = financeTimestamp(getOrderLastActionDate(order));
     if (key === 'date') return new Date(timestamp).setHours(0, 0, 0, 0);
     if (key === 'time') {
         const date = new Date(timestamp);
@@ -1811,7 +1860,7 @@ function renderOrdersStaffRows() {
                 : `<span class="status-badge orders_staff_hidden">مقفلة / تمت الفوترة</span>`;
             tr.innerHTML = `
                 <td data-label="تحديد"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
-                <td data-label="التاريخ" class="staff-date-cell">${escapeHtml(formatDateTime(order.createdAt))}</td>
+                <td data-label="آخر تحديث" class="staff-date-cell">${escapeHtml(formatOrderLastAction(order))}</td>
                 <td data-label="الصيدلية" class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
                 <td data-label="المندوب" class="staff-rep-cell" title="${escapeHtml(order.repName || order.representativeName || '-')}">${escapeHtml(order.repName || order.representativeName || '-')}</td>
                 <td data-label="الحالة"><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span>${reservedOrderBadgeHtml(order)}</td>
