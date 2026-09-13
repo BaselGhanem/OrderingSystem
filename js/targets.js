@@ -12,7 +12,9 @@ const DEFAULT_REP_MANAGER_MAP = {
     [`يزيد الرقب`]: `محمد طوالبه`,
     [`تامر عقل`]: `محمد طوالبه`,
     [`محمد ابو يامين`]: `عبدالله الناطور`,
-    [`مراد الظاهر`]: `عبدالله الناطور`
+    [`مراد الظاهر`]: `عبدالله الناطور`,
+    [`آخرين - عبدالله`]: `عبدالله الناطور`,
+    [`آخرين - محمد`]: `محمد طوالبه`
 };
 
 const targetState = {
@@ -204,21 +206,33 @@ async function loadBaseData() {
 
     const activeRepIds = new Set();
     const activeRepNames = new Set();
+    const pharmacyRepRoutes = [];
     pharmaciesSnap.forEach(pharmacyDoc => {
         const pharmacy = pharmacyDoc.data() || {};
         const repId = String(pharmacy.rep_id || pharmacy.repId || ``).trim();
-        const repName = normalizeText(pharmacy.repName || pharmacy.rep_name || pharmacy.rep);
+        const rawRepName = String(pharmacy.repName || pharmacy.rep_name || pharmacy.rep || ``).trim();
+        const repName = normalizeText(rawRepName);
         if (repId) activeRepIds.add(repId);
         if (repName) activeRepNames.add(repName);
+        if (repId && repName.startsWith(`آخرين -`)) pharmacyRepRoutes.push({ repId, repName: rawRepName });
     });
 
+    const repsById = new Map();
+    repsSnap.forEach(repDoc => repsById.set(repDoc.id, { id: repDoc.id, ...repDoc.data() }));
+    const hasVirtualOthers = pharmacyRepRoutes.length > 0;
     const repsByName = new Map();
     repsSnap.forEach(repDoc => {
-        const rep = { id: repDoc.id, ...repDoc.data() };
-        const repName = normalizeText(rep.name);
+        const rep = repsById.get(repDoc.id);
+        const repName = normalizeText(rep?.name);
         if (!repName) return;
         if (!activeRepIds.has(repDoc.id) && !activeRepNames.has(repName)) return;
+        if (hasVirtualOthers && repName === `آخرين`) return;
         repsByName.set(repName, rep);
+    });
+    pharmacyRepRoutes.forEach(route => {
+        const baseRep = repsById.get(route.repId);
+        if (!baseRep) return;
+        repsByName.set(normalizeText(route.repName), { ...baseRep, name: route.repName, virtualRoute: true });
     });
     targetState.reps = Object.entries(targetState.repManagerMap)
         .filter(([name, manager]) => normalizeText(manager) === normalizeText(targetState.supervisorName) && repsByName.has(normalizeText(name)))

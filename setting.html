@@ -554,6 +554,22 @@
             white-space: nowrap;
         }
 
+        .pharmacy-routing-note {
+            display: block;
+            margin-top: 6px;
+            color: #64748b;
+            font-size: .72rem;
+            font-weight: 800;
+            line-height: 1.45;
+        }
+        .pharmacy-routing-note.is-routed { color: #087174; }
+        .pharmacy-routing-note.needs-supervisor { color: #b45309; }
+        .others-routing-info {
+            margin-top: 14px;
+            border-color: rgba(9,153,153,.24) !important;
+            background: #f0fdfa !important;
+        }
+
         .row-edited td { background: #ecfeff !important; }
 
         @media (min-width: 1440px) {
@@ -751,6 +767,9 @@
                 <div id="pharmacyMatches" class="pharmacy-matches"></div>
                 <button type="button" id="morePharmaciesBtn" class="btn-local btn-muted" hidden>عرض المزيد من النتائج</button>
             </div>
+            <div class="info-panel others-routing-info">
+                <strong>مندوب "آخرين":</strong> اختر المشرف للصيدلية، وسيحفظ النظام الاسم التشغيلي تلقائيًا كـ <code>آخرين - عبدالله</code> أو <code>آخرين - محمد</code> مع إبقاء نفس حساب الدخول و<code>rep_id</code>.
+            </div>
             <div id="pharmaciesStatus" class="status-box"></div>
             <div class="table-wrap pharmacies-table-wrap">
                 <table class="settings-table">
@@ -802,10 +821,11 @@
                         <select id="newPharmacyRep" class="settings-select">
                             <option value="">جاري تحميل المناديب...</option>
                         </select>
+                        <small id="newPharmacyRoutingPreview" class="pharmacy-routing-note"></small>
                     </div>
                     <div class="settings-field">
                         <label for="newPharmacySupervisor">المشرف</label>
-                        <input type="text" id="newPharmacySupervisor" class="table-input" placeholder="اختياري">
+                        <input type="text" id="newPharmacySupervisor" class="table-input" list="supervisorNamesList" placeholder="عبدالله الناطور أو محمد طوالبه">
                     </div>
                     <div class="settings-field">
                         <label for="newPharmacyArea">المنطقة</label>
@@ -884,13 +904,19 @@
         </section>
     </div>
 
+    <datalist id="supervisorNamesList">
+        <option value="عبدالله الناطور"></option>
+        <option value="محمد طوالبه"></option>
+    </datalist>
+
     <script type="module">
-        import { db, collection, getDocs, deleteDoc, setDoc, doc, addDoc, updateDoc, getDoc } from './js/firebase.js';
+        import { db, collection, getDocs, deleteDoc, setDoc, doc, addDoc, updateDoc, getDoc, query, where, writeBatch } from './js/firebase.js';
 
         const repManagerMap = {
             "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
             "محمد الفاعوري": "عبدالله الناطور", "اجود التلهوني": "عبدالله الناطور", "يزيد الرقب": "محمد طوالبه",
-            "تامر عقل": "محمد طوالبه", "محمد ابو يامين": "عبدالله الناطور", "مراد الظاهر": "عبدالله الناطور"
+            "تامر عقل": "محمد طوالبه", "محمد ابو يامين": "عبدالله الناطور", "مراد الظاهر": "عبدالله الناطور",
+            "آخرين - عبدالله": "عبدالله الناطور", "آخرين - محمد": "محمد طوالبه"
         };
 
         let repsOptions = [];
@@ -920,6 +946,164 @@
             return match ? match.name : '';
         };
 
+        const normalizeRoutingName = (value = '') => String(value || '')
+            .trim()
+            .replace(/[أإآ]/g, 'ا')
+            .replace(/[–—]/g, '-')
+            .replace(/\s*-\s*/g, ' - ')
+            .replace(/\s+/g, ' ')
+            .toLocaleLowerCase('ar');
+
+        const isOthersRepName = (value = '') => {
+            const normalized = normalizeRoutingName(value);
+            return normalized === 'اخرين' || normalized.startsWith('اخرين -');
+        };
+
+        const canonicalSupervisorName = (value = '') => {
+            const normalized = normalizeRoutingName(value);
+            if (normalized.includes('عبدالله')) return 'عبدالله الناطور';
+            if (normalized.includes('محمد')) return 'محمد طوالبه';
+            return String(value || '').trim();
+        };
+
+        const deriveOperationalRepName = (baseRepName = '', supervisorName = '') => {
+            if (!isOthersRepName(baseRepName)) return String(baseRepName || '').trim();
+            const supervisor = canonicalSupervisorName(supervisorName);
+            if (supervisor === 'عبدالله الناطور') return 'آخرين - عبدالله';
+            if (supervisor === 'محمد طوالبه') return 'آخرين - محمد';
+            return 'آخرين';
+        };
+
+        const resolveSupervisorForPharmacy = (baseRepName = '', enteredSupervisor = '') => {
+            const rawEntered = String(enteredSupervisor || '').trim();
+            const entered = rawEntered && rawEntered !== '-' ? canonicalSupervisorName(rawEntered) : '';
+            if (entered) return entered;
+            return repManagerMap[baseRepName] || '-';
+        };
+
+        const validateOthersRouting = (baseRepName, supervisorName) => {
+            if (!isOthersRepName(baseRepName)) return true;
+            const canonical = canonicalSupervisorName(supervisorName);
+            return canonical === 'عبدالله الناطور' || canonical === 'محمد طوالبه';
+        };
+
+        async function commitOrderRoutingUpdates(updates = []) {
+            let updated = 0;
+            for (let index = 0; index < updates.length; index += 400) {
+                const batch = writeBatch(db);
+                updates.slice(index, index + 400).forEach(item => batch.update(item.ref, item.payload));
+                await batch.commit();
+                updated += Math.min(400, updates.length - index);
+            }
+            return updated;
+        }
+
+        async function syncOrdersForPharmacyRoute({ name, pharmacyCode, repId, operationalRepName, supervisorName }) {
+            if (!isOthersRepName(operationalRepName) || !operationalRepName.includes('-')) return 0;
+            const snapshots = [];
+            const normalizedCode = String(pharmacyCode || '').trim();
+            const normalizedName = String(name || '').trim();
+            if (normalizedCode && normalizedCode !== '-') {
+                snapshots.push(await getDocs(query(collection(db, 'orders'), where('pharmacyCode', '==', normalizedCode))));
+            }
+            if (normalizedName) {
+                snapshots.push(await getDocs(query(collection(db, 'orders'), where('pharmacyName', '==', normalizedName))));
+            }
+
+            const seen = new Set();
+            const updates = [];
+            snapshots.forEach(snapshot => snapshot.docs.forEach(orderDoc => {
+                if (seen.has(orderDoc.id)) return;
+                seen.add(orderDoc.id);
+                const data = orderDoc.data() || {};
+                const orderRepId = String(data.repId || data.rep_id || '').trim();
+                if (orderRepId && repId && orderRepId !== repId && !isOthersRepName(data.repName)) return;
+                if (!orderRepId && !isOthersRepName(data.repName)) return;
+                if (String(data.repName || '').trim() === operationalRepName && String(data.managerName || '').trim() === supervisorName) return;
+                updates.push({ ref: orderDoc.ref, payload: { repName: operationalRepName, managerName: supervisorName } });
+            }));
+            return commitOrderRoutingUpdates(updates);
+        }
+
+        async function syncImportedOthersRoutes(routeRows = []) {
+            const usableRoutes = routeRows.filter(row => isOthersRepName(row.baseRepName) && row.operationalRepName.includes('-'));
+            if (!usableRoutes.length) return 0;
+
+            // لا نستخدم مفتاحًا مكررًا لإعادة توجيه الطلبات التاريخية حتى لا ننسب طلبية لصيدلية خاطئة.
+            const codeCounts = new Map();
+            const nameCounts = new Map();
+            usableRoutes.forEach(row => {
+                const code = String(row.pharmacyCode || '').trim();
+                const name = normalizeRoutingName(row.name);
+                if (code && code !== '-') codeCounts.set(code, (codeCounts.get(code) || 0) + 1);
+                if (name) nameCounts.set(name, (nameCounts.get(name) || 0) + 1);
+            });
+
+            const byCode = new Map();
+            const byName = new Map();
+            usableRoutes.forEach(row => {
+                const code = String(row.pharmacyCode || '').trim();
+                const name = normalizeRoutingName(row.name);
+                if (code && code !== '-' && codeCounts.get(code) === 1) byCode.set(code, row);
+                if (name && nameCounts.get(name) === 1) byName.set(name, row);
+            });
+
+            const ordersSnap = await getDocs(query(collection(db, 'orders'), where('repName', 'in', ['آخرين', 'اخرين', 'آخرين - عبدالله', 'آخرين - محمد'])));
+            const updates = [];
+            ordersSnap.docs.forEach(orderDoc => {
+                const data = orderDoc.data() || {};
+                const code = String(data.pharmacyCode || data.pharmacy_code || '').trim();
+                const name = normalizeRoutingName(data.pharmacyName || '');
+                const route = (code && byCode.get(code)) || byName.get(name);
+                if (!route) return;
+                if (String(data.repName || '').trim() === route.operationalRepName && String(data.managerName || '').trim() === route.supervisorName) return;
+                updates.push({ ref: orderDoc.ref, payload: { repName: route.operationalRepName, managerName: route.supervisorName } });
+            });
+            return commitOrderRoutingUpdates(updates);
+        }
+
+        const refreshPharmacyRoutingPreview = (row) => {
+            const note = row?.querySelector('.pharmacy-routing-note');
+            if (!note) return;
+            const repId = row.querySelector('.pharmacy-rep')?.value || '';
+            const baseRepName = getRepNameById(repId);
+            const supervisorName = row.querySelector('.pharmacy-supervisor')?.value || '';
+            note.classList.remove('is-routed', 'needs-supervisor');
+            if (!isOthersRepName(baseRepName)) {
+                note.textContent = '';
+                return;
+            }
+            const operational = deriveOperationalRepName(baseRepName, supervisorName);
+            if (operational.includes('-')) {
+                note.textContent = `سيظهر في الطلبات: ${operational}`;
+                note.classList.add('is-routed');
+            } else {
+                note.textContent = 'حدد المشرف: عبدالله الناطور أو محمد طوالبه';
+                note.classList.add('needs-supervisor');
+            }
+        };
+
+        const refreshNewPharmacyRoutingPreview = () => {
+            const note = document.getElementById('newPharmacyRoutingPreview');
+            if (!note) return;
+            const repId = document.getElementById('newPharmacyRep')?.value || '';
+            const baseRepName = getRepNameById(repId);
+            const supervisorName = document.getElementById('newPharmacySupervisor')?.value || '';
+            note.classList.remove('is-routed', 'needs-supervisor');
+            if (!isOthersRepName(baseRepName)) {
+                note.textContent = '';
+                return;
+            }
+            const operational = deriveOperationalRepName(baseRepName, supervisorName);
+            if (operational.includes('-')) {
+                note.textContent = `سيظهر في الطلبات: ${operational}`;
+                note.classList.add('is-routed');
+            } else {
+                note.textContent = 'حدد المشرف: عبدالله الناطور أو محمد طوالبه';
+                note.classList.add('needs-supervisor');
+            }
+        };
+
         const getRepSelectOptionsHtml = (selectedValue = '') => {
             const normalizedSelected = String(selectedValue || '').trim();
             const baseOptions = ['<option value="">-- اختر المندوب --</option>'];
@@ -946,6 +1130,7 @@
             if (repsOptions.length === 0) {
                 select.innerHTML = '<option value="">لا توجد مناديب في قاعدة البيانات</option>';
             }
+            refreshNewPharmacyRoutingPreview();
         };
 
         const setStatus = (id, message, color = '#64748b', asHtml = false) => {
@@ -1745,8 +1930,8 @@
                         <td class="doc-id-text">${escapeHtml(pharmacy.id)}</td>
                         <td><input type="text" class="table-input pharmacy-name" value="${escapeHtml(pharmacy.name || '')}"></td>
                         <td><input type="text" class="table-input pharmacy-code" value="${escapeHtml(pharmacyCode)}"></td>
-                        <td><select class="table-select pharmacy-rep">${getRepSelectOptionsHtml(repId)}</select></td>
-                        <td><input type="text" class="table-input pharmacy-supervisor" value="${escapeHtml(pharmacy.supervisor || '')}"></td>
+                        <td><select class="table-select pharmacy-rep">${getRepSelectOptionsHtml(repId)}</select><small class="pharmacy-routing-note"></small></td>
+                        <td><input type="text" class="table-input pharmacy-supervisor" list="supervisorNamesList" value="${escapeHtml(pharmacy.supervisor || '')}"></td>
                         <td><input type="text" class="table-input pharmacy-area" value="${escapeHtml(pharmacy.area || '')}"></td>
                         <td style="text-align:center; white-space:nowrap;">
                             <span class="table-actions-cell">
@@ -1756,6 +1941,11 @@
                         </td>
                     `;
                     tableBody.appendChild(tr);
+                    const repSelectEl = tr.querySelector('.pharmacy-rep');
+                    const supervisorInputEl = tr.querySelector('.pharmacy-supervisor');
+                    repSelectEl?.addEventListener('change', () => refreshPharmacyRoutingPreview(tr));
+                    supervisorInputEl?.addEventListener('input', () => refreshPharmacyRoutingPreview(tr));
+                    refreshPharmacyRoutingPreview(tr);
                 });
 
                 tableBody.querySelectorAll('.save-pharmacy-btn').forEach(button => {
@@ -1787,12 +1977,18 @@
             const nameVal = nameInput.value.trim();
             const codeVal = codeInput.value.trim();
             const repId = repSelect.value.trim();
-            const repName = getRepNameById(repId);
-            const supervisorVal = supervisorInput.value.trim() || repManagerMap[repName] || '-';
+            const baseRepName = getRepNameById(repId);
+            const supervisorVal = resolveSupervisorForPharmacy(baseRepName, supervisorInput.value);
+            const operationalRepName = deriveOperationalRepName(baseRepName, supervisorVal);
             const areaVal = areaInput.value.trim() || '-';
 
             if (!nameVal || !repId) {
                 alert('اسم الصيدلية واختيار المندوب حقول إجبارية.');
+                return;
+            }
+            if (!validateOthersRouting(baseRepName, supervisorVal)) {
+                alert('للمندوب "آخرين" يجب تحديد المشرف: عبدالله الناطور أو محمد طوالبه.');
+                supervisorInput.focus();
                 return;
             }
 
@@ -1815,11 +2011,19 @@
                     name: nameVal,
                     rep_id: repId,
                     repId,
-                    repName,
+                    baseRepName,
+                    repName: operationalRepName,
                     pharmacy_code: codeVal || '-',
                     pharmacyCode: codeVal || '-',
                     supervisor: supervisorVal,
                     area: areaVal
+                });
+                const syncedOrders = await syncOrdersForPharmacyRoute({
+                    name: nameVal,
+                    pharmacyCode: codeVal || '-',
+                    repId,
+                    operationalRepName,
+                    supervisorName: supervisorVal
                 });
 
                 nameInput.value = '';
@@ -1827,8 +2031,10 @@
                 repSelect.value = '';
                 supervisorInput.value = '';
                 areaInput.value = '';
+                refreshNewPharmacyRoutingPreview();
                 invalidateOperationalCaches('all');
-                setStatus('pharmaciesStatus', 'تمت إضافة الصيدلية ومزامنتها مع Firebase بنجاح.', '#10b981');
+                const syncText = syncedOrders ? ` وتم تصحيح ربط ${syncedOrders} طلبية سابقة.` : '';
+                setStatus('pharmaciesStatus', `تمت إضافة الصيدلية ومزامنتها مع Firebase بنجاح.${syncText}`, '#10b981');
                 await loadPharmacies();
             } catch (error) {
                 console.error('Error adding pharmacy:', error);
@@ -1845,12 +2051,19 @@
             const nameVal = row.querySelector('.pharmacy-name').value.trim();
             const codeVal = row.querySelector('.pharmacy-code').value.trim();
             const repId = row.querySelector('.pharmacy-rep').value.trim();
-            const repName = getRepNameById(repId);
-            const supervisorVal = row.querySelector('.pharmacy-supervisor').value.trim() || repManagerMap[repName] || '-';
+            const baseRepName = getRepNameById(repId);
+            const supervisorInput = row.querySelector('.pharmacy-supervisor');
+            const supervisorVal = resolveSupervisorForPharmacy(baseRepName, supervisorInput.value);
+            const operationalRepName = deriveOperationalRepName(baseRepName, supervisorVal);
             const areaVal = row.querySelector('.pharmacy-area').value.trim() || '-';
 
             if (!nameVal || !repId) {
                 alert('لا يمكن ترك اسم الصيدلية أو المندوب فارغاً.');
+                return;
+            }
+            if (!validateOthersRouting(baseRepName, supervisorVal)) {
+                alert('للمندوب "آخرين" يجب تحديد المشرف: عبدالله الناطور أو محمد طوالبه.');
+                supervisorInput.focus();
                 return;
             }
 
@@ -1863,15 +2076,24 @@
                     name: nameVal,
                     rep_id: repId,
                     repId,
-                    repName,
+                    baseRepName,
+                    repName: operationalRepName,
                     pharmacy_code: codeVal || '-',
                     pharmacyCode: codeVal || '-',
                     supervisor: supervisorVal,
                     area: areaVal
                 });
+                const syncedOrders = await syncOrdersForPharmacyRoute({
+                    name: nameVal,
+                    pharmacyCode: codeVal || '-',
+                    repId,
+                    operationalRepName,
+                    supervisorName: supervisorVal
+                });
                 invalidateOperationalCaches('all');
                 button.innerText = 'تم';
-                setStatus('pharmaciesStatus', 'تم حفظ تعديل الصيدلية ومزامنته مع Firebase بنجاح.', '#10b981');
+                const syncText = syncedOrders ? ` وتم تصحيح ربط ${syncedOrders} طلبية سابقة.` : '';
+                setStatus('pharmaciesStatus', `تم حفظ تعديل الصيدلية ومزامنته مع Firebase بنجاح.${syncText}`, '#10b981');
                 await loadPharmacies();
             } catch (error) {
                 console.error('Error updating pharmacy:', error);
@@ -1933,6 +2155,23 @@
                     return;
                 }
 
+                const routeRows = validRows.map(row => {
+                    const baseRepName = getRepNameById(row.rep_id) || row.rep_id;
+                    const supervisorName = resolveSupervisorForPharmacy(baseRepName, row.supervisor);
+                    return {
+                        ...row,
+                        baseRepName,
+                        supervisorName,
+                        operationalRepName: deriveOperationalRepName(baseRepName, supervisorName)
+                    };
+                });
+                const invalidOthersRows = routeRows.filter(row => isOthersRepName(row.baseRepName) && !validateOthersRouting(row.baseRepName, row.supervisorName));
+                if (invalidOthersRows.length) {
+                    const examples = invalidOthersRows.slice(0, 6).map(row => row.name).join('، ');
+                    setStatus('pharmaciesStatus', `❌ تم إيقاف الرفع قبل حذف أي بيانات. يوجد ${invalidOthersRows.length} صيدلية للمندوب "آخرين" بدون مشرف صحيح (عبدالله الناطور أو محمد طوالبه). أمثلة: ${examples}`, '#dc2626');
+                    return;
+                }
+
                 const duplicatePharmacyCodes = duplicateValues(validRows.map(row => row.pharmacyCode));
                 const pharmacyWizardOk = await confirmImportWizard({
                     title: 'معاينة رفع الصيدليات',
@@ -1948,24 +2187,25 @@
                 const snap = await getDocs(collection(db, 'pharmacies'));
                 await Promise.all(snap.docs.map(item => deleteDoc(doc(db, 'pharmacies', item.id))));
 
-                setStatus('pharmaciesStatus', `جاري إضافة ${validRows.length} صيدلية جديدة...`, '#f59e0b');
-                await Promise.all(validRows.map(row => {
-                    const repName = getRepNameById(row.rep_id) || row.rep_id;
-                    return addDoc(collection(db, 'pharmacies'), {
-                        name: row.name,
-                        rep_id: row.rep_id,
-                        repId: row.rep_id,
-                        repName,
-                        pharmacy_code: row.pharmacyCode || '-',
-                        pharmacyCode: row.pharmacyCode || '-',
-                        supervisor: row.supervisor || '-',
-                        area: row.area || '-'
-                    });
-                }));
+                setStatus('pharmaciesStatus', `جاري إضافة ${routeRows.length} صيدلية جديدة...`, '#f59e0b');
+                await Promise.all(routeRows.map(row => addDoc(collection(db, 'pharmacies'), {
+                    name: row.name,
+                    rep_id: row.rep_id,
+                    repId: row.rep_id,
+                    baseRepName: row.baseRepName,
+                    repName: row.operationalRepName,
+                    pharmacy_code: row.pharmacyCode || '-',
+                    pharmacyCode: row.pharmacyCode || '-',
+                    supervisor: row.supervisorName || '-',
+                    area: row.area || '-'
+                })));
 
+                setStatus('pharmaciesStatus', 'تم تحديث الصيدليات. جاري مزامنة طلبيات مندوب "آخرين" السابقة...', '#f59e0b');
+                const syncedOrders = await syncImportedOthersRoutes(routeRows);
                 invalidateOperationalCaches('all');
                 fileInput.value = '';
-                setStatus('pharmaciesStatus', `تم التحديث بنجاح. تمت إضافة ${validRows.length} صيدلية إلى النظام.`, '#10b981');
+                const syncText = syncedOrders ? ` وتم تصحيح ربط ${syncedOrders} طلبية سابقة لمندوب "آخرين".` : '';
+                setStatus('pharmaciesStatus', `تم التحديث بنجاح. تمت إضافة ${routeRows.length} صيدلية إلى النظام.${syncText}`, '#10b981');
                 await loadPharmacies();
             } catch (error) {
                 console.error('Error during pharmacies import:', error);
@@ -2269,6 +2509,8 @@
         });
         document.getElementById('reloadPharmaciesBtn').addEventListener('click', loadPharmacies);
         document.getElementById('addPharmacyBtn').addEventListener('click', addNewPharmacy);
+        document.getElementById('newPharmacyRep')?.addEventListener('change', refreshNewPharmacyRoutingPreview);
+        document.getElementById('newPharmacySupervisor')?.addEventListener('input', refreshNewPharmacyRoutingPreview);
         document.getElementById('pharmaciesImportBtn').addEventListener('click', importPharmacies);
         document.getElementById(`exportProductsRawBtn`).addEventListener(`click`, () => downloadCollection(`products`, `المنتجات`, true));
         document.getElementById('exportPharmaciesBtn').addEventListener('click', () => downloadCollection('pharmacies', 'الصيدليات'));

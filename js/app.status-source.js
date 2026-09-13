@@ -219,8 +219,38 @@ const DEFAULT_REP_MANAGER_MAP = {
     "يزيد الرقب": "محمد طوالبه",
     "تامر عقل": "محمد طوالبه",
     "محمد ابو يامين": "عبدالله الناطور",
-    "مراد الظاهر": "عبدالله الناطور"
+    "مراد الظاهر": "عبدالله الناطور",
+    "آخرين - عبدالله": "عبدالله الناطور",
+    "آخرين - محمد": "محمد طوالبه"
 };
+const SUPERVISOR_TARGET_NAMES = [`عبدالله الناطور`, `محمد طوالبه`];
+
+function normalizeOperationalRepName(value = ``) {
+    return String(value || ``)
+        .trim()
+        .replace(/[أإآ]/g, `ا`)
+        .replace(/[–—]/g, `-`)
+        .replace(/\s*-\s*/g, ` - `)
+        .replace(/\s+/g, ` `)
+        .toLocaleLowerCase(`ar`);
+}
+
+function isOthersRepName(value = ``) {
+    const normalized = normalizeOperationalRepName(value);
+    return normalized === `اخرين` || normalized.startsWith(`اخرين -`);
+}
+
+function getOperationalRepNameForPharmacy(pharmacy = {}, fallbackRepName = ``) {
+    const storedName = String(pharmacy.repName || pharmacy.rep_name || pharmacy.rep || ``).trim();
+    if (isOthersRepName(storedName) && storedName.includes(`-`)) return storedName;
+    if (!isOthersRepName(fallbackRepName) && !isOthersRepName(storedName)) return fallbackRepName || storedName;
+
+    const supervisor = String(pharmacy.supervisor || pharmacy.supervisorName || pharmacy.managerName || ``).trim();
+    if (supervisor.includes(`عبدالله`)) return `آخرين - عبدالله`;
+    if (supervisor.includes(`محمد`)) return `آخرين - محمد`;
+    return fallbackRepName || storedName || `آخرين`;
+}
+
 let repManagerMap = { ...DEFAULT_REP_MANAGER_MAP };
 
 async function loadRepManagerAssignments() {
@@ -1864,7 +1894,9 @@ async function loadInitialData() {
 
         const activeVisibleNames = new Set(repsData.map(rep => String(rep.name || ``).trim().toLocaleLowerCase()));
         repManagerMap = Object.fromEntries(
-            Object.entries(repManagerMap).filter(([repName]) => activeVisibleNames.has(String(repName || ``).trim().toLocaleLowerCase()))
+            Object.entries(repManagerMap).filter(([repName]) =>
+                activeVisibleNames.has(String(repName || ``).trim().toLocaleLowerCase()) || isOthersRepName(repName)
+            )
         );
 
         localStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -2271,7 +2303,8 @@ if (expectedHash && btoa(enteredPass) !== expectedHash) {
     }
     
     currentRepId = repSelect.value;
-    currentRepName = repSelect.options[repSelect.selectedIndex].text;
+    const loginRepName = repSelect.options[repSelect.selectedIndex].text;
+    currentRepName = getOperationalRepNameForPharmacy(selectedPharm, loginRepName);
     saveRepSession(currentRepId, currentRepName);
     localStorage.setItem('dad_last_rep_id', currentRepId);
     currentPharmacyName = pharmacyName;
@@ -2530,7 +2563,10 @@ function applyMyOrdersFilters() {
 }
 
 // التارجت الشهري للمشرفين محفوظ داخل system_settings لتفادي أي اعتماد على Collection جديدة.
+// يتم تخزين وثيقة الشهر كاملة في الذاكرة حتى لا نقرأ نفس وثيقة Firestore مرتين عند عرض "جميع طلبيات الشركة".
 const supervisorTargetCache = new Map();
+const SUPERVISOR_TARGET_CACHE_TTL = 5 * 60 * 1000;
+let supervisorTargetRenderToken = 0;
 
 function resolveSupervisorTargetMonth() {
     const fromValue = getEl(`managerFilterFrom`)?.value || ``;
@@ -2542,107 +2578,150 @@ function resolveSupervisorTargetMonth() {
     return { month: fromMonth || toMonth || ``, spansMultipleMonths: false };
 }
 
-async function loadSupervisorMonthlyTarget(month, supervisorName) {
-    if (!month || !supervisorName) return null;
-    const key = `${month}__${supervisorName}`;
-    if (supervisorTargetCache.has(key)) return supervisorTargetCache.get(key);
+function isAllCompanyDashboardScope() {
+    return !!getEl(`managerAllOrdersBtn`)?.classList.contains(`active`);
+}
+
+async function loadSupervisorMonthlyTargets(month) {
+    if (!month) return {};
+    const cached = supervisorTargetCache.get(month);
+    if (cached && Date.now() - cached.loadedAt < SUPERVISOR_TARGET_CACHE_TTL) return cached.targets;
 
     try {
         const snap = await getDoc(doc(db, `system_settings`, `supervisor_targets_${month}`));
-        const raw = snap.exists() ? snap.data()?.targets?.[supervisorName] : null;
-        const target = raw === null || raw === undefined || raw === `` ? null : parseAppNumber(raw);
-        supervisorTargetCache.set(key, target);
-        return target;
+        const rawTargets = snap.exists() && snap.data()?.targets && typeof snap.data().targets === `object`
+            ? snap.data().targets
+            : {};
+        supervisorTargetCache.set(month, { loadedAt: Date.now(), targets: rawTargets });
+        return rawTargets;
     } catch (error) {
-        console.warn(`تعذر تحميل تارجت المشرف للشهر ${month}.`, error);
-        return null;
+        console.warn(`تعذر تحميل تارجت المشرفين للشهر ${month}.`, error);
+        return {};
     }
 }
 
-async function updateSupervisorMonthlyTargetCard(orders = []) {
+function getSupervisorTargetSalesOrders() {
+    const fromValue = getEl(`managerFilterFrom`)?.value || ``;
+    const toValue = getEl(`managerFilterTo`)?.value || ``;
+    const source = isAllCompanyDashboardScope() ? allOrdersRangeData : managerOrdersData;
+    return (Array.isArray(source) ? source : []).filter(order =>
+        !isOrderDeleted(order) && isOrderInDateRange(order, fromValue, toValue)
+    );
+}
+
+function setTargetAchievementDisplay(value = null, isCompanyScope = false) {
+    const achievementEl = getEl(`dashTargetAchievement`);
+    const bar = getEl(`dashTargetAchievementBar`);
+    if (!achievementEl || !bar) return;
+    const scopeLabel = isCompanyScope ? `الشركة` : `الفريق`;
+    if (value === null || !Number.isFinite(value)) {
+        achievementEl.innerText = `نسبة مبيعات ${scopeLabel} من التارجت: -`;
+        bar.style.width = `0%`;
+        return;
+    }
+    achievementEl.innerText = `نسبة مبيعات ${scopeLabel} من التارجت: ${value.toFixed(1)}%`;
+    bar.style.width = `${Math.max(0, Math.min(value, 100))}%`;
+}
+
+async function updateSupervisorMonthlyTargetCard() {
+    const requestToken = ++supervisorTargetRenderToken;
     const card = getEl(`dashSupervisorTargetCard`);
     const title = getEl(`dashSupervisorTargetTitle`);
     const targetEl = getEl(`dashSupervisorTargetValue`);
-    const remainingEl = getEl(`dashSupervisorTargetRemaining`);
-    if (!card || !title || !targetEl || !remainingEl) return;
+    const scopeEl = getEl(`dashSupervisorTargetScope`);
+    const remainingCard = getEl(`dashSupervisorRemainingCard`);
+    const remainingValueEl = getEl(`dashSupervisorTargetRemainingValue`);
+    const remainingNoteEl = getEl(`dashSupervisorTargetRemainingNote`);
+    if (!card || !title || !targetEl || !scopeEl || !remainingCard || !remainingValueEl || !remainingNoteEl) return;
 
+    const isCompanyScope = isAllCompanyDashboardScope();
     const { month, spansMultipleMonths } = resolveSupervisorTargetMonth();
+    setTargetAchievementDisplay(null, isCompanyScope);
+    remainingCard.dataset.state = ``;
+
     if (spansMultipleMonths) {
-        card.style.display = `block`;
         title.innerText = `التارجت الشهري`;
-        targetEl.innerText = `اختر فترة ضمن شهر واحد`;
-        remainingEl.innerText = `لا يمكن ربط فترة تشمل أكثر من شهر بتارجت شهري واحد.`;
+        targetEl.innerText = `اختر شهرًا واحدًا`;
+        scopeEl.innerText = `الفترة المختارة تشمل أكثر من شهر`;
+        remainingValueEl.innerText = `-`;
+        remainingNoteEl.innerText = `التارجت شهري، لذلك يجب أن تكون الفترة ضمن شهر واحد.`;
         return;
     }
     if (!month) {
-        card.style.display = `none`;
+        title.innerText = `التارجت الشهري`;
+        targetEl.innerText = `-`;
+        scopeEl.innerText = `اختر فترة لعرض التارجت`;
+        remainingValueEl.innerText = `-`;
+        remainingNoteEl.innerText = `-`;
         return;
     }
 
-    card.style.display = `block`;
     const [year, monthNumber] = month.split(`-`);
-    title.innerText = `تارجت ${monthNumber}/${year}`;
+    const scopeNames = isCompanyScope ? SUPERVISOR_TARGET_NAMES : [currentManagerName];
+    title.innerText = isCompanyScope ? `تارجت الشركة ${monthNumber}/${year}` : `تارجت ${monthNumber}/${year}`;
+    scopeEl.innerText = isCompanyScope
+        ? `مجموع تارجت عبدالله الناطور + محمد طوالبه`
+        : `تارجت ${currentManagerName || `المشرف`}`;
     targetEl.innerText = `جاري التحميل...`;
-    remainingEl.innerText = ``;
+    remainingValueEl.innerText = `...`;
+    remainingNoteEl.innerText = ``;
 
-    const target = await loadSupervisorMonthlyTarget(month, currentManagerName);
-    if (target === null) {
-        targetEl.innerText = `غير مدخل`;
-        remainingEl.innerText = `أدخل التارجت من الإعدادات.`;
+    const monthTargets = await loadSupervisorMonthlyTargets(month);
+    if (requestToken !== supervisorTargetRenderToken) return;
+
+    const missingNames = [];
+    let target = 0;
+    scopeNames.forEach(name => {
+        const raw = monthTargets?.[name];
+        if (raw === null || raw === undefined || raw === ``) {
+            missingNames.push(name);
+            return;
+        }
+        target += parseAppNumber(raw);
+    });
+
+    if (missingNames.length) {
+        targetEl.innerText = isCompanyScope ? `غير مكتمل` : `غير مدخل`;
+        remainingValueEl.innerText = `-`;
+        remainingNoteEl.innerText = `أدخل التارجت لـ ${missingNames.join(` و `)} من الإعدادات.`;
         return;
     }
 
-    const fromValue = getEl(`managerFilterFrom`)?.value || ``;
-    const toValue = getEl(`managerFilterTo`)?.value || ``;
-    const teamPeriodOrders = managerOrdersData.filter(order =>
-        !isOrderDeleted(order) && isOrderInDateRange(order, fromValue, toValue)
-    );
-    const summary = summarizeOrdersBySalesStatus(teamPeriodOrders);
+    const summary = summarizeOrdersBySalesStatus(getSupervisorTargetSalesOrders());
     const actualSales = summary.netTotal;
     const remaining = target - actualSales;
+    const achievement = target > 0 ? (actualSales / target) * 100 : null;
     const formatMoney = value => value.toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     targetEl.innerText = `${formatMoney(target)} د.ا`;
-    remainingEl.innerText = remaining > 0
-        ? `المتبقي: ${formatMoney(remaining)} د.ا · مبيعات الفترة: ${formatMoney(actualSales)} د.ا`
-        : `تم تجاوز التارجت بـ ${formatMoney(Math.abs(remaining))} د.ا · مبيعات الفترة: ${formatMoney(actualSales)} د.ا`;
+    if (remaining > 0) {
+        remainingCard.dataset.state = `pending`;
+        remainingValueEl.innerText = `${formatMoney(remaining)} د.ا`;
+        remainingNoteEl.innerText = `مبيعات الفترة: ${formatMoney(actualSales)} د.ا`;
+    } else {
+        remainingCard.dataset.state = `achieved`;
+        remainingValueEl.innerText = `0.00 د.ا`;
+        remainingNoteEl.innerText = `تم تجاوز التارجت بـ ${formatMoney(Math.abs(remaining))} د.ا · مبيعات الفترة: ${formatMoney(actualSales)} د.ا`;
+    }
+    setTargetAchievementDisplay(achievement, isCompanyScope);
 }
 
-// 💡 تحديث الـ Dashboard المتقدم للمدير
-// 💡 تحديث الـ Dashboard المتقدم للمدير (ديناميكي 100%)
+// تحديث بطاقات المشرف. البطاقات العامة تتبع الفلاتر، أما التارجت ونسبة الإنجاز فيعتمدان على نطاق الفريق/الشركة والفترة الزمنية فقط.
 function updateAdvancedManagerDashboard(orders) {
-    const countLabel = document.querySelector('#dashDailyCount')?.previousElementSibling;
-    if(countLabel) countLabel.innerText = "عدد الطلبيات المحتسبة";
-
     const summary = summarizeOrdersBySalesStatus(orders);
-    const pharmCounts = {};
     const uniquePharms = new Set();
-
-    orders.forEach(o => {
-        const bucket = getOrderSalesBucket(o);
-        if (bucket.bucket === 'excluded') return;
-        if (o.pharmacyName) {
-            pharmCounts[o.pharmacyName] = (pharmCounts[o.pharmacyName] || 0) + 1;
-            uniquePharms.add(o.pharmacyName);
-        }
+    orders.forEach(order => {
+        const bucket = getOrderSalesBucket(order);
+        if (bucket.bucket === `excluded`) return;
+        if (order.pharmacyName) uniquePharms.add(order.pharmacyName);
     });
 
-    const appRate = orders.length > 0 ? Math.round((summary.countedCount / orders.length) * 100) : 0;
-    let topPharm = "-";
-    let maxC = 0;
-    for (const [p, c] of Object.entries(pharmCounts)) {
-        if (c > maxC) { maxC = c; topPharm = p; }
-    }
-
     const money = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " د.ا";
-    const e1 = getEl('dashDailyCount'); if(e1) e1.innerText = summary.countedCount;
-    const e2 = getEl('dashTotalValue'); if(e2) e2.innerText = money(summary.ordersTotal);
-    const eReturns = getEl('dashReturnsValue'); if(eReturns) eReturns.innerText = money(summary.returnsTotal);
-    const eNet = getEl('dashNetValue'); if(eNet) eNet.innerText = money(summary.netTotal);
-    const e3 = getEl('dashApprovalRate'); if(e3) e3.innerText = appRate + "%";
-    const e4 = getEl('dashTopPharmacy'); if(e4) e4.innerText = topPharm;
-    const e5 = getEl('dashUniquePharmacies'); if(e5) e5.innerText = uniquePharms.size;
-    updateSupervisorMonthlyTargetCard(orders);
+    const countEl = getEl('dashDailyCount'); if (countEl) countEl.innerText = summary.countedCount;
+    const totalEl = getEl('dashTotalValue'); if (totalEl) totalEl.innerText = money(summary.ordersTotal);
+    const netEl = getEl('dashNetValue'); if (netEl) netEl.innerText = money(summary.netTotal);
+    const pharmaciesEl = getEl('dashUniquePharmacies'); if (pharmaciesEl) pharmaciesEl.innerText = uniquePharms.size;
+    updateSupervisorMonthlyTargetCard();
 }
 
 let managerOrdersData = [];
@@ -2933,7 +3012,6 @@ function updateAllOrdersStats(orders) {
     const fmt = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (getEl('totalOrdersCount')) getEl('totalOrdersCount').innerText = summary.countedCount;
     if (getEl('totalOrdersSum')) getEl('totalOrdersSum').innerText = fmt(summary.ordersTotal);
-    if (getEl('totalReturnsSum')) getEl('totalReturnsSum').innerText = fmt(summary.returnsTotal);
     if (getEl('totalNetSum')) getEl('totalNetSum').innerText = fmt(summary.netTotal);
 }
 
@@ -3360,7 +3438,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
 
             const newRepId = lockRepSelection ? originalRepId : (editRepSelect?.value || '');
             if (!lockRepSelection && !newRepId) { editRepSelect.style.border = "2px solid red"; return showToast("يرجى اختيار المندوب أولاً.", "warning"); }
-            const newRepName = lockRepSelection ? originalRepName : editRepSelect.options[editRepSelect.selectedIndex].text;
+            const selectedBaseRepName = lockRepSelection ? originalRepName : editRepSelect.options[editRepSelect.selectedIndex].text;
 
             const newPharmName = editPharmInput.value.trim();
             let selectedPharm = editPharmaciesData.find(p => p.name === newPharmName);
@@ -3369,6 +3447,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
             }
             
             if (!selectedPharm) { editPharmInput.style.border = "2px solid red"; return showToast("يرجى اختيار صيدلية صحيحة من القائمة.", "error"); }
+            const newRepName = getOperationalRepNameForPharmacy(selectedPharm, selectedBaseRepName);
 
             document.querySelectorAll('#editOrderBody tr').forEach(r => {
                 const inp = r.querySelector('.product-input');
