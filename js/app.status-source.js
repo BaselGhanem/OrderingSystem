@@ -221,7 +221,9 @@ const DEFAULT_REP_MANAGER_MAP = {
     "محمد ابو يامين": "عبدالله الناطور",
     "مراد الظاهر": "عبدالله الناطور",
     "آخرين - عبدالله": "عبدالله الناطور",
-    "آخرين - محمد": "محمد طوالبه"
+    "اخرين - عبدالله": "عبدالله الناطور",
+    "آخرين - محمد": "محمد طوالبه",
+    "اخرين - محمد": "محمد طوالبه"
 };
 const SUPERVISOR_TARGET_NAMES = [`عبدالله الناطور`, `محمد طوالبه`];
 
@@ -242,7 +244,9 @@ function isOthersRepName(value = ``) {
 
 function getOperationalRepNameForPharmacy(pharmacy = {}, fallbackRepName = ``) {
     const storedName = String(pharmacy.repName || pharmacy.rep_name || pharmacy.rep || ``).trim();
-    if (isOthersRepName(storedName) && storedName.includes(`-`)) return storedName;
+    const normalizedStoredName = normalizeOperationalRepName(storedName);
+    if (normalizedStoredName === `اخرين - عبدالله`) return `آخرين - عبدالله`;
+    if (normalizedStoredName === `اخرين - محمد`) return `آخرين - محمد`;
     if (!isOthersRepName(fallbackRepName) && !isOthersRepName(storedName)) return fallbackRepName || storedName;
 
     const supervisor = String(pharmacy.supervisor || pharmacy.supervisorName || pharmacy.managerName || ``).trim();
@@ -1734,7 +1738,12 @@ const detailsModal = document.getElementById('detailsModal');
 const modalItemsBody = document.getElementById('modalItemsBody');
 
 function getManagerName(repName) {
-    return repManagerMap[repName] || "غير محدد";
+    const exactMatch = repManagerMap[repName];
+    if (exactMatch) return exactMatch;
+    const normalizedRepName = normalizeOperationalRepName(repName);
+    const matchedEntry = Object.entries(repManagerMap)
+        .find(([name]) => normalizeOperationalRepName(name) === normalizedRepName);
+    return matchedEntry?.[1] || "غير محدد";
 }
 
 function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) {
