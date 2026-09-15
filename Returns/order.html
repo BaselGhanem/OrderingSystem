@@ -8,7 +8,7 @@
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="style.css?v=20260629_audit_dynamic_notes_fix1" rel="stylesheet"/>
-<link href="order-premium.css?v=20260915_rep_finance_justification_v1" rel="stylesheet"/>
+<link href="order-premium.css?v=20260819_rep_premium_v6" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -49,20 +49,19 @@
 </div>
 <div class="user-info" id="userInfo" style="display: none;">
 <div class="tabs" id="mainTabs">
-<button class="btn-tab" id="navOrderBtn" type="button">طلب جديد</button>
-<button class="btn-tab active" id="navMyOrdersBtn" type="button">طلبياتي <span id="pendingBadge" style="display:none; background:var(--warning); color:white; border-radius:50%; padding:2px 6px; font-size:10px; margin-right:4px;">0</span></button>
-<button class="btn-tab" id="navFinanceRejectedBtn" type="button">مرفوضة مالياً <span id="financeRejectedBadge" class="rep-finance-rejected-badge" style="display:none;">0</span></button>
+<button class="btn-tab active" id="navOrderBtn" type="button">طلب جديد</button>
+<button class="btn-tab" id="navMyOrdersBtn" type="button">طلبياتي <span id="pendingBadge" style="display:none; background:var(--warning); color:white; border-radius:50%; padding:2px 6px; font-size:10px; margin-right:4px;">0</span></button>
 <button class="btn-tab" id="navTargetsBtn" type="button"><i class="ph ph-target"></i> التارجت</button>
 <button class="btn-tab" id="navReportsBtn" type="button">التقارير</button>
+<button class="btn-tab" id="navReturnsPageBtn" type="button"><i class="ph ph-arrow-u-up-left"></i> المرتجعات</button>
 </div>
 <span id="currentRepName"><i class="ph ph-user"></i> المندوب: <b>-</b></span>
 <button class="btn-icon" id="logoutBtn" title="تسجيل خروج" type="button"><i class="ph ph-sign-out"></i></button>
 </div>
-</header><main class="screen glass-panel rep-page-panel" id="orderScreen" style="display: none;">
+</header><main class="screen active glass-panel rep-page-panel" id="orderScreen" style="display: block;">
 <div class="rep-page-heading order-entry-heading">
 <div class="rep-page-title">
 <h2><i class="ph ph-shopping-cart"></i> ادخال طلبية جديدة</h2>
-<div id="orderTypeIndicator" class="order-type-indicator" data-type="empty" style="display:none;"></div>
 </div>
 <div class="rep-page-actions">
                     <h3 id="orderPharmacyName" style="color: var(--primary);">اسم الصيدلية</h3>
@@ -80,6 +79,7 @@
 <thead>
 <tr>
 <th style="width: 25%; text-align: right;">الصنف</th>
+<th style="width: 14%; text-align: center;">Batch</th>
 <th style="width: 10%; text-align: center;">الكمية</th>
 <th style="width: 10%; text-align: center;">البونص</th>
 <th style="width: 10%; text-align: center;">السعر</th>
@@ -120,25 +120,15 @@
 <div class="input-group"><label for="myOrdersDateTo">إلى تاريخ</label><input id="myOrdersDateTo" type="date"/></div>
 <div class="input-group"><label for="myOrdersPharmacyFilter">بحث الصيدلية</label><input id="myOrdersPharmacyFilter" placeholder="اكتب اسم الصيدلية..." type="search"/></div>
 <div class="input-group"><label for="myOrdersStatusFilter">حالة الطلبية</label><select id="myOrdersStatusFilter" aria-label="تصفية طلبياتي حسب الحالة"><option value="">جميع الحالات</option></select></div>
-<div class="input-group"><label for="myOrdersOrderTypeFilter">نوع الطلبية</label><select id="myOrdersOrderTypeFilter" aria-label="تصفية طلبياتي حسب نوع الطلبية"><option value="">جميع أنواع الطلبيات</option><option value="regular">طلبيات أصناف متاحة</option><option value="reserved">طلبيات أصناف مقطوعة</option></select></div>
 </div>
 <div class="table-actions"><button class="btn-secondary print-btn" id="printMyOrdersBtn" type="button"><i class="ph ph-printer"></i> طباعة المحدد</button></div>
 </div>
 <div class="table-responsive mobile-cards">
 <table class="order-table" id="myOrdersTable">
-<thead><tr><th><input id="selectAllMyOrders" type="checkbox"/></th><th>آخر تحديث</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>سبب الرفض/الإرجاع</th><th>التفاصيل</th></tr></thead>
+<thead><tr><th><input id="selectAllMyOrders" type="checkbox"/></th><th>التاريخ</th><th>الصيدلية</th><th>كود الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>سبب الرفض/الإرجاع</th><th>التفاصيل</th></tr></thead>
 <tbody id="myOrdersBody"></tbody>
 </table>
 </div>
-</main><main class="screen glass-panel rep-finance-rejected-screen" id="financeRejectedScreen" style="display:none;">
-<div class="rep-finance-rejected-header">
-<div>
-<h2><i class="ph ph-warning-circle"></i> طلبياتي المرفوضة مالياً</h2>
-<p>اكتب توضيحك لحمزة ليظهر مباشرة في ملاحظة الطلبية لدى المراقب المالي.</p>
-</div>
-<span class="rep-finance-rejected-count" id="financeRejectedCount">0 طلبية</span>
-</div>
-<div id="financeRejectedList" class="rep-finance-rejected-list"></div>
 </main><main class="screen glass-panel" id="repTargetScreen" style="display:none;">
 <div class="rep-target-header">
 <div><h2><i class="ph ph-target"></i> متابعة التارجت الشخصي</h2></div>
@@ -167,31 +157,11 @@
 </div>
 <div class="table-responsive mobile-cards">
 <table class="order-table" id="reportsTable">
-<thead><tr><th><input id="selectAllReportsOrders" type="checkbox"/></th><th>آخر تحديث</th><th>المندوب</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>تفاصيل</th></tr></thead>
+<thead><tr><th><input id="selectAllReportsOrders" type="checkbox"/></th><th>التاريخ</th><th>المندوب</th><th>الصيدلية</th><th>الإجمالي</th><th>الحالة</th><th>تفاصيل</th></tr></thead>
 <tbody id="reportsBody"></tbody>
 </table>
 </div>
-</main>
-<button class="rep-new-order-fab" id="newOrderFab" type="button" aria-label="إدخال طلبية" title="إدخال طلبية" style="display:none;">
-<i class="ph ph-plus"></i><span>إدخال طلبية</span>
-</button>
-<div class="modal-overlay" id="orderPharmacyModal" style="display:none; z-index:10020;">
-<div class="modal-content glass-panel rep-pharmacy-picker">
-<div class="rep-pharmacy-picker-header">
-<div><span>طلبية جديدة</span><h3><i class="ph ph-storefront"></i> اختر الصيدلية</h3></div>
-<button class="close-modal" id="closeOrderPharmacyModal" type="button" aria-label="إغلاق"><i class="ph ph-x"></i></button>
-</div>
-<div class="input-group">
-<label for="orderPharmacyInput">الصيدلية المستهدفة</label>
-<div class="autocomplete-wrapper">
-<input id="orderPharmacyInput" type="text" autocomplete="off" placeholder="ابحث باسم الصيدلية..." disabled>
-<div class="autocomplete-list" id="orderPharmacySuggestions"></div>
-</div>
-</div>
-<button class="btn-primary" id="confirmOrderPharmacyBtn" type="button" disabled><i class="ph ph-arrow-left"></i> بدء إدخال الطلبية</button>
-</div>
-</div>
-<div class="modal-overlay" id="detailsModal" style="display: none; z-index: 10010;">
+</main><div class="modal-overlay" id="detailsModal" style="display: none; z-index: 10010;">
 <div class="modal-content glass-panel">
 <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
 <div>
@@ -274,7 +244,7 @@
 <table class="order-table">
 <thead style="position: sticky; top: 0; z-index: 10;">
 <tr>
-<th>آخر تحديث</th>
+<th>التاريخ</th>
 <th>المندوب</th>
 <th>الإجمالي</th>
 <th>الحالة</th>
@@ -285,4 +255,4 @@
 </table>
 </div>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20260915_rep_login_flow_v1" type="module"></script><script src="js/targets.js?v=20260913_others_split_v2" type="module"></script></body></html>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20260820_batch_invoice_v3" type="module"></script><script src="js/targets.js?v=20260819_targets_v5" type="module"></script></body></html>

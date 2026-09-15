@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./workflow.status-source.js?v=20260915_finance_history_v3`, import.meta.url);
+const sourceUrl = new URL(`./workflow.status-source.js?v=20260820_batch_invoice_v3`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -31,16 +31,7 @@ try {
         order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
 }`;
     const canonicalPrimaryResolver = `function getPrimaryStatus(order = {}) {
-    const rawStatus = getRawPrimaryStatus(order);
-    const terminalOrReturned = rawStatus.startsWith('deleted_') ||
-        ['returned_to_rep', 'returned_to_supervisor', 'returned_to_market_manager', 'returned_to_finance',
-            'market_manager_rejected', 'finance_rejected', 'rejected'].includes(rawStatus);
-    if (terminalOrReturned || order.workflowStage === 'deleted') return rawStatus;
-    if (rawStatus === 'orders_staff_hidden' || rawStatus === 'orders_staff_exported' ||
-        order.orderStaffStatus === 'orders_staff_exported' || orderHasHiddenInvoiceEvidence(order)) {
-        return 'orders_staff_hidden';
-    }
-    return rawStatus;
+    return getRawPrimaryStatus(order);
 }`;
 
     if (!rawResolverPattern.test(source) || !primaryResolverPattern.test(source)) {

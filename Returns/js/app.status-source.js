@@ -106,23 +106,23 @@ window.addEventListener('DOMContentLoaded', () => {
     const printBtn = getEl('printDraftBtn');
     if (printBtn) printBtn.addEventListener('click', () => printCurrentDraft());
 
-    const changePharmacyBtn = getEl(`changePharmacyBtn`);
+    const changePharmacyBtn = getEl('changePharmacyBtn');
     if (changePharmacyBtn) {
-        changePharmacyBtn.addEventListener(`click`, () => openOrderPharmacyPicker());
+        changePharmacyBtn.addEventListener('click', () => {
+            sessionStorage.removeItem('activeOrderContext');
+            window.location.href = 'login.html';
+        });
     }
 
     initializeSupervisorSearchFilter('managerRepFilter', applyManagerFilters);
     initializeSupervisorSearchFilter('managerPharmacyFilter', applyManagerFilters);
     initializeSupervisorSearchFilter('filterAllRep', filterAllOrders);
     initializeSupervisorSearchFilter('filterAllPharmacy', filterAllOrders);
-    getEl(`managerOrderTypeFilter`)?.addEventListener(`change`, applyManagerFilters);
-    getEl(`filterAllStatus`)?.addEventListener(`change`, filterAllOrders);
-    getEl(`filterAllOrderType`)?.addEventListener(`change`, filterAllOrders);
+    getEl('filterAllStatus')?.addEventListener('change', filterAllOrders);
     getEl('myOrdersDateFrom')?.addEventListener('change', applyMyOrdersFilters);
     getEl('myOrdersDateTo')?.addEventListener('change', applyMyOrdersFilters);
     getEl('myOrdersPharmacyFilter')?.addEventListener('input', applyMyOrdersFilters);
     getEl('myOrdersStatusFilter')?.addEventListener('change', applyMyOrdersFilters);
-    getEl(`myOrdersOrderTypeFilter`)?.addEventListener(`change`, applyMyOrdersFilters);
     getEl('selectAllMyOrders')?.addEventListener('change', function() {
         document.querySelectorAll('.my-order-checkbox').forEach(cb => cb.checked = this.checked);
     });
@@ -179,39 +179,28 @@ function initializeManagerView(managerName) {
 
     setDefaultMonthFilter();
     const myTeamBtn = getEl('managerMyTeamBtn');
-    const financeRejectedBtn = getEl('managerFinanceRejectedBtn');
     const allOrdersBtn = getEl('managerAllOrdersBtn');
     const teamSection = getEl('teamOrdersSection');
-    const rejectedSection = getEl('teamFinanceRejectedSection');
     const allSection = getEl('allOrdersSection');
 
-    if (myTeamBtn && financeRejectedBtn && allOrdersBtn && teamSection && rejectedSection && allSection) {
-        const managerTabs = [myTeamBtn, financeRejectedBtn, allOrdersBtn];
-        const showManagerSection = target => {
-            managerTabs.forEach(button => button.classList.remove('active'));
-            teamSection.style.display = target === 'team' ? 'block' : 'none';
-            rejectedSection.style.display = target === 'financeRejected' ? 'block' : 'none';
-            allSection.style.display = target === 'all' ? 'block' : 'none';
-            if (target === 'team') {
-                if (unsubAllOrders) { unsubAllOrders(); unsubAllOrders = null; }
-                myTeamBtn.classList.add('active');
-                loadManagerOrders();
-                return;
-            }
-            if (target === 'financeRejected') {
-                if (unsubAllOrders) { unsubAllOrders(); unsubAllOrders = null; }
-                financeRejectedBtn.classList.add('active');
-                loadManagerOrders();
-                return;
-            }
-            if (unsubManagerOrders) { unsubManagerOrders(); unsubManagerOrders = null; }
+    if (myTeamBtn && allOrdersBtn && teamSection && allSection) {
+        myTeamBtn.onclick = () => {
+            myTeamBtn.classList.add('active');
+            allOrdersBtn.classList.remove('active');
+            teamSection.style.display = 'block';
+            allSection.style.display = 'none';
+            loadManagerOrders();
+        };
+        allOrdersBtn.onclick = () => {
+            myTeamBtn.classList.remove('active');
             allOrdersBtn.classList.add('active');
+            teamSection.style.display = 'none';
+            allSection.style.display = 'block';
             loadAllCompanyOrders();
         };
-        myTeamBtn.onclick = () => showManagerSection('team');
-        financeRejectedBtn.onclick = () => showManagerSection('financeRejected');
-        allOrdersBtn.onclick = () => showManagerSection('all');
-        showManagerSection('team');
+        teamSection.style.display = 'block';
+        allSection.style.display = 'none';
+        myTeamBtn.classList.add('active');
     }
     loadManagerOrders();
 }
@@ -225,42 +214,8 @@ const DEFAULT_REP_MANAGER_MAP = {
     "يزيد الرقب": "محمد طوالبه",
     "تامر عقل": "محمد طوالبه",
     "محمد ابو يامين": "عبدالله الناطور",
-    "مراد الظاهر": "عبدالله الناطور",
-    "آخرين - عبدالله": "عبدالله الناطور",
-    "اخرين - عبدالله": "عبدالله الناطور",
-    "آخرين - محمد": "محمد طوالبه",
-    "اخرين - محمد": "محمد طوالبه"
+    "مراد الظاهر": "عبدالله الناطور"
 };
-const SUPERVISOR_TARGET_NAMES = [`عبدالله الناطور`, `محمد طوالبه`];
-
-function normalizeOperationalRepName(value = ``) {
-    return String(value || ``)
-        .trim()
-        .replace(/[أإآ]/g, `ا`)
-        .replace(/[–—]/g, `-`)
-        .replace(/\s*-\s*/g, ` - `)
-        .replace(/\s+/g, ` `)
-        .toLocaleLowerCase(`ar`);
-}
-
-function isOthersRepName(value = ``) {
-    const normalized = normalizeOperationalRepName(value);
-    return normalized === `اخرين` || normalized.startsWith(`اخرين -`);
-}
-
-function getOperationalRepNameForPharmacy(pharmacy = {}, fallbackRepName = ``) {
-    const storedName = String(pharmacy.repName || pharmacy.rep_name || pharmacy.rep || ``).trim();
-    const normalizedStoredName = normalizeOperationalRepName(storedName);
-    if (normalizedStoredName === `اخرين - عبدالله`) return `آخرين - عبدالله`;
-    if (normalizedStoredName === `اخرين - محمد`) return `آخرين - محمد`;
-    if (!isOthersRepName(fallbackRepName) && !isOthersRepName(storedName)) return fallbackRepName || storedName;
-
-    const supervisor = String(pharmacy.supervisor || pharmacy.supervisorName || pharmacy.managerName || ``).trim();
-    if (supervisor.includes(`عبدالله`)) return `آخرين - عبدالله`;
-    if (supervisor.includes(`محمد`)) return `آخرين - محمد`;
-    return fallbackRepName || storedName || `آخرين`;
-}
-
 let repManagerMap = { ...DEFAULT_REP_MANAGER_MAP };
 
 async function loadRepManagerAssignments() {
@@ -307,17 +262,10 @@ let editingOrderId = null;
 let allOrdersData = [];
 let detailsModalOrder = null;
 let currentPharmacyCode = null;
-let currentPharmacyId = null;
 let currentPharmaciesData = [];
 let currentMyOrdersData = [];
 let reportsOrdersData = [];
-let reservedProductKeys = new Set();
-let reservationStateReady = false;
-let unsubInventoryReservations = null;
-
-const RESERVED_ORDER_TYPE = 'reserved';
-const REGULAR_ORDER_TYPE = 'regular';
-const MIXED_ORDER_WARNING = 'يرجى إدخال طلبية منفصلة للأصناف المحجوزة/المقطوعة';
+let activeInventoryBatches = [];
 
 let unsubMyOrders = null;
 let unsubManagerOrders = null;
@@ -406,18 +354,6 @@ function formatDateTime(value) {
     return d ? d.toLocaleString('en-GB') : 'غير متوفر';
 }
 
-function getOrderLastActionDate(order = {}) {
-    const dates = [order.changedAt, order.updatedAt, order.createdAt]
-        .map(value => normalizeDateValue(value))
-        .filter(Boolean);
-    if (!dates.length) return null;
-    return new Date(Math.max(...dates.map(date => date.getTime())));
-}
-
-function formatOrderLastAction(order = {}) {
-    return formatDateTime(getOrderLastActionDate(order));
-}
-
 function getPharmacyCodeFromOrder(order = {}) {
     return order.pharmacyCode || order.pharmacy_code || order.customerCode || '';
 }
@@ -426,209 +362,6 @@ function getProductCodeFromItem(item = {}) {
     if (item.productCode || item.product_code || item.code) return item.productCode || item.product_code || item.code;
     const product = productsList.find(p => p.name === item.name);
     return product?.productCode || product?.product_code || product?.code || '';
-}
-
-function normalizeReservationKey(value) {
-    return String(value || '').trim().toLocaleLowerCase('en-US');
-}
-
-function getReservationKeys(value = {}) {
-    const keys = [];
-    const productId = value.id || value.productId || value.reservationProductId || '';
-    const productCode = value.productCode || value.product_code || value.code || '';
-    const name = value.name || value.productName || '';
-    if (productId) keys.push(`id:${normalizeReservationKey(productId)}`);
-    if (productCode) keys.push(`code:${normalizeReservationKey(productCode)}`);
-    if (name) keys.push(`name:${normalizeReservationKey(name)}`);
-    return keys;
-}
-
-function rebuildReservedProductKeys(snapshot) {
-    const keys = new Set();
-    snapshot.forEach(row => {
-        const data = row.data ? row.data() : row;
-        if (data?.active === false) return;
-        getReservationKeys({ id: data.productId || row.id, ...data }).forEach(key => keys.add(key));
-    });
-    reservedProductKeys = keys;
-    reservationStateReady = true;
-    syncReservationIndicators();
-}
-
-async function refreshInventoryReservations() {
-    const snap = await getDocs(collection(db, 'inventoryReservations'));
-    rebuildReservedProductKeys(snap);
-    return reservedProductKeys;
-}
-
-function subscribeInventoryReservations() {
-    if (unsubInventoryReservations) unsubInventoryReservations();
-    unsubInventoryReservations = onSnapshot(collection(db, 'inventoryReservations'), snapshot => {
-        rebuildReservedProductKeys(snapshot);
-    }, error => {
-        console.error('Inventory reservation listener failed:', error);
-        reservationStateReady = false;
-    });
-}
-
-function resolveProductForReservation(value = {}) {
-    const name = String(value.name || value.productName || '').trim();
-    const code = String(value.productCode || value.product_code || value.code || '').trim();
-    return productsList.find(product =>
-        (name && String(product.name || '').trim() === name) ||
-        (code && String(product.productCode || product.product_code || product.code || '').trim() === code)
-    ) || value;
-}
-
-function isProductReserved(value = {}) {
-    const product = resolveProductForReservation(value);
-    return getReservationKeys(product).some(key => reservedProductKeys.has(key));
-}
-
-function getOrderType(order = {}) {
-    if (order.orderType === RESERVED_ORDER_TYPE || order.isReservedOrder === true) return RESERVED_ORDER_TYPE;
-    return REGULAR_ORDER_TYPE;
-}
-
-function getReservedOrderBadge(order = {}) {
-    return getOrderType(order) === RESERVED_ORDER_TYPE
-        ? '<span class="reserved-order-badge"><i class="ph ph-lock-key"></i> أصناف محجوزة / مقطوعة</span>'
-        : '';
-}
-
-function markReservedOrderRow(row, order = {}) {
-    if (!row) return;
-    row.classList.toggle('reserved-order-row', getOrderType(order) === RESERVED_ORDER_TYPE);
-}
-
-function setOrderTypeIndicator(type = '') {
-    const indicator = getEl('orderTypeIndicator');
-    if (!indicator) return;
-    indicator.dataset.type = type || 'empty';
-    if (type === RESERVED_ORDER_TYPE) {
-        indicator.innerHTML = '<i class="ph ph-lock-key"></i><span>طلبية أصناف محجوزة / مقطوعة</span>';
-        indicator.style.display = 'inline-flex';
-    } else if (type === REGULAR_ORDER_TYPE) {
-        indicator.innerHTML = '<i class="ph ph-package"></i><span>طلبية أصناف عادية</span>';
-        indicator.style.display = 'inline-flex';
-    } else if (type === 'mixed') {
-        indicator.innerHTML = '<i class="ph ph-warning-circle"></i><span>لا يمكن دمج النوعين في طلبية واحدة</span>';
-        indicator.style.display = 'inline-flex';
-    } else {
-        indicator.innerHTML = '';
-        indicator.style.display = 'none';
-    }
-}
-
-function getRowReservationType(row) {
-    const input = row?.querySelector('.product-input');
-    const name = input?.value?.trim() || '';
-    if (!name) return '';
-    const product = productsList.find(prod => String(prod.name || '').trim() === name);
-    if (!product) return '';
-    return isProductReserved(product) ? RESERVED_ORDER_TYPE : REGULAR_ORDER_TYPE;
-}
-
-function syncReservationIndicators() {
-    if (APP_PAGE !== 'order') return;
-    const rows = Array.from(document.querySelectorAll('#orderBody tr'));
-    const types = new Set();
-    rows.forEach(row => {
-        const type = getRowReservationType(row);
-        row.dataset.reservedItem = type === RESERVED_ORDER_TYPE ? 'true' : 'false';
-        row.classList.toggle('reserved-item-row', type === RESERVED_ORDER_TYPE);
-        const firstCell = row.querySelector('td');
-        if (firstCell) {
-            let badge = firstCell.querySelector('.reserved-item-badge');
-            if (type === RESERVED_ORDER_TYPE) {
-                if (!badge) {
-                    badge = document.createElement('span');
-                    badge.className = 'reserved-item-badge';
-                    badge.innerHTML = '<i class="ph ph-lock-key"></i> محجوز';
-                    firstCell.appendChild(badge);
-                }
-            } else if (badge) {
-                badge.remove();
-            }
-        }
-        if (type) types.add(type);
-    });
-    if (types.size > 1) setOrderTypeIndicator('mixed');
-    else if (types.size === 1) setOrderTypeIndicator([...types][0]);
-    else setOrderTypeIndicator('');
-}
-
-function resetProductRow(row) {
-    if (!row) return;
-    const input = row.querySelector('.product-input');
-    const price = row.querySelector('.price-cell');
-    const total = row.querySelector('.row-total');
-    if (input) { input.value = ''; input.dataset.productCode = ''; }
-    if (price) price.innerText = '0.00';
-    if (total) total.innerText = '0.00';
-    row.dataset.reservedItem = 'false';
-    row.classList.remove('reserved-item-row');
-    row.querySelector('.reserved-item-badge')?.remove();
-    updateGrandTotal();
-    syncReservationIndicators();
-}
-
-function enforceNoMixedOrderForRow(row, selectedProduct) {
-    if (!row || !selectedProduct || !reservationStateReady) return true;
-    const selectedType = isProductReserved(selectedProduct) ? RESERVED_ORDER_TYPE : REGULAR_ORDER_TYPE;
-    const otherTypes = new Set();
-    document.querySelectorAll('#orderBody tr').forEach(otherRow => {
-        if (otherRow === row) return;
-        const type = getRowReservationType(otherRow);
-        if (type) otherTypes.add(type);
-    });
-    if (otherTypes.size > 0 && !otherTypes.has(selectedType)) {
-        showToast(MIXED_ORDER_WARNING, 'warning');
-        resetProductRow(row);
-        return false;
-    }
-    row.dataset.reservedItem = selectedType === RESERVED_ORDER_TYPE ? 'true' : 'false';
-    syncReservationIndicators();
-    return true;
-}
-
-function tagItemsByCurrentReservations(items = []) {
-    return items.map(item => {
-        const product = resolveProductForReservation(item);
-        const reserved = isProductReserved(product);
-        return {
-            ...item,
-            isReservedItem: reserved,
-            reservationProductId: reserved ? (product.id || item.reservationProductId || '') : '',
-            reservationCheckedAt: new Date().toISOString()
-        };
-    });
-}
-
-function tagItemsForExistingOrder(items = [], order = {}) {
-    const expectedType = order.orderType === RESERVED_ORDER_TYPE || order.isReservedOrder === true
-        ? RESERVED_ORDER_TYPE
-        : order.orderType === REGULAR_ORDER_TYPE
-            ? REGULAR_ORDER_TYPE
-            : '';
-    const originalNames = new Set((Array.isArray(order.items) ? order.items : []).map(item => String(item.name || '').trim()));
-    return items.map(item => {
-        const name = String(item.name || '').trim();
-        let reserved;
-        if (expectedType && originalNames.has(name)) reserved = expectedType === RESERVED_ORDER_TYPE;
-        else reserved = isProductReserved(resolveProductForReservation(item));
-        const product = resolveProductForReservation(item);
-        return { ...item, isReservedItem: reserved, reservationProductId: reserved ? (product.id || item.reservationProductId || '') : '' };
-    });
-}
-
-function evaluateOrderItemTypes(items = []) {
-    const types = new Set(items.map(item => item.isReservedItem === true ? RESERVED_ORDER_TYPE : REGULAR_ORDER_TYPE));
-    return {
-        mixed: types.size > 1,
-        orderType: types.size === 1 ? [...types][0] : '',
-        isReservedOrder: types.size === 1 && types.has(RESERVED_ORDER_TYPE)
-    };
 }
 
 
@@ -643,7 +376,7 @@ const WORKFLOW_STATUS_LABELS = {
     finance_approved: 'معتمد مالياً',
     finance_rejected: 'مرفوض مالياً',
     orders_staff_pending: 'جاهز للمعالجة',
-    orders_staff_exported: 'تمت الفوترة',
+    orders_staff_exported: 'تم تصديره',
     orders_staff_hidden: 'تمت الفوترة',
     orders_staff_invoiced_and_hidden_after_export: 'تمت الفوترة',
     returned_to_rep: 'مرجعة للمندوب',
@@ -700,7 +433,7 @@ function normalizeSupervisorFilterText(value) {
 }
 
 function getSupervisorOrderDateTimestamp(order = {}) {
-    const date = getOrderLastActionDate(order);
+    const date = normalizeDateValue(order.createdAt || order.updatedAt);
     return date ? date.getTime() : 0;
 }
 
@@ -796,12 +529,10 @@ function supervisorOrderMatchesSelections(order, selections, ignoredFilter, from
     const repName = normalizeSupervisorFilterText(order.repName);
     const pharmacyName = normalizeSupervisorFilterText(order.pharmacyName);
     const status = normalizeSupervisorFilterText(getEffectiveOrderStatus(order));
-    const orderType = normalizeSupervisorFilterText(getOrderType(order));
 
     if (ignoredFilter !== 'rep' && selections.rep && !repName.includes(selections.rep)) return false;
     if (ignoredFilter !== 'pharmacy' && selections.pharmacy && !pharmacyName.includes(selections.pharmacy)) return false;
     if (ignoredFilter !== 'status' && selections.status && status !== selections.status) return false;
-    if (ignoredFilter !== `orderType` && selections.orderType && orderType !== selections.orderType) return false;
     return isOrderInDateRange(order, fromVal, toVal);
 }
 
@@ -970,19 +701,17 @@ function initializeSupervisorSearchFilter(inputId, onFilterChange) {
 function getSupervisorCascadingConfig(scope) {
     if (scope === 'all') {
         return {
-            data: allOrdersRangeData.length ? allOrdersRangeData : allOrdersData,
+            data: allOrdersData,
             repSelect: getEl('filterAllRep'),
             pharmacySelect: getEl('filterAllPharmacy'),
-            statusSelect: getEl('filterAllStatus'),
-            orderTypeSelect: getEl(`filterAllOrderType`)
+            statusSelect: getEl('filterAllStatus')
         };
     }
     return {
         data: managerOrdersData,
         repSelect: getEl('managerRepFilter'),
         pharmacySelect: getEl('managerPharmacyFilter'),
-        statusSelect: getEl('managerStatusFilter'),
-        orderTypeSelect: getEl(`managerOrderTypeFilter`)
+        statusSelect: getEl('managerStatusFilter')
     };
 }
 
@@ -994,8 +723,7 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
     const selections = {
         rep: normalizeSupervisorFilterText(config.repSelect?.value),
         pharmacy: normalizeSupervisorFilterText(config.pharmacySelect?.value),
-        status: normalizeSupervisorFilterText(config.statusSelect?.value),
-        orderType: normalizeSupervisorFilterText(config.orderTypeSelect?.value)
+        status: normalizeSupervisorFilterText(config.statusSelect?.value)
     };
 
     for (let pass = 0; pass < 4; pass += 1) {
@@ -1011,10 +739,6 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
         const availableStatus = new Set(data
             .filter(order => supervisorOrderMatchesSelections(order, selections, 'status', fromVal, toVal))
             .map(order => normalizeSupervisorFilterText(getEffectiveOrderStatus(order)))
-            .filter(Boolean));
-        const availableOrderType = new Set(data
-            .filter(order => supervisorOrderMatchesSelections(order, selections, `orderType`, fromVal, toVal))
-            .map(order => normalizeSupervisorFilterText(getOrderType(order)))
             .filter(Boolean));
 
         const committedRep = normalizeSupervisorFilterText(config.repSelect?._supervisorSelectedValue);
@@ -1036,11 +760,6 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
             selections.status = '';
             changed = true;
         }
-        if (selections.orderType && !availableOrderType.has(selections.orderType)) {
-            selections.orderType = ``;
-            if (config.orderTypeSelect) config.orderTypeSelect.value = ``;
-            changed = true;
-        }
         if (!changed) break;
     }
 
@@ -1055,10 +774,6 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
     const statusCounts = countSupervisorFilterValues(
         data.filter(order => supervisorOrderMatchesSelections(order, selections, 'status', fromVal, toVal)),
         order => getEffectiveOrderStatus(order)
-    );
-    const orderTypeCounts = countSupervisorFilterValues(
-        data.filter(order => supervisorOrderMatchesSelections(order, selections, `orderType`, fromVal, toVal)),
-        order => getOrderType(order)
     );
 
     const textSort = (a, b) => a.localeCompare(b, 'ar', { numeric: true, sensitivity: 'base' });
@@ -1081,15 +796,9 @@ function synchronizeSupervisorCascadingFilters(scope = 'manager') {
             label: `${getWorkflowStatusLabel(row.value)} (${row.count})`
         }));
 
-    const orderTypeRows = [
-        { value: REGULAR_ORDER_TYPE, label: `طلبيات أصناف متاحة (${orderTypeCounts.get(REGULAR_ORDER_TYPE) || 0})` },
-        { value: RESERVED_ORDER_TYPE, label: `طلبيات أصناف مقطوعة (${orderTypeCounts.get(RESERVED_ORDER_TYPE) || 0})` }
-    ].filter(row => orderTypeCounts.get(row.value) > 0);
-
     setSupervisorAutocompleteOptions(config.repSelect, repRows);
     setSupervisorAutocompleteOptions(config.pharmacySelect, pharmacyRows);
     setSupervisorSelectOptions(config.statusSelect, 'جميع الحالات', statusRows, selections.status);
-    setSupervisorSelectOptions(config.orderTypeSelect, `جميع أنواع الطلبيات`, orderTypeRows, selections.orderType);
 
     return selections;
 }
@@ -1484,12 +1193,14 @@ function createProductItemFromRow(row) {
     return {
         name: input?.value || '',
         productCode: input?.dataset?.productCode || selectedProduct?.productCode || selectedProduct?.product_code || selectedProduct?.code || '',
+        batch: row.querySelector('.batch-select')?.value || '',
+        batchExpiry: row.querySelector('.batch-select')?.selectedOptions?.[0]?.dataset?.expiry || '',
+        inventoryBatchId: row.querySelector('.batch-select')?.selectedOptions?.[0]?.dataset?.inventoryId || '',
         qty: row.querySelector('.qty-input')?.value || 0,
         bonus: row.querySelector('.bonus-input')?.value || 0,
         price: row.querySelector('.price-cell')?.innerText || 0,
         total: row.querySelector('.row-total')?.innerText || 0,
-        note: row.querySelector('.item-note-input')?.value.trim() || '',
-        isReservedItem: row.dataset.reservedItem === 'true'
+        note: row.querySelector('.item-note-input')?.value.trim() || ''
     };
 }
 
@@ -1579,7 +1290,7 @@ function buildPrintableOrder(order) {
                 </div>
             </header>
             <div class="print-info-grid">
-                <div><span>آخر تحديث</span><strong>${escapePrintHtml(formatOrderLastAction(order))}</strong></div>
+                <div><span>التاريخ</span><strong>${escapePrintHtml(formatDateTime(order.createdAt))}</strong></div>
                 <div><span>المندوب</span><strong>${escapePrintHtml(order.repName || '-')}</strong></div>
                 <div><span>العميل / الصيدلية</span><strong>${escapePrintHtml(order.pharmacyName || '-')}</strong></div>
                 <div><span>كود الصيدلية</span><strong>${escapePrintHtml(getPharmacyCodeFromOrder(order) || '-')}</strong></div>
@@ -1693,8 +1404,7 @@ function getCurrentFilteredAllOrders() {
     const selections = synchronizeSupervisorCascadingFilters('all');
     const fromVal = getEl('managerFilterFrom')?.value;
     const toVal = getEl('managerFilterTo')?.value;
-    const source = allOrdersRangeData.length ? allOrdersRangeData : allOrdersData;
-    const filtered = source.filter(order => supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal));
+    const filtered = allOrdersData.filter(order => supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal));
     return sortSupervisorOrders(filtered, 'all');
 }
 
@@ -1744,12 +1454,7 @@ const detailsModal = document.getElementById('detailsModal');
 const modalItemsBody = document.getElementById('modalItemsBody');
 
 function getManagerName(repName) {
-    const exactMatch = repManagerMap[repName];
-    if (exactMatch) return exactMatch;
-    const normalizedRepName = normalizeOperationalRepName(repName);
-    const matchedEntry = Object.entries(repManagerMap)
-        .find(([name]) => normalizeOperationalRepName(name) === normalizedRepName);
-    return matchedEntry?.[1] || "غير محدد";
+    return repManagerMap[repName] || "غير محدد";
 }
 
 function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) {
@@ -1855,112 +1560,6 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
     suggestionsEl.addEventListener('mousedown', function(e) { e.preventDefault(); });
 }
 
-
-function showRepresentativeHome() {
-    if (!currentRepId && !loadRepSession()) return goToLogin();
-    const userInfo = getEl(`userInfo`);
-    if (userInfo) userInfo.style.display = `flex`;
-    if (getEl(`currentRepName`)) getEl(`currentRepName`).innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${escapePrintHtml(currentRepName)}</b>`;
-    document.body.dataset.repTab = `my-orders`;
-    document.querySelectorAll(`.screen`).forEach(screen => screen.style.display = `none`);
-    if (getEl(`myOrdersScreen`)) getEl(`myOrdersScreen`).style.display = `block`;
-    document.querySelectorAll(`.btn-tab`).forEach(button => button.classList.remove(`active`));
-    getEl(`navMyOrdersBtn`)?.classList.add(`active`);
-    const fab = getEl(`newOrderFab`);
-    if (fab) fab.style.display = `flex`;
-    loadMyOrders();
-}
-
-async function openOrderPharmacyPicker() {
-    if (!currentRepId && !loadRepSession()) return goToLogin();
-    const modal = getEl(`orderPharmacyModal`);
-    const input = getEl(`orderPharmacyInput`);
-    const suggestions = getEl(`orderPharmacySuggestions`);
-    const confirmButton = getEl(`confirmOrderPharmacyBtn`);
-    if (!modal || !input || !suggestions || !confirmButton) return;
-
-    modal.style.display = `flex`;
-    input.value = ``;
-    input.disabled = true;
-    input.placeholder = `جاري تحميل الصيدليات...`;
-    input.classList.remove(`input-error`);
-    confirmButton.disabled = true;
-    suggestions.innerHTML = ``;
-    currentPharmaciesData = [];
-
-    try {
-        const pharmaciesQuery = query(collection(db, `pharmacies`), where(`rep_id`, `==`, currentRepId));
-        const snap = await getDocs(pharmaciesQuery);
-        const names = [];
-        snap.forEach(pharmacyDoc => {
-            const pharmacy = { id: pharmacyDoc.id, ...pharmacyDoc.data() };
-            currentPharmaciesData.push(pharmacy);
-            if (pharmacy.name) names.push(pharmacy.name);
-        });
-        names.sort((left, right) => left.localeCompare(right, `ar`));
-        setupAutocomplete(input, suggestions, names, () => {
-            input.classList.remove(`input-error`);
-            confirmButton.disabled = false;
-        });
-        input.disabled = false;
-        input.placeholder = names.length ? `ابحث باسم الصيدلية...` : `لا توجد صيدليات مرتبطة بهذا المندوب`;
-        if (names.length) input.focus();
-    } catch (error) {
-        console.error(`تعذر تحميل صيدليات المندوب:`, error);
-        input.placeholder = `تعذر تحميل الصيدليات، حاول مرة أخرى`;
-        showToast(`تعذر تحميل الصيدليات المرتبطة بالمندوب.`, `error`);
-    }
-}
-
-function closeOrderPharmacyPicker() {
-    const modal = getEl(`orderPharmacyModal`);
-    if (modal) modal.style.display = `none`;
-}
-
-function validateOrderPharmacySelection() {
-    const input = getEl(`orderPharmacyInput`);
-    const confirmButton = getEl(`confirmOrderPharmacyBtn`);
-    if (!input || !confirmButton) return null;
-    const selectedName = input.value.trim();
-    const selectedPharmacy = currentPharmaciesData.find(pharmacy => pharmacy.name === selectedName) || null;
-    input.classList.toggle(`input-error`, !!selectedName && !selectedPharmacy);
-    confirmButton.disabled = !selectedPharmacy;
-    return selectedPharmacy;
-}
-
-getEl(`newOrderFab`)?.addEventListener(`click`, () => openOrderPharmacyPicker());
-getEl(`closeOrderPharmacyModal`)?.addEventListener(`click`, closeOrderPharmacyPicker);
-getEl(`orderPharmacyModal`)?.addEventListener(`click`, event => {
-    if (event.target === getEl(`orderPharmacyModal`)) closeOrderPharmacyPicker();
-});
-getEl(`orderPharmacyInput`)?.addEventListener(`input`, validateOrderPharmacySelection);
-getEl(`orderPharmacyInput`)?.addEventListener(`blur`, validateOrderPharmacySelection);
-getEl(`confirmOrderPharmacyBtn`)?.addEventListener(`click`, () => {
-    const selectedPharmacy = validateOrderPharmacySelection();
-    if (!selectedPharmacy) return showToast(`الرجاء اختيار صيدلية صحيحة من القائمة.`, `warning`);
-
-    const baseRepName = sessionStorage.getItem(`repName`) || currentRepName || ``;
-    currentRepName = getOperationalRepNameForPharmacy(selectedPharmacy, baseRepName);
-    currentPharmacyName = selectedPharmacy.name || ``;
-    currentPharmacyCode = selectedPharmacy.pharmacyCode || selectedPharmacy.pharmacy_code || selectedPharmacy.customerCode || ``;
-    currentPharmacyId = selectedPharmacy.id || ``;
-    saveRepSession(currentRepId, currentRepName);
-
-    const adminOrderSession = getAdminSession();
-    const isAdminOrder = sessionStorage.getItem(`adminOrderMode`) === `1` && adminOrderSession?.type === `manager`;
-    sessionStorage.setItem(`activeOrderContext`, JSON.stringify({
-        repId: currentRepId,
-        repName: currentRepName,
-        pharmacyName: currentPharmacyName,
-        pharmacyCode: currentPharmacyCode,
-        pharmacyId: currentPharmacyId,
-        isAdminOrder,
-        managerName: isAdminOrder ? adminOrderSession.name : null
-    }));
-    closeOrderPharmacyPicker();
-    window.location.href = `order.html`;
-});
-
 async function loadInitialData() {
     try {
         if (APP_PAGE === 'login') normalizeLoginUrlAfterSwitch();
@@ -1978,68 +1577,19 @@ async function loadInitialData() {
         const now = new Date().getTime();
         let repsData = [];
         let prodsData = [];
-        let activeRepIds = [];
-        let activeRepNames = [];
-
-        const collectActiveRepKeys = (pharmaciesSnap) => {
-            const ids = new Set();
-            const names = new Set();
-            pharmaciesSnap.forEach(item => {
-                const data = item.data() || {};
-                const repId = String(data.rep_id || data.repId || ``).trim();
-                const repName = String(data.repName || data.rep_name || data.rep || ``).trim().toLocaleLowerCase();
-                if (repId) ids.add(repId);
-                if (repName) names.add(repName);
-            });
-            return { ids: [...ids], names: [...names] };
-        };
 
         if (cachedDataStr && cacheTimeStr && (now - parseInt(cacheTimeStr, 10) < CACHE_EXPIRY)) {
             const parsed = JSON.parse(cachedDataStr);
             repsData = parsed.reps || [];
             prodsData = parsed.products || [];
-            activeRepIds = parsed.activeRepIds || [];
-            activeRepNames = parsed.activeRepNames || [];
-            if (!activeRepIds.length && !activeRepNames.length) {
-                const pharmaciesSnap = await getDocs(collection(db, `pharmacies`));
-                const active = collectActiveRepKeys(pharmaciesSnap);
-                activeRepIds = active.ids;
-                activeRepNames = active.names;
-            }
         } else {
-            const [repsSnap, prodSnap, pharmaciesSnap] = await Promise.all([
-                getDocs(collection(db, `reps`)),
-                getDocs(collection(db, `products`)),
-                getDocs(collection(db, `pharmacies`))
-            ]);
+            const repsSnap = await getDocs(collection(db, "reps"));
+            const prodSnap = await getDocs(collection(db, "products"));
             repsSnap.forEach(d => repsData.push({ id: d.id, ...d.data() }));
             prodSnap.forEach(d => prodsData.push({ id: d.id, ...d.data() }));
-            const active = collectActiveRepKeys(pharmaciesSnap);
-            activeRepIds = active.ids;
-            activeRepNames = active.names;
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ reps: repsData, products: prodsData }));
+            localStorage.setItem(CACHE_TIME_KEY, now.toString());
         }
-
-        const activeIdSet = new Set(activeRepIds);
-        const activeNameSet = new Set(activeRepNames.map(name => String(name || ``).trim().toLocaleLowerCase()));
-        repsData = repsData.filter(rep => {
-            const repNameKey = String(rep.name || ``).trim().toLocaleLowerCase();
-            return activeIdSet.has(String(rep.id || ``)) || activeNameSet.has(repNameKey);
-        });
-
-        const activeVisibleNames = new Set(repsData.map(rep => String(rep.name || ``).trim().toLocaleLowerCase()));
-        repManagerMap = Object.fromEntries(
-            Object.entries(repManagerMap).filter(([repName]) =>
-                activeVisibleNames.has(String(repName || ``).trim().toLocaleLowerCase()) || isOthersRepName(repName)
-            )
-        );
-
-        localStorage.setItem(CACHE_KEY, JSON.stringify({
-            reps: repsData,
-            products: prodsData,
-            activeRepIds,
-            activeRepNames
-        }));
-        localStorage.setItem(CACHE_TIME_KEY, now.toString());
 
         if (repSelect) {
             repSelect.innerHTML = '<option value="">-- اختر المندوب --</option>';
@@ -2073,56 +1623,34 @@ async function loadInitialData() {
 
 async function bootstrapPage() {
     if (APP_PAGE === 'order') {
-        const ctxRaw = sessionStorage.getItem(`activeOrderContext`);
-        if (!ctxRaw) {
-            if (!loadRepSession()) return goToLogin();
-            const adminOrderSession = getAdminSession();
-            isAdmin = sessionStorage.getItem(`adminOrderMode`) === `1` && adminOrderSession?.type === `manager`;
-            currentManagerName = isAdmin ? adminOrderSession.name : null;
-            showRepresentativeHome();
-            if (isAdmin) setTimeout(() => openOrderPharmacyPicker(), 0);
-            return;
-        }
+        const ctxRaw = sessionStorage.getItem('activeOrderContext');
+        if (!ctxRaw) return goToLogin();
         try {
             const ctx = JSON.parse(ctxRaw);
             currentRepId = ctx.repId;
             currentRepName = ctx.repName;
             currentPharmacyName = ctx.pharmacyName;
-            currentPharmacyCode = ctx.pharmacyCode || ``;
-            currentPharmacyId = ctx.pharmacyId || ``;
+            currentPharmacyCode = ctx.pharmacyCode || '';
             isAdmin = !!ctx.isAdminOrder;
             currentManagerName = ctx.managerName || null;
             saveRepSession(currentRepId, currentRepName);
-            getEl(`loginScreen`)?.style && (getEl(`loginScreen`).style.display = `none`);
-            getEl(`orderScreen`)?.style && (getEl(`orderScreen`).style.display = `block`);
-            getEl(`userInfo`)?.style && (getEl(`userInfo`).style.display = `flex`);
-            document.body.dataset.repTab = `order`;
-            document.querySelectorAll(`.btn-tab`).forEach(button => button.classList.remove(`active`));
-            getEl(`navOrderBtn`)?.classList.add(`active`);
-            const fab = getEl(`newOrderFab`);
-            if (fab) fab.style.display = isAdmin ? `none` : `flex`;
-            if (getEl(`currentRepName`)) getEl(`currentRepName`).innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${escapePrintHtml(currentRepName)}</b>`;
-            if (getEl(`orderPharmacyName`)) {
-                getEl(`orderPharmacyName`).innerHTML = `${escapePrintHtml(currentPharmacyName)}
+            getEl('loginScreen')?.style && (getEl('loginScreen').style.display = 'none');
+            getEl('orderScreen')?.style && (getEl('orderScreen').style.display = 'block');
+            getEl('userInfo')?.style && (getEl('userInfo').style.display = 'flex');
+            if (getEl('currentRepName')) getEl('currentRepName').innerHTML = `<i class="ph ph-user"></i> المندوب: <b>${currentRepName}</b>`;
+            if (getEl('orderPharmacyName')) {
+                getEl('orderPharmacyName').innerHTML = `${currentPharmacyName}
                     <button id="showPharmHistoryBtn" class="btn-icon" style="font-size: 0.8rem; padding: 4px 8px; margin-right: 10px;" title="تاريخ آخر طلبية">
                         <i class="ph ph-clock-counter-clockwise"></i> السجل
                     </button>`;
                 bindPharmacyHistoryButton();
             }
-            try {
-                await refreshInventoryReservations();
-                subscribeInventoryReservations();
-            } catch (error) {
-                reservationStateReady = false;
-                showToast(`تعذر تحميل حالة الأصناف المحجوزة. لن يتم إرسال الطلبية قبل نجاح التحقق.`, `error`);
-            }
+            await loadActiveInventoryBatches();
             if (!restoreSavedDraft() && orderBody && orderBody.children.length === 0) addNewRow();
-            syncReservationIndicators();
             loadMyOrders();
         } catch (error) {
-            sessionStorage.removeItem(`activeOrderContext`);
-            if (loadRepSession()) showRepresentativeHome();
-            else goToLogin();
+            sessionStorage.removeItem('activeOrderContext');
+            goToLogin();
         }
     }
 
@@ -2155,7 +1683,7 @@ function bindPharmacyHistoryButton() {
             let history = [];
             snap.forEach(d => history.push({ id: d.id, ...d.data() }));
             if (history.length === 0) return showToast("لا توجد طلبيات سابقة لهذه الصيدلية.", "warning");
-            history.sort((a,b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
+            history.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
             const historyBody = getEl('pharmacyHistoryBody');
             if (!historyBody) return;
             historyBody.innerHTML = '';
@@ -2164,7 +1692,7 @@ function bindPharmacyHistoryButton() {
                 const tr = document.createElement('tr');
                 tr.className = `row-${o.status}`;
                 tr.innerHTML = `
-                    <td>${formatOrderLastAction(o)}</td>
+                    <td>${formatDateTime(o.createdAt)}</td>
                     <td>${o.repName || '-'}</td>
                     <td>${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ا</td>
                     <td><span class="status-badge ${getEffectiveOrderStatus(o)}">${getWorkflowStatusLabel(getEffectiveOrderStatus(o))}</span></td>
@@ -2243,6 +1771,7 @@ function addNewRow(prefill = null) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
         <td data-label="الصنف"><div class="autocomplete-wrapper"><input type="text" class="product-input" placeholder="ابحث باسم الصنف..." style="width:100%;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+        <td data-label="Batch"><select class="batch-select" disabled><option value="">لا يوجد Batch مفعل</option></select><small class="batch-balance" style="display:block;margin-top:4px;color:#64748b;font-weight:700"></small></td>
         <td data-label="الكمية"><input type="number" class="qty-input" value="1" min="1"></td>
         <td data-label="البونص" style="position:relative;"><input type="number" class="bonus-input" value="0" min="0"><span class="bonus-pct" style="font-size:0.75rem; color:var(--primary); font-weight:bold; display:block; text-align:center; margin-top:4px;"></span></td>
         <td data-label="السعر" class="price-cell">0.00</td>
@@ -2258,19 +1787,18 @@ function addNewRow(prefill = null) {
           p = tr.querySelector('.price-cell'), 
           t = tr.querySelector('.row-total'),
           bPct = tr.querySelector('.bonus-pct');
+    const batchSelect = tr.querySelector('.batch-select');
           
     const productNames = productsList.map(prod => prod.name);
     
     setupAutocomplete(s, sug, productNames, (selectedName) => {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
-        if (!selectedProd) return;
-        if (!enforceNoMixedOrderForRow(tr, selectedProd)) return;
-        const pr = parseAppNumber(selectedProd.price);
+        const pr = selectedProd ? parseAppNumber(selectedProd.price) : 0;
         s.dataset.productCode = selectedProd?.productCode || selectedProd?.product_code || selectedProd?.code || '';
+        populateOrderBatchSelect(tr, selectedProd);
         p.innerText = pr.toFixed(2);
         t.innerText = (pr * q.value).toFixed(2);
         updateGrandTotal();
-        syncReservationIndicators();
     });
 
     s.addEventListener('blur', function() {
@@ -2285,8 +1813,6 @@ function addNewRow(prefill = null) {
             this.classList.remove('input-error');
             const err = this.parentNode.querySelector('.inline-error-msg');
             if(err) err.remove();
-            const selectedProd = productsList.find(prod => prod.name === val);
-            if (selectedProd) enforceNoMixedOrderForRow(tr, selectedProd);
         }
     });
 
@@ -2302,11 +1828,12 @@ function addNewRow(prefill = null) {
     }
 
     q.oninput = () => { 
+        validateOrderBatchQuantity(tr);
         t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); 
         calcBonus();
         updateGrandTotal(); 
     };
-    b.oninput = () => { calcBonus(); updateGrandTotal(); };
+    b.oninput = () => { validateOrderBatchQuantity(tr); calcBonus(); updateGrandTotal(); };
 
     tr.querySelector('.item-note-input').oninput = () => { autoSaveDraft(); };
 
@@ -2326,14 +1853,50 @@ function addNewRow(prefill = null) {
         p.innerText = price.toFixed(2);
         t.innerText = prefill.total !== undefined ? parseAppNumber(prefill.total).toFixed(2) : (price * parseAppNumber(q.value)).toFixed(2);
         tr.querySelector('.item-note-input').value = prefill.note || '';
+        populateOrderBatchSelect(tr, product, prefill.batch || '');
         calcBonus();
         updateGrandTotal();
-        const prefillProduct = productsList.find(prod => prod.name === prefill.name);
-        if (prefillProduct) {
-            tr.dataset.reservedItem = (prefill.isReservedItem === true || isProductReserved(prefillProduct)) ? 'true' : 'false';
-        }
-        syncReservationIndicators();
     }
+}
+
+function populateOrderBatchSelect(row, product, selectedBatch = '') {
+    const select = row.querySelector('.batch-select');
+    const balance = row.querySelector('.batch-balance');
+    if (!select) return;
+    const code = normalizeSupervisorFilterText(product?.productCode || product?.product_code || product?.code || '');
+    const name = normalizeSupervisorFilterText(product?.name || '');
+    const batches = activeInventoryBatches.filter(batch => normalizeSupervisorFilterText(batch.productCode) === code || (!code && normalizeSupervisorFilterText(batch.productName) === name));
+    select.innerHTML = batches.length ? `<option value="">اختر Batch</option>${batches.map(batch => `<option value="${escapePrintHtml(batch.batch)}" data-expiry="${escapePrintHtml(batch.expiryDate || '')}" data-inventory-id="${batch.id}" data-remaining="${parseAppNumber(batch.remainingQty)}">${escapePrintHtml(batch.batch)} — متاح ${parseAppNumber(batch.remainingQty).toLocaleString('en-US')}</option>`).join('')}` : `<option value="">لا يوجد Batch مفعل</option>`;
+    select.disabled = false;
+    select.required = true;
+    if (selectedBatch) select.value = selectedBatch;
+    const refresh = () => { const option = select.selectedOptions[0]; balance.textContent = option?.dataset?.remaining ? `الرصيد: ${parseAppNumber(option.dataset.remaining).toLocaleString('en-US')}` : ''; validateOrderBatchQuantity(row); autoSaveDraft(); };
+    select.onchange = refresh; refresh();
+}
+
+function validateOrderBatchQuantity(row) {
+    const select = row.querySelector('.batch-select');
+    const qty = row.querySelector('.qty-input');
+    if (!select) return false;
+    const remaining = parseAppNumber(select.selectedOptions[0]?.dataset?.remaining);
+    const bonus = row.querySelector('.bonus-input');
+    const requested = parseAppNumber(qty?.value) + parseAppNumber(bonus?.value);
+    const valid = Boolean(select.value) && requested > 0 && requested <= remaining;
+    select.classList.toggle('input-error', !valid);
+    qty?.classList.toggle('input-error', Boolean(select.value) && requested > remaining);
+    bonus?.classList.toggle('input-error', Boolean(select.value) && requested > remaining);
+    return valid;
+}
+
+async function loadActiveInventoryBatches() {
+    try {
+        const snap = await getDocs(query(collection(db, 'new_inventory_batches'), where('active', '==', true)));
+        activeInventoryBatches = []; snap.forEach(item => activeInventoryBatches.push({ id: item.id, ...item.data() }));
+        document.querySelectorAll('#orderBody tr').forEach(row => {
+            const product = productsList.find(item => item.name === row.querySelector('.product-input')?.value.trim());
+            if (product) populateOrderBatchSelect(row, product, row.querySelector('.batch-select')?.value || '');
+        });
+    } catch (error) { console.warn('تعذر تحميل أرصدة الـ Batch التجريبية.', error); }
 }
 
 function updateGrandTotal() {
@@ -2347,56 +1910,137 @@ function updateGrandTotal() {
     autoSaveDraft();
 }
 
-if (repSelect) repSelect.onchange = async event => {
-    const repId = event.target.value;
-    const passwordGroup = getEl(`repPasswordGroup`);
-    const passwordInput = getEl(`repPasswordInput`);
-    const rememberPassword = getEl(`rememberRepPass`);
-    if (!repId) {
-        if (passwordGroup) passwordGroup.style.display = `none`;
-        if (startOrderBtn) startOrderBtn.disabled = true;
-        return;
+if (repSelect) repSelect.onchange = async (e) => {
+    if (!e.target.value) {
+        document.getElementById('repPasswordGroup').style.display = 'none';
+        return;
+    }
+    
+    // 🟢 إظهار حقل الرقم السري عند اختيار المندوب
+    document.getElementById('repPasswordGroup').style.display = 'block';
+    
+    // 🟢 استرجاع كلمة المرور إذا كانت محفوظة
+    const savedPass = localStorage.getItem('savedRepPass_' + e.target.value);
+    if (savedPass) {
+        document.getElementById('repPasswordInput').value = savedPass;
+        if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = true;
+    } else {
+        document.getElementById('repPasswordInput').value = '';
+        if(document.getElementById('rememberRepPass')) document.getElementById('rememberRepPass').checked = false;
+    }
+
+    pharmacyInput.value = '';
+    pharmacyInput.placeholder = 'جاري التحميل...';
+    try {
+        const q = query(collection(db, "pharmacies"), where("rep_id", "==", e.target.value));
+        const snap = await getDocs(q);
+        let pharmacyNames = [];
+        currentPharmaciesData = []; 
+        snap.forEach(d => {
+            currentPharmaciesData.push(d.data()); 
+            pharmacyNames.push(d.data().name);
+        });
+        setupAutocomplete(pharmacyInput, document.getElementById('pharmacySuggestions'), pharmacyNames, () => startOrderBtn.disabled = false);
+        pharmacyInput.disabled = false;
+        pharmacyInput.placeholder = 'ابحث او اختر الصيدلية...';
+    } catch (error) {
+        pharmacyInput.placeholder = 'خطأ في التحميل، الرجاء المحاولة مرة أخرى';
     }
-
-    if (passwordGroup) passwordGroup.style.display = `block`;
-    const savedPass = localStorage.getItem(`savedRepPass_${repId}`);
-    if (passwordInput) passwordInput.value = savedPass || ``;
-    if (rememberPassword) rememberPassword.checked = !!savedPass;
-    if (startOrderBtn) startOrderBtn.disabled = false;
 };
+if (pharmacyInput) pharmacyInput.oninput = () => { if (startOrderBtn) startOrderBtn.disabled = !pharmacyInput.value.trim(); };
 
-if (startOrderBtn) startOrderBtn.onclick = async event => {
-    event.preventDefault();
-    if (!repSelect?.value) return showToast(`الرجاء اختيار اسم المندوب.`, `warning`);
+function validatePharmacyInput() {
+    const pharmacyName = pharmacyInput.value.trim();
+    const isValid = pharmacyName !== "" && currentPharmaciesData.some(p => p.name === pharmacyName);
+    
+    if (!isValid && pharmacyName !== "") {
+        pharmacyInput.classList.add('input-error');
+        startOrderBtn.disabled = true;
+    } else if (pharmacyName === "") {
+        pharmacyInput.classList.remove('input-error');
+        startOrderBtn.disabled = true;
+    } else {
+        pharmacyInput.classList.remove('input-error');
+        startOrderBtn.disabled = false;
+    }
+    return isValid;
+}
 
-    const selectedRepName = repSelect.options[repSelect.selectedIndex]?.text || ``;
-    const repPassInput = getEl(`repPasswordInput`);
-    const enteredPass = repPassInput?.value.trim() || ``;
-    const expectedHash = repPasswordsMap[selectedRepName];
+pharmacyInput?.addEventListener('blur', validatePharmacyInput);
+pharmacyInput?.addEventListener('input', function() {
+    const isValid = currentPharmaciesData.some(p => p.name === this.value.trim());
+    if (isValid) {
+        this.classList.remove('input-error');
+        startOrderBtn.disabled = false;
+    } else {
+        startOrderBtn.disabled = true;
+    }
+});
+
+if (startOrderBtn) startOrderBtn.onclick = async (e) => { e.preventDefault(); // 🟢 أضف هذا السطر لمنع إرسال الفورم...
+                                      if (productsList.length === 0) { 
+        showToast("الرجاء الانتظار... يتم تحميل المنتجات.", "info"); 
+        return; 
+    }
+    const selectedRepNameText = repSelect.options[repSelect.selectedIndex].text;
+    const repPassInput = document.getElementById('repPasswordInput');
+    const enteredPass = repPassInput.value.trim();
+    const expectedHash = repPasswordsMap[selectedRepNameText];
 
     if (!enteredPass) {
-        repPassInput?.classList.add(`input-error`);
-        return showToast(`الرجاء إدخال الرقم السري الخاص بك.`, `warning`);
-    }
-    if (expectedHash && btoa(enteredPass) !== expectedHash) {
-        repPassInput?.classList.add(`input-error`);
-        return showToast(`الرقم السري للمندوب غير صحيح!`, `error`);
+        repPassInput.classList.add('input-error');
+        return showToast("الرجاء إدخال الرقم السري الخاص بك.", "warning");
     }
 
-    repPassInput?.classList.remove(`input-error`);
-    const rememberPassword = getEl(`rememberRepPass`);
-    if (rememberPassword?.checked) localStorage.setItem(`savedRepPass_${repSelect.value}`, enteredPass);
-    else {
-        localStorage.removeItem(`savedRepPass_${repSelect.value}`);
-        if (repPassInput) repPassInput.value = ``;
+if (expectedHash && btoa(enteredPass) !== expectedHash) {
+        repPassInput.classList.add('input-error');
+        return showToast("الرقم السري للمندوب غير صحيح!", "error");
+    }
+    
+    repPassInput.classList.remove('input-error');
+    // 🟢 حفظ كلمة المرور إذا كان خيار التذكر مفعلاً
+    if (document.getElementById('rememberRepPass') && document.getElementById('rememberRepPass').checked) {
+        localStorage.setItem('savedRepPass_' + repSelect.value, enteredPass);
+    } else {
+        localStorage.removeItem('savedRepPass_' + repSelect.value);
+        repPassInput.value = ''; // تنظيف الحقل كإجراء أمني إذا لم يطلب التذكر
+    }
+    const pharmacyName = pharmacyInput.value.trim();
+    const selectedPharm = currentPharmaciesData.find(p => p.name === pharmacyName);
+    
+    if (!selectedPharm) {
+        pharmacyInput.classList.add('input-error');
+        showToast("الرجاء اختيار صيدلية صحيحة من القائمة حصراً.", "error");
+        return;
     }
-
+    
     currentRepId = repSelect.value;
-    currentRepName = selectedRepName;
+    currentRepName = repSelect.options[repSelect.selectedIndex].text;
     saveRepSession(currentRepId, currentRepName);
-    localStorage.setItem(`dad_last_rep_id`, currentRepId);
-    sessionStorage.removeItem(`activeOrderContext`);
-    window.location.href = `order.html`;
+    localStorage.setItem('dad_last_rep_id', currentRepId);
+    currentPharmacyName = pharmacyName;
+    currentPharmacyCode = selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || selectedPharm.customerCode || "";
+
+    const adminOrderSession = getAdminSession();
+    const isAdminOrder = sessionStorage.getItem('adminOrderMode') === '1' && adminOrderSession?.type === 'manager';
+    sessionStorage.setItem('activeOrderContext', JSON.stringify({
+        repId: currentRepId,
+        repName: currentRepName,
+        pharmacyName: currentPharmacyName,
+        pharmacyCode: currentPharmacyCode,
+        isAdminOrder,
+        managerName: isAdminOrder ? adminOrderSession.name : null
+    }));
+
+    window.location.href = 'order.html';
+};
+
+const originalRepOnChange = repSelect?.onchange;
+if (repSelect) repSelect.onchange = async (e) => {
+    if (originalRepOnChange) await originalRepOnChange(e);
+    startOrderBtn.disabled = true;
+    pharmacyInput.classList.remove('input-error');
+    setTimeout(() => { validatePharmacyInput(); }, 100);
 };
 
 if (submitOrderBtn) submitOrderBtn.onclick = async () => {
@@ -2417,6 +2061,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
                 invalidItem = true;
                 s.classList.add('input-error');
             } else {
+                if (!validateOrderBatchQuantity(r)) invalidItem = true;
                 s.classList.remove('input-error'); 
                 items.push(createProductItemFromRow(r));
             }
@@ -2424,22 +2069,10 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
     });
 
     if (invalidItem) {
-        return showToast("يوجد أصناف غير صحيحة، يرجى اختيار الصنف من القائمة حصراً.", "error");
+        return showToast("تحقق من الصنف والـ Batch والكمية المتاحة لكل سطر.", "error");
     }
 
     if (items.length === 0) return showToast("لا يمكن إرسال طلبية فارغة!", "warning");
-
-    let taggedItems;
-    let orderTypeInfo;
-    try {
-        await refreshInventoryReservations();
-        taggedItems = tagItemsByCurrentReservations(items);
-        orderTypeInfo = evaluateOrderItemTypes(taggedItems);
-    } catch (error) {
-        console.error('Reservation validation failed:', error);
-        return showToast('تعذر التحقق من حالة الأصناف المحجوزة. حاول مرة أخرى بعد التأكد من الاتصال.', 'error');
-    }
-    if (orderTypeInfo.mixed) return showToast(MIXED_ORDER_WARNING, 'warning');
     
     const orderNoteEl = document.getElementById('orderNoteInput');
     const orderNoteValue = orderNoteEl ? orderNoteEl.value.trim() : "";
@@ -2459,11 +2092,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
             managerName: getManagerName(currentRepName),
             pharmacyName: currentPharmacyName,
             pharmacyCode: currentPharmacyCode, 
-            pharmacyId: currentPharmacyId || '',
-            items: taggedItems,
-            orderType: orderTypeInfo.orderType || REGULAR_ORDER_TYPE,
-            isReservedOrder: !!orderTypeInfo.isReservedOrder,
-            reservedOrderCreatedAt: orderTypeInfo.isReservedOrder ? now : null,
+            items: items,
             orderNote: orderNoteValue,
             grandTotal: parseAppNumber(grandTotalEl.innerText),
             createdAt: now,
@@ -2477,7 +2106,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
             marketManagerStatus: isAdmin ? 'market_manager_pending' : '',
             financeStatus: '',
             orderStaffStatus: '',
-            auditTrail: [buildAuditEntry('order_created', currentRepName, isAdmin ? 'supervisor' : 'representative', null, { status: initialStatus, orderType: orderTypeInfo.orderType || REGULAR_ORDER_TYPE }, orderNoteValue)]
+            auditTrail: [buildAuditEntry('order_created', currentRepName, isAdmin ? 'supervisor' : 'representative', null, { status: initialStatus }, orderNoteValue)]
         });
         
         clearDraft(); // تنظيف المسودة بعد الإرسال الناجح
@@ -2531,9 +2160,8 @@ async function loadMyOrders() {
         unsubMyOrders = onSnapshot(q, (snap) => {
             let orders = [];
             snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
-            orders.sort((a,b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
-            currentMyOrdersData = orders.filter(order => isRepVisibleOrderStatus(getEffectiveOrderStatus(order)));
-            renderFinanceRejectedOrders();
+            orders.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
+            currentMyOrdersData = orders.filter(o => isRepVisibleOrderStatus(getEffectiveOrderStatus(o)));
             applyMyOrdersFilters();
         }, () => showToast("خطأ في جلب البيانات.", "error"));
     } catch(e) { showToast("خطأ في جلب البيانات.", "error"); }
@@ -2546,7 +2174,6 @@ function synchronizeMyOrdersStatusFilter() {
     const fromVal = getEl('myOrdersDateFrom')?.value || '';
     const toVal = getEl('myOrdersDateTo')?.value || '';
     const pharmacyFilter = (getEl('myOrdersPharmacyFilter')?.value || '').toLowerCase().trim();
-    const orderTypeFilter = normalizeSupervisorFilterText(getEl(`myOrdersOrderTypeFilter`)?.value);
     let selectedStatus = normalizeSupervisorFilterText(statusSelect.value);
 
     const statusCounts = countSupervisorFilterValues(
@@ -2554,8 +2181,7 @@ function synchronizeMyOrdersStatusFilter() {
             const pharmacyName = (order.pharmacyName || '').toLowerCase();
             const pharmacyCode = String(getPharmacyCodeFromOrder(order) || '').toLowerCase();
             const pharmacyMatches = !pharmacyFilter || pharmacyName.includes(pharmacyFilter) || pharmacyCode.includes(pharmacyFilter);
-            const orderTypeMatches = !orderTypeFilter || getOrderType(order) === orderTypeFilter;
-            return isOrderInDateRange(order, fromVal, toVal) && pharmacyMatches && orderTypeMatches;
+            return isOrderInDateRange(order, fromVal, toVal) && pharmacyMatches;
         }),
         order => getEffectiveOrderStatus(order)
     );
@@ -2584,7 +2210,6 @@ function applyMyOrdersFilters() {
     const fromVal = getEl('myOrdersDateFrom')?.value || '';
     const toVal = getEl('myOrdersDateTo')?.value || '';
     const pharmacyFilter = (getEl('myOrdersPharmacyFilter')?.value || '').toLowerCase().trim();
-    const orderTypeFilter = normalizeSupervisorFilterText(getEl(`myOrdersOrderTypeFilter`)?.value);
     const statusFilter = synchronizeMyOrdersStatusFilter();
     const filtered = currentMyOrdersData.filter(order => {
         const pharmacyName = (order.pharmacyName || '').toLowerCase();
@@ -2592,8 +2217,7 @@ function applyMyOrdersFilters() {
         const status = normalizeSupervisorFilterText(getEffectiveOrderStatus(order));
         return isOrderInDateRange(order, fromVal, toVal) &&
             (!pharmacyFilter || pharmacyName.includes(pharmacyFilter) || pharmacyCode.includes(pharmacyFilter)) &&
-            (!statusFilter || status === statusFilter) &&
-            (!orderTypeFilter || getOrderType(order) === orderTypeFilter);
+            (!statusFilter || status === statusFilter);
     });
 
     const totalVal = filtered.reduce((sum, order) => sum + parseAppNumber(order.grandTotal), 0);
@@ -2614,7 +2238,7 @@ function applyMyOrdersFilters() {
         tr.className = `row-${statusClass}`;
         tr.innerHTML = `
             <td data-label="تحديد"><input type="checkbox" class="my-order-checkbox" value="${order.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
-            <td data-label="آخر تحديث">${formatOrderLastAction(order)}</td>
+            <td data-label="التاريخ">${formatDateTime(order.createdAt)}</td>
             <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
             <td data-label="كود الصيدلية">${getPharmacyCodeFromOrder(order) || '-'}</td>
             <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -2631,447 +2255,43 @@ function applyMyOrdersFilters() {
     });
 }
 
-
-function getRepresentativeFinanceJustification(order = {}) {
-    return String(order.representativeFinanceJustification || ``).trim();
-}
-
-function getFinanceRejectionReasonForRepresentative(order = {}) {
-    return String(order.financeRejectionReason || order.financeVisibleNote || `لم يتم تسجيل سبب الرفض`).trim();
-}
-
-function renderFinanceRejectedOrders() {
-    const container = getEl(`financeRejectedList`);
-    if (!container) return;
-    const rejectedOrders = currentMyOrdersData
-        .filter(order => getEffectiveOrderStatus(order) === `finance_rejected` || order.financeStatus === `finance_rejected`)
-        .sort((left, right) => (getOrderLastActionDate(right)?.getTime() || 0) - (getOrderLastActionDate(left)?.getTime() || 0));
-
-    const badge = getEl(`financeRejectedBadge`);
-    if (badge) {
-        badge.textContent = String(rejectedOrders.length);
-        badge.style.display = rejectedOrders.length ? `inline-flex` : `none`;
-    }
-    if (getEl(`financeRejectedCount`)) getEl(`financeRejectedCount`).textContent = `${rejectedOrders.length} طلبية`;
-
-    if (!rejectedOrders.length) {
-        container.innerHTML = `<div class="rep-finance-rejected-empty"><i class="ph ph-check-circle"></i><h3>لا توجد طلبيات مرفوضة مالياً</h3><p>أي طلبية يرفضها المراقب المالي ستظهر هنا تلقائياً.</p></div>`;
-        return;
-    }
-
-    container.innerHTML = ``;
-    rejectedOrders.forEach(order => {
-        const card = document.createElement(`article`);
-        card.className = `rep-finance-rejected-card`;
-        const previousJustification = getRepresentativeFinanceJustification(order);
-        card.innerHTML = `
-            <div class="rep-finance-rejected-meta">
-                <div><small>الصيدلية</small><strong>${escapePrintHtml(order.pharmacyName || `-`)}</strong></div>
-                <div><small>آخر تحديث</small><strong>${escapePrintHtml(formatOrderLastAction(order))}</strong></div>
-                <div><small>قيمة الطلبية</small><strong>${parseAppNumber(order.grandTotal).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.ا</strong></div>
-            </div>
-            <div class="rep-finance-rejection-reason"><span>سبب الرفض من حمزة</span><p>${escapePrintHtml(getFinanceRejectionReasonForRepresentative(order))}</p></div>
-            ${previousJustification ? `<div class="rep-finance-last-justification"><span>آخر توضيح أرسلته</span><p>${escapePrintHtml(previousJustification)}</p></div>` : ``}
-            <div class="rep-finance-justification-box">
-                <label for="financeJustification_${order.id}">توضيحك للمالية</label>
-                <textarea id="financeJustification_${order.id}" class="rep-finance-justification-input" rows="3" placeholder="مثال: تم التحصيل على شيك رقم ... / شيك مع النقل / تم إرسال الشيك عبر الإيميل...">${escapePrintHtml(previousJustification)}</textarea>
-                <div class="rep-finance-justification-actions">
-                    <button class="btn-primary rep-finance-justification-submit" type="button"><i class="ph ph-paper-plane-tilt"></i> إرسال التوضيح لحمزة</button>
-                </div>
-            </div>`;
-
-        const textarea = card.querySelector(`.rep-finance-justification-input`);
-        const button = card.querySelector(`.rep-finance-justification-submit`);
-        button?.addEventListener(`click`, async () => {
-            const justification = textarea?.value.trim() || ``;
-            if (!justification) return showToast(`اكتب التوضيح قبل الإرسال.`, `warning`);
-            button.disabled = true;
-            try {
-                await updateOrderWithAudit(order.id, {
-                    representativeFinanceJustification: justification,
-                    representativeFinanceJustificationAt: new Date(),
-                    representativeFinanceJustificationBy: currentRepName || order.repName || `Representative`
-                }, buildAuditEntry(
-                    `representative_finance_justification`,
-                    currentRepName || order.repName || `Representative`,
-                    `representative`,
-                    { representativeFinanceJustification: previousJustification },
-                    { representativeFinanceJustification: justification },
-                    justification
-                ));
-                showToast(`تم إرسال التوضيح إلى حمزة وسيظهر في ملاحظة الطلبية.`, `success`);
-            } catch (error) {
-                console.error(`تعذر إرسال توضيح المندوب للمالية:`, error);
-                showToast(`تعذر إرسال التوضيح. حاول مرة أخرى.`, `error`);
-            } finally {
-                button.disabled = false;
-            }
-        });
-        container.appendChild(card);
-    });
-}
-
-// التارجت الشهري للمشرفين محفوظ داخل system_settings، مع نسخة محلية دائمة على الجهاز.
-// نعرض النسخة المحلية فورًا، ونبقي Listener واحد فقط للشهر الحالي حتى يصل التغيير عند حدوثه بدل إعادة getDoc مع كل تحديث للبطاقات.
-const supervisorTargetCache = new Map();
-const SUPERVISOR_TARGET_STORAGE_PREFIX = `dad_supervisor_targets_v1_`;
-let supervisorTargetListenerMonth = ``;
-let supervisorTargetListenerUnsubscribe = null;
-let supervisorTargetListenerPromise = null;
-let supervisorTargetRenderToken = 0;
-
-function normalizeSupervisorTargetValues(value = {}) {
-    const normalized = {};
-    SUPERVISOR_TARGET_NAMES.forEach(name => {
-        const raw = value?.[name];
-        if (raw !== null && raw !== undefined && raw !== ``) normalized[name] = raw;
-    });
-    return normalized;
-}
-
-function readSupervisorTargetsFromDevice(month) {
-    if (!month) return null;
-    try {
-        const raw = localStorage.getItem(`${SUPERVISOR_TARGET_STORAGE_PREFIX}${month}`);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed?.targets || typeof parsed.targets !== `object`) return null;
-        return normalizeSupervisorTargetValues(parsed.targets);
-    } catch (error) {
-        console.warn(`تعذر قراءة تارجت ${month} من التخزين المحلي.`, error);
-        return null;
-    }
-}
-
-function persistSupervisorTargetsOnDevice(month, targets = {}) {
-    if (!month) return;
-    try {
-        localStorage.setItem(`${SUPERVISOR_TARGET_STORAGE_PREFIX}${month}`, JSON.stringify({
-            targets: normalizeSupervisorTargetValues(targets),
-            syncedAt: new Date().toISOString()
-        }));
-    } catch (error) {
-        console.warn(`تعذر حفظ تارجت ${month} على الجهاز.`, error);
-    }
-}
-
-function areSupervisorTargetsEqual(left = {}, right = {}) {
-    return SUPERVISOR_TARGET_NAMES.every(name => String(left?.[name] ?? ``) === String(right?.[name] ?? ``));
-}
-
-function resolveSupervisorTargetMonth() {
-    const fromValue = getEl(`managerFilterFrom`)?.value || ``;
-    const toValue = getEl(`managerFilterTo`)?.value || ``;
-    const fromMonth = fromValue ? fromValue.slice(0, 7) : ``;
-    const toMonth = toValue ? toValue.slice(0, 7) : ``;
-
-    if (fromMonth && toMonth && fromMonth !== toMonth) return { month: ``, spansMultipleMonths: true };
-    return { month: fromMonth || toMonth || ``, spansMultipleMonths: false };
-}
-
-function isAllCompanyDashboardScope() {
-    return !!getEl(`managerAllOrdersBtn`)?.classList.contains(`active`);
-}
-
-function ensureSupervisorTargetListener(month) {
-    if (!month) return Promise.resolve({});
-
-    const memoryTargets = supervisorTargetCache.get(month) || null;
-    const deviceTargets = memoryTargets || readSupervisorTargetsFromDevice(month);
-    if (deviceTargets && !memoryTargets) supervisorTargetCache.set(month, deviceTargets);
-
-    if (supervisorTargetListenerMonth === month && supervisorTargetListenerPromise) {
-        return deviceTargets ? Promise.resolve(deviceTargets) : supervisorTargetListenerPromise;
-    }
-
-    if (typeof supervisorTargetListenerUnsubscribe === `function`) {
-        supervisorTargetListenerUnsubscribe();
-        supervisorTargetListenerUnsubscribe = null;
-    }
-
-    supervisorTargetListenerMonth = month;
-    let initialSettled = false;
-    supervisorTargetListenerPromise = new Promise(resolve => {
-        supervisorTargetListenerUnsubscribe = onSnapshot(
-            doc(db, `system_settings`, `supervisor_targets_${month}`),
-            snap => {
-                const storedTargets = readSupervisorTargetsFromDevice(month);
-                if (snap.metadata.fromCache && storedTargets) {
-                    if (!initialSettled) {
-                        initialSettled = true;
-                        resolve(storedTargets);
-                    }
-                    return;
-                }
-
-                const incoming = snap.exists() && snap.data()?.targets && typeof snap.data().targets === `object`
-                    ? normalizeSupervisorTargetValues(snap.data().targets)
-                    : {};
-                const previous = supervisorTargetCache.get(month) || storedTargets || {};
-                const changed = !areSupervisorTargetsEqual(previous, incoming);
-
-                supervisorTargetCache.set(month, incoming);
-                persistSupervisorTargetsOnDevice(month, incoming);
-
-                if (!initialSettled) {
-                    initialSettled = true;
-                    resolve(incoming);
-                }
-
-                if (changed && resolveSupervisorTargetMonth().month === month) {
-                    requestAnimationFrame(() => updateSupervisorMonthlyTargetCard());
-                }
-            },
-            error => {
-                console.warn(`تعذر متابعة تغييرات تارجت المشرفين للشهر ${month}.`, error);
-                const fallback = supervisorTargetCache.get(month) || readSupervisorTargetsFromDevice(month) || {};
-                if (!initialSettled) {
-                    initialSettled = true;
-                    resolve(fallback);
-                }
-            }
-        );
-    });
-
-    return deviceTargets ? Promise.resolve(deviceTargets) : supervisorTargetListenerPromise;
-}
-
-async function loadSupervisorMonthlyTargets(month) {
-    if (!month) return {};
-
-    const memoryTargets = supervisorTargetCache.get(month);
-    if (memoryTargets) {
-        ensureSupervisorTargetListener(month);
-        return memoryTargets;
-    }
-
-    const deviceTargets = readSupervisorTargetsFromDevice(month);
-    if (deviceTargets) {
-        supervisorTargetCache.set(month, deviceTargets);
-        ensureSupervisorTargetListener(month);
-        return deviceTargets;
-    }
-
-    return ensureSupervisorTargetListener(month);
-}
-
-function getSupervisorTargetSalesOrders() {
-    const fromValue = getEl(`managerFilterFrom`)?.value || ``;
-    const toValue = getEl(`managerFilterTo`)?.value || ``;
-    const source = isAllCompanyDashboardScope() ? allOrdersRangeData : managerOrdersData;
-    return (Array.isArray(source) ? source : []).filter(order =>
-        !isOrderDeleted(order) && isOrderInDateRange(order, fromValue, toValue)
-    );
-}
-
-function formatDashboardInteger(value) {
-    const parsed = parseAppNumber(value);
-    if (!Number.isFinite(parsed)) return `0`;
-    return Math.trunc(parsed).toLocaleString(`en-US`, { maximumFractionDigits: 0 });
-}
-
-function fitDashboardMetricValue(element) {
-    if (!element) return;
-    element.style.removeProperty(`font-size`);
-    requestAnimationFrame(() => {
-        let size = parseFloat(getComputedStyle(element).fontSize) || 32;
-        const minimumSize = 18;
-        while (element.scrollWidth > element.clientWidth && size > minimumSize) {
-            size -= 1;
-            element.style.setProperty(`font-size`, `${size}px`, `important`);
-        }
-    });
-}
-
-function setDashboardMetricText(element, text) {
-    if (!element) return;
-    element.innerText = text;
-    fitDashboardMetricValue(element);
-}
-
-let dashboardMetricResizeTimer = 0;
-window.addEventListener(`resize`, () => {
-    clearTimeout(dashboardMetricResizeTimer);
-    dashboardMetricResizeTimer = window.setTimeout(() => {
-        document.querySelectorAll(`#advancedManagerDashboard .metric-value`).forEach(fitDashboardMetricValue);
-    }, 120);
-});
-
-function setTargetAchievementDisplay(value = null, isCompanyScope = false) {
-    const achievementEl = getEl(`dashTargetAchievement`);
-    const bar = getEl(`dashTargetAchievementBar`);
-    if (!achievementEl || !bar) return;
-    const scopeLabel = isCompanyScope ? `الشركة` : `الفريق`;
-    if (value === null || !Number.isFinite(value)) {
-        achievementEl.innerText = `نسبة مبيعات ${scopeLabel} من التارجت: -`;
-        bar.style.width = `0%`;
-        return;
-    }
-    achievementEl.innerText = `نسبة مبيعات ${scopeLabel} من التارجت: ${value.toFixed(1)}%`;
-    bar.style.width = `${Math.max(0, Math.min(value, 100))}%`;
-}
-
-async function updateSupervisorMonthlyTargetCard() {
-    const requestToken = ++supervisorTargetRenderToken;
-    const card = getEl(`dashSupervisorTargetCard`);
-    const title = getEl(`dashSupervisorTargetTitle`);
-    const targetEl = getEl(`dashSupervisorTargetValue`);
-    const scopeEl = getEl(`dashSupervisorTargetScope`);
-    const remainingCard = getEl(`dashSupervisorRemainingCard`);
-    const remainingValueEl = getEl(`dashSupervisorTargetRemainingValue`);
-    const remainingNoteEl = getEl(`dashSupervisorTargetRemainingNote`);
-    if (!card || !title || !targetEl || !scopeEl || !remainingCard || !remainingValueEl || !remainingNoteEl) return;
-
-    const isCompanyScope = isAllCompanyDashboardScope();
-    const { month, spansMultipleMonths } = resolveSupervisorTargetMonth();
-    setTargetAchievementDisplay(null, isCompanyScope);
-    remainingCard.dataset.state = ``;
-
-    if (spansMultipleMonths) {
-        title.innerText = `التارجت الشهري`;
-        setDashboardMetricText(targetEl, `اختر شهرًا واحدًا`);
-        scopeEl.innerText = `الفترة المختارة تشمل أكثر من شهر`;
-        setDashboardMetricText(remainingValueEl, `-`);
-        remainingNoteEl.innerText = `التارجت شهري، لذلك يجب أن تكون الفترة ضمن شهر واحد.`;
-        return;
-    }
-    if (!month) {
-        title.innerText = `التارجت الشهري`;
-        setDashboardMetricText(targetEl, `-`);
-        scopeEl.innerText = `اختر فترة لعرض التارجت`;
-        setDashboardMetricText(remainingValueEl, `-`);
-        remainingNoteEl.innerText = `-`;
-        return;
-    }
-
-    const [year, monthNumber] = month.split(`-`);
-    const scopeNames = isCompanyScope ? SUPERVISOR_TARGET_NAMES : [currentManagerName];
-    title.innerText = isCompanyScope ? `تارجت الشركة ${monthNumber}/${year}` : `تارجت ${monthNumber}/${year}`;
-    scopeEl.innerText = isCompanyScope
-        ? `مجموع تارجت عبدالله الناطور + محمد طوالبه`
-        : `تارجت ${currentManagerName || `المشرف`}`;
-    setDashboardMetricText(targetEl, `جاري التحميل...`);
-    setDashboardMetricText(remainingValueEl, `...`);
-    remainingNoteEl.innerText = ``;
-
-    const monthTargets = await loadSupervisorMonthlyTargets(month);
-    if (requestToken !== supervisorTargetRenderToken) return;
-
-    const missingNames = [];
-    let target = 0;
-    scopeNames.forEach(name => {
-        const raw = monthTargets?.[name];
-        if (raw === null || raw === undefined || raw === ``) {
-            missingNames.push(name);
-            return;
-        }
-        target += parseAppNumber(raw);
-    });
-
-    if (missingNames.length) {
-        setDashboardMetricText(targetEl, isCompanyScope ? `غير مكتمل` : `غير مدخل`);
-        setDashboardMetricText(remainingValueEl, `-`);
-        remainingNoteEl.innerText = `أدخل التارجت لـ ${missingNames.join(` و `)} من الإعدادات.`;
-        return;
-    }
-
-    const summary = summarizeOrdersBySalesStatus(getSupervisorTargetSalesOrders());
-    const actualSales = summary.netTotal;
-    const remaining = target - actualSales;
-    const achievement = target > 0 ? (actualSales / target) * 100 : null;
-    setDashboardMetricText(targetEl, formatDashboardInteger(target));
-    if (remaining > 0) {
-        remainingCard.dataset.state = `pending`;
-        setDashboardMetricText(remainingValueEl, formatDashboardInteger(remaining));
-        remainingNoteEl.innerText = ``;
-    } else {
-        remainingCard.dataset.state = `achieved`;
-        setDashboardMetricText(remainingValueEl, `0`);
-        remainingNoteEl.innerText = `تم تجاوز التارجت بـ ${formatDashboardInteger(Math.abs(remaining))}`;
-    }
-    setTargetAchievementDisplay(achievement, isCompanyScope);
-}
-
-// تحديث بطاقات المشرف. البطاقات العامة تتبع الفلاتر، أما التارجت ونسبة الإنجاز فيعتمدان على نطاق الفريق/الشركة والفترة الزمنية فقط.
+// 💡 تحديث الـ Dashboard المتقدم للمدير
+// 💡 تحديث الـ Dashboard المتقدم للمدير (ديناميكي 100%)
 function updateAdvancedManagerDashboard(orders) {
+    const countLabel = document.querySelector('#dashDailyCount')?.previousElementSibling;
+    if(countLabel) countLabel.innerText = "عدد الطلبيات المحتسبة";
+
     const summary = summarizeOrdersBySalesStatus(orders);
+    const pharmCounts = {};
     const uniquePharms = new Set();
-    orders.forEach(order => {
-        const bucket = getOrderSalesBucket(order);
-        if (bucket.bucket === `excluded`) return;
-        if (order.pharmacyName) uniquePharms.add(order.pharmacyName);
+
+    orders.forEach(o => {
+        const bucket = getOrderSalesBucket(o);
+        if (bucket.bucket === 'excluded') return;
+        if (o.pharmacyName) {
+            pharmCounts[o.pharmacyName] = (pharmCounts[o.pharmacyName] || 0) + 1;
+            uniquePharms.add(o.pharmacyName);
+        }
     });
 
-    const countEl = getEl(`dashDailyCount`); if (countEl) setDashboardMetricText(countEl, summary.countedCount.toLocaleString(`en-US`));
-    const totalEl = getEl(`dashTotalValue`); if (totalEl) setDashboardMetricText(totalEl, formatDashboardInteger(summary.ordersTotal));
-    const netEl = getEl(`dashNetValue`); if (netEl) setDashboardMetricText(netEl, formatDashboardInteger(summary.netTotal));
-    const pharmaciesEl = getEl(`dashUniquePharmacies`); if (pharmaciesEl) setDashboardMetricText(pharmaciesEl, uniquePharms.size.toLocaleString(`en-US`));
-    updateSupervisorMonthlyTargetCard();
+    const appRate = orders.length > 0 ? Math.round((summary.countedCount / orders.length) * 100) : 0;
+    let topPharm = "-";
+    let maxC = 0;
+    for (const [p, c] of Object.entries(pharmCounts)) {
+        if (c > maxC) { maxC = c; topPharm = p; }
+    }
+
+    const money = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " د.ا";
+    const e1 = getEl('dashDailyCount'); if(e1) e1.innerText = summary.countedCount;
+    const e2 = getEl('dashTotalValue'); if(e2) e2.innerText = money(summary.ordersTotal);
+    const eReturns = getEl('dashReturnsValue'); if(eReturns) eReturns.innerText = money(summary.returnsTotal);
+    const eNet = getEl('dashNetValue'); if(eNet) eNet.innerText = money(summary.netTotal);
+    const e3 = getEl('dashApprovalRate'); if(e3) e3.innerText = appRate + "%";
+    const e4 = getEl('dashTopPharmacy'); if(e4) e4.innerText = topPharm;
+    const e5 = getEl('dashUniquePharmacies'); if(e5) e5.innerText = uniquePharms.size;
 }
 
 let managerOrdersData = [];
-const ALL_ORDERS_PAGE_SIZE = 100;
-let allOrdersPageIndex = 0;
-let allOrdersHasNextPage = false;
-let allOrdersLastFilterKey = ``;
-let allOrdersRangeData = [];
-let allOrdersRangeKey = ``;
-let allOrdersRangeLoadedAt = 0;
-
-function currentAllOrdersRange() {
-    return {
-        fromValue: document.getElementById('managerFilterFrom')?.value || ``,
-        toValue: document.getElementById('managerFilterTo')?.value || ``
-    };
-}
-
-function allOrdersDateConstraints() {
-    const { fromValue, toValue } = currentAllOrdersRange();
-    const constraints = [];
-    if (fromValue) constraints.push(where("createdAt", ">=", new Date(`${fromValue}T00:00:00`)));
-    if (toValue) {
-        const exclusiveEnd = new Date(`${toValue}T00:00:00`);
-        exclusiveEnd.setDate(exclusiveEnd.getDate() + 1);
-        constraints.push(where("createdAt", "<", exclusiveEnd));
-    }
-    return constraints;
-}
-
-async function loadAllOrdersRangeData(force = false) {
-    const { fromValue, toValue } = currentAllOrdersRange();
-    const rangeKey = `${fromValue}|${toValue}`;
-    const cacheFresh = Date.now() - allOrdersRangeLoadedAt < 5 * 60 * 1000;
-    if (!force && allOrdersRangeKey === rangeKey && cacheFresh) return;
-    const source = query(collection(db, "orders"), ...allOrdersDateConstraints());
-    const snap = await getDocs(source);
-    allOrdersRangeData = [];
-    snap.forEach(item => allOrdersRangeData.push({ id: item.id, ...item.data() }));
-    allOrdersRangeKey = rangeKey;
-    allOrdersRangeLoadedAt = Date.now();
-}
-
-function renderAllOrdersPagination() {
-    const table = document.getElementById('allOrdersBody')?.closest('table');
-    if (!table) return;
-    let controls = document.getElementById('allOrdersPagination');
-    if (!controls) {
-        controls = document.createElement('div');
-        controls.id = 'allOrdersPagination';
-        controls.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:16px;';
-        table.parentElement.insertAdjacentElement('afterend', controls);
-    }
-    controls.innerHTML = `<button type="button" class="btn-secondary" id="allOrdersPrevPage" ${allOrdersPageIndex === 0 ? 'disabled' : ''}><i class="ph ph-arrow-right"></i> السابق</button><strong>صفحة ${allOrdersPageIndex + 1}</strong><button type="button" class="btn-secondary" id="allOrdersNextPage" ${allOrdersHasNextPage ? '' : 'disabled'}>التالي <i class="ph ph-arrow-left"></i></button>`;
-    document.getElementById('allOrdersPrevPage')?.addEventListener('click', () => {
-        if (allOrdersPageIndex === 0) return;
-        allOrdersPageIndex -= 1;
-        filterAllOrders();
-    });
-    document.getElementById('allOrdersNextPage')?.addEventListener('click', () => {
-        if (!allOrdersHasNextPage) return;
-        allOrdersPageIndex += 1;
-        filterAllOrders();
-    });
-}
 
 async function loadManagerOrders() {
     const tbody = document.getElementById('managerOrdersBody');
@@ -3081,14 +2301,7 @@ async function loadManagerOrders() {
     if (unsubManagerOrders) unsubManagerOrders();
 
     try {
-        const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
-        if (!managerReps.length) {
-            managerOrdersData = [];
-            applyManagerFilters();
-            return;
-        }
-        const managerOrdersQuery = query(collection(db, "orders"), where("repName", "in", managerReps));
-        unsubManagerOrders = onSnapshot(managerOrdersQuery, (snap) => {
+        unsubManagerOrders = onSnapshot(collection(db, "orders"), (snap) => {
             let allOrders = [];
             snap.forEach(d => {
                 const data = d.data();
@@ -3098,11 +2311,12 @@ async function loadManagerOrders() {
             });
 
             allOrders.sort((a, b) => {
-                const dateA = getOrderLastActionDate(a)?.getTime() || 0;
-                const dateB = getOrderLastActionDate(b)?.getTime() || 0;
+                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
+                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
                 return dateB - dateA;
             });
 
+            const managerReps = Object.keys(repManagerMap).filter(rep => repManagerMap[rep] === currentManagerName);
             const normalizedUnder = managerReps.map(r => r.trim().toLowerCase());
 
             managerOrdersData = allOrders.filter(o => {
@@ -3130,16 +2344,9 @@ function applyManagerFilters() {
         !isOrderDeleted(order) &&
         supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal)
     );
-    const financeSelections = { ...selections, status: '' };
-    const financeRejectedOrders = managerOrdersData.filter(order =>
-        !isOrderDeleted(order) &&
-        (getEffectiveOrderStatus(order) === 'finance_rejected' || order.financeStatus === 'finance_rejected') &&
-        supervisorOrderMatchesSelections(order, financeSelections, null, fromVal, toVal)
-    );
     const sorted = sortSupervisorOrders(filtered, 'manager');
 
     renderManagerOrders(sorted);
-    renderManagerFinanceRejectedOrders(financeRejectedOrders);
     if (!getEl('managerAllOrdersBtn')?.classList.contains('active')) {
         updateAdvancedManagerDashboard(sorted);
     }
@@ -3157,19 +2364,18 @@ function renderManagerOrders(orders) {
 
     orders.forEach(order => {
         const isApproved = !isSupervisorPendingStatus(order.status);
-        const displayDate = formatOrderLastAction(order);
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const tr = document.createElement('tr');
         const statusClass = getEffectiveOrderStatus(order) || 'pending';
         tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
-        markReservedOrderRow(tr, order);
         tr.innerHTML = `
             <td data-label="تحديد"><input type="checkbox" class="order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
-            <td data-label="آخر تحديث">${displayDate}</td>
+            <td data-label="التاريخ">${displayDate}</td>
             <td data-label="المندوب">${order.repName || '-'}</td>
             <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
             <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getReservedOrderBadge(order)}${getOrderFollowupNote(order) ? `<div class="workflow-reason" style="margin-top:6px;">${escapePrintHtml(getOrderFollowupNote(order))}</div>` : ''}</td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getOrderFollowupNote(order) ? `<div class="workflow-reason" style="margin-top:6px;">${escapePrintHtml(getOrderFollowupNote(order))}</div>` : ''}</td>
             <td data-label="إجراء">
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button><button class="action-btn return-rep-btn" title="إرجاع للمندوب"><i class="ph ph-arrow-u-down-right"></i></button>` : ''}
@@ -3188,39 +2394,6 @@ function renderManagerOrders(orders) {
                 } 
             };
         }
-        tbody.appendChild(tr);
-    });
-}
-
-function renderManagerFinanceRejectedOrders(orders) {
-    const tbody = document.getElementById('managerFinanceRejectedBody');
-    const countEl = document.getElementById('managerFinanceRejectedCount');
-    if (countEl) countEl.textContent = `${orders.length} طلبية`;
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
-    if (!orders.length) {
-        tbody.innerHTML = `<tr><td colspan="7"><div class="supervisor-rejected-finance-empty"><i class="ph ph-check-circle"></i><h3>لا توجد طلبيات مرفوضة مالياً</h3><p>أي طلبية مرفوضة مالياً ضمن فريقك ستظهر هنا تلقائياً.</p></div></td></tr>`;
-        return;
-    }
-
-    const sorted = [...orders].sort((a, b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
-    sorted.forEach(order => {
-        const financeComment = String(order.financeRejectionReason || order.financeVisibleNote || '-').trim() || '-';
-        const repComment = String(order.representativeFinanceJustification || '-').trim() || '-';
-        const tr = document.createElement('tr');
-        tr.className = 'row-finance_rejected';
-        markReservedOrderRow(tr, order);
-        tr.innerHTML = `
-            <td data-label="آخر تحديث">${escapePrintHtml(formatOrderLastAction(order))}</td>
-            <td data-label="المندوب">${escapePrintHtml(order.repName || '-')}</td>
-            <td data-label="الصيدلية">${escapePrintHtml(order.pharmacyName || '-')}</td>
-            <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td data-label="تعليق المالية" class="comment-cell"><div class="comment-block finance-comment"><span class="comment-title">تعليق المالية</span><span>${escapePrintHtml(financeComment)}</span></div></td>
-            <td data-label="تعليق المندوب" class="comment-cell"><div class="comment-block rep-comment"><span class="comment-title">تعليق المندوب</span><span>${escapePrintHtml(repComment)}</span></div></td>
-            <td data-label="إجراء"><button class="action-btn view-btn" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
-        `;
-        tr.querySelector('.view-btn')?.addEventListener('click', () => showOrderDetails(order));
         tbody.appendChild(tr);
     });
 }
@@ -3276,17 +2449,33 @@ async function handleBulkAction(actionType) {
 document.getElementById('bulkApproveBtn')?.addEventListener('click', () => handleBulkAction('approve'));
 document.getElementById('bulkDeleteBtn')?.addEventListener('click', () => handleBulkAction('delete'));
 
-async function loadAllCompanyOrders(force = false) {
+async function loadAllCompanyOrders() {
     const tbody = document.getElementById('allOrdersBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:40px;width:100%;"></div></td></tr>';
     
-    if (unsubAllOrders) { unsubAllOrders(); unsubAllOrders = null; }
+    if (unsubAllOrders) unsubAllOrders();
 
     try {
-        await loadAllOrdersRangeData(force);
-        allOrdersData = [...allOrdersRangeData];
-        filterAllOrders();
+        unsubAllOrders = onSnapshot(collection(db, "orders"), (snap) => {
+            allOrdersData = [];
+            snap.forEach(d => {
+                const data = d.data();
+                if (data.createdAt && !isOrderDeleted(data)) {
+                    allOrdersData.push({ id: d.id, ...data });
+                }
+            });
+
+            allOrdersData.sort((a, b) => {
+                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : 0;
+                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : 0;
+                return dateB - dateA;
+            });
+
+            filterAllOrders(); 
+        }, (e) => { 
+            showToast("خطأ في تحميل النظام الشامل", "error"); 
+        });
     } catch(e) { 
         showToast("خطأ في التحميل", "error"); 
     }
@@ -3297,24 +2486,24 @@ function renderAllOrders(orders) {
     tbody.innerHTML = '';
     if(orders.length === 0) { 
         tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد بيانات مطابقة</h3></div></td></tr>`; 
+        updateAllOrdersStats(orders); 
         return; 
     }
     orders.forEach(order => {
         const tr = document.createElement('tr');
         const statusClass = getEffectiveOrderStatus(order) || 'pending';
         tr.className = `row-${statusClass}`; // تلوين موحد حسب الحالة
-        markReservedOrderRow(tr, order);
-        const displayDate = formatOrderLastAction(order);
+        const displayDate = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-GB') : "غير متوفر";
         
         const canApproveFromAll = canCurrentSupervisorApproveOrder(order);
         const unassignedBadge = isOrderWithoutAssignedSupervisor(order) ? '<small class="workflow-reason" style="color:#92400e;">بدون مشرف محدد</small>' : '';
         tr.innerHTML = `
             <td data-label="تحديد"><input type="checkbox" class="all-order-checkbox" value="${order.id}" style="width: 18px; height: 18px; cursor: pointer; margin: 0;"></td>
-            <td data-label="آخر تحديث">${displayDate}</td>
+            <td data-label="التاريخ">${displayDate}</td>
             <td data-label="المندوب" class="all-rep-col">${order.repName || '-'}</td>
             <td data-label="الصيدلية" class="all-pharm-col">${order.pharmacyName || '-'}${unassignedBadge}</td>
             <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getReservedOrderBadge(order)}</td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span></td>
             <td data-label="إجراء"><button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 ${canApproveFromAll ? `<button class="action-btn approve-all-order-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
@@ -3330,6 +2519,7 @@ function renderAllOrders(orders) {
         });
         tbody.appendChild(tr);
     });
+    updateAllOrdersStats(orders);
 }
 
 function updateAllOrdersStats(orders) {
@@ -3337,6 +2527,7 @@ function updateAllOrdersStats(orders) {
     const fmt = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (getEl('totalOrdersCount')) getEl('totalOrdersCount').innerText = summary.countedCount;
     if (getEl('totalOrdersSum')) getEl('totalOrdersSum').innerText = fmt(summary.ordersTotal);
+    if (getEl('totalReturnsSum')) getEl('totalReturnsSum').innerText = fmt(summary.returnsTotal);
     if (getEl('totalNetSum')) getEl('totalNetSum').innerText = fmt(summary.netTotal);
 }
 
@@ -3451,26 +2642,16 @@ function filterAllOrders() {
     const selections = synchronizeSupervisorCascadingFilters('all');
     const fromVal = getEl('managerFilterFrom')?.value;
     const toVal = getEl('managerFilterTo')?.value;
-    const filterKey = `${selections.rep}|${selections.pharmacy}|${selections.status}|${selections.orderType}|${fromVal || ``}|${toVal || ``}`;
-    if (allOrdersLastFilterKey && allOrdersLastFilterKey !== filterKey) allOrdersPageIndex = 0;
-    allOrdersLastFilterKey = filterKey;
 
-    const summaryFiltered = allOrdersRangeData.filter(order =>
+    const filtered = allOrdersData.filter(order =>
         !isOrderDeleted(order) &&
         supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal)
     );
-    const sortedAll = sortSupervisorOrders(summaryFiltered, 'all');
-    const totalPages = Math.max(1, Math.ceil(sortedAll.length / ALL_ORDERS_PAGE_SIZE));
-    if (allOrdersPageIndex >= totalPages) allOrdersPageIndex = totalPages - 1;
-    const start = allOrdersPageIndex * ALL_ORDERS_PAGE_SIZE;
-    const sorted = sortedAll.slice(start, start + ALL_ORDERS_PAGE_SIZE);
-    allOrdersHasNextPage = allOrdersPageIndex + 1 < totalPages;
+    const sorted = sortSupervisorOrders(filtered, 'all');
 
     renderAllOrders(sorted);
-    renderAllOrdersPagination();
-    updateAllOrdersStats(summaryFiltered);
     if (getEl('managerAllOrdersBtn')?.classList.contains('active')) {
-        updateAdvancedManagerDashboard(summaryFiltered);
+        updateAdvancedManagerDashboard(sorted);
     }
 }
 
@@ -3563,7 +2744,7 @@ async function openEditOrder(orderId, userType) {
         }
         pharmSnap.forEach(d => {
             const data = d.data();
-            editPharmaciesData.push({ id: d.id, ...data });
+            editPharmaciesData.push(data);
             if (data.name) editPharmacyNames.push(data.name);
         });
         if (order.pharmacyName && !editPharmacyNames.includes(order.pharmacyName)) {
@@ -3571,7 +2752,6 @@ async function openEditOrder(orderId, userType) {
                 name: order.pharmacyName,
                 pharmacyCode: getPharmacyCodeFromOrder(order),
                 pharmacy_code: getPharmacyCodeFromOrder(order),
-                id: order.pharmacyId || '',
                 rep_id: originalRepId
             });
             editPharmacyNames.push(order.pharmacyName);
@@ -3661,7 +2841,7 @@ ${repFieldHTML}
                 const pharmSnap = await getDocs(q);
                 pharmSnap.forEach(d => {
                     const data = d.data();
-                    editPharmaciesData.push({ id: d.id, ...data });
+                    editPharmaciesData.push(data);
                     if (data.name) editPharmacyNames.push(data.name);
                 });
                 editPharmInput.placeholder = 'ابحث عن الصيدلية...';
@@ -3687,11 +2867,12 @@ ${repFieldHTML}
         if (grandTotalEl) grandTotalEl.innerText = total.toFixed(2);
     }
 
-function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='') {
+function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note='', batch='', batchExpiry='', inventoryBatchId='') {
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid #eee";
         tr.innerHTML = `
             <td style="padding: 8px;"><div class="autocomplete-wrapper"><input type="text" class="product-input" value="${productName.replace(/"/g, '&quot;')}" style="width:100%; min-width:200px; padding:8px; border:1px solid #ccc; border-radius:4px; outline:none;" autocomplete="off"><div class="autocomplete-list product-suggestions"></div></div></td>
+            <td style="padding:8px"><select class="batch-select" required><option value="">اختر Batch</option></select><small class="batch-balance" style="display:block;margin-top:4px;color:#64748b;font-weight:700"></small></td>
             <td style="padding: 8px; text-align: center;"><input type="number" class="qty-input" value="${qty}" min="1" style="width: 65px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"></td>
             <td style="padding: 8px; text-align: center; position:relative;">
                 <input type="number" class="bonus-input" value="${bonus}" min="0" style="width: 65px; text-align: center; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;">
@@ -3706,6 +2887,14 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         const q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
         const b = tr.querySelector('.bonus-input'), bPct = tr.querySelector('.edit-bonus-pct'); // 🟢 جلب حقول البونص
         const productNames = productsList.map(prod => prod.name);
+        const initialProduct = productsList.find(prod => prod.name === productName);
+        if (initialProduct) {
+            s.dataset.productCode = initialProduct.productCode || initialProduct.product_code || initialProduct.code || '';
+            populateOrderBatchSelect(tr, initialProduct, batch);
+            const option = tr.querySelector('.batch-select')?.selectedOptions?.[0];
+            if (option && inventoryBatchId) option.dataset.inventoryId = inventoryBatchId;
+            if (option && batchExpiry) option.dataset.expiry = batchExpiry;
+        }
         
         // 🟢 وظيفة حساب نسبة البونص للتعديل
         function calcEditBonus() {
@@ -3722,6 +2911,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
             const prod = productsList.find(pr => pr.name === selectedName); 
             const pr = prod ? parseFloat(prod.price) : 0; 
             s.dataset.productCode = prod?.productCode || prod?.product_code || prod?.code || ''; 
+            populateOrderBatchSelect(tr, prod);
             p.innerText = pr.toFixed(2); 
             t.innerText = (pr * q.value).toFixed(2); 
             updateEditTotal(); 
@@ -3736,11 +2926,12 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         });
 
         q.oninput = () => { 
+            validateOrderBatchQuantity(tr);
             t.innerText = (parseFloat(p.innerText) * q.value).toFixed(2); 
             calcEditBonus(); // 🟢 التحديث عند تغيير الكمية
             updateEditTotal(); 
         };
-        b.oninput = () => { calcEditBonus(); updateEditTotal(); }; // 🟢 التحديث عند تغيير البونص
+        b.oninput = () => { validateOrderBatchQuantity(tr); calcEditBonus(); updateEditTotal(); }; // 🟢 التحديث عند تغيير البونص
 
         tr.querySelector('.del-row').onclick = () => { tr.remove(); updateEditTotal(); };
         
@@ -3749,7 +2940,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         updateEditTotal();
     }    
     if (order.items && order.items.length > 0) {
-        order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total, item.note || ''); });
+        order.items.forEach(item => { addEditRow(item.name, item.qty, item.bonus, item.price, item.total, item.note || '', item.batch || '', item.batchExpiry || '', item.inventoryBatchId || ''); });
     } else { addEditRow(); }   
     const editAddBtn = document.getElementById('editAddRowBtn');
     if (editAddBtn) editAddBtn.onclick = () => addEditRow();
@@ -3764,23 +2955,24 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
 
             const newRepId = lockRepSelection ? originalRepId : (editRepSelect?.value || '');
             if (!lockRepSelection && !newRepId) { editRepSelect.style.border = "2px solid red"; return showToast("يرجى اختيار المندوب أولاً.", "warning"); }
-            const selectedBaseRepName = lockRepSelection ? originalRepName : editRepSelect.options[editRepSelect.selectedIndex].text;
+            const newRepName = lockRepSelection ? originalRepName : editRepSelect.options[editRepSelect.selectedIndex].text;
 
             const newPharmName = editPharmInput.value.trim();
             let selectedPharm = editPharmaciesData.find(p => p.name === newPharmName);
             if (!selectedPharm && newPharmName === (order.pharmacyName || '')) {
-                selectedPharm = { id: order.pharmacyId || '', pharmacyCode: getPharmacyCodeFromOrder(order), pharmacy_code: getPharmacyCodeFromOrder(order) };
+                selectedPharm = { pharmacyCode: getPharmacyCodeFromOrder(order), pharmacy_code: getPharmacyCodeFromOrder(order) };
             }
             
             if (!selectedPharm) { editPharmInput.style.border = "2px solid red"; return showToast("يرجى اختيار صيدلية صحيحة من القائمة.", "error"); }
-            const newRepName = getOperationalRepNameForPharmacy(selectedPharm, selectedBaseRepName);
 
             document.querySelectorAll('#editOrderBody tr').forEach(r => {
                 const inp = r.querySelector('.product-input');
                 if (inp && inp.value.trim() !== "") {
                     const isValid = productsList.some(prod => prod.name === inp.value.trim());
                     if (!isValid) { invalidItem = true; inp.style.border = "2px solid red"; } 
-                    else {
+                    else if (!validateOrderBatchQuantity(r)) {
+                        invalidItem = true;
+                    } else {
                         inp.style.border = "1px solid #ccc";
                         items.push(createProductItemFromRow(r));                    
                     }
@@ -3789,20 +2981,6 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
 
             if (invalidItem) return showToast("تأكد من صحة الأصناف المختارة.", "error");
             if (items.length === 0) return showToast("لا يمكن حفظ مسودة فارغة!", "warning");
-
-            let validatedItems = items;
-            let editedTypeInfo;
-            try {
-                await refreshInventoryReservations();
-                validatedItems = tagItemsForExistingOrder(items, order);
-                editedTypeInfo = evaluateOrderItemTypes(validatedItems);
-                const expectedType = order.orderType === RESERVED_ORDER_TYPE || order.isReservedOrder === true ? RESERVED_ORDER_TYPE : (order.orderType === REGULAR_ORDER_TYPE ? REGULAR_ORDER_TYPE : '');
-                if (editedTypeInfo.mixed || (expectedType && editedTypeInfo.orderType && editedTypeInfo.orderType !== expectedType)) {
-                    return showToast(MIXED_ORDER_WARNING, 'warning');
-                }
-            } catch (error) {
-                return showToast('تعذر التحقق من حالة الأصناف المحجوزة. لم يتم حفظ التعديل.', 'error');
-            }
 
             try {
                 const grandTotalEl = document.getElementById('editGrandTotal');
@@ -3815,10 +2993,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 await updateOrderWithAudit(editingOrderId, { 
                     repId: newRepId, repName: newRepName, managerName: getManagerName(newRepName), 
                     pharmacyName: newPharmName, pharmacyCode: selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || "",
-                    pharmacyId: selectedPharm.id || order.pharmacyId || '',
-                    items: validatedItems, grandTotal: newGrandTotal,
-                    orderType: order.orderType || editedTypeInfo.orderType || REGULAR_ORDER_TYPE,
-                    isReservedOrder: (order.orderType || editedTypeInfo.orderType) === RESERVED_ORDER_TYPE || order.isReservedOrder === true,
+                    items: items, grandTotal: newGrandTotal,
                     lastEditedBy: actorName, lastEditedByRole: isRepresentativeReturnedEdit ? 'representative' : 'supervisor', lastEditedAt: new Date(),
                     ...workflowReset
                 }, buildAuditEntry(isRepresentativeReturnedEdit ? 'representative_resubmitted_returned_order' : 'supervisor_order_edited', actorName, isRepresentativeReturnedEdit ? 'representative' : 'supervisor', { orderId: editingOrderId, status: order.status || '' }, { grandTotal: newGrandTotal, status: workflowReset.status || order.status || '' }));
@@ -3842,13 +3017,10 @@ async function loadReports() {
     if(unsubReports) unsubReports();
 
     try {
-        const reportsQuery = !isAdmin && currentRepId
-            ? query(collection(db, "orders"), where("repId", "==", currentRepId))
-            : collection(db, "orders");
-        unsubReports = onSnapshot(reportsQuery, (snap) => {
+        unsubReports = onSnapshot(collection(db, "orders"), (snap) => {
             let os = [];
             snap.forEach(d => os.push({ id: d.id, ...d.data() }));
-            os.sort((a,b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
+            os.sort((a,b) => (normalizeDateValue(b.createdAt)?.getTime() || 0) - (normalizeDateValue(a.createdAt)?.getTime() || 0));
             if (!isAdmin && currentRepName) os = os.filter(o => o.repName === currentRepName);
             reportsOrdersData = os;
             body.innerHTML = '';
@@ -3861,7 +3033,7 @@ async function loadReports() {
                 tr.className = `row-${o.status}`;
                 tr.innerHTML = `
                     <td data-label="تحديد"><input type="checkbox" class="report-order-checkbox" value="${o.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
-                    <td data-label="آخر تحديث">${formatOrderLastAction(o)}</td>
+                    <td data-label="التاريخ">${formatDateTime(o.createdAt)}</td>
                     <td data-label="المندوب" class="rep-col">${o.repName || '-'}</td>
                     <td data-label="الصيدلية" class="pharm-col">${o.pharmacyName || '-'}</td>
                     <td data-label="القيمة">${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -3913,25 +3085,22 @@ if (exportExcelBtn) exportExcelBtn.onclick = async () => {
     finally { btn.innerHTML = "<i class='ph ph-file-xls'></i> تصدير للاكسل"; }
 };
 
-const navOrderBtn = getEl(`navOrderBtn`);
-if (navOrderBtn) navOrderBtn.onclick = () => openOrderPharmacyPicker();
-const navMyOrdersBtn = getEl(`navMyOrdersBtn`);
-if (navMyOrdersBtn) navMyOrdersBtn.onclick = () => {
-    document.body.dataset.repTab = `my-orders`;
-    document.querySelectorAll(`.screen`).forEach(screen => screen.style.display = `none`);
-    getEl(`myOrdersScreen`).style.display = `block`;
-    document.querySelectorAll(`.btn-tab`).forEach(button => button.classList.remove(`active`));
-    navMyOrdersBtn.classList.add(`active`);
-    loadMyOrders();
+const navOrderBtn = getEl('navOrderBtn');
+if (navOrderBtn) navOrderBtn.onclick = () => {
+    document.body.dataset.repTab = 'order';
+    document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+    getEl('orderScreen').style.display = 'block';
+    document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+    navOrderBtn.classList.add('active');
 };
-const navFinanceRejectedBtn = getEl(`navFinanceRejectedBtn`);
-if (navFinanceRejectedBtn) navFinanceRejectedBtn.onclick = () => {
-    document.body.dataset.repTab = `finance-rejected`;
-    document.querySelectorAll(`.screen`).forEach(screen => screen.style.display = `none`);
-    getEl(`financeRejectedScreen`).style.display = `block`;
-    document.querySelectorAll(`.btn-tab`).forEach(button => button.classList.remove(`active`));
-    navFinanceRejectedBtn.classList.add(`active`);
-    renderFinanceRejectedOrders();
+const navMyOrdersBtn = getEl('navMyOrdersBtn');
+if (navMyOrdersBtn) navMyOrdersBtn.onclick = () => {
+    document.body.dataset.repTab = 'my-orders';
+    document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+    getEl('myOrdersScreen').style.display = 'block';
+    document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
+    navMyOrdersBtn.classList.add('active');
+    loadMyOrders();
 };
 const navReportsBtn = getEl('navReportsBtn');
 if (navReportsBtn) navReportsBtn.onclick = () => {
@@ -3942,6 +3111,7 @@ if (navReportsBtn) navReportsBtn.onclick = () => {
     navReportsBtn.classList.add('active');
     loadReports();
 };
+getEl('navReturnsPageBtn')?.addEventListener('click', () => { window.location.href = 'returns.html'; });
 const logoutBtn = getEl('logoutBtn');
 if (logoutBtn) logoutBtn.onclick = () => {
     if (!confirm("هل أنت متأكد من تسجيل الخروج؟")) return;
@@ -4061,17 +3231,8 @@ const managerFilterTo = document.getElementById('managerFilterTo');
 const btnTodayOrders = document.getElementById('btnTodayOrders');
 const btnClearManagerFilter = document.getElementById('btnClearManagerFilter');
 
-function handleManagerDateChange() {
-    applyManagerFilters();
-    if (document.getElementById('managerAllOrdersBtn')?.classList.contains('active')) {
-        allOrdersPageIndex = 0;
-        loadAllCompanyOrders();
-    } else {
-        filterAllOrders();
-    }
-}
-managerFilterFrom?.addEventListener('change', handleManagerDateChange);
-managerFilterTo?.addEventListener('change', handleManagerDateChange);
+managerFilterFrom?.addEventListener('change', () => { applyManagerFilters(); filterAllOrders(); });
+managerFilterTo?.addEventListener('change', () => { applyManagerFilters(); filterAllOrders(); });
 
 btnTodayOrders?.addEventListener('click', () => {
     const today = new Date();
@@ -4081,7 +3242,8 @@ btnTodayOrders?.addEventListener('click', () => {
     const todayStr = `${yyyy}-${mm}-${dd}`;
     managerFilterFrom.value = todayStr;
     managerFilterTo.value = todayStr;
-    handleManagerDateChange();
+    applyManagerFilters();
+    filterAllOrders();
 });
 
 btnClearManagerFilter?.addEventListener('click', () => {
@@ -4092,11 +3254,9 @@ btnClearManagerFilter?.addEventListener('click', () => {
         'managerRepFilter',
         'managerPharmacyFilter',
         'managerStatusFilter',
-        `managerOrderTypeFilter`,
         'filterAllRep',
         'filterAllPharmacy',
-        'filterAllStatus',
-        `filterAllOrderType`
+        'filterAllStatus'
     ].forEach(id => {
         const control = getEl(id);
         if (!control) return;
@@ -4105,6 +3265,7 @@ btnClearManagerFilter?.addEventListener('click', () => {
         closeSupervisorSearchFilter(control);
     });
 
-    handleManagerDateChange();
+    applyManagerFilters();
+    filterAllOrders();
     showToast('تم محو جميع الفلاتر', 'success');
 });

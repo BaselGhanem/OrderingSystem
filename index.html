@@ -38,9 +38,11 @@
                 return;
             }
 
-            const orderContext = sessionStorage.getItem('activeOrderContext');
-            if (orderContext) {
-                window.location.replace('order.html');
+            const orderContext = sessionStorage.getItem(`activeOrderContext`);
+            const repId = sessionStorage.getItem(`repId`);
+            const repName = sessionStorage.getItem(`repName`);
+            if (orderContext || (repId && repName)) {
+                window.location.replace(`order.html`);
                 return;
             }
             const adminSession = safeJson(localStorage.getItem(ADMIN_SESSION_KEY)) || safeJson(sessionStorage.getItem(ADMIN_SESSION_KEY));

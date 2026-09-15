@@ -1,4 +1,4 @@
-import { db, collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter, documentId, onSnapshot } from './firebase.js';
+import { db, collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter, documentId, runTransaction } from './firebase.js';
 
 const COMPANY_LOGO_URL = 'https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png';
 const WORKFLOW_PAGE = document.body?.dataset?.page || '';
@@ -15,7 +15,7 @@ const STATUS_LABELS = {
     finance_approved: 'معتمد مالياً',
     finance_rejected: 'مرفوض مالياً',
     orders_staff_pending: 'جاهز للمعالجة',
-    orders_staff_exported: 'تمت الفوترة',
+    orders_staff_exported: 'تم تصديره',
     orders_staff_hidden: 'تمت الفوترة',
     orders_staff_edited_returned_to_finance: 'تم تعديله وإرجاعه للمالية',
     returned_to_rep: 'مرجعة للمندوب',
@@ -51,85 +51,10 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
-const financePharmacyHistoryCache = new Map();
-
 const WORKFLOW_CACHE_VERSION = '20260630_orders_staff_export_columns_finance_note_fix1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
 const ALL_ORDERS_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_orders_staff_all`;
-const RESERVED_ORDER_TYPE = 'reserved';
-const REGULAR_ORDER_TYPE = 'regular';
-const MIXED_ORDER_WARNING = 'يرجى إدخال طلبية منفصلة للأصناف المحجوزة/المقطوعة';
-
-function isReservedOrder(order = {}) {
-    return order.orderType === RESERVED_ORDER_TYPE || order.isReservedOrder === true;
-}
-
-function getOrderTypeForFilter(order = {}) {
-    return isReservedOrder(order) ? RESERVED_ORDER_TYPE : REGULAR_ORDER_TYPE;
-}
-
-function reservedOrderBadgeHtml(order = {}) {
-    return isReservedOrder(order)
-        ? '<span class="reserved-order-badge"><i class="ph ph-lock-key"></i> أصناف محجوزة / مقطوعة</span>'
-        : '';
-}
-
-function markReservedWorkflowRow(row, order = {}) {
-    if (row) row.classList.toggle('reserved-order-row', isReservedOrder(order));
-}
-
-function normalizeReservationKey(value) {
-    return String(value || '').trim().toLocaleLowerCase('en-US');
-}
-
-function reservationKeys(value = {}) {
-    const keys = [];
-    const productId = value.id || value.productId || value.reservationProductId || '';
-    const productCode = value.productCode || value.product_code || value.code || '';
-    const name = value.name || value.productName || '';
-    if (productId) keys.push(`id:${normalizeReservationKey(productId)}`);
-    if (productCode) keys.push(`code:${normalizeReservationKey(productCode)}`);
-    if (name) keys.push(`name:${normalizeReservationKey(name)}`);
-    return keys;
-}
-
-async function loadReservedProductKeys() {
-    const snap = await getDocs(collection(db, 'inventoryReservations'));
-    const keys = new Set();
-    snap.forEach(row => {
-        const data = row.data();
-        if (data?.active === false) return;
-        reservationKeys({ id: data.productId || row.id, ...data }).forEach(key => keys.add(key));
-    });
-    return keys;
-}
-
-function resolveWorkflowProduct(item = {}) {
-    const byName = state.productsByName.get(String(item.name || '').trim());
-    return byName || item;
-}
-
-async function validateWorkflowEditedItems(items = [], order = {}) {
-    const reservedKeys = await loadReservedProductKeys();
-    const expectedType = isReservedOrder(order) ? RESERVED_ORDER_TYPE : (order.orderType === REGULAR_ORDER_TYPE ? REGULAR_ORDER_TYPE : '');
-    const originalNames = new Set((Array.isArray(order.items) ? order.items : []).map(item => String(item.name || '').trim()));
-    const tagged = items.map(item => {
-        const product = resolveWorkflowProduct(item);
-        const name = String(item.name || '').trim();
-        let reserved;
-        if (expectedType && originalNames.has(name)) reserved = expectedType === RESERVED_ORDER_TYPE;
-        else reserved = reservationKeys(product).some(key => reservedKeys.has(key));
-        return { ...item, isReservedItem: reserved, reservationProductId: reserved ? (product.id || item.reservationProductId || '') : '' };
-    });
-    const types = new Set(tagged.map(item => item.isReservedItem === true ? RESERVED_ORDER_TYPE : REGULAR_ORDER_TYPE));
-    const derivedType = types.size === 1 ? [...types][0] : '';
-    return {
-        ok: types.size <= 1 && (!expectedType || !derivedType || expectedType === derivedType),
-        items: tagged,
-        orderType: expectedType || derivedType || REGULAR_ORDER_TYPE
-    };
-}
 
 function debounce(fn, delay = 160) {
     let timer = null;
@@ -164,9 +89,8 @@ function compactOrder(order = {}) {
         pharmacy_code: order.pharmacy_code || '',
         customerCode: order.customerCode || '',
         grandTotal: order.grandTotal || 0,
+        invoiceNumber: order.invoiceNumber || '',
         total: order.total || 0,
-        orderType: order.orderType || '',
-        isReservedOrder: order.isReservedOrder === true,
         orderNote: order.orderNote || '',
         note: order.note || '',
         notes: order.notes || '',
@@ -205,7 +129,7 @@ function compactOrder(order = {}) {
 }
 
 function sortOrders(orders) {
-    return [...orders].sort((a, b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
+    return [...orders].sort((a, b) => (normalizeDate(b.createdAt)?.getTime() || 0) - (normalizeDate(a.createdAt)?.getTime() || 0));
 }
 
 function readCache(key) {
@@ -330,18 +254,6 @@ function normalizeDate(value) {
 function formatDateTime(value) {
     const d = normalizeDate(value);
     return d ? d.toLocaleString('en-GB') : '-';
-}
-
-function getOrderLastActionDate(order = {}) {
-    const dates = [order.changedAt, order.updatedAt, order.createdAt]
-        .map(value => normalizeDate(value))
-        .filter(Boolean);
-    if (!dates.length) return null;
-    return new Date(Math.max(...dates.map(date => date.getTime())));
-}
-
-function formatOrderLastAction(order = {}) {
-    return formatDateTime(getOrderLastActionDate(order));
 }
 
 function toDateInputValue(date = new Date()) {
@@ -927,47 +839,10 @@ function subscribeOrders(onChange) {
         showDataModeNotice('تم عرض نسخة مخزنة محليًا، ويتم تحديثها الآن من Firebase.');
         onChange();
     } else {
-        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 9] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 9] : ['ordersStaffBody', 12];
+        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 9] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 10] : ['ordersStaffBody', 12];
         setLoadingRow(target[0], target[1]);
     }
-
-    if (state.unsub) {
-        try { state.unsub(); } catch (_) {}
-        state.unsub = null;
-    }
-
-    const sources = Array.isArray(currentPageOrderSource()) ? currentPageOrderSource() : [currentPageOrderSource()];
-    const sourceMaps = new Map();
-    const unsubscribers = sources.map((source, sourceIndex) => onSnapshot(source, snapshot => {
-        const rows = new Map();
-        snapshot.forEach(item => rows.set(item.id, { id: item.id, ...item.data() }));
-        sourceMaps.set(sourceIndex, rows);
-        if (sourceMaps.size < sources.length) return;
-
-        const liveById = new Map();
-        sourceMaps.forEach(map => map.forEach((order, id) => liveById.set(id, order)));
-
-        if (WORKFLOW_PAGE === 'orders-staff' && state.allOrdersLoaded) {
-            const merged = new Map(state.orders.map(order => [order.id, order]));
-            liveById.forEach((order, id) => merged.set(id, order));
-            state.orders = sortOrders(Array.from(merged.values()));
-        } else {
-            state.orders = sortOrders(Array.from(liveById.values()));
-        }
-
-        state.lastRefreshAt = Date.now();
-        writeCache(PAGE_CACHE_KEY, state.orders);
-        showDataModeNotice(`مزامنة مباشرة: ${new Date().toLocaleTimeString('en-GB')} — ${state.orders.length} طلبية`);
-        state.onOrdersChange?.();
-    }, error => {
-        console.warn(`Workflow realtime listener failed (${WORKFLOW_PAGE})`, error);
-        sourceMaps.set(sourceIndex, new Map());
-        showDataModeNotice('تعذر التحديث المباشر مؤقتًا؛ آخر بيانات مخزنة ما زالت ظاهرة.');
-    }));
-
-    state.unsub = () => unsubscribers.forEach(unsubscribe => {
-        try { unsubscribe(); } catch (_) {}
-    });
+    refreshOrdersFromFirebase();
 }
 
 async function ensureOrdersStaffAllLoaded() {
@@ -1000,7 +875,7 @@ function buildItemsPreview(order) {
 
 function updateStats(orders) {
     if ($('ordersCount')) $('ordersCount').textContent = orders.length;
-    if ($('ordersValue')) $('ordersValue').textContent = formatMoney(orders.reduce((sum, order) => sum + parseNumber(order.grandTotal), 0));
+    if ($('ordersValue')) $('ordersValue').textContent = `${formatMoney(orders.reduce((sum, order) => sum + parseNumber(order.grandTotal), 0))} د.ا`;
 }
 
 function setTableEmpty(tbodyId, colspan, message) {
@@ -1010,7 +885,7 @@ function setTableEmpty(tbodyId, colspan, message) {
 
 function bindCommonFilters(applyFn) {
     const debouncedApply = debounce(applyFn, 180);
-    ['filterDateFrom', 'filterDateTo', 'filterPharmacy', 'filterRepresentative', 'filterProduct', 'filterStatus', 'showHiddenMode', 'filterRequiredOwner', `filterOrderType`].forEach(id => {
+    ['filterDateFrom', 'filterDateTo', 'filterPharmacy', 'filterRepresentative', 'filterProduct', 'filterStatus', 'showHiddenMode', 'filterRequiredOwner'].forEach(id => {
         $(id)?.addEventListener('input', debouncedApply);
         $(id)?.addEventListener('change', debouncedApply);
     });
@@ -1088,10 +963,12 @@ function buildWorkflowItemRow(item = {}, index = 0, prefix = 'mm') {
             <td>${index + 1}</td>
             <td class="${prefix}-code-cell" data-original-code="${escapeHtml(getItemProductCode(calc) || '')}">${escapeHtml(getItemProductCode(calc) || '-')}</td>
             <td class="item-name-cell">
-                <select class="${prefix}-product workflow-product-select" style="min-width:${workflowProductFieldWidth(calc.name || '')}ch; width:100%;">
+                <select class="${prefix}-product workflow-product-select" style="min-width:${workflowProductFieldWidth(calc.name || '')}ch; width:100%;" disabled title="تغيير الصنف يتطلب اختيار Batch جديد من شاشة المندوب">
                     ${productOptionsHtml(calc.name || '')}
                 </select>
             </td>
+            <td>${escapeHtml(calc.batch || '-')}</td>
+            <td>${escapeHtml(calc.batchExpiry || '-')}</td>
             <td><input class="${prefix}-qty" type="number" min="0" step="1" value="${calc.qty}"></td>
             <td><input class="${prefix}-bonus" type="number" min="0" step="1" value="${calc.bonus}"></td>
             <td><input class="${prefix}-bonus-pct" type="number" min="0" step="0.01" value="${calc.bonusPct}"></td>
@@ -1185,15 +1062,16 @@ function openMarketOrderModal(order) {
     state.selectedOrder = order;
     $('marketModalTitle').textContent = `طلبية ${order.id.substring(0, 8).toUpperCase()}`;
     $('marketModalMeta').innerHTML = `
-        <span><b>آخر تحديث:</b> ${escapeHtml(formatOrderLastAction(order))}</span>
+        <span><b>التاريخ:</b> ${escapeHtml(formatDateTime(order.createdAt))}</span>
         <span><b>المندوب:</b> ${escapeHtml(order.repName || '-')}</span>
         <span><b>الصيدلية:</b> ${escapeHtml(order.pharmacyName || '-')}</span>
         <span><b>كود الصيدلية:</b> ${escapeHtml(getPharmacyCode(order) || '-')}</span>
     `;
     $('marketOrderNote').textContent = [getOrderNote(order), getFinanceVisibleNote(order) ? `ملاحظة المالية: ${getFinanceVisibleNote(order)}` : ''].filter(Boolean).join(' | ') || 'لا توجد ملاحظات.';
     renderWorkflowInsights('market', order);
-    $('marketOrderItemsBody').innerHTML = fullOrderRows(order) || `<tr><td colspan="10">لا توجد أصناف.</td></tr>`;
+    $('marketOrderItemsBody').innerHTML = fullOrderRows(order) || `<tr><td colspan="12">لا توجد أصناف.</td></tr>`;
     document.querySelectorAll('#marketOrderItemsBody tr').forEach(bindMarketItemRow);
+    if ($('addMarketItemBtn')) $('addMarketItemBtn').disabled = true;
     if ($('marketModalActionSelect')) $('marketModalActionSelect').value = '';
     $('marketOrderModal').style.display = 'flex';
 }
@@ -1243,28 +1121,17 @@ async function saveMarketEdits(options = {}) {
     if (!state.selectedOrder) return false;
     const { kept, deleted, grandTotal } = collectMarketModalItems();
     if (kept.length === 0) { showToast('لا يمكن حفظ طلبية بدون أصناف.', 'warning'); return false; }
-    let reservationValidation;
-    try {
-        reservationValidation = await validateWorkflowEditedItems(kept, state.selectedOrder);
-    } catch (error) {
-        showToast('تعذر التحقق من حالة الأصناف المحجوزة. لم يتم حفظ التعديل.', 'error');
-        return false;
-    }
-    if (!reservationValidation.ok) { showToast(MIXED_ORDER_WARNING, 'warning'); return false; }
-    const validatedItems = reservationValidation.items;
     const oldValue = {
         items: state.selectedOrder.items || [],
         grandTotal: state.selectedOrder.grandTotal || 0
     };
     await updateOrderWithAudit(state.selectedOrder.id, {
-        items: validatedItems,
+        items: kept,
         grandTotal,
-        orderType: reservationValidation.orderType,
-        isReservedOrder: reservationValidation.orderType === RESERVED_ORDER_TYPE,
         marketManagerEditedAt: new Date(),
         marketManagerEditedBy: 'Market Manager',
         marketManagerDeletedItems: deleted
-    }, auditEntry('market_manager_edit', 'Market Manager', 'market_manager', oldValue, { items: validatedItems, grandTotal, orderType: reservationValidation.orderType }, deleted.length ? `Deleted items: ${deleted.length}` : ''));
+    }, auditEntry('market_manager_edit', 'Market Manager', 'market_manager', oldValue, { items: kept, grandTotal }, deleted.length ? `Deleted items: ${deleted.length}` : ''));
     if (!silent) showToast('تم حفظ تعديلات مدير السوق.', 'success');
     if (close) closeMarketOrderModal();
     return true;
@@ -1320,26 +1187,16 @@ async function marketDeleteOrder(orderId) {
     closeMarketOrderModal();
 }
 
-function getMarketManagerDisplayStatus(order = {}) {
-    const status = order.status || '';
-    return ['supervisor_approved', 'market_manager_pending'].includes(status)
-        ? 'market_manager_pending'
-        : status;
-}
-
 function applyMarketFilters() {
     const rep = ($('filterRepresentative')?.value || '').toLowerCase().trim();
     const pharm = ($('filterPharmacy')?.value || '').toLowerCase().trim();
     const status = $('filterStatus')?.value || '';
-        const from = $('filterDateFrom')?.value || '';
+    const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
     state.visibleOrders = state.orders.filter(order => {
         const orderStatus = order.status || '';
         const eligible = ['market_manager_pending', 'supervisor_approved', 'returned_to_market_manager'].includes(orderStatus);
-        const awaitingMarketManager = ['market_manager_pending', 'supervisor_approved'].includes(orderStatus);
-        const statusMatch = status === 'awaiting_market_manager'
-            ? awaitingMarketManager
-            : (status ? orderStatus === status : eligible);
+        const statusMatch = status ? orderStatus === status : eligible;
         return statusMatch &&
             inDateRange(order, from, to) &&
             (!rep || (order.repName || '').toLowerCase().includes(rep)) &&
@@ -1418,15 +1275,14 @@ function renderMarketOrders() {
         const chunk = state.visibleOrders.slice(startIndex, startIndex + 50);
         chunk.forEach(order => {
             const tr = document.createElement('tr');
-            const displayStatus = getMarketManagerDisplayStatus(order);
             tr.innerHTML = `
                 <td data-label="تحديد"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
-                <td data-label="آخر تحديث">${escapeHtml(formatOrderLastAction(order))}</td>
+                <td data-label="التاريخ">${escapeHtml(formatDateTime(order.createdAt))}</td>
                 <td data-label="المندوب">${escapeHtml(order.repName || '-')}</td>
                 <td data-label="الصيدلية" class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
                 <td data-label="الأصناف"><button class="action-btn view-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
                 <td data-label="الإجمالي">${formatMoney(order.grandTotal)} د.ا</td>
-                <td data-label="الحالة"><span class="status-badge ${escapeHtml(displayStatus)}">${escapeHtml(displayStatus === 'market_manager_pending' ? 'بانتظار اعتماد مدير السوق' : statusLabel(displayStatus))}</span>${reservedOrderBadgeHtml(order)}</td>
+                <td data-label="الحالة"><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span></td>
                 <td data-label="ملاحظة الطلب" class="workflow-note-cell" title="${escapeHtml(getOrderNote(order) || '-')}">${escapeHtml(getOrderNote(order) || '-')}</td>
                 <td data-label="الإجراءات" class="workflow-actions-cell">${buildOrderSummaryRowActions('market')}</td>
             `;
@@ -1538,7 +1394,7 @@ async function exportFinanceOrders(orders, scope = 'visible') {
 function applyFinanceFilters() {
     const pharm = ($('filterPharmacy')?.value || '').toLowerCase().trim();
     const status = $('filterStatus')?.value || '';
-        const from = $('filterDateFrom')?.value || '';
+    const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
     state.visibleOrders = state.orders.filter(order => {
         const financeState = order.financeStatus || (order.status === 'finance_pending' ? 'finance_pending' : '');
@@ -1548,9 +1404,7 @@ function applyFinanceFilters() {
         const statusMatch = status
             ? order.status === status || financeState === status
             : (isFinancePending || isFinanceRejected || isReturnedToFinance);
-        return statusMatch &&
-            inDateRange(order, from, to) &&
-            (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
+        return statusMatch && inDateRange(order, from, to) && (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
     });
     renderFinanceOrders();
 }
@@ -1561,7 +1415,7 @@ function renderFinanceOrders() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 9, 'لا توجد طلبيات مالية بانتظار الاعتماد');
+    if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 10, 'لا توجد طلبيات مالية بانتظار الاعتماد');
     applyFinanceSort();
 
     const renderChunk = async (startIndex = 0) => {
@@ -1570,19 +1424,18 @@ function renderFinanceOrders() {
         const chunk = state.visibleOrders.slice(startIndex, startIndex + 75);
         chunk.forEach(order => {
             const tr = document.createElement('tr');
-            const financeDateTime = formatDateTime(getOrderLastActionDate(order));
+            const [financeDate, financeTime] = splitFinanceDateTime(order.createdAt);
             const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
             const isRejected = order.status === 'finance_rejected' || (order.financeStatus || '') === 'finance_rejected';
             const isReturnedToFinance = order.status === 'returned_to_finance' || (order.financeStatus || '') === 'returned_to_finance';
-            const orderNote = String(getOrderNote(order) || ``).trim();
-            const financeNote = String(getFinanceVisibleNote(order) || ``).trim();
-            const repJustification = String(order.representativeFinanceJustification || ``).trim();
-            const notesMatch = orderNote && financeNote && orderNote.localeCompare(financeNote, `ar`, { sensitivity: `base` }) === 0;
-            const noteParts = [];
-            if (orderNote && orderNote !== `-`) noteParts.push(escapeHtml(orderNote));
-            if (financeNote && !notesMatch) noteParts.push(`<div class="finance-note-detail">${escapeHtml(financeNote)}</div>`);
-            if (repJustification) noteParts.push(`<div class="finance-rep-justification"><strong>رد المندوب:</strong> ${escapeHtml(repJustification)}</div>`);
-            const noteHtml = noteParts.length ? noteParts.join(``) : `-`;
+            const orderNote = String(getOrderNote(order) || '').trim();
+            const financeNote = String(getFinanceVisibleNote(order) || '').trim();
+            const notesMatch = orderNote && financeNote && orderNote.localeCompare(financeNote, 'ar', { sensitivity: 'base' }) === 0;
+            const noteHtml = orderNote && orderNote !== '-'
+                ? `${escapeHtml(orderNote)}${financeNote && !notesMatch ? `<div class="finance-note-detail"><strong>آخر ملاحظة مالية:</strong> ${escapeHtml(financeNote)}</div>` : ''}`
+                : financeNote
+                    ? `<div class="finance-note-detail"><strong>آخر ملاحظة مالية:</strong> ${escapeHtml(financeNote)}</div>`
+                    : '-';
             const statusHtml = isPending
                 ? `<span class="status-badge finance_pending">بانتظار المالية</span>`
                 : isRejected
@@ -1597,16 +1450,16 @@ function renderFinanceOrders() {
                 : `<span class="finance-no-action">لا يوجد إجراء</span>`;
             tr.innerHTML = `
                 <td data-column="select"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
-                <td data-column="date" data-label="آخر تحديث" class="finance-date-cell">${escapeHtml(financeDateTime)}</td>
+                <td data-column="date" data-label="التاريخ" class="finance-date-cell">${escapeHtml(financeDate)}</td>
+                <td data-column="time" data-label="الوقت" class="finance-time-cell">${escapeHtml(financeTime)}</td>
                 <td data-column="pharmacyCode" data-label="كود الصيدلية" class="finance-code-cell">${escapeHtml(getPharmacyCode(order) || '-')}</td>
-                <td data-column="pharmacyName" data-label="اسم الصيدلية" class="finance-pharmacy-cell"><div class="finance-pharmacy-inline"><span>${escapeHtml(order.pharmacyName || '-')}</span><button class="finance-history-trigger" type="button" title="سجل الموافقات السابقة" aria-label="سجل الموافقات السابقة"><i class="ph ph-eye"></i></button></div></td>
+                <td data-column="pharmacyName" data-label="اسم الصيدلية" class="finance-pharmacy-cell">${escapeHtml(order.pharmacyName || '-')}</td>
                 <td data-column="representative" data-label="المندوب">${escapeHtml(order.repName || order.representativeName || '-')}</td>
                 <td data-column="note" data-label="ملاحظة الطلبية" class="workflow-note-cell">${noteHtml}</td>
-                <td data-column="value" data-label="قيمة الطلبية" class="finance-value-cell">${formatMoney(order.grandTotal)}</td>
+                <td data-column="value" data-label="قيمة الطلبية" class="finance-value-cell">${formatMoney(order.grandTotal)} <small>د.ا</small></td>
                 <td data-column="status" data-label="الحالة" class="finance-status-cell">${statusHtml}</td>
                 <td data-column="actions" data-label="الإجراءات المالية" class="workflow-actions-cell">${actionHtml}</td>
             `;
-            tr.querySelector('.finance-history-trigger')?.addEventListener('click', () => openFinancePharmacyHistory(order));
             tr.querySelector('.finance-action-select')?.addEventListener('change', event => {
                 const action = event.target.value;
                 event.target.value = '';
@@ -1655,12 +1508,16 @@ function financeTimestamp(value) {
 }
 
 function financeSortValue(order, key) {
-    const timestamp = financeTimestamp(getOrderLastActionDate(order));
-    if (key === 'date') return timestamp;
+    const timestamp = financeTimestamp(order.createdAt);
+    if (key === 'date') return new Date(timestamp).setHours(0, 0, 0, 0);
+    if (key === 'time') {
+        const date = new Date(timestamp);
+        return (date.getHours() * 3600) + (date.getMinutes() * 60) + date.getSeconds();
+    }
     if (key === 'pharmacyCode') return getPharmacyCode(order) || '';
     if (key === 'pharmacyName') return order.pharmacyName || '';
     if (key === 'representative') return order.repName || order.representativeName || '';
-    if (key === `note`) return order.representativeFinanceJustification || getOrderNote(order) || getFinanceVisibleNote(order) || ``;
+    if (key === 'note') return getOrderNote(order) || getFinanceVisibleNote(order) || '';
     if (key === 'value') return Number(order.grandTotal) || 0;
     if (key === 'status') return statusLabel(order.financeStatus || order.status || '');
     return '';
@@ -1703,152 +1560,6 @@ function initFinanceSorting() {
     updateFinanceSortIndicators();
 }
 
-function getFinanceApprovalAuditEntry(order = {}) {
-    const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
-    return [...trail]
-        .filter(entry => {
-            const action = String(entry?.action || '').trim().toLowerCase();
-            const newStatus = String(entry?.newValue?.status || entry?.newValue?.financeStatus || '').trim().toLowerCase();
-            return action === 'finance_approved' || newStatus === 'finance_approved';
-        })
-        .sort((a, b) => financeTimestamp(b?.timestamp) - financeTimestamp(a?.timestamp))[0] || null;
-}
-
-function getFinanceApprovalDate(order = {}) {
-    const directDate = normalizeDate(order.financeApprovedAt);
-    if (directDate) return directDate;
-
-    const auditEntry = getFinanceApprovalAuditEntry(order);
-    const auditDate = normalizeDate(auditEntry?.timestamp);
-    if (auditDate) return auditDate;
-
-    const status = String(order.status || '').trim();
-    const staffStatus = String(order.orderStaffStatus || '').trim();
-    const legacyApprovedStatuses = ['orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'];
-    if (legacyApprovedStatuses.includes(status) || legacyApprovedStatuses.includes(staffStatus)) {
-        return normalizeDate(order.orderStaffReadyAt || order.changedAt || order.updatedAt || order.exportedAt || order.createdAt);
-    }
-    return null;
-}
-
-function isFinanceApprovedHistoryOrder(order = {}) {
-    if (normalizeDate(order.financeApprovedAt)) return true;
-    if (String(order.financeStatus || '').trim() === 'finance_approved') return true;
-    if (getFinanceApprovalAuditEntry(order)) return true;
-
-    // Legacy/finalized orders may no longer carry finance_approved as their current status.
-    // Reaching Orders Staff / Invoiced means the order already passed Finance in this workflow.
-    const status = String(order.status || '').trim();
-    const staffStatus = String(order.orderStaffStatus || '').trim();
-    const legacyApprovedStatuses = ['orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'];
-    return legacyApprovedStatuses.includes(status) || legacyApprovedStatuses.includes(staffStatus);
-}
-
-function financeHistoryCacheKey(order = {}) {
-    const code = String(getPharmacyCode(order) || '').trim().toLowerCase();
-    const name = String(order.pharmacyName || '').trim().toLowerCase();
-    return `${code}::${name}`;
-}
-
-async function fetchFinanceApprovedHistoryForOrder(referenceOrder = {}) {
-    const cacheKey = financeHistoryCacheKey(referenceOrder);
-    if (financePharmacyHistoryCache.has(cacheKey)) return financePharmacyHistoryCache.get(cacheKey);
-
-    const ordersRef = collection(db, 'orders');
-    const rawCode = referenceOrder.pharmacyCode ?? referenceOrder.pharmacy_code ?? referenceOrder.customerCode ?? '';
-    const referenceCode = String(getPharmacyCode(referenceOrder) || '').trim();
-    const referenceName = String(referenceOrder.pharmacyName || '').trim();
-    const requests = [];
-
-    if (referenceName) requests.push(getDocs(query(ordersRef, where('pharmacyName', '==', referenceName))));
-    if (rawCode !== '' && rawCode !== null && rawCode !== undefined) {
-        requests.push(getDocs(query(ordersRef, where('pharmacyCode', '==', rawCode))));
-    }
-
-    if (!requests.length) return [];
-
-    const results = await Promise.allSettled(requests);
-    const uniqueOrders = new Map();
-    let successfulQuery = false;
-
-    results.forEach(result => {
-        if (result.status !== 'fulfilled') return;
-        successfulQuery = true;
-        result.value.forEach(docSnap => uniqueOrders.set(docSnap.id, { id: docSnap.id, ...docSnap.data() }));
-    });
-
-    if (!successfulQuery) throw new Error('Unable to load pharmacy finance history');
-
-    const referenceNameKey = referenceName.toLowerCase();
-    const rows = Array.from(uniqueOrders.values())
-        .filter(candidate => {
-            const candidateCode = String(getPharmacyCode(candidate) || '').trim();
-            const candidateName = String(candidate.pharmacyName || '').trim().toLowerCase();
-            const sameCode = Boolean(referenceCode && candidateCode && candidateCode === referenceCode);
-            const sameName = Boolean(referenceNameKey && candidateName === referenceNameKey);
-            return (sameCode || sameName) && isFinanceApprovedHistoryOrder(candidate);
-        })
-        .sort((a, b) => financeTimestamp(getFinanceApprovalDate(b)) - financeTimestamp(getFinanceApprovalDate(a)));
-
-    financePharmacyHistoryCache.set(cacheKey, rows);
-    return rows;
-}
-
-function buildFinanceHistoryMarkup(rows = []) {
-    if (!rows.length) {
-        return `<div class="finance-history-empty"><i class="ph ph-clock-counter-clockwise"></i><strong>لا توجد موافقات مالية سابقة لهذه الصيدلية</strong><p>لم يتم العثور على طلبية سابقة اجتازت الموافقة المالية لهذه الصيدلية.</p></div>`;
-    }
-    return `<div class="finance-history-list">${rows.map(item => `
-        <div class="finance-history-item">
-            <div class="finance-history-stat"><span>تاريخ الموافقة</span><strong>${escapeHtml(formatDateTime(getFinanceApprovalDate(item)))}</strong></div>
-            <div class="finance-history-stat"><span>قيمة الطلبية</span><strong>${escapeHtml(formatMoney(item.grandTotal))}</strong></div>
-            <div class="finance-history-stat"><span>المندوب</span><strong>${escapeHtml(item.repName || item.representativeName || '-')}</strong></div>
-        </div>`).join('')}</div>`;
-}
-
-async function openFinancePharmacyHistory(order) {
-    const modal = $('financePharmacyHistoryModal');
-    const content = $('financeHistoryContent');
-    const title = $('financeHistoryTitle');
-    const subtitle = $('financeHistorySubtitle');
-    if (!modal || !content) return;
-
-    const code = getPharmacyCode(order) || '-';
-    title.textContent = `سجل الموافقات السابقة — ${order.pharmacyName || 'الصيدلية'}`;
-    if (subtitle) subtitle.textContent = `كود الصيدلية: ${code}`;
-    content.innerHTML = `<div class="finance-history-empty"><i class="ph ph-circle-notch ph-spin"></i><strong>جاري تحميل السجل...</strong></div>`;
-    modal.hidden = false;
-    document.body.style.overflow = 'hidden';
-
-    try {
-        const rows = await fetchFinanceApprovedHistoryForOrder(order);
-        if (!modal.hidden) content.innerHTML = buildFinanceHistoryMarkup(rows);
-    } catch (error) {
-        console.error('Failed to load finance pharmacy history:', error);
-        if (!modal.hidden) {
-            content.innerHTML = `<div class="finance-history-empty"><i class="ph ph-warning-circle"></i><strong>تعذر تحميل سجل الصيدلية</strong><p>أعد المحاولة بعد التأكد من الاتصال.</p></div>`;
-        }
-        showToast('تعذر تحميل سجل الموافقات السابقة للصيدلية.', 'error');
-    }
-}
-
-function closeFinancePharmacyHistory() {
-    const modal = $('financePharmacyHistoryModal');
-    if (!modal) return;
-    modal.hidden = true;
-    document.body.style.overflow = '';
-}
-
-function initFinanceHistoryModal() {
-    $('financeHistoryCloseBtn')?.addEventListener('click', closeFinancePharmacyHistory);
-    $('financePharmacyHistoryModal')?.addEventListener('click', event => {
-        if (event.target?.dataset?.closeFinanceHistory === 'true') closeFinancePharmacyHistory();
-    });
-    document.addEventListener('keydown', event => {
-        if (event.key === 'Escape') closeFinancePharmacyHistory();
-    });
-}
-
 async function financeApprove(orderId, approvalNote = '') {
     const order = state.orders.find(o => o.id === orderId) || {};
     const normalizedNote = String(approvalNote || '').trim();
@@ -1864,7 +1575,6 @@ async function financeApprove(orderId, approvalNote = '') {
         orderStaffStatus: 'orders_staff_pending',
         hiddenByOrderStaff: false
     }, auditEntry('finance_approved', 'Hamza', 'finance_controller', { status: order.status, financeApprovalNote: order.financeApprovalNote || '', financeRejectionReason: order.financeRejectionReason || '' }, { status: 'orders_staff_pending', financeApprovalNote: normalizedNote }, normalizedNote || 'تم الاعتماد المالي بدون ملاحظة إضافية'));
-    financePharmacyHistoryCache.clear();
     showToast(normalizedNote ? 'تم الاعتماد المالي وتحويل الطلبية إلى فريق المعالجة مع حفظ الملاحظة.' : 'تم الاعتماد المالي وتحويل الطلبية إلى فريق المعالجة.', 'success');
 }
 
@@ -1891,11 +1601,11 @@ function initFinanceController() {
     $('financeExportSelectedBtn')?.addEventListener('click', () => exportFinanceOrders(getOrdersByIds(selectedIds()), 'selected'));
     $('financeExportVisibleBtn')?.addEventListener('click', () => exportFinanceOrders(state.visibleOrders, 'visible'));
     initFinanceSorting();
-    initFinanceHistoryModal();
     subscribeOrders(applyFinanceFilters);
 }
 
 const ORDER_STAFF_EXPORT_HEADERS = [
+    'Invoice Number',
     'Order Date&time',
     'Representative Name',
     'Area',
@@ -1903,6 +1613,8 @@ const ORDER_STAFF_EXPORT_HEADERS = [
     'Pharmacy Name',
     'Product Code',
     'Product Name',
+    'Batch',
+    'Expiry Date',
     'Price',
     'Quantity',
     'Bonus Quantity',
@@ -1918,6 +1630,7 @@ function orderToExportRows(order) {
     return items.map(item => {
         const calc = calculateItem(item);
         return {
+            'Invoice Number': order.invoiceNumber || '',
             'Order Date&time': formatDateTime(order.createdAt),
             'Representative Name': order.repName || order.representativeName || '',
             'Area': getOrderArea(order),
@@ -1925,6 +1638,8 @@ function orderToExportRows(order) {
             'Pharmacy Name': order.pharmacyName || '',
             'Product Code': getItemProductCode(calc),
             'Product Name': calc.name || '',
+            'Batch': calc.batch || item.batch || '',
+            'Expiry Date': calc.batchExpiry || item.batchExpiry || '',
             'Price': calc.price,
             'Quantity': calc.qty,
             'Bonus Quantity': calc.bonus,
@@ -1943,7 +1658,7 @@ function applyOrdersStaffFilters() {
     const product = ($('filterProduct')?.value || '').toLowerCase().trim();
     const statusMode = $('showHiddenMode')?.value || 'active';
     const requiredOwner = $('filterRequiredOwner')?.value || '';
-        const from = $('filterDateFrom')?.value || '';
+    const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
 
     const normalizedStatusMode = statusMode === 'all' ? 'followup' : statusMode;
@@ -1958,18 +1673,15 @@ function applyOrdersStaffFilters() {
         const status = getPrimaryStatus(order);
         const followUp = getWorkflowFollowUp(order);
         const staffState = order.orderStaffStatus || '';
-        const isInvoiced = status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order);
-        const isHidden = isInvoiced && (order.hiddenByOrderStaff === true || !!order.hiddenAt ||
-            (Array.isArray(order.exportHistory) && order.exportHistory.some(entry => entry?.hideAfterExport === true)));
-        const isActive = (status === 'orders_staff_pending' || status === 'finance_approved' || staffState === 'orders_staff_pending' || order.financeStatus === 'finance_approved') && !isInvoiced;
-        const isExported = isInvoiced || orderHasStaffExportEvidence(order);
+        const isHidden = status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order);
+        const isActive = (status === 'orders_staff_pending' || status === 'finance_approved' || staffState === 'orders_staff_pending' || order.financeStatus === 'finance_approved') && !isHidden && status !== 'orders_staff_exported';
+        const isExported = status === 'orders_staff_exported' || staffState === 'orders_staff_exported' || orderHasStaffExportEvidence(order);
         let modeOk = isActive;
         if (normalizedStatusMode === 'followup') modeOk = true;
         if (normalizedStatusMode === 'hidden') modeOk = isHidden;
         if (normalizedStatusMode === 'exported') modeOk = isExported && !isHidden;
         const itemMatch = !product || (Array.isArray(order.items) && order.items.some(item => `${item.name || ''} ${getItemProductCode(item)}`.toLowerCase().includes(product)));
-        return modeOk && itemMatch &&
-            inDateRange(order, from, to) &&
+        return modeOk && itemMatch && inDateRange(order, from, to) &&
             (!requiredOwner || followUp.ownerKey === requiredOwner) &&
             (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm)) &&
             (!rep || (order.repName || order.representativeName || '').toLowerCase().includes(rep));
@@ -1983,7 +1695,7 @@ function renderOrdersStaffRows() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) return setTableEmpty('ordersStaffBody', 12, 'لا توجد طلبيات ضمن الفلاتر الحالية');
+    if (state.visibleOrders.length === 0) return setTableEmpty('ordersStaffBody', 13, 'لا توجد طلبيات ضمن الفلاتر الحالية');
 
     const renderChunk = async (startIndex = 0) => {
         if (token !== state.renderToken) return;
@@ -1998,10 +1710,11 @@ function renderOrdersStaffRows() {
                 : `<span class="status-badge orders_staff_hidden">مقفلة / تمت الفوترة</span>`;
             tr.innerHTML = `
                 <td data-label="تحديد"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
-                <td data-label="آخر تحديث" class="staff-date-cell">${escapeHtml(formatOrderLastAction(order))}</td>
+                <td data-label="التاريخ" class="staff-date-cell">${escapeHtml(formatDateTime(order.createdAt))}</td>
+                <td data-label="رقم الفاتورة"><input class="staff-invoice-input" data-order-id="${order.id}" type="text" value="${escapeHtml(order.invoiceNumber || '')}" placeholder="إلزامي للفوترة" style="min-width:150px;padding:9px 11px;border:1px solid #b9ced2;border-radius:10px;font:700 .86rem Cairo;background:#fff" ${staffCanAct ? '' : 'readonly'}></td>
                 <td data-label="الصيدلية" class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
                 <td data-label="المندوب" class="staff-rep-cell" title="${escapeHtml(order.repName || order.representativeName || '-')}">${escapeHtml(order.repName || order.representativeName || '-')}</td>
-                <td data-label="الحالة"><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span>${reservedOrderBadgeHtml(order)}</td>
+                <td data-label="الحالة"><span class="status-badge ${escapeHtml(getPrimaryStatus(order))}">${escapeHtml(statusLabel(getPrimaryStatus(order)))}</span></td>
                 <td data-label="المطلوب من">${escapeHtml(followUp.owner || '-')}</td>
                 <td data-label="تفصيل المتابعة" class="workflow-note-cell" title="${escapeHtml(followUp.detail || '-')}">${escapeHtml(followUp.detail || '-')}</td>
                 <td data-label="الأصناف"><button class="action-btn staff-edit-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
@@ -2011,6 +1724,7 @@ function renderOrdersStaffRows() {
                 <td data-label="الإجراءات" class="workflow-actions-cell">${staffActionsHtml}</td>
             `;
             tr.querySelectorAll('.staff-edit-btn').forEach(btn => btn.addEventListener('click', () => openStaffOrderModal(order)));
+            tr.querySelector('.staff-invoice-input')?.addEventListener('change', event => saveOrderInvoiceNumber(order, event.target));
             tr.querySelector('.staff-return-btn')?.addEventListener('click', () => {
                 const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
                 if (reason !== null) staffReturnToFinance(order.id, reason);
@@ -2025,6 +1739,20 @@ function renderOrdersStaffRows() {
         }
     };
     renderChunk();
+}
+
+async function saveOrderInvoiceNumber(order, input) {
+    const invoiceNumber = String(input?.value || '').trim();
+    input.value = invoiceNumber;
+    order.invoiceNumber = invoiceNumber;
+    if (!order.id) return;
+    try {
+        await updateDoc(doc(db, 'orders', order.id), { invoiceNumber, updatedAt: new Date() });
+        input.classList.remove('input-error');
+    } catch (error) {
+        input.classList.add('input-error');
+        showToast('تعذر حفظ رقم الفاتورة.', 'error');
+    }
 }
 
 function fullStaffOrderRows(order) {
@@ -2112,8 +1840,9 @@ function openStaffOrderModal(order) {
     `;
     $('staffOrderNote').textContent = [getOrderNote(order), getFinanceVisibleNote(order) ? `ملاحظة المالية: ${getFinanceVisibleNote(order)}` : ''].filter(Boolean).join(' | ') || 'لا توجد ملاحظات.';
     const canEdit = canOrdersStaffTouchOrder(order);
-    ['addStaffItemBtn', 'saveStaffEditsBtn', 'returnStaffToFinanceBtn', 'deleteStaffOrderBtn'].forEach(id => { const btn = $(id); if (btn) btn.disabled = !canEdit; });
-    $('staffOrderItemsBody').innerHTML = fullStaffOrderRows(order) || `<tr><td colspan="10">لا توجد أصناف.</td></tr>`;
+    ['saveStaffEditsBtn', 'returnStaffToFinanceBtn', 'deleteStaffOrderBtn'].forEach(id => { const btn = $(id); if (btn) btn.disabled = !canEdit; });
+    if ($('addStaffItemBtn')) $('addStaffItemBtn').disabled = true;
+    $('staffOrderItemsBody').innerHTML = fullStaffOrderRows(order) || `<tr><td colspan="12">لا توجد أصناف.</td></tr>`;
     document.querySelectorAll('#staffOrderItemsBody tr').forEach(bindStaffItemRow);
     $('staffOrderModal').style.display = 'flex';
 }
@@ -2173,20 +1902,9 @@ async function saveStaffEdits(options = {}) {
 
     const { kept, deleted, grandTotal } = collectStaffModalItems();
     if (kept.length === 0) { showToast('لا يمكن حفظ طلبية بدون أصناف.', 'warning'); return false; }
-    let reservationValidation;
-    try {
-        reservationValidation = await validateWorkflowEditedItems(kept, state.selectedOrder);
-    } catch (error) {
-        showToast('تعذر التحقق من حالة الأصناف المحجوزة. لم يتم حفظ التعديل.', 'error');
-        return false;
-    }
-    if (!reservationValidation.ok) { showToast(MIXED_ORDER_WARNING, 'warning'); return false; }
-    const validatedItems = reservationValidation.items;
     await updateOrderWithAudit(state.selectedOrder.id, {
-        items: validatedItems,
+        items: kept,
         grandTotal,
-        orderType: reservationValidation.orderType,
-        isReservedOrder: reservationValidation.orderType === RESERVED_ORDER_TYPE,
         status: 'returned_to_finance',
         workflowStage: 'finance',
         financeStatus: 'returned_to_finance',
@@ -2200,7 +1918,7 @@ async function saveStaffEdits(options = {}) {
         orderStaffEditedAt: new Date(),
         orderStaffDeletedItems: deleted,
         hiddenByOrderStaff: false
-    }, auditEntry('orders_staff_edit_returned_to_finance', 'Ziad/Zakaria', 'orders_staff', { items: state.selectedOrder.items || [], grandTotal: state.selectedOrder.grandTotal || 0, status: state.selectedOrder.status || '' }, { items: validatedItems, grandTotal, status: 'returned_to_finance', orderType: reservationValidation.orderType }, reason));
+    }, auditEntry('orders_staff_edit_returned_to_finance', 'Ziad/Zakaria', 'orders_staff', { items: state.selectedOrder.items || [], grandTotal: state.selectedOrder.grandTotal || 0, status: state.selectedOrder.status || '' }, { items: kept, grandTotal, status: 'returned_to_finance' }, reason));
     if (!silent) showToast('تم حفظ تعديل قسم الطلبيات وإرجاع الطلبية إلى المالية للمراجعة.', 'success');
     if (close) closeStaffOrderModal();
     return true;
@@ -2264,12 +1982,17 @@ function isOrdersStaffExportEligible(order = {}) {
 async function exportOrders(orders) {
     if (orders.length === 0) return showToast('لا توجد طلبيات للتصدير.', 'warning');
     if (typeof XLSX === 'undefined') return showToast('مكتبة Excel غير محملة. أعد فتح الصفحة وحاول مرة أخرى.', 'error');
+    const missingInvoices = orders.filter(order => !String(order.invoiceNumber || '').trim());
+    if (missingInvoices.length) return showToast(`رقم الفاتورة إلزامي قبل التصدير والفوترة. طلبيات ناقصة: ${missingInvoices.length}`, 'error');
+    const invalidBatchOrders = orders.filter(order => (order.items || []).some(item => !String(item.productCode || '').trim() || !String(item.batch || '').trim()));
+    if (invalidBatchOrders.length) return showToast(`لا يمكن فوترة طلبية بدون كود صنف وBatch. طلبيات غير مكتملة: ${invalidBatchOrders.length}`, 'error');
     await loadPharmacyAreas();
     const rows = orders.flatMap(orderToExportRows);
     if (rows.length === 0) return showToast('لا توجد أصناف قابلة للتصدير.', 'warning');
     const exportFileName = `orders_staff_${toDateInputValue(new Date())}.xlsx`;
     const ws = XLSX.utils.json_to_sheet(rows, { header: ORDER_STAFF_EXPORT_HEADERS });
     ws['!cols'] = [
+        { wch: 18 },
         { wch: 22 },
         { wch: 24 },
         { wch: 18 },
@@ -2277,6 +2000,8 @@ async function exportOrders(orders) {
         { wch: 32 },
         { wch: 16 },
         { wch: 34 },
+        { wch: 20 },
+        { wch: 16 },
         { wch: 12 },
         { wch: 10 },
         { wch: 14 },
@@ -2296,19 +2021,36 @@ async function exportOrders(orders) {
         return;
     }
 
-    const hide = confirm(`تمت فوترة هذه الطلبيات بمجرد تصدير ملف Excel.
+    const hide = confirm(`هل تريد إخفاء هذه الطلبيات بعد التصدير حتى تظهر الطلبيات الجديدة فقط في المرة القادمة؟
 
-هل تريد إخفاءها من العرض الافتراضي؟
-موافق = إخفاء الطلبيات المفوترة.
-إلغاء = إبقاؤها ظاهرة ضمن الطلبيات المفوترة.`);
-    const action = hide ? 'orders_staff_invoiced_and_hidden_after_export' : 'orders_staff_invoiced_after_export';
+موافق = نعم، أخفِ الطلبيات المصدرة.
+إلغاء = لا، أبقِ الطلبيات ظاهرة.`);
+    const action = hide ? 'orders_staff_invoiced_and_hidden_after_export' : 'orders_staff_export';
     state.suspendRender = true;
-    const results = await Promise.allSettled(orders.map(order => {
+    const prepareExportMeta = order => {
         const previousHistory = Array.isArray(order.exportHistory) ? order.exportHistory : [];
         const exportEntry = buildExportEntry('orders_staff_excel', 'Ziad/Zakaria', orders.length, hide, exportFileName);
+        return { previousHistory, exportEntry };
+    };
+    let results = [];
+    if (hide) {
+        for (const order of orders) {
+            const exportMeta = prepareExportMeta(order);
+            try {
+                await finalizeInvoicedOrder(order, exportMeta, exportFileName, action);
+                results.push({ status: 'fulfilled' });
+            } catch (error) {
+                console.error(error);
+                results.push({ status: 'rejected', reason: error });
+                showToast(error.message || `تعذر فوترة الطلبية ${order.invoiceNumber}.`, 'error');
+                break;
+            }
+        }
+    } else results = await Promise.allSettled(orders.map(order => {
+        const { previousHistory, exportEntry } = prepareExportMeta(order);
         return updateOrderWithAudit(order.id, {
-            status: 'orders_staff_hidden',
-            orderStaffStatus: 'orders_staff_hidden',
+            status: hide ? 'orders_staff_hidden' : 'orders_staff_exported',
+            orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported',
             exportedBy: 'Ziad/Zakaria',
             exportedAt: new Date(),
             exportHistory: [...previousHistory, exportEntry],
@@ -2317,11 +2059,64 @@ async function exportOrders(orders) {
             isInvoiced: !!hide,
             invoicedAt: hide ? new Date() : null,
             invoicedBy: hide ? 'Ziad/Zakaria' : ''
-        }, auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: order.status, orderStaffStatus: order.orderStaffStatus || '' }, { status: 'orders_staff_hidden', orderStaffStatus: 'orders_staff_hidden', hiddenAfterExport: hide, exportFileName }));
+        }, auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: order.status, orderStaffStatus: order.orderStaffStatus || '' }, { status: hide ? 'orders_staff_hidden' : 'orders_staff_exported', orderStaffStatus: hide ? 'orders_staff_hidden' : 'orders_staff_exported', exportFileName }));
     }));
     state.suspendRender = false;
     state.onOrdersChange?.();
-    showToast(`تم تصدير الملف واعتبار الطلبيات مفوترة: ${results.filter(r => r.status === 'fulfilled').length}/${orders.length}`, 'success');
+    showToast(`تم التصدير وتحديث الحالة: ${results.filter(r => r.status === 'fulfilled').length}/${orders.length}`, 'success');
+}
+
+async function finalizeInvoicedOrder(order, exportMeta, exportFileName, action) {
+    const activeSnap = await getDocs(query(collection(db, 'new_inventory_batches'), where('active', '==', true)));
+    const activeByKey = new Map();
+    activeSnap.forEach(item => {
+        const data = item.data();
+        activeByKey.set(`${String(data.productCode || '').trim().toLowerCase()}__${String(data.batch || '').trim().toLowerCase()}`, { ref: item.ref, data });
+    });
+    const requirements = new Map();
+    (order.items || []).forEach(item => {
+        const key = `${String(item.productCode || '').trim().toLowerCase()}__${String(item.batch || '').trim().toLowerCase()}`;
+        const current = requirements.get(key) || { item, requiredQty: 0, inventory: activeByKey.get(key) };
+        current.requiredQty += parseNumber(item.qty) + parseNumber(item.bonus);
+        requirements.set(key, current);
+    });
+    const missing = [...requirements.values()].find(entry => !entry.inventory);
+    if (missing) throw new Error(`لا يوجد رصيد نشط للصنف ${missing.item.name || missing.item.productCode} والـ Batch ${missing.item.batch}.`);
+    const entries = [...requirements.values()];
+    const now = new Date();
+    await runTransaction(db, async transaction => {
+        const orderRef = doc(db, 'orders', order.id);
+        const orderSnap = await transaction.get(orderRef);
+        if (!orderSnap.exists()) throw new Error('الطلبية غير موجودة.');
+        if (orderSnap.data().isInvoiced === true) throw new Error(`الفاتورة ${order.invoiceNumber} مفوترة مسبقًا.`);
+        const inventorySnaps = [];
+        for (const entry of entries) inventorySnaps.push(await transaction.get(entry.inventory.ref));
+        entries.forEach((entry, index) => {
+            if (inventorySnaps[index].data()?.active !== true) throw new Error(`الرصيد المحدد للـ Batch ${entry.item.batch} لم يعد نشطًا. أعد المحاولة بعد تحديث الصفحة.`);
+            const available = parseNumber(inventorySnaps[index].data()?.remainingQty);
+            if (entry.requiredQty > available) throw new Error(`الرصيد غير كافٍ للصنف ${entry.item.name || entry.item.productCode} والـ Batch ${entry.item.batch}. المطلوب شامل البونص ${entry.requiredQty} والمتاح ${available}.`);
+        });
+        entries.forEach((entry, index) => {
+            const available = parseNumber(inventorySnaps[index].data().remainingQty);
+            transaction.update(entry.inventory.ref, { remainingQty: available - entry.requiredQty, updatedAt: now, lastInvoicedOrderId: order.id });
+        });
+        (order.items || []).forEach((item, index) => {
+            const qty = parseNumber(item.qty), bonusQty = parseNumber(item.bonus);
+            transaction.set(doc(db, 'new_sales_batch_balances', `current_${order.id}_${index}`), {
+                source: 'current_invoiced_order', sourceOrderId: order.id, invoiceNumber: String(order.invoiceNumber).trim(), saleDate: now,
+                pharmacyCode: getPharmacyCode(order), pharmacyName: order.pharmacyName || '', repId: order.repId || '', repName: order.repName || '',
+                productCode: getItemProductCode(item), productName: item.name || '', batch: item.batch || '', expiryDate: item.batchExpiry || '',
+                soldQty: qty, bonusQty, totalPurchasedQty: qty + bonusQty, unitPrice: parseNumber(item.price), createdAt: now
+            });
+        });
+        const currentOrder = orderSnap.data();
+        transaction.update(orderRef, {
+            status: 'orders_staff_hidden', orderStaffStatus: 'orders_staff_hidden', exportedBy: 'Ziad/Zakaria', exportedAt: now,
+            exportHistory: [...(currentOrder.exportHistory || exportMeta.previousHistory), exportMeta.exportEntry], hiddenByOrderStaff: true, hiddenAt: now,
+            isInvoiced: true, invoicedAt: now, invoicedBy: 'Ziad/Zakaria',
+            auditTrail: [...(currentOrder.auditTrail || []), auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: currentOrder.status, orderStaffStatus: currentOrder.orderStaffStatus || '' }, { status: 'orders_staff_hidden', orderStaffStatus: 'orders_staff_hidden', exportFileName })]
+        });
+    });
 }
 
 function initOrdersStaff() {

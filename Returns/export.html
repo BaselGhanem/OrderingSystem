@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>تصدير بيانات قاعدة البيانات</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: 'Cairo', sans-serif; padding: 50px; text-align: center; background-color: #f1f5f9; color: #1e293b; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+        .btn { padding: 12px 25px; border: none; cursor: pointer; border-radius: 8px; font-size: 1rem; font-weight: bold; margin: 10px; color: white; transition: 0.3s;}
+        .btn-pharmacies { background: #10b981; } /* أخضر */
+        .btn-reps { background: #3b82f6; } /* أزرق */
+        .btn-products { background: #f59e0b; } /* برتقالي */
+        .btn:hover { filter: brightness(0.9); }
+        #status { margin-top: 20px; font-size: 1.1rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 style="color: #004a99;">أداة سحب البيانات إلى إكسل</h2>
+        <p>اختر القائمة التي تريد تحميلها من قاعدة البيانات:</p>
+        
+        <button id="btnPharmacies" class="btn btn-pharmacies">تحميل الصيدليات</button>
+        <button id="btnReps" class="btn btn-reps">تحميل المناديب</button>
+        <button id="btnProducts" class="btn btn-products">تحميل المنتجات</button>
+
+        <div id="status"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
+            authDomain: "dad-ordering-system.firebaseapp.com",
+            projectId: "dad-ordering-system",
+            storageBucket: "dad-ordering-system.firebasestorage.app",
+            messagingSenderId: "43886677849",
+            appId: "1:43886677849:web:de5f80c06e1b743c948648"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        async function downloadCollection(collectionName, arabicName) {
+            const status = document.getElementById('status');
+            status.innerText = `جاري جلب بيانات ${arabicName}، يرجى الانتظار...`;
+            status.style.color = "#f59e0b";
+
+            try {
+                const snap = await getDocs(collection(db, collectionName));
+                let data = [];
+                
+                snap.forEach(doc => {
+                    // سحب الـ ID الخاص بالـ Document ودمجه مع باقي البيانات
+                    data.push({
+                        "Document_ID": doc.id,
+                        ...doc.data()
+                    });
+                });
+
+                if (data.length === 0) {
+                    status.innerText = "لا توجد بيانات في هذه القائمة!";
+                    status.style.color = "red";
+                    return;
+                }
+
+                // تحويل البيانات إلى إكسل
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, arabicName);
+                
+                // تنزيل الملف
+                XLSX.writeFile(wb, `${arabicName}_Export.xlsx`);
+
+                status.innerText = `✅ تم تحميل ${data.length} سجل بنجاح!`;
+                status.style.color = "#10b981";
+            } catch (error) {
+                console.error(error);
+                status.innerText = "❌ حدث خطأ أثناء سحب البيانات.";
+                status.style.color = "red";
+            }
+        }
+
+        document.getElementById('btnPharmacies').onclick = () => downloadCollection("pharmacies", "الصيدليات");
+        document.getElementById('btnReps').onclick = () => downloadCollection("reps", "المناديب");
+        document.getElementById('btnProducts').onclick = () => downloadCollection("products", "المنتجات");
+    </script>
+</body>
+</html>

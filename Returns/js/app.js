@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20260915_supervisor_finance_tab_v2`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20260820_batch_invoice_v3`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -28,17 +28,8 @@ try {
     let source = await response.text();
     const resolverPattern = /function getEffectiveOrderStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
     const canonicalResolver = `function getEffectiveOrderStatus(order = {}) {
-    const rawStatus = order.status || order.workflowStage || order.supervisorStatus ||
+    return order.status || order.workflowStage || order.supervisorStatus ||
         order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
-    const terminalOrReturned = rawStatus.startsWith('deleted_') ||
-        ['returned_to_rep', 'returned_to_supervisor', 'returned_to_market_manager', 'returned_to_finance',
-            'market_manager_rejected', 'finance_rejected', 'rejected'].includes(rawStatus);
-    if (terminalOrReturned || order.workflowStage === 'deleted') return rawStatus;
-    if (rawStatus === 'orders_staff_hidden' || rawStatus === 'orders_staff_exported' ||
-        order.orderStaffStatus === 'orders_staff_exported' || appOrderHasHiddenInvoiceEvidence(order)) {
-        return 'orders_staff_hidden';
-    }
-    return rawStatus;
 }`;
 
     const supervisorDeletePattern = /function canCurrentSupervisorDeleteOrder\(order = \{\}\) \{[\s\S]*?\n\}/;

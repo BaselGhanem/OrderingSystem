@@ -1,17 +1,18 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+    <base href="../">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>تسجيل الدخول | نظام الطلبيات</title>
-    <link rel="icon" href="favicon.ico?v=20260915_rep_login_flow_v1">
+    <title>نظام الطلبيات</title>
+    <link rel="icon" href="favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="login-style.css?v=20260915_login_layout_v2">
+    <link rel="stylesheet" href="newstyle/style.css">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script>
         (() => {
@@ -37,20 +38,17 @@
                 sessionStorage.removeItem(`repName`);
                 window.history.replaceState(null, document.title, window.location.pathname);
             } else {
-                const adminOrderMode = sessionStorage.getItem(`adminOrderMode`) === `1`;
                 const orderContext = sessionStorage.getItem(`activeOrderContext`);
-                const repId = sessionStorage.getItem(`repId`);
-                const repName = sessionStorage.getItem(`repName`);
-                if (!adminOrderMode && (orderContext || (repId && repName))) {
+                if (orderContext) {
                     window.location.replace(`order.html`);
                     return;
                 }
                 const adminSession = safeJson(localStorage.getItem(ADMIN_SESSION_KEY)) || safeJson(sessionStorage.getItem(ADMIN_SESSION_KEY));
-                if (!adminOrderMode && adminSession?.remember && adminSession.type === `manager`) {
+                if (adminSession?.remember && adminSession.type === `manager`) {
                     window.location.replace(`supervisor.html`);
                     return;
                 }
-                if (!adminOrderMode && adminSession?.remember && adminSession.type === `reports`) {
+                if (adminSession?.remember && adminSession.type === `reports`) {
                     window.location.replace(`reports.html`);
                 }
             }
@@ -86,17 +84,23 @@
 
                 <div class="role-grid" aria-label="أنواع الدخول">
                     <button class="role-card" type="button" data-role="rep">
-                        <span class="role-visual" aria-hidden="true"><img src="assets/role-representative.svg?v=20260915_login_svg_v2" alt=""></span>
+                        <span class="role-visual" aria-hidden="true">
+                            <img src="assets/role-representative.png" alt="">
+                        </span>
                         <strong>مندوب</strong>
                         <i class="ph ph-caret-left role-arrow" aria-hidden="true"></i>
                     </button>
                     <button class="role-card" type="button" data-role="supervisor">
-                        <span class="role-visual" aria-hidden="true"><img src="assets/role-supervisor.svg?v=20260915_login_svg_v2" alt=""></span>
+                        <span class="role-visual" aria-hidden="true">
+                            <img src="assets/role-supervisor.png" alt="">
+                        </span>
                         <strong>مشرف</strong>
                         <i class="ph ph-caret-left role-arrow" aria-hidden="true"></i>
                     </button>
                     <button class="role-card" type="button" data-role="manager">
-                        <span class="role-visual" aria-hidden="true"><img src="assets/role-manager.svg?v=20260915_login_svg_v2" alt=""></span>
+                        <span class="role-visual" aria-hidden="true">
+                            <img src="assets/role-manager.png" alt="">
+                        </span>
                         <strong>مدير</strong>
                         <i class="ph ph-caret-left role-arrow" aria-hidden="true"></i>
                     </button>
@@ -147,9 +151,18 @@
                             </label>
                         </div>
 
+                        <div class="field-group">
+                            <label for="pharmacyInput">الصيدلية المستهدفة</label>
+                            <div class="autocomplete-wrapper field-control">
+                                <i class="ph ph-first-aid-kit" aria-hidden="true"></i>
+                                <input id="pharmacyInput" type="text" autocomplete="off" placeholder="اختر المندوب أولاً" disabled>
+                                <div class="autocomplete-list" id="pharmacySuggestions"></div>
+                            </div>
+                        </div>
+
                         <button class="primary-button" id="startOrderBtn" type="button" disabled>
-                            تسجيل الدخول
-                            <i class="ph ph-sign-in" aria-hidden="true"></i>
+                            بدء إدخال الطلبية
+                            <i class="ph ph-arrow-left" aria-hidden="true"></i>
                         </button>
                     </form>
 
@@ -254,7 +267,9 @@
                 document.querySelectorAll(`.btn-admin-opt`).forEach(option => option.classList.remove(`active`));
             };
 
-            document.querySelectorAll(`.role-card`).forEach(card => card.addEventListener(`click`, () => openAuth(card.dataset.role)));
+            document.querySelectorAll(`.role-card`).forEach(card => {
+                card.addEventListener(`click`, () => openAuth(card.dataset.role));
+            });
             document.getElementById(`backToRoles`).addEventListener(`click`, closeAuth);
 
             document.querySelectorAll(`.password-toggle`).forEach(button => {
@@ -267,15 +282,12 @@
                 });
             });
 
-            window.addEventListener(`load`, () => {
-                authView.classList.add(`auth-stage--ready`);
-                if (sessionStorage.getItem(`adminOrderMode`) === `1`) openAuth(`rep`);
-            });
+            window.addEventListener(`load`, () => authView.classList.add(`auth-stage--ready`));
             window.addEventListener(`popstate`, () => {
                 if (activeRole) closeAuth();
             });
         })();
     </script>
-    <script src="js/app.js?v=20260915_finance_history_v2" type="module"></script>
+    <script src="js/app.js?v=20260811_newstyle_index_v1" type="module"></script>
 </body>
 </html>
