@@ -44,16 +44,77 @@ function localDateInput(date) {
     return `${year}-${month}-${day}`;
 }
 
-function applyDeviceDefaultDates() {
+function defaultMonthRange() {
+    const now = new Date();
+    return {
+        from: localDateInput(new Date(now.getFullYear(), now.getMonth(), 1)),
+        to: localDateInput(now)
+    };
+}
+
+function applyMainDefaultDates() {
     const from = $rem(`filterDateFrom`);
     const to = $rem(`filterDateTo`);
     if (!from || !to) return;
 
-    const now = new Date();
-    from.value = localDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
-    to.value = localDateInput(now);
+    const range = defaultMonthRange();
+    from.value = range.from;
+    to.value = range.to;
     from.dispatchEvent(new Event(`change`, { bubbles: true }));
     to.dispatchEvent(new Event(`change`, { bubbles: true }));
+}
+
+function applyReminderDefaultDates() {
+    const from = $rem(`reminderDateFrom`);
+    const to = $rem(`reminderDateTo`);
+    if (!from || !to) return;
+
+    const range = defaultMonthRange();
+    if (!from.value) from.value = range.from;
+    if (!to.value) to.value = range.to;
+}
+
+function normalizeDate(value) {
+    if (!value) return null;
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+    if (typeof value?.toDate === `function`) {
+        const date = value.toDate();
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+    if (typeof value === `object` && typeof value.seconds === `number`) {
+        const date = new Date((value.seconds * 1000) + Math.floor((value.nanoseconds || 0) / 1000000));
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getOrderDate(order = {}) {
+    return normalizeDate(
+        order.createdAt || order.date || order.orderDate || order.timestamp || order.created_at ||
+        order.updatedAt || order.changedAt
+    );
+}
+
+function isWithinReminderDateRange(order = {}) {
+    const fromValue = $rem(`reminderDateFrom`)?.value || ``;
+    const toValue = $rem(`reminderDateTo`)?.value || ``;
+    if (!fromValue && !toValue) return true;
+
+    const orderDate = getOrderDate(order);
+    if (!orderDate) return false;
+
+    if (fromValue) {
+        const from = new Date(`${fromValue}T00:00:00`);
+        if (orderDate < from) return false;
+    }
+
+    if (toValue) {
+        const to = new Date(`${toValue}T23:59:59.999`);
+        if (orderDate > to) return false;
+    }
+
+    return true;
 }
 
 function parseMoney(value) {
@@ -101,6 +162,20 @@ function pendingOwner(order = {}) {
     if ([`supervisor_approved`, `market_manager_pending`].includes(status)) return `market_manager`;
     if ([`market_manager_approved`, `finance_pending`].includes(status)) return `finance_controller`;
     return ``;
+}
+
+function isAwaitingHamzaApproval(order = {}) {
+    const status = currentStatus(order);
+    if (![ `market_manager_approved`, `finance_pending` ].includes(status)) return false;
+
+    const financeStatus = String(order.financeStatus || ``).trim();
+    if ([`finance_approved`, `finance_rejected`].includes(financeStatus)) return false;
+
+    if (order.financeApprovedAt || order.financeRejectedAt) return false;
+    if (String(order.financeApprovedBy || ``).trim()) return false;
+    if (String(order.financeRejectedBy || ``).trim()) return false;
+
+    return true;
 }
 
 async function loadRepSupervisorMap() {
@@ -198,16 +273,20 @@ async function loadApprovalReminders() {
         ordersSnapshot.forEach(row => {
             const order = { id: row.id, ...row.data() };
             if (isDeletedOrder(order)) return;
+            if (!isWithinReminderDateRange(order)) return;
 
             const owner = pendingOwner(order);
+
+            if (owner === `finance_controller`) {
+                if (isAwaitingHamzaApproval(order)) buckets.get(`hamza_shbatee`).push(order);
+                return;
+            }
+
             if (owner === `market_manager`) {
                 buckets.get(`mohammad_amira`).push(order);
                 return;
             }
-            if (owner === `finance_controller`) {
-                buckets.get(`hamza_shbatee`).push(order);
-                return;
-            }
+
             if (owner !== `supervisor`) return;
 
             const supervisor = normalizeArabic(resolveSupervisor(order, supervisorMap));
@@ -224,7 +303,7 @@ async function loadApprovalReminders() {
         grid.innerHTML = APPROVAL_CONTACTS.map(contact => reminderCardHtml(contact, buckets.get(contact.key) || [])).join(``);
 
         if (warning && unresolvedSupervisorCount > 0) {
-            warning.textContent = `تنبيه: يوجد ${unresolvedSupervisorCount} طلبية بانتظار المشرف ولم يتم تحديد المشرف المرتبط بها من بيانات النظام.`;
+            warning.textContent = `تنبيه: يوجد ${unresolvedSupervisorCount} طلبية بانتظار المشرف ضمن الفترة المحددة ولم يتم تحديد المشرف المرتبط بها من بيانات النظام.`;
             warning.hidden = false;
         }
 
@@ -256,14 +335,8 @@ async function loadApprovalReminders() {
 function setReminderMode(enabled) {
     const panel = $rem(`approvalReminderPanel`);
     const reminderTab = $rem(`approvalReminderTab`);
-    const workspaceParts = [
-        document.querySelector(`.workflow-stats-grid`),
-        document.querySelector(`.workflow-filters`),
-        document.querySelector(`.workflow-toolbar`),
-        document.querySelector(`.workflow-table-wrap`)
-    ].filter(Boolean);
 
-    workspaceParts.forEach(element => { element.hidden = enabled; });
+    document.body.classList.toggle(`orders-staff-reminder-mode`, enabled);
     if (panel) panel.hidden = !enabled;
     if (reminderTab) reminderTab.classList.toggle(`reminder-active`, enabled);
 
@@ -274,17 +347,22 @@ function setReminderMode(enabled) {
 }
 
 $rem(`approvalReminderTab`)?.addEventListener(`click`, async () => {
+    applyReminderDefaultDates();
     setReminderMode(true);
     await loadApprovalReminders();
 });
+
 $rem(`approvedByFinanceTab`)?.addEventListener(`click`, () => setReminderMode(false));
 $rem(`followupOrdersTab`)?.addEventListener(`click`, () => setReminderMode(false));
 $rem(`refreshApprovalRemindersBtn`)?.addEventListener(`click`, loadApprovalReminders);
+$rem(`reminderDateFrom`)?.addEventListener(`change`, loadApprovalReminders);
+$rem(`reminderDateTo`)?.addEventListener(`change`, loadApprovalReminders);
 
-function scheduleDefaultDates() {
-    applyDeviceDefaultDates();
-    window.setTimeout(applyDeviceDefaultDates, 250);
+function scheduleDefaults() {
+    applyMainDefaultDates();
+    applyReminderDefaultDates();
+    window.setTimeout(applyMainDefaultDates, 250);
 }
 
-if (document.readyState === `complete`) scheduleDefaultDates();
-else window.addEventListener(`load`, scheduleDefaultDates, { once: true });
+if (document.readyState === `complete`) scheduleDefaults();
+else window.addEventListener(`load`, scheduleDefaults, { once: true });
