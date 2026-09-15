@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basel Control</title>
+</head>
+<body>
+<script>
+(async () => {
+    const response = await fetch(`basel.status-source.html?v=20260722_status_unified_v4`);
+    if (!response.ok) throw new Error(`Unable to load Basel source: ${response.status}`);
+
+    let html = await response.text();
+    const resolverPattern = /    function primaryStatus\(order = \{\}\) \{[\s\S]*?\n    \}\n\n    function getWorkflowFollowUp/;
+    const canonicalResolver = `    function primaryStatus(order = {}) {
+      return order.status || order.workflowStage || order.supervisorStatus ||
+        order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || \`\`;
+    }
+
+    function getWorkflowFollowUp`;
+
+    if (!resolverPattern.test(html)) throw new Error(`Basel status resolver was not found.`);
+
+    html = html.replace(resolverPattern, canonicalResolver);
+    html = html.replace(
+        `orders_staff_pending: \`جاهز لقسم الطلبيات\``,
+        `orders_staff_pending: \`جاهز للمعالجة\``
+    );
+
+    if (!html.includes(`orders_staff_edited_returned_to_finance: \`تم تعديله وإرجاعه للمالية\``)) {
+        html = html.replace(
+            `orders_staff_hidden: \`تمت الفوترة\`,`,
+            `orders_staff_hidden: \`تمت الفوترة\`,\n      orders_staff_edited_returned_to_finance: \`تم تعديله وإرجاعه للمالية\`,`
+        );
+    }
+
+    document.open();
+    document.write(html);
+    document.close();
+})().catch(error => {
+    console.error(error);
+    document.body.innerHTML = `<main style="font-family:Arial,sans-serif;padding:30px;text-align:center;color:#b42318">تعذر تحميل صفحة إدارة الحالات. يرجى تحديث الصفحة.</main>`;
+});
+</script>
+</body>
+</html>
