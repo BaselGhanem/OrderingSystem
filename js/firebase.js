@@ -1,28 +1,26 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { 
-    initializeFirestore,               
-    persistentLocalCache,              
-    persistentMultipleTabManager,      
-    collection, 
-    getDocs, 
-    query, 
-    where, 
-    addDoc, 
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import {
+    initializeFirestore,
+    persistentLocalCache,
+    persistentMultipleTabManager,
+    collection,
+    getDocs,
+    query,
+    where,
+    addDoc,
     deleteDoc,
-    setDoc, 
-    doc, 
-    updateDoc,       
-    getDoc,         
+    setDoc,
+    doc,
+    updateDoc,
+    getDoc,
     onSnapshot,
     orderBy,
     limit,
     startAfter,
     documentId,
-    writeBatch,
-    terminate
-} from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"; // 🟢 تم تعديل الرقم هنا
+    writeBatch
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-// إعدادات الاتصال بقاعدة البيانات (كما هي بدون تغيير)
 const firebaseConfig = {
     apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
     authDomain: "dad-ordering-system.firebaseapp.com",
@@ -32,39 +30,33 @@ const firebaseConfig = {
     appId: "1:43886677849:web:de5f80c06e1b743c948648"
 };
 
-// 1. تهيئة التطبيق الأساسي
 const app = initializeApp(firebaseConfig);
 
-// 2. تهيئة Firestore مع تفعيل "وضع عدم الاتصال" (Offline Persistence)
+// The previous auto-detected WebChannel transport was repeatedly losing the
+// Firestore Listen back-channel and falling into offline mode. Force long
+// polling for this operational web app so proxies, antivirus software and
+// restrictive networks cannot indefinitely buffer the realtime stream.
 const db = initializeFirestore(app, {
-    // استخدم النقل العادي عندما يكون متاحاً، وانتقل تلقائياً إلى long-polling
-    // فقط عند اكتشاف Proxy/Firewall غير متوافق. هذا يقلل اتصالات Listen المقطوعة
-    // بدون التضحية بالتوافق مع الشبكات المقيدة.
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true,
+    experimentalLongPollingOptions: {
+        timeoutSeconds: 25
+    },
     localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager()
     })
 });
 
-// حرر اتصال Firestore عند مغادرة الصفحة فعلياً لتقليل بقاء Listen/IndexedDB
-// للحظات بعد التنقل بين صفحات النظام. لا ننهيه عند دخول الصفحة إلى bfcache.
-window.addEventListener('pagehide', event => {
-    if (event.persisted) return;
-    terminate(db).catch(() => {});
-}, { once: true });
-
-// 3. تصدير جميع الأدوات ليتم استخدامها في app.js
-export { 
-    db, 
-    collection, 
-    getDocs, 
-    query, 
-    where, 
-    addDoc, 
+export {
+    db,
+    collection,
+    getDocs,
+    query,
+    where,
+    addDoc,
     deleteDoc,
-    setDoc, 
-    doc, 
-    updateDoc,   
+    setDoc,
+    doc,
+    updateDoc,
     getDoc,
     onSnapshot,
     orderBy,
