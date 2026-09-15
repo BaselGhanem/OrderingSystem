@@ -1961,9 +1961,149 @@ getEl(`confirmOrderPharmacyBtn`)?.addEventListener(`click`, () => {
     window.location.href = `order.html`;
 });
 
+
+function scheduleLocalCacheWrite(key, timeKey, payload) {
+    const writeCache = () => {
+        try {
+            localStorage.setItem(key, JSON.stringify(payload));
+            localStorage.setItem(timeKey, Date.now().toString());
+        } catch (error) {
+            console.warn(`تعذر تحديث الكاش المحلي، وسيستمر النظام بالعمل من Firestore.`, error);
+        }
+    };
+    if (`requestIdleCallback` in window) {
+        window.requestIdleCallback(writeCache, { timeout: 1200 });
+    } else {
+        setTimeout(writeCache, 0);
+    }
+}
+
+function collectActiveRepKeysFromSnapshot(pharmaciesSnap) {
+    const ids = new Set();
+    const names = new Set();
+    pharmaciesSnap.forEach(item => {
+        const data = item.data() || {};
+        const repId = String(data.rep_id || data.repId || ``).trim();
+        const repName = String(data.repName || data.rep_name || data.rep || ``).trim().toLocaleLowerCase();
+        if (repId) ids.add(repId);
+        if (repName) names.add(repName);
+    });
+    return { ids: [...ids], names: [...names] };
+}
+
+function populateLoginRepresentativeSelect(repsData = []) {
+    if (!repSelect) return;
+    repSelect.innerHTML = '<option value="">-- اختر المندوب --</option>';
+    repsData.forEach(rep => {
+        const opt = document.createElement('option');
+        opt.value = rep.id;
+        opt.textContent = rep.name;
+        repSelect.appendChild(opt);
+    });
+    const lastRepId = localStorage.getItem('dad_last_rep_id');
+    if (lastRepId && Array.from(repSelect.options).some(opt => opt.value === lastRepId)) {
+        repSelect.value = lastRepId;
+        repSelect.dispatchEvent(new Event('change'));
+    }
+}
+
+async function loadLoginInitialData() {
+    normalizeLoginUrlAfterSwitch();
+    if (repSelect) {
+        repSelect.innerHTML = '<option value="">⏳ جاري تحميل البيانات...</option>';
+        repSelect.disabled = true;
+    }
+
+    const CACHE_KEY = 'dad_login_reps_cache_v1';
+    const CACHE_TIME_KEY = 'dad_login_reps_cache_time_v1';
+    const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    let repsData = [];
+    let activeRepIds = [];
+    let activeRepNames = [];
+    let loadedFromCache = false;
+
+    try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        const cacheTime = Number(localStorage.getItem(CACHE_TIME_KEY) || 0);
+        if (cached && cacheTime && now - cacheTime < CACHE_EXPIRY) {
+            const parsed = JSON.parse(cached);
+            repsData = Array.isArray(parsed.reps) ? parsed.reps : [];
+            activeRepIds = Array.isArray(parsed.activeRepIds) ? parsed.activeRepIds : [];
+            activeRepNames = Array.isArray(parsed.activeRepNames) ? parsed.activeRepNames : [];
+            loadedFromCache = repsData.length > 0;
+        }
+    } catch (error) {
+        console.warn(`تعذر قراءة كاش الدخول، سيتم تحميل البيانات مباشرة.`, error);
+    }
+
+    if (!loadedFromCache) {
+        const [repsSnap, pharmaciesSnap] = await Promise.all([
+            getDocs(collection(db, `reps`)),
+            getDocs(collection(db, `pharmacies`))
+        ]);
+        repsSnap.forEach(docSnap => repsData.push({ id: docSnap.id, ...docSnap.data() }));
+        const active = collectActiveRepKeysFromSnapshot(pharmaciesSnap);
+        activeRepIds = active.ids;
+        activeRepNames = active.names;
+    }
+
+    const activeIdSet = new Set(activeRepIds.map(value => String(value || ``)));
+    const activeNameSet = new Set(activeRepNames.map(value => String(value || ``).trim().toLocaleLowerCase()));
+    repsData = repsData.filter(rep => {
+        const repNameKey = String(rep.name || ``).trim().toLocaleLowerCase();
+        return activeIdSet.has(String(rep.id || ``)) || activeNameSet.has(repNameKey);
+    });
+
+    populateLoginRepresentativeSelect(repsData);
+    if (!loadedFromCache) {
+        scheduleLocalCacheWrite(CACHE_KEY, CACHE_TIME_KEY, { reps: repsData, activeRepIds, activeRepNames });
+    }
+    await bootstrapPage();
+    if (repSelect) repSelect.disabled = false;
+}
+
+async function loadOrderInitialData() {
+    // صفحة المندوب تحتاج قائمة الأصناف فقط عند تحميلها؛ الصيدليات تُجلب عند فتح زر FAB.
+    // تجنب تحميل كل المندوبين وكل الصيدليات هنا يقلل زمن فتح الصفحة وعمليات IndexedDB.
+    await loadRepManagerAssignments();
+    const CACHE_KEY = 'dad_order_products_cache_v1';
+    const CACHE_TIME_KEY = 'dad_order_products_cache_time_v1';
+    const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    let prodsData = [];
+    let loadedFromCache = false;
+
+    try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        const cacheTime = Number(localStorage.getItem(CACHE_TIME_KEY) || 0);
+        if (cached && cacheTime && now - cacheTime < CACHE_EXPIRY) {
+            const parsed = JSON.parse(cached);
+            prodsData = Array.isArray(parsed.products) ? parsed.products : [];
+            loadedFromCache = prodsData.length > 0;
+        }
+    } catch (error) {
+        console.warn(`تعذر قراءة كاش الأصناف، سيتم تحميلها مباشرة.`, error);
+    }
+
+    if (!loadedFromCache) {
+        const prodSnap = await getDocs(collection(db, `products`));
+        prodSnap.forEach(docSnap => prodsData.push({ id: docSnap.id, ...docSnap.data() }));
+        scheduleLocalCacheWrite(CACHE_KEY, CACHE_TIME_KEY, { products: prodsData });
+    }
+
+    productsList = prodsData.map(prod => ({
+        ...prod,
+        productCode: prod.productCode || prod.product_code || prod.code || ''
+    }));
+    productsList.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    await bootstrapPage();
+}
+
 async function loadInitialData() {
     try {
-        if (APP_PAGE === 'login') normalizeLoginUrlAfterSwitch();
+        if (APP_PAGE === 'login') return await loadLoginInitialData();
+        if (APP_PAGE === 'order') return await loadOrderInitialData();
         await loadRepManagerAssignments();
         if (repSelect) {
             repSelect.innerHTML = '<option value="">⏳ جاري تحميل البيانات...</option>';
@@ -1980,19 +2120,7 @@ async function loadInitialData() {
         let prodsData = [];
         let activeRepIds = [];
         let activeRepNames = [];
-
-        const collectActiveRepKeys = (pharmaciesSnap) => {
-            const ids = new Set();
-            const names = new Set();
-            pharmaciesSnap.forEach(item => {
-                const data = item.data() || {};
-                const repId = String(data.rep_id || data.repId || ``).trim();
-                const repName = String(data.repName || data.rep_name || data.rep || ``).trim().toLocaleLowerCase();
-                if (repId) ids.add(repId);
-                if (repName) names.add(repName);
-            });
-            return { ids: [...ids], names: [...names] };
-        };
+        let cacheNeedsWrite = false;
 
         if (cachedDataStr && cacheTimeStr && (now - parseInt(cacheTimeStr, 10) < CACHE_EXPIRY)) {
             const parsed = JSON.parse(cachedDataStr);
@@ -2002,9 +2130,10 @@ async function loadInitialData() {
             activeRepNames = parsed.activeRepNames || [];
             if (!activeRepIds.length && !activeRepNames.length) {
                 const pharmaciesSnap = await getDocs(collection(db, `pharmacies`));
-                const active = collectActiveRepKeys(pharmaciesSnap);
+                const active = collectActiveRepKeysFromSnapshot(pharmaciesSnap);
                 activeRepIds = active.ids;
                 activeRepNames = active.names;
+                cacheNeedsWrite = true;
             }
         } else {
             const [repsSnap, prodSnap, pharmaciesSnap] = await Promise.all([
@@ -2014,9 +2143,10 @@ async function loadInitialData() {
             ]);
             repsSnap.forEach(d => repsData.push({ id: d.id, ...d.data() }));
             prodSnap.forEach(d => prodsData.push({ id: d.id, ...d.data() }));
-            const active = collectActiveRepKeys(pharmaciesSnap);
+            const active = collectActiveRepKeysFromSnapshot(pharmaciesSnap);
             activeRepIds = active.ids;
             activeRepNames = active.names;
+            cacheNeedsWrite = true;
         }
 
         const activeIdSet = new Set(activeRepIds);
@@ -2033,13 +2163,14 @@ async function loadInitialData() {
             )
         );
 
-        localStorage.setItem(CACHE_KEY, JSON.stringify({
-            reps: repsData,
-            products: prodsData,
-            activeRepIds,
-            activeRepNames
-        }));
-        localStorage.setItem(CACHE_TIME_KEY, now.toString());
+        if (cacheNeedsWrite) {
+            scheduleLocalCacheWrite(CACHE_KEY, CACHE_TIME_KEY, {
+                reps: repsData,
+                products: prodsData,
+                activeRepIds,
+                activeRepNames
+            });
+        }
 
         if (repSelect) {
             repSelect.innerHTML = '<option value="">-- اختر المندوب --</option>';

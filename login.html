@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="login-style.css?v=20260915_login_layout_v2">
+    <link rel="stylesheet" href="login-style.css?v=20260915_console_cleanup_v1">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script>
         (() => {
@@ -229,8 +229,11 @@
                 else window.addEventListener(`load`, activateDefault, { once: true });
             };
 
+            let lastRoleTrigger = null;
+
             const openAuth = role => {
                 activeRole = role;
+                lastRoleTrigger = document.activeElement?.classList?.contains(`role-card`) ? document.activeElement : null;
                 const config = roleConfig[role];
                 authTitle.textContent = config.title;
                 authKicker.textContent = config.kicker;
@@ -238,22 +241,34 @@
                 repForm.hidden = role !== `rep`;
                 adminForm.hidden = role === `rep`;
                 if (role !== `rep`) selectAdminOptions(role);
-                roleView.classList.remove(`view--active`);
-                roleView.setAttribute(`aria-hidden`, `true`);
+
+                // Move focus out of the view before hiding it. This prevents the browser
+                // accessibility warning caused by aria-hidden containing the focused card.
+                if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+                authView.inert = false;
                 authView.classList.add(`view--active`);
                 authView.setAttribute(`aria-hidden`, `false`);
+                roleView.inert = true;
+                roleView.classList.remove(`view--active`);
+                roleView.setAttribute(`aria-hidden`, `true`);
+                document.getElementById(`backToRoles`)?.focus({ preventScroll: true });
                 window.scrollTo({ top: 0, behavior: `smooth` });
             };
 
             const closeAuth = () => {
                 activeRole = ``;
-                authView.classList.remove(`view--active`);
-                authView.setAttribute(`aria-hidden`, `true`);
+                if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+                roleView.inert = false;
                 roleView.classList.add(`view--active`);
                 roleView.removeAttribute(`aria-hidden`);
+                authView.inert = true;
+                authView.classList.remove(`view--active`);
+                authView.setAttribute(`aria-hidden`, `true`);
                 document.querySelectorAll(`.btn-admin-opt`).forEach(option => option.classList.remove(`active`));
+                lastRoleTrigger?.focus({ preventScroll: true });
             };
 
+            authView.inert = true;
             document.querySelectorAll(`.role-card`).forEach(card => card.addEventListener(`click`, () => openAuth(card.dataset.role)));
             document.getElementById(`backToRoles`).addEventListener(`click`, closeAuth);
 
@@ -276,6 +291,6 @@
             });
         })();
     </script>
-    <script src="js/app.js?v=20260915_finance_history_v2" type="module"></script>
+    <script src="js/app.js?v=20260915_console_cleanup_v1" type="module"></script>
 </body>
 </html>

@@ -18,7 +18,8 @@ import {
     limit,
     startAfter,
     documentId,
-    writeBatch
+    writeBatch,
+    terminate
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"; // 🟢 تم تعديل الرقم هنا
 
 // إعدادات الاتصال بقاعدة البيانات (كما هي بدون تغيير)
@@ -36,13 +37,21 @@ const app = initializeApp(firebaseConfig);
 
 // 2. تهيئة Firestore مع تفعيل "وضع عدم الاتصال" (Offline Persistence)
 const db = initializeFirestore(app, {
-    // بعض الشبكات/برامج الحماية تقطع WebChannel وتظهر Listen 400/404.
-    // إجبار long-polling يحافظ على onSnapshot مع نقل أكثر توافقاً.
-    experimentalForceLongPolling: true,
+    // استخدم النقل العادي عندما يكون متاحاً، وانتقل تلقائياً إلى long-polling
+    // فقط عند اكتشاف Proxy/Firewall غير متوافق. هذا يقلل اتصالات Listen المقطوعة
+    // بدون التضحية بالتوافق مع الشبكات المقيدة.
+    experimentalAutoDetectLongPolling: true,
     localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager()
     })
 });
+
+// حرر اتصال Firestore عند مغادرة الصفحة فعلياً لتقليل بقاء Listen/IndexedDB
+// للحظات بعد التنقل بين صفحات النظام. لا ننهيه عند دخول الصفحة إلى bfcache.
+window.addEventListener('pagehide', event => {
+    if (event.persisted) return;
+    terminate(db).catch(() => {});
+}, { once: true });
 
 // 3. تصدير جميع الأدوات ليتم استخدامها في app.js
 export { 
