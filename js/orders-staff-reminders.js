@@ -1,28 +1,29 @@
-import { db, collection, getDocs, doc, getDoc } from `./firebase.js`;
+const firebase = await import(`./firebase.js`);
+const { db, collection, getDocs, doc, getDoc } = firebase;
 
 const $rem = id => document.getElementById(id);
 
-const DEFAULT_REP_MANAGER_MAP = {
-    [`مراد عمر`]: `محمد طوالبه`,
-    [`مؤيد الزعبي`]: `محمد طوالبه`,
-    [`محمد عبدربه`]: `محمد طوالبه`,
-    [`محمد الفاعوري`]: `عبدالله الناطور`,
-    [`اجود التلهوني`]: `عبدالله الناطور`,
-    [`يزيد الرقب`]: `محمد طوالبه`,
-    [`تامر عقل`]: `محمد طوالبه`,
-    [`محمد ابو يامين`]: `عبدالله الناطور`,
-    [`مراد الظاهر`]: `عبدالله الناطور`,
-    [`آخرين - عبدالله`]: `عبدالله الناطور`,
-    [`اخرين - عبدالله`]: `عبدالله الناطور`,
-    [`آخرين - محمد`]: `محمد طوالبه`,
-    [`اخرين - محمد`]: `محمد طوالبه`
-};
+const DEFAULT_REP_MANAGER_MAP = Object.fromEntries([
+    [`مراد عمر`, `محمد طوالبه`],
+    [`مؤيد الزعبي`, `محمد طوالبه`],
+    [`محمد عبدربه`, `محمد طوالبه`],
+    [`محمد الفاعوري`, `عبدالله الناطور`],
+    [`اجود التلهوني`, `عبدالله الناطور`],
+    [`يزيد الرقب`, `محمد طوالبه`],
+    [`تامر عقل`, `محمد طوالبه`],
+    [`محمد ابو يامين`, `عبدالله الناطور`],
+    [`مراد الظاهر`, `عبدالله الناطور`],
+    [`آخرين - عبدالله`, `عبدالله الناطور`],
+    [`اخرين - عبدالله`, `عبدالله الناطور`],
+    [`آخرين - محمد`, `محمد طوالبه`],
+    [`اخرين - محمد`, `محمد طوالبه`]
+]);
 
 const APPROVAL_CONTACTS = [
-    { key: `mohammad_tawalbeh`, name: `محمد طوالبة`, systemName: `محمد طوالبه`, role: `مشرف مبيعات`, phone: `0797954876`, email: `Mohammad.Tawalbeh@dadgroup.com`, owner: `supervisor` },
-    { key: `abdallah_alnatour`, name: `عبدالله الناطور`, systemName: `عبدالله الناطور`, role: `مشرف مبيعات`, phone: `0791520783`, email: `Abdallah.ALnatour@dadgroup.com`, owner: `supervisor` },
-    { key: `mohammad_amira`, name: `محمد عميرة`, systemName: `محمد عميرة`, role: `Market Manager`, phone: `0796993332`, email: `Mohammad.Amira@dadgroup.com`, owner: `market_manager` },
-    { key: `hamza_shbatee`, name: `حمزة الشبيطي`, systemName: `حمزة الشبيطي`, role: `المراقب المالي`, phone: `0770037491`, email: `hamza.shbatee@dadgroup.com`, owner: `finance_controller` }
+    { key: `mohammad_tawalbeh`, name: `محمد طوالبة`, role: `مشرف مبيعات`, phone: `0797954876`, email: `Mohammad.Tawalbeh@dadgroup.com` },
+    { key: `abdallah_alnatour`, name: `عبدالله الناطور`, role: `مشرف مبيعات`, phone: `0791520783`, email: `Abdallah.ALnatour@dadgroup.com` },
+    { key: `mohammad_amira`, name: `محمد عميرة`, role: `Market Manager`, phone: `0796993332`, email: `Mohammad.Amira@dadgroup.com` },
+    { key: `hamza_shbatee`, name: `حمزة الشبيطي`, role: `المراقب المالي`, phone: `0770037491`, email: `hamza.shbatee@dadgroup.com` }
 ];
 
 function normalizeArabic(value = ``) {
@@ -37,10 +38,10 @@ function normalizeArabic(value = ``) {
 }
 
 function localDateInput(date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, `0`);
-    const d = String(date.getDate()).padStart(2, `0`);
-    return `${y}-${m}-${d}`;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, `0`);
+    const day = String(date.getDate()).padStart(2, `0`);
+    return `${year}-${month}-${day}`;
 }
 
 function applyDeviceDefaultDates() {
@@ -49,10 +50,8 @@ function applyDeviceDefaultDates() {
     if (!from || !to) return;
 
     const now = new Date();
-    const first = new Date(now.getFullYear(), now.getMonth(), 1);
-    from.value = localDateInput(first);
+    from.value = localDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
     to.value = localDateInput(now);
-
     from.dispatchEvent(new Event(`change`, { bubbles: true }));
     to.dispatchEvent(new Event(`change`, { bubbles: true }));
 }
@@ -65,15 +64,14 @@ function parseMoney(value) {
 }
 
 function orderValue(order = {}) {
-    const candidates = [order.grandTotal, order.total, order.orderTotal, order.totalValue];
-    for (const candidate of candidates) {
+    for (const candidate of [order.grandTotal, order.total, order.orderTotal, order.totalValue]) {
         if (candidate !== undefined && candidate !== null && candidate !== ``) return parseMoney(candidate);
     }
     if (!Array.isArray(order.items)) return 0;
     return order.items.reduce((sum, item) => {
-        const qty = parseMoney(item.quantity ?? item.qty ?? 0);
+        const quantity = parseMoney(item.quantity ?? item.qty ?? 0);
         const price = parseMoney(item.price ?? item.unitPrice ?? item.salePrice ?? 0);
-        return sum + (qty * price);
+        return sum + (quantity * price);
     }, 0);
 }
 
@@ -86,7 +84,6 @@ function currentStatus(order = {}) {
     if (stage === `finance` && order.financeStatus) return order.financeStatus;
     if (stage === `market_manager` && order.marketManagerStatus) return order.marketManagerStatus;
     if (stage === `supervisor` && order.supervisorStatus) return order.supervisorStatus;
-
     return order.orderStaffStatus || order.financeStatus || order.marketManagerStatus || order.supervisorStatus || stage || ``;
 }
 
@@ -109,8 +106,8 @@ function pendingOwner(order = {}) {
 async function loadRepSupervisorMap() {
     const assignments = { ...DEFAULT_REP_MANAGER_MAP };
     try {
-        const snap = await getDoc(doc(db, `system_settings`, `rep_supervisor_assignments`));
-        const saved = snap.exists() ? snap.data()?.assignments : null;
+        const snapshot = await getDoc(doc(db, `system_settings`, `rep_supervisor_assignments`));
+        const saved = snapshot.exists() ? snapshot.data()?.assignments : null;
         if (saved && typeof saved === `object` && !Array.isArray(saved)) Object.assign(assignments, saved);
     } catch (error) {
         console.warn(`تعذر تحميل ربط المندوبين بالمشرفين، سيتم استخدام الربط الافتراضي.`, error);
@@ -125,9 +122,7 @@ async function loadRepSupervisorMap() {
 
 function resolveSupervisor(order = {}, supervisorMap) {
     const rep = order.repName || order.representativeName || order.salesRep || ``;
-    const mapped = supervisorMap.get(normalizeArabic(rep));
-    if (mapped) return mapped;
-    return order.supervisorName || order.supervisor || order.managerName || ``;
+    return supervisorMap.get(normalizeArabic(rep)) || order.supervisorName || order.supervisor || order.managerName || ``;
 }
 
 function pharmacyName(order = {}) {
@@ -138,21 +133,6 @@ function formatMoney(value) {
     return parseMoney(value).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function buildReminderMessage(contact, orders) {
-    const total = orders.reduce((sum, order) => sum + orderValue(order), 0);
-    const details = orders.length
-        ? orders.map((order, index) => `${index + 1}- ${pharmacyName(order)} وقيمتها ${formatMoney(orderValue(order))} د.ا`).join(`\n`)
-        : `لا توجد طلبيات معلقة حالياً.`;
-
-    return `مرحباً ${contact.name}،\nلديك طلبيات عدد ${orders.length} يرجى الموافقة.\nإليك تفصيل الطلبيات:\n${details}\n\nعدد الطلبيات المطلوب منك الموافقة عليها هو: ${orders.length}\nقيمة الطلبيات المطلوبة هي: ${formatMoney(total)} د.ا`;
-}
-
-function whatsappNumber(phone) {
-    const digits = String(phone || ``).replace(/\D/g, ``);
-    if (digits.startsWith(`0`)) return `962${digits.slice(1)}`;
-    return digits;
-}
-
 function escapeHtml(value) {
     return String(value ?? ``)
         .replace(/&/g, `&amp;`)
@@ -160,10 +140,21 @@ function escapeHtml(value) {
         .replace(/>/g, `&gt;`);
 }
 
+function buildReminderMessage(contact, orders) {
+    const total = orders.reduce((sum, order) => sum + orderValue(order), 0);
+    const details = orders.map((order, index) => `${index + 1}- ${pharmacyName(order)} وقيمتها ${formatMoney(orderValue(order))} د.ا`).join(`\n`);
+    return `مرحباً ${contact.name}،\nلديك طلبيات عدد ${orders.length} يرجى الموافقة.\nإليك تفصيل الطلبيات:\n${details}\n\nعدد الطلبيات المطلوب منك الموافقة عليها هو: ${orders.length}\nقيمة الطلبيات المطلوبة هي: ${formatMoney(total)} د.ا`;
+}
+
+function whatsappNumber(phone) {
+    const digits = String(phone || ``).replace(/\D/g, ``);
+    return digits.startsWith(`0`) ? `962${digits.slice(1)}` : digits;
+}
+
 function reminderCardHtml(contact, orders) {
     const total = orders.reduce((sum, order) => sum + orderValue(order), 0);
-    const message = buildReminderMessage(contact, orders);
     const disabled = orders.length ? `` : `disabled`;
+    const message = buildReminderMessage(contact, orders);
 
     return `<article class="approval-reminder-card" data-reminder-contact="${contact.key}">
         <div class="approval-reminder-person">
@@ -191,12 +182,12 @@ async function loadApprovalReminders() {
 
     grid.innerHTML = `<div class="approval-reminder-loading"><i class="ph ph-circle-notch ph-spin"></i> جاري تحميل الطلبيات المعلقة...</div>`;
     if (warning) {
-        warning.style.display = `none`;
+        warning.hidden = true;
         warning.textContent = ``;
     }
 
     try {
-        const [ordersSnap, supervisorMap] = await Promise.all([
+        const [ordersSnapshot, supervisorMap] = await Promise.all([
             getDocs(collection(db, `orders`)),
             loadRepSupervisorMap()
         ]);
@@ -204,22 +195,20 @@ async function loadApprovalReminders() {
         const buckets = new Map(APPROVAL_CONTACTS.map(contact => [contact.key, []]));
         let unresolvedSupervisorCount = 0;
 
-        ordersSnap.forEach(row => {
+        ordersSnapshot.forEach(row => {
             const order = { id: row.id, ...row.data() };
             if (isDeletedOrder(order)) return;
 
             const owner = pendingOwner(order);
-            if (!owner) return;
-
             if (owner === `market_manager`) {
                 buckets.get(`mohammad_amira`).push(order);
                 return;
             }
-
             if (owner === `finance_controller`) {
                 buckets.get(`hamza_shbatee`).push(order);
                 return;
             }
+            if (owner !== `supervisor`) return;
 
             const supervisor = normalizeArabic(resolveSupervisor(order, supervisorMap));
             if (supervisor === normalizeArabic(`محمد طوالبه`) || supervisor === normalizeArabic(`محمد طوالبة`)) {
@@ -235,8 +224,8 @@ async function loadApprovalReminders() {
         grid.innerHTML = APPROVAL_CONTACTS.map(contact => reminderCardHtml(contact, buckets.get(contact.key) || [])).join(``);
 
         if (warning && unresolvedSupervisorCount > 0) {
-            warning.textContent = `تنبيه: يوجد ${unresolvedSupervisorCount} طلبية بانتظار المشرف ولم أتمكن من تحديد المشرف المرتبط بها من بيانات النظام.`;
-            warning.style.display = `block`;
+            warning.textContent = `تنبيه: يوجد ${unresolvedSupervisorCount} طلبية بانتظار المشرف ولم يتم تحديد المشرف المرتبط بها من بيانات النظام.`;
+            warning.hidden = false;
         }
 
         grid.querySelectorAll(`[data-reminder-action]`).forEach(button => {
@@ -292,9 +281,10 @@ $rem(`approvedByFinanceTab`)?.addEventListener(`click`, () => setReminderMode(fa
 $rem(`followupOrdersTab`)?.addEventListener(`click`, () => setReminderMode(false));
 $rem(`refreshApprovalRemindersBtn`)?.addEventListener(`click`, loadApprovalReminders);
 
-function initializeDefaultDatesAfterWorkflow() {
-    window.setTimeout(applyDeviceDefaultDates, 0);
+function scheduleDefaultDates() {
+    applyDeviceDefaultDates();
+    window.setTimeout(applyDeviceDefaultDates, 250);
 }
 
-if (document.readyState === `complete`) initializeDefaultDatesAfterWorkflow();
-else window.addEventListener(`load`, initializeDefaultDatesAfterWorkflow, { once: true });
+if (document.readyState === `complete`) scheduleDefaultDates();
+else window.addEventListener(`load`, scheduleDefaultDates, { once: true });
