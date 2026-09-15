@@ -51,6 +51,8 @@ const state = {
     ordersStaffTab: 'approved'
 };
 
+const financePharmacyHistoryCache = new Map();
+
 const WORKFLOW_CACHE_VERSION = '20260630_orders_staff_export_columns_finance_note_fix1';
 const CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const PAGE_CACHE_KEY = `dad_orders_${WORKFLOW_CACHE_VERSION}_${WORKFLOW_PAGE || 'workflow'}`;
@@ -1701,42 +1703,133 @@ function initFinanceSorting() {
     updateFinanceSortIndicators();
 }
 
-function getFinanceApprovedHistoryForOrder(referenceOrder) {
-    const referenceCode = String(getPharmacyCode(referenceOrder) || '').trim();
-    const referenceName = String(referenceOrder.pharmacyName || '').trim();
-    return state.orders.filter(candidate => {
-        const sameCode = referenceCode && String(getPharmacyCode(candidate) || '').trim() === referenceCode;
-        const sameName = referenceName && String(candidate.pharmacyName || '').trim() === referenceName;
-        const hasFinanceApproval = Boolean(candidate.financeApprovedAt) || (candidate.financeStatus || '') === 'finance_approved';
-        return hasFinanceApproval && (sameCode || sameName);
-    }).sort((a, b) => financeTimestamp(b.financeApprovedAt || b.updatedAt || b.createdAt) - financeTimestamp(a.financeApprovedAt || a.updatedAt || a.createdAt));
+function getFinanceApprovalAuditEntry(order = {}) {
+    const trail = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+    return [...trail]
+        .filter(entry => {
+            const action = String(entry?.action || '').trim().toLowerCase();
+            const newStatus = String(entry?.newValue?.status || entry?.newValue?.financeStatus || '').trim().toLowerCase();
+            return action === 'finance_approved' || newStatus === 'finance_approved';
+        })
+        .sort((a, b) => financeTimestamp(b?.timestamp) - financeTimestamp(a?.timestamp))[0] || null;
 }
 
-function buildFinanceHistoryMarkup(order) {
-    const rows = getFinanceApprovedHistoryForOrder(order);
+function getFinanceApprovalDate(order = {}) {
+    const directDate = normalizeDate(order.financeApprovedAt);
+    if (directDate) return directDate;
+
+    const auditEntry = getFinanceApprovalAuditEntry(order);
+    const auditDate = normalizeDate(auditEntry?.timestamp);
+    if (auditDate) return auditDate;
+
+    const status = String(order.status || '').trim();
+    const staffStatus = String(order.orderStaffStatus || '').trim();
+    const legacyApprovedStatuses = ['orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'];
+    if (legacyApprovedStatuses.includes(status) || legacyApprovedStatuses.includes(staffStatus)) {
+        return normalizeDate(order.orderStaffReadyAt || order.changedAt || order.updatedAt || order.exportedAt || order.createdAt);
+    }
+    return null;
+}
+
+function isFinanceApprovedHistoryOrder(order = {}) {
+    if (normalizeDate(order.financeApprovedAt)) return true;
+    if (String(order.financeStatus || '').trim() === 'finance_approved') return true;
+    if (getFinanceApprovalAuditEntry(order)) return true;
+
+    // Legacy/finalized orders may no longer carry finance_approved as their current status.
+    // Reaching Orders Staff / Invoiced means the order already passed Finance in this workflow.
+    const status = String(order.status || '').trim();
+    const staffStatus = String(order.orderStaffStatus || '').trim();
+    const legacyApprovedStatuses = ['orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'];
+    return legacyApprovedStatuses.includes(status) || legacyApprovedStatuses.includes(staffStatus);
+}
+
+function financeHistoryCacheKey(order = {}) {
+    const code = String(getPharmacyCode(order) || '').trim().toLowerCase();
+    const name = String(order.pharmacyName || '').trim().toLowerCase();
+    return `${code}::${name}`;
+}
+
+async function fetchFinanceApprovedHistoryForOrder(referenceOrder = {}) {
+    const cacheKey = financeHistoryCacheKey(referenceOrder);
+    if (financePharmacyHistoryCache.has(cacheKey)) return financePharmacyHistoryCache.get(cacheKey);
+
+    const ordersRef = collection(db, 'orders');
+    const rawCode = referenceOrder.pharmacyCode ?? referenceOrder.pharmacy_code ?? referenceOrder.customerCode ?? '';
+    const referenceCode = String(getPharmacyCode(referenceOrder) || '').trim();
+    const referenceName = String(referenceOrder.pharmacyName || '').trim();
+    const requests = [];
+
+    if (referenceName) requests.push(getDocs(query(ordersRef, where('pharmacyName', '==', referenceName))));
+    if (rawCode !== '' && rawCode !== null && rawCode !== undefined) {
+        requests.push(getDocs(query(ordersRef, where('pharmacyCode', '==', rawCode))));
+    }
+
+    if (!requests.length) return [];
+
+    const results = await Promise.allSettled(requests);
+    const uniqueOrders = new Map();
+    let successfulQuery = false;
+
+    results.forEach(result => {
+        if (result.status !== 'fulfilled') return;
+        successfulQuery = true;
+        result.value.forEach(docSnap => uniqueOrders.set(docSnap.id, { id: docSnap.id, ...docSnap.data() }));
+    });
+
+    if (!successfulQuery) throw new Error('Unable to load pharmacy finance history');
+
+    const referenceNameKey = referenceName.toLowerCase();
+    const rows = Array.from(uniqueOrders.values())
+        .filter(candidate => {
+            const candidateCode = String(getPharmacyCode(candidate) || '').trim();
+            const candidateName = String(candidate.pharmacyName || '').trim().toLowerCase();
+            const sameCode = Boolean(referenceCode && candidateCode && candidateCode === referenceCode);
+            const sameName = Boolean(referenceNameKey && candidateName === referenceNameKey);
+            return (sameCode || sameName) && isFinanceApprovedHistoryOrder(candidate);
+        })
+        .sort((a, b) => financeTimestamp(getFinanceApprovalDate(b)) - financeTimestamp(getFinanceApprovalDate(a)));
+
+    financePharmacyHistoryCache.set(cacheKey, rows);
+    return rows;
+}
+
+function buildFinanceHistoryMarkup(rows = []) {
     if (!rows.length) {
-        return `<div class="finance-history-empty"><i class="ph ph-clock-counter-clockwise"></i><strong>لا توجد موافقات مالية سابقة لهذه الصيدلية</strong><p>ستظهر هنا أي طلبيات تمت الموافقة عليها مالياً لاحقاً.</p></div>`;
+        return `<div class="finance-history-empty"><i class="ph ph-clock-counter-clockwise"></i><strong>لا توجد موافقات مالية سابقة لهذه الصيدلية</strong><p>لم يتم العثور على طلبية سابقة اجتازت الموافقة المالية لهذه الصيدلية.</p></div>`;
     }
     return `<div class="finance-history-list">${rows.map(item => `
         <div class="finance-history-item">
-            <div class="finance-history-stat"><span>تاريخ الموافقة</span><strong>${escapeHtml(formatDateTime(item.financeApprovedAt || item.updatedAt || item.createdAt))}</strong></div>
+            <div class="finance-history-stat"><span>تاريخ الموافقة</span><strong>${escapeHtml(formatDateTime(getFinanceApprovalDate(item)))}</strong></div>
             <div class="finance-history-stat"><span>قيمة الطلبية</span><strong>${escapeHtml(formatMoney(item.grandTotal))}</strong></div>
             <div class="finance-history-stat"><span>المندوب</span><strong>${escapeHtml(item.repName || item.representativeName || '-')}</strong></div>
         </div>`).join('')}</div>`;
 }
 
-function openFinancePharmacyHistory(order) {
+async function openFinancePharmacyHistory(order) {
     const modal = $('financePharmacyHistoryModal');
     const content = $('financeHistoryContent');
     const title = $('financeHistoryTitle');
     const subtitle = $('financeHistorySubtitle');
     if (!modal || !content) return;
+
     const code = getPharmacyCode(order) || '-';
     title.textContent = `سجل الموافقات السابقة — ${order.pharmacyName || 'الصيدلية'}`;
     if (subtitle) subtitle.textContent = `كود الصيدلية: ${code}`;
-    content.innerHTML = buildFinanceHistoryMarkup(order);
+    content.innerHTML = `<div class="finance-history-empty"><i class="ph ph-circle-notch ph-spin"></i><strong>جاري تحميل السجل...</strong></div>`;
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
+
+    try {
+        const rows = await fetchFinanceApprovedHistoryForOrder(order);
+        if (!modal.hidden) content.innerHTML = buildFinanceHistoryMarkup(rows);
+    } catch (error) {
+        console.error('Failed to load finance pharmacy history:', error);
+        if (!modal.hidden) {
+            content.innerHTML = `<div class="finance-history-empty"><i class="ph ph-warning-circle"></i><strong>تعذر تحميل سجل الصيدلية</strong><p>أعد المحاولة بعد التأكد من الاتصال.</p></div>`;
+        }
+        showToast('تعذر تحميل سجل الموافقات السابقة للصيدلية.', 'error');
+    }
 }
 
 function closeFinancePharmacyHistory() {
@@ -1771,6 +1864,7 @@ async function financeApprove(orderId, approvalNote = '') {
         orderStaffStatus: 'orders_staff_pending',
         hiddenByOrderStaff: false
     }, auditEntry('finance_approved', 'Hamza', 'finance_controller', { status: order.status, financeApprovalNote: order.financeApprovalNote || '', financeRejectionReason: order.financeRejectionReason || '' }, { status: 'orders_staff_pending', financeApprovalNote: normalizedNote }, normalizedNote || 'تم الاعتماد المالي بدون ملاحظة إضافية'));
+    financePharmacyHistoryCache.clear();
     showToast(normalizedNote ? 'تم الاعتماد المالي وتحويل الطلبية إلى فريق المعالجة مع حفظ الملاحظة.' : 'تم الاعتماد المالي وتحويل الطلبية إلى فريق المعالجة.', 'success');
 }
 
