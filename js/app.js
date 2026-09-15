@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20260915_console_cleanup_v1`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20260915_status_precedence_v1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -28,16 +28,45 @@ try {
     let source = await response.text();
     const resolverPattern = /function getEffectiveOrderStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
     const canonicalResolver = `function getEffectiveOrderStatus(order = {}) {
-    const rawStatus = order.status || order.workflowStage || order.supervisorStatus ||
-        order.marketManagerStatus || order.financeStatus || order.orderStaffStatus || '';
+    const directStatus = order.status || order.orderStatus || order.workflowStatus || '';
+    const stage = String(order.workflowStage || '').trim();
+    let rawStatus = directStatus;
+
+    if (!rawStatus) {
+        if (stage === 'orders_staff' && order.orderStaffStatus) rawStatus = order.orderStaffStatus;
+        else if (stage === 'finance' && order.financeStatus) rawStatus = order.financeStatus;
+        else if (stage === 'market_manager' && order.marketManagerStatus) rawStatus = order.marketManagerStatus;
+        else if (stage === 'supervisor' && order.supervisorStatus) rawStatus = order.supervisorStatus;
+        else rawStatus = order.orderStaffStatus || order.financeStatus || order.marketManagerStatus ||
+            order.supervisorStatus || stage || '';
+    }
+
     const terminalOrReturned = rawStatus.startsWith('deleted_') ||
         ['returned_to_rep', 'returned_to_supervisor', 'returned_to_market_manager', 'returned_to_finance',
             'market_manager_rejected', 'finance_rejected', 'rejected'].includes(rawStatus);
-    if (terminalOrReturned || order.workflowStage === 'deleted') return rawStatus;
-    if (rawStatus === 'orders_staff_hidden' || rawStatus === 'orders_staff_exported' ||
-        order.orderStaffStatus === 'orders_staff_exported' || appOrderHasHiddenInvoiceEvidence(order)) {
-        return 'orders_staff_hidden';
+    if (terminalOrReturned || stage === 'deleted') return rawStatus;
+
+    const explicitWorkflowStatuses = new Set([
+        'pending', 'pending_supervisor_approval', 'supervisor_approved', 'market_manager_pending',
+        'market_manager_approved', 'finance_pending', 'finance_approved', 'orders_staff_pending',
+        'orders_staff_exported', 'orders_staff_hidden'
+    ]);
+    if (explicitWorkflowStatuses.has(rawStatus)) return rawStatus;
+
+    const staffState = order.orderStaffStatus || '';
+    if (['orders_staff_pending', 'orders_staff_exported', 'orders_staff_hidden'].includes(staffState)) {
+        return staffState;
     }
+    if (order.financeStatus === 'finance_approved') return 'orders_staff_pending';
+    if (order.financeStatus === 'finance_pending') return 'finance_pending';
+    if (order.marketManagerStatus === 'market_manager_approved') return 'finance_pending';
+    if (order.marketManagerStatus === 'market_manager_pending') return 'market_manager_pending';
+    if (order.supervisorStatus === 'supervisor_approved') return 'market_manager_pending';
+
+    // Export/invoice history is historical evidence, not the current workflow state.
+    // Use it only for legacy records that have no authoritative current status.
+    if (appOrderHasHiddenInvoiceEvidence(order)) return 'orders_staff_hidden';
+    if (appOrderHasExportEvidence(order)) return 'orders_staff_exported';
     return rawStatus;
 }`;
 
