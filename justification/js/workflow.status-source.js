@@ -925,7 +925,7 @@ function subscribeOrders(onChange) {
         showDataModeNotice('تم عرض نسخة مخزنة محليًا، ويتم تحديثها الآن من Firebase.');
         onChange();
     } else {
-        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 9] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 10] : ['ordersStaffBody', 12];
+        const target = WORKFLOW_PAGE === 'market-manager' ? ['marketOrdersBody', 9] : WORKFLOW_PAGE === 'finance-controller' ? ['financeOrdersBody', 9] : ['ordersStaffBody', 12];
         setLoadingRow(target[0], target[1]);
     }
 
@@ -998,7 +998,7 @@ function buildItemsPreview(order) {
 
 function updateStats(orders) {
     if ($('ordersCount')) $('ordersCount').textContent = orders.length;
-    if ($('ordersValue')) $('ordersValue').textContent = `${formatMoney(orders.reduce((sum, order) => sum + parseNumber(order.grandTotal), 0))} د.ا`;
+    if ($('ordersValue')) $('ordersValue').textContent = formatMoney(orders.reduce((sum, order) => sum + parseNumber(order.grandTotal), 0));
 }
 
 function setTableEmpty(tbodyId, colspan, message) {
@@ -1329,8 +1329,7 @@ function applyMarketFilters() {
     const rep = ($('filterRepresentative')?.value || '').toLowerCase().trim();
     const pharm = ($('filterPharmacy')?.value || '').toLowerCase().trim();
     const status = $('filterStatus')?.value || '';
-    const orderType = $(`filterOrderType`)?.value || ``;
-    const from = $('filterDateFrom')?.value || '';
+        const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
     state.visibleOrders = state.orders.filter(order => {
         const orderStatus = order.status || '';
@@ -1340,7 +1339,6 @@ function applyMarketFilters() {
             ? awaitingMarketManager
             : (status ? orderStatus === status : eligible);
         return statusMatch &&
-            (!orderType || getOrderTypeForFilter(order) === orderType) &&
             inDateRange(order, from, to) &&
             (!rep || (order.repName || '').toLowerCase().includes(rep)) &&
             (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
@@ -1419,7 +1417,6 @@ function renderMarketOrders() {
         chunk.forEach(order => {
             const tr = document.createElement('tr');
             const displayStatus = getMarketManagerDisplayStatus(order);
-            markReservedWorkflowRow(tr, order);
             tr.innerHTML = `
                 <td data-label="تحديد"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
                 <td data-label="آخر تحديث">${escapeHtml(formatOrderLastAction(order))}</td>
@@ -1539,8 +1536,7 @@ async function exportFinanceOrders(orders, scope = 'visible') {
 function applyFinanceFilters() {
     const pharm = ($('filterPharmacy')?.value || '').toLowerCase().trim();
     const status = $('filterStatus')?.value || '';
-    const orderType = $(`filterOrderType`)?.value || ``;
-    const from = $('filterDateFrom')?.value || '';
+        const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
     state.visibleOrders = state.orders.filter(order => {
         const financeState = order.financeStatus || (order.status === 'finance_pending' ? 'finance_pending' : '');
@@ -1551,7 +1547,6 @@ function applyFinanceFilters() {
             ? order.status === status || financeState === status
             : (isFinancePending || isFinanceRejected || isReturnedToFinance);
         return statusMatch &&
-            (!orderType || getOrderTypeForFilter(order) === orderType) &&
             inDateRange(order, from, to) &&
             (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
     });
@@ -1564,7 +1559,7 @@ function renderFinanceOrders() {
     const token = ++state.renderToken;
     body.innerHTML = '';
     updateStats(state.visibleOrders);
-    if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 10, 'لا توجد طلبيات مالية بانتظار الاعتماد');
+    if (state.visibleOrders.length === 0) return setTableEmpty('financeOrdersBody', 9, 'لا توجد طلبيات مالية بانتظار الاعتماد');
     applyFinanceSort();
 
     const renderChunk = async (startIndex = 0) => {
@@ -1573,8 +1568,7 @@ function renderFinanceOrders() {
         const chunk = state.visibleOrders.slice(startIndex, startIndex + 75);
         chunk.forEach(order => {
             const tr = document.createElement('tr');
-            markReservedWorkflowRow(tr, order);
-            const [financeDate, financeTime] = splitFinanceDateTime(getOrderLastActionDate(order));
+            const financeDateTime = formatDateTime(getOrderLastActionDate(order));
             const isPending = order.status === 'finance_pending' || (order.financeStatus || '') === 'finance_pending';
             const isRejected = order.status === 'finance_rejected' || (order.financeStatus || '') === 'finance_rejected';
             const isReturnedToFinance = order.status === 'returned_to_finance' || (order.financeStatus || '') === 'returned_to_finance';
@@ -1601,16 +1595,16 @@ function renderFinanceOrders() {
                 : `<span class="finance-no-action">لا يوجد إجراء</span>`;
             tr.innerHTML = `
                 <td data-column="select"><input class="workflow-order-checkbox" type="checkbox" value="${order.id}"></td>
-                <td data-column="date" data-label="التاريخ" class="finance-date-cell">${escapeHtml(financeDate)}</td>
-                <td data-column="time" data-label="الوقت" class="finance-time-cell">${escapeHtml(financeTime)}</td>
+                <td data-column="date" data-label="آخر تحديث" class="finance-date-cell">${escapeHtml(financeDateTime)}</td>
                 <td data-column="pharmacyCode" data-label="كود الصيدلية" class="finance-code-cell">${escapeHtml(getPharmacyCode(order) || '-')}</td>
-                <td data-column="pharmacyName" data-label="اسم الصيدلية" class="finance-pharmacy-cell">${escapeHtml(order.pharmacyName || '-')}</td>
+                <td data-column="pharmacyName" data-label="اسم الصيدلية" class="finance-pharmacy-cell"><div class="finance-pharmacy-inline"><span>${escapeHtml(order.pharmacyName || '-')}</span><button class="finance-history-trigger" type="button" title="سجل الموافقات السابقة" aria-label="سجل الموافقات السابقة"><i class="ph ph-eye"></i></button></div></td>
                 <td data-column="representative" data-label="المندوب">${escapeHtml(order.repName || order.representativeName || '-')}</td>
                 <td data-column="note" data-label="ملاحظة الطلبية" class="workflow-note-cell">${noteHtml}</td>
-                <td data-column="value" data-label="قيمة الطلبية" class="finance-value-cell">${formatMoney(order.grandTotal)} <small>د.ا</small></td>
-                <td data-column="status" data-label="الحالة" class="finance-status-cell">${statusHtml}${reservedOrderBadgeHtml(order)}</td>
+                <td data-column="value" data-label="قيمة الطلبية" class="finance-value-cell">${formatMoney(order.grandTotal)}</td>
+                <td data-column="status" data-label="الحالة" class="finance-status-cell">${statusHtml}</td>
                 <td data-column="actions" data-label="الإجراءات المالية" class="workflow-actions-cell">${actionHtml}</td>
             `;
+            tr.querySelector('.finance-history-trigger')?.addEventListener('click', () => openFinancePharmacyHistory(order));
             tr.querySelector('.finance-action-select')?.addEventListener('change', event => {
                 const action = event.target.value;
                 event.target.value = '';
@@ -1660,11 +1654,7 @@ function financeTimestamp(value) {
 
 function financeSortValue(order, key) {
     const timestamp = financeTimestamp(getOrderLastActionDate(order));
-    if (key === 'date') return new Date(timestamp).setHours(0, 0, 0, 0);
-    if (key === 'time') {
-        const date = new Date(timestamp);
-        return (date.getHours() * 3600) + (date.getMinutes() * 60) + date.getSeconds();
-    }
+    if (key === 'date') return timestamp;
     if (key === 'pharmacyCode') return getPharmacyCode(order) || '';
     if (key === 'pharmacyName') return order.pharmacyName || '';
     if (key === 'representative') return order.repName || order.representativeName || '';
@@ -1711,6 +1701,61 @@ function initFinanceSorting() {
     updateFinanceSortIndicators();
 }
 
+function getFinanceApprovedHistoryForOrder(referenceOrder) {
+    const referenceCode = String(getPharmacyCode(referenceOrder) || '').trim();
+    const referenceName = String(referenceOrder.pharmacyName || '').trim();
+    return state.orders.filter(candidate => {
+        const sameCode = referenceCode && String(getPharmacyCode(candidate) || '').trim() === referenceCode;
+        const sameName = referenceName && String(candidate.pharmacyName || '').trim() === referenceName;
+        const hasFinanceApproval = Boolean(candidate.financeApprovedAt) || (candidate.financeStatus || '') === 'finance_approved';
+        return hasFinanceApproval && (sameCode || sameName);
+    }).sort((a, b) => financeTimestamp(b.financeApprovedAt || b.updatedAt || b.createdAt) - financeTimestamp(a.financeApprovedAt || a.updatedAt || a.createdAt));
+}
+
+function buildFinanceHistoryMarkup(order) {
+    const rows = getFinanceApprovedHistoryForOrder(order);
+    if (!rows.length) {
+        return `<div class="finance-history-empty"><i class="ph ph-clock-counter-clockwise"></i><strong>لا توجد موافقات مالية سابقة لهذه الصيدلية</strong><p>ستظهر هنا أي طلبيات تمت الموافقة عليها مالياً لاحقاً.</p></div>`;
+    }
+    return `<div class="finance-history-list">${rows.map(item => `
+        <div class="finance-history-item">
+            <div class="finance-history-stat"><span>تاريخ الموافقة</span><strong>${escapeHtml(formatDateTime(item.financeApprovedAt || item.updatedAt || item.createdAt))}</strong></div>
+            <div class="finance-history-stat"><span>قيمة الطلبية</span><strong>${escapeHtml(formatMoney(item.grandTotal))}</strong></div>
+            <div class="finance-history-stat"><span>المندوب</span><strong>${escapeHtml(item.repName || item.representativeName || '-')}</strong></div>
+        </div>`).join('')}</div>`;
+}
+
+function openFinancePharmacyHistory(order) {
+    const modal = $('financePharmacyHistoryModal');
+    const content = $('financeHistoryContent');
+    const title = $('financeHistoryTitle');
+    const subtitle = $('financeHistorySubtitle');
+    if (!modal || !content) return;
+    const code = getPharmacyCode(order) || '-';
+    title.textContent = `سجل الموافقات السابقة — ${order.pharmacyName || 'الصيدلية'}`;
+    if (subtitle) subtitle.textContent = `كود الصيدلية: ${code}`;
+    content.innerHTML = buildFinanceHistoryMarkup(order);
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+}
+
+function closeFinancePharmacyHistory() {
+    const modal = $('financePharmacyHistoryModal');
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.style.overflow = '';
+}
+
+function initFinanceHistoryModal() {
+    $('financeHistoryCloseBtn')?.addEventListener('click', closeFinancePharmacyHistory);
+    $('financePharmacyHistoryModal')?.addEventListener('click', event => {
+        if (event.target?.dataset?.closeFinanceHistory === 'true') closeFinancePharmacyHistory();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') closeFinancePharmacyHistory();
+    });
+}
+
 async function financeApprove(orderId, approvalNote = '') {
     const order = state.orders.find(o => o.id === orderId) || {};
     const normalizedNote = String(approvalNote || '').trim();
@@ -1752,6 +1797,7 @@ function initFinanceController() {
     $('financeExportSelectedBtn')?.addEventListener('click', () => exportFinanceOrders(getOrdersByIds(selectedIds()), 'selected'));
     $('financeExportVisibleBtn')?.addEventListener('click', () => exportFinanceOrders(state.visibleOrders, 'visible'));
     initFinanceSorting();
+    initFinanceHistoryModal();
     subscribeOrders(applyFinanceFilters);
 }
 
@@ -1803,8 +1849,7 @@ function applyOrdersStaffFilters() {
     const product = ($('filterProduct')?.value || '').toLowerCase().trim();
     const statusMode = $('showHiddenMode')?.value || 'active';
     const requiredOwner = $('filterRequiredOwner')?.value || '';
-    const orderType = $(`filterOrderType`)?.value || ``;
-    const from = $('filterDateFrom')?.value || '';
+        const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
 
     const normalizedStatusMode = statusMode === 'all' ? 'followup' : statusMode;
@@ -1830,7 +1875,6 @@ function applyOrdersStaffFilters() {
         if (normalizedStatusMode === 'exported') modeOk = isExported && !isHidden;
         const itemMatch = !product || (Array.isArray(order.items) && order.items.some(item => `${item.name || ''} ${getItemProductCode(item)}`.toLowerCase().includes(product)));
         return modeOk && itemMatch &&
-            (!orderType || getOrderTypeForFilter(order) === orderType) &&
             inDateRange(order, from, to) &&
             (!requiredOwner || followUp.ownerKey === requiredOwner) &&
             (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm)) &&
@@ -1854,7 +1898,6 @@ function renderOrdersStaffRows() {
         chunk.forEach(order => {
             const followUp = getWorkflowFollowUp(order);
             const tr = document.createElement('tr');
-            markReservedWorkflowRow(tr, order);
             const staffCanAct = canOrdersStaffTouchOrder(order);
             const staffActionsHtml = staffCanAct
                 ? `<button class="action-btn staff-return-btn" type="button"><i class="ph ph-arrow-u-down-left"></i> إرجاع للمالية</button><button class="action-btn danger-btn staff-delete-btn" type="button"><i class="ph ph-trash"></i> حذف</button>`

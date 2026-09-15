@@ -179,30 +179,39 @@ function initializeManagerView(managerName) {
 
     setDefaultMonthFilter();
     const myTeamBtn = getEl('managerMyTeamBtn');
+    const financeRejectedBtn = getEl('managerFinanceRejectedBtn');
     const allOrdersBtn = getEl('managerAllOrdersBtn');
     const teamSection = getEl('teamOrdersSection');
+    const rejectedSection = getEl('teamFinanceRejectedSection');
     const allSection = getEl('allOrdersSection');
 
-    if (myTeamBtn && allOrdersBtn && teamSection && allSection) {
-        myTeamBtn.onclick = () => {
-            if (unsubAllOrders) { unsubAllOrders(); unsubAllOrders = null; }
-            myTeamBtn.classList.add('active');
-            allOrdersBtn.classList.remove('active');
-            teamSection.style.display = 'block';
-            allSection.style.display = 'none';
-            loadManagerOrders();
-        };
-        allOrdersBtn.onclick = () => {
+    if (myTeamBtn && financeRejectedBtn && allOrdersBtn && teamSection && rejectedSection && allSection) {
+        const managerTabs = [myTeamBtn, financeRejectedBtn, allOrdersBtn];
+        const showManagerSection = target => {
+            managerTabs.forEach(button => button.classList.remove('active'));
+            teamSection.style.display = target === 'team' ? 'block' : 'none';
+            rejectedSection.style.display = target === 'financeRejected' ? 'block' : 'none';
+            allSection.style.display = target === 'all' ? 'block' : 'none';
+            if (target === 'team') {
+                if (unsubAllOrders) { unsubAllOrders(); unsubAllOrders = null; }
+                myTeamBtn.classList.add('active');
+                loadManagerOrders();
+                return;
+            }
+            if (target === 'financeRejected') {
+                if (unsubAllOrders) { unsubAllOrders(); unsubAllOrders = null; }
+                financeRejectedBtn.classList.add('active');
+                loadManagerOrders();
+                return;
+            }
             if (unsubManagerOrders) { unsubManagerOrders(); unsubManagerOrders = null; }
-            myTeamBtn.classList.remove('active');
             allOrdersBtn.classList.add('active');
-            teamSection.style.display = 'none';
-            allSection.style.display = 'block';
             loadAllCompanyOrders();
         };
-        teamSection.style.display = 'block';
-        allSection.style.display = 'none';
-        myTeamBtn.classList.add('active');
+        myTeamBtn.onclick = () => showManagerSection('team');
+        financeRejectedBtn.onclick = () => showManagerSection('financeRejected');
+        allOrdersBtn.onclick = () => showManagerSection('all');
+        showManagerSection('team');
     }
     loadManagerOrders();
 }
@@ -3121,9 +3130,16 @@ function applyManagerFilters() {
         !isOrderDeleted(order) &&
         supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal)
     );
+    const financeSelections = { ...selections, status: '' };
+    const financeRejectedOrders = managerOrdersData.filter(order =>
+        !isOrderDeleted(order) &&
+        (getEffectiveOrderStatus(order) === 'finance_rejected' || order.financeStatus === 'finance_rejected') &&
+        supervisorOrderMatchesSelections(order, financeSelections, null, fromVal, toVal)
+    );
     const sorted = sortSupervisorOrders(filtered, 'manager');
 
     renderManagerOrders(sorted);
+    renderManagerFinanceRejectedOrders(financeRejectedOrders);
     if (!getEl('managerAllOrdersBtn')?.classList.contains('active')) {
         updateAdvancedManagerDashboard(sorted);
     }
@@ -3172,6 +3188,39 @@ function renderManagerOrders(orders) {
                 } 
             };
         }
+        tbody.appendChild(tr);
+    });
+}
+
+function renderManagerFinanceRejectedOrders(orders) {
+    const tbody = document.getElementById('managerFinanceRejectedBody');
+    const countEl = document.getElementById('managerFinanceRejectedCount');
+    if (countEl) countEl.textContent = `${orders.length} طلبية`;
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (!orders.length) {
+        tbody.innerHTML = `<tr><td colspan="7"><div class="supervisor-rejected-finance-empty"><i class="ph ph-check-circle"></i><h3>لا توجد طلبيات مرفوضة مالياً</h3><p>أي طلبية مرفوضة مالياً ضمن فريقك ستظهر هنا تلقائياً.</p></div></td></tr>`;
+        return;
+    }
+
+    const sorted = [...orders].sort((a, b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
+    sorted.forEach(order => {
+        const financeComment = String(order.financeRejectionReason || order.financeVisibleNote || '-').trim() || '-';
+        const repComment = String(order.representativeFinanceJustification || '-').trim() || '-';
+        const tr = document.createElement('tr');
+        tr.className = 'row-finance_rejected';
+        markReservedOrderRow(tr, order);
+        tr.innerHTML = `
+            <td data-label="آخر تحديث">${escapePrintHtml(formatOrderLastAction(order))}</td>
+            <td data-label="المندوب">${escapePrintHtml(order.repName || '-')}</td>
+            <td data-label="الصيدلية">${escapePrintHtml(order.pharmacyName || '-')}</td>
+            <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td data-label="تعليق المالية" class="comment-cell"><div class="comment-block finance-comment"><span class="comment-title">تعليق المالية</span><span>${escapePrintHtml(financeComment)}</span></div></td>
+            <td data-label="تعليق المندوب" class="comment-cell"><div class="comment-block rep-comment"><span class="comment-title">تعليق المندوب</span><span>${escapePrintHtml(repComment)}</span></div></td>
+            <td data-label="إجراء"><button class="action-btn view-btn" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
+        `;
+        tr.querySelector('.view-btn')?.addEventListener('click', () => showOrderDetails(order));
         tbody.appendChild(tr);
     });
 }

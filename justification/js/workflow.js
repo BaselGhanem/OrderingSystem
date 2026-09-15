@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./workflow.status-source.js?v=20260915_finance_justification_autofit_v1`, import.meta.url);
+const sourceUrl = new URL(`./workflow.status-source.js?v=20260915_finance_history_v2`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];

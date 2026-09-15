@@ -252,6 +252,90 @@
     box-shadow: 0 11px 25px rgba(15, 61, 78, .25);
 }
 
+.supervisor-rejected-finance-section {
+    background: rgba(255,255,255,.96);
+    border: 1px solid rgba(226,232,240,.96);
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, .05);
+}
+.supervisor-rejected-finance-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.supervisor-rejected-finance-header h3 {
+    margin: 0;
+    color: var(--supervisor-navy);
+    font-size: 1.08rem;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.supervisor-rejected-finance-header p {
+    margin: 4px 0 0;
+    color: var(--supervisor-muted);
+    font-size: .9rem;
+    font-weight: 700;
+}
+.supervisor-rejected-finance-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 110px;
+    min-height: 42px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    background: rgba(9,153,153,.09);
+    color: var(--supervisor-accent-dark);
+    font-size: .92rem;
+    font-weight: 900;
+}
+.supervisor-rejected-finance-table .comment-cell {
+    max-width: 280px;
+    white-space: normal;
+    line-height: 1.65;
+}
+.supervisor-rejected-finance-table .comment-block {
+    display: grid;
+    gap: 4px;
+}
+.supervisor-rejected-finance-table .comment-title {
+    color: #4b5563;
+    font-size: .78rem;
+    font-weight: 900;
+}
+.supervisor-rejected-finance-table .finance-comment {
+    color: #b45309;
+    font-weight: 800;
+}
+.supervisor-rejected-finance-table .rep-comment {
+    color: #0f766e;
+    font-weight: 800;
+}
+.supervisor-rejected-finance-empty {
+    padding: 36px 18px;
+    border: 1px dashed rgba(148,163,184,.38);
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(248,250,252,.9), rgba(255,255,255,.95));
+    text-align: center;
+    color: var(--supervisor-muted);
+}
+.supervisor-rejected-finance-empty i {
+    font-size: 2rem;
+    color: var(--supervisor-accent);
+    display: block;
+    margin-bottom: 10px;
+}
+@media (max-width: 768px) {
+    .supervisor-rejected-finance-section { padding: 14px; }
+    .supervisor-rejected-finance-header { align-items: flex-start; }
+}
+
 .premium-export-btn,
 .premium-filter-clear,
 .premium-action-btn {
@@ -628,6 +712,7 @@
 <h2><i class="ph ph-users-four"></i> لوحة تحكم المدير</h2>
 <div class="manager-sub-tabs supervisor-premium-tabs">
 <button class="btn-subtab active" data-target-section="teamOrdersSection" id="managerMyTeamBtn" type="button"><i class="ph ph-users-three"></i><span>طلبيات فريقي</span></button>
+<button class="btn-subtab" data-target-section="teamFinanceRejectedSection" id="managerFinanceRejectedBtn" type="button"><i class="ph ph-seal-warning"></i><span>المرفوضة مالياً</span></button>
 <button class="btn-subtab premium-company-tab" data-target-section="allOrdersSection" id="managerAllOrdersBtn" type="button"><i class="ph ph-buildings"></i><span>جميع طلبيات الشركة</span></button>
 <button class="btn-subtab" data-target-section="setTargetsSection" id="managerSetTargetsBtn" type="button"><i class="ph ph-target"></i><span>تحديد الأهداف</span></button>
 <button class="btn-subtab" data-target-section="targetDashboardSection" id="managerTargetDashboardBtn" type="button"><i class="ph ph-chart-line-up"></i><span>متابعة الأهداف</span></button>
@@ -732,6 +817,31 @@
 </tr></thead>
 <tbody id="managerOrdersBody"></tbody>
 </table>
+</div>
+</div>
+<div id="teamFinanceRejectedSection" style="display: none;">
+<div class="supervisor-rejected-finance-section">
+<div class="supervisor-rejected-finance-header">
+<div>
+<h3><i class="ph ph-seal-warning"></i> الطلبيات المرفوضة مالياً لفريقي</h3>
+<p>يعرض تعليق المالية وتعليق المندوب لكل طلبية مرفوضة مالياً.</p>
+</div>
+<span class="supervisor-rejected-finance-count" id="managerFinanceRejectedCount">0 طلبية</span>
+</div>
+<div class="table-responsive mobile-cards">
+<table class="order-table supervisor-rejected-finance-table">
+<thead><tr>
+<th>آخر تحديث</th>
+<th>المندوب</th>
+<th>الصيدلية</th>
+<th>القيمة</th>
+<th>تعليق المالية</th>
+<th>تعليق المندوب</th>
+<th>إجراء</th>
+</tr></thead>
+<tbody id="managerFinanceRejectedBody"></tbody>
+</table>
+</div>
 </div>
 </div>
 <!-- قسم جميع الطلبيات -->
@@ -899,4 +1009,4 @@
                 علمت ذلك، شكراً
             </button>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20260913_supervisor_cards_cleanup_v1" type="module"></script><script src="js/targets.js?v=20260913_others_split_v2" type="module"></script></body></html>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20260915_supervisor_finance_tab_v2" type="module"></script><script src="js/targets.js?v=20260913_others_split_v2" type="module"></script></body></html>

@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20260915_rep_login_finance_justification_v1`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20260915_supervisor_finance_tab_v2`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
