@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./workflow.status-source.js?v=20260915_orders_staff_visibility_v1`, import.meta.url);
+const sourceUrl = new URL(`./workflow.status-source.js?v=20260915_orders_staff_visibility_v2`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -26,6 +26,9 @@ try {
     let source = await response.text();
     const rawResolverPattern = /function getRawPrimaryStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
     const primaryResolverPattern = /function getPrimaryStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
+    const ordersStaffDatePattern = /function getOrdersStaffFilterDate\(order = \{\}\) \{[\s\S]*?\n\}/;
+    const defaultDatePattern = /function setDefaultDateFilters\(\) \{[\s\S]*?\n\}/;
+
     const canonicalRawResolver = `function getRawPrimaryStatus(order = {}) {
     const directStatus = order.status || order.orderStatus || order.workflowStatus || '';
     if (directStatus) return directStatus;
@@ -70,13 +73,46 @@ try {
     if (orderHasExportEvidence(order)) return 'orders_staff_exported';
     return rawStatus;
 }`;
+    const canonicalOrdersStaffDate = `function getOrdersStaffFilterDate(order = {}) {
+    // Date filters on Orders Staff represent the original order date, exactly as
+    // Audit/exports do. Approval, export and invoice dates must not move an order
+    // outside the user's selected order-date range.
+    return normalizeDate(
+        order.createdAt || order.date || order.orderDate || order.timestamp || order.created_at ||
+        order.updatedAt || order.changedAt
+    );
+}`;
+    const canonicalDefaultDateFilters = `function setDefaultDateFilters() {
+    const from = $('filterDateFrom');
+    const to = $('filterDateTo');
 
-    if (!rawResolverPattern.test(source) || !primaryResolverPattern.test(source)) {
-        throw new Error(`Status resolver was not found in workflow source.`);
+    // Orders Staff is an actionable queue. Never hide pending work simply because
+    // the order was created on an earlier date; date filtering is opt-in here.
+    if (WORKFLOW_PAGE === 'orders-staff') {
+        if (from) from.value = '';
+        if (to) to.value = '';
+        return;
+    }
+
+    const today = toDateInputValue(new Date());
+    if (from && !from.value) from.value = firstDayOfMonth();
+    if (to && !to.value) to.value = today;
+}`;
+
+    if (!rawResolverPattern.test(source) || !primaryResolverPattern.test(source) ||
+        !ordersStaffDatePattern.test(source) || !defaultDatePattern.test(source)) {
+        throw new Error(`Required workflow resolver was not found in workflow source.`);
     }
 
     source = source.replace(rawResolverPattern, canonicalRawResolver);
     source = source.replace(primaryResolverPattern, canonicalPrimaryResolver);
+    source = source.replace(ordersStaffDatePattern, canonicalOrdersStaffDate);
+    source = source.replace(defaultDatePattern, canonicalDefaultDateFilters);
+
+    source = source.replace(
+        `const WORKFLOW_CACHE_VERSION = '20260630_orders_staff_export_columns_finance_note_fix1';`,
+        `const WORKFLOW_CACHE_VERSION = '20260915_orders_staff_visibility_v2';`
+    );
 
     source = source.replace(
         `const hidden = status === 'orders_staff_hidden' || staffState === 'orders_staff_hidden' || orderHasHiddenInvoiceEvidence(order);`,
