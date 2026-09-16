@@ -1,7 +1,5 @@
-const firebase = await import(`./firebase.js`);
-const { db, collection, doc, setDoc } = firebase;
-
 const VAPID_PUBLIC_KEY = `BDKdgrn3Z9nYEs6ZlD_IofwG7Ors1VorIfpIkx3JmuJtlhmuveILrQvNM5PkWiRkjFDgKRxEX4jRy8yi5ZPPoC4`;
+
 const USERS = [
     { key: `hamza_shbatee`, name: `حمزة الشبيطي`, role: `المراقب المالي`, target: `finance_controller.html` },
     { key: `ziad_hourany`, name: `زياد الحوراني`, role: `قسم الطلبيات`, target: `orders_staff.html` },
@@ -23,25 +21,11 @@ async function endpointId(endpoint) {
     return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, `-`).replace(/\//g, `_`).replace(/=+$/g, ``);
 }
 
-async function registerPushForUser(userKey) {
-    const user = USERS.find(item => item.key === userKey);
-    if (!user) throw new Error(`المستخدم غير معروف.`);
-    if (!(`serviceWorker` in navigator) || !(`PushManager` in window) || !(`Notification` in window)) {
-        throw new Error(`هذا المتصفح لا يدعم إشعارات Web Push.`);
-    }
-
-    const permission = await Notification.requestPermission();
-    if (permission !== `granted`) throw new Error(`يجب السماح بالإشعارات من إعدادات المتصفح.`);
-
-    const registration = await navigator.serviceWorker.register(`./push-sw.js`, { scope: `./` });
-    await navigator.serviceWorker.ready;
-    let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        });
-    }
+async function savePushSubscription(user, subscription) {
+    // Firebase is loaded only when the user actually enables notifications.
+    // This keeps the user picker visible immediately even on restrictive/slow work networks.
+    const firebase = await import(`./firebase.js`);
+    const { db, collection, doc, setDoc } = firebase;
 
     const json = subscription.toJSON();
     const id = await endpointId(subscription.endpoint);
@@ -55,6 +39,30 @@ async function registerPushForUser(userKey) {
         active: true,
         updatedAt: new Date()
     }, { merge: true });
+}
+
+async function registerPushForUser(userKey) {
+    const user = USERS.find(item => item.key === userKey);
+    if (!user) throw new Error(`المستخدم غير معروف.`);
+    if (!(`serviceWorker` in navigator) || !(`PushManager` in window) || !(`Notification` in window)) {
+        throw new Error(`هذا المتصفح لا يدعم إشعارات Web Push.`);
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission !== `granted`) throw new Error(`يجب السماح بالإشعارات من إعدادات المتصفح.`);
+
+    const registration = await navigator.serviceWorker.register(`./push-sw.js`, { scope: `./` });
+    await navigator.serviceWorker.ready;
+
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+    }
+
+    await savePushSubscription(user, subscription);
 
     localStorage.setItem(`dad_push_user_key`, user.key);
     localStorage.setItem(`dad_push_enabled`, `1`);
@@ -65,6 +73,7 @@ async function getPushStatus() {
     if (!(`serviceWorker` in navigator) || !(`PushManager` in window) || !(`Notification` in window)) {
         return { supported: false, enabled: false, permission: `unsupported`, userKey: `` };
     }
+
     const registration = await navigator.serviceWorker.getRegistration(`./`);
     const subscription = registration ? await registration.pushManager.getSubscription() : null;
     return {
@@ -79,6 +88,7 @@ async function sendLocalTestNotification(userKey) {
     const user = USERS.find(item => item.key === userKey);
     const registration = await navigator.serviceWorker.getRegistration(`./`);
     if (!user || !registration) throw new Error(`فعّل الإشعارات أولاً.`);
+
     await registration.showNotification(`نظام الطلبيات`, {
         body: `تجربة ناجحة: ستصلك إشعارات ${user.name} عند وجود طلبيات جديدة بحاجة إلى إجراء.`,
         icon: `favicon.ico`,
