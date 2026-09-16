@@ -22,8 +22,6 @@ async function endpointId(endpoint) {
 }
 
 async function savePushSubscription(user, subscription) {
-    // Firebase is loaded only when the user actually enables notifications.
-    // This keeps the user picker visible immediately even on restrictive/slow work networks.
     const firebase = await import(`./firebase.js`);
     const { db, collection, doc, setDoc } = firebase;
 
@@ -86,16 +84,44 @@ async function getPushStatus() {
 
 async function sendLocalTestNotification(userKey) {
     const user = USERS.find(item => item.key === userKey);
-    const registration = await navigator.serviceWorker.getRegistration(`./`);
-    if (!user || !registration) throw new Error(`فعّل الإشعارات أولاً.`);
+    if (!user) throw new Error(`اختر المستخدم أولاً.`);
+    if (!(`Notification` in window)) throw new Error(`المتصفح لا يدعم الإشعارات.`);
 
-    await registration.showNotification(`نظام الطلبيات`, {
-        body: `تجربة ناجحة: ستصلك إشعارات ${user.name} عند وجود طلبيات جديدة بحاجة إلى إجراء.`,
-        icon: `favicon.ico`,
-        badge: `favicon.ico`,
-        tag: `orders-push-test`,
-        data: { url: user.target }
-    });
+    let permission = Notification.permission;
+    if (permission !== `granted`) permission = await Notification.requestPermission();
+    if (permission !== `granted`) throw new Error(`يجب السماح بالإشعارات من إعدادات المتصفح.`);
+
+    const targetUrl = new URL(user.target, window.location.href).href;
+    const title = `نظام الطلبيات - إشعار تجريبي`;
+    const body = `تجربة ناجحة يا ${user.name}. هذا هو شكل إشعار الطلبيات الجديدة التي تحتاج إجراء منك.`;
+    const tag = `orders-push-test-${Date.now()}`;
+    const options = {
+        body,
+        icon: new URL(`../favicon.ico`, import.meta.url).href,
+        badge: new URL(`../favicon.ico`, import.meta.url).href,
+        tag,
+        renotify: true,
+        requireInteraction: true,
+        silent: false,
+        timestamp: Date.now(),
+        data: { url: targetUrl }
+    };
+
+    try {
+        const notification = new Notification(title, options);
+        notification.onclick = () => {
+            window.focus();
+            window.location.href = targetUrl;
+            notification.close();
+        };
+        return { method: `window-notification` };
+    } catch (directError) {
+        console.warn(`Direct notification failed, using service worker fallback.`, directError);
+        if (!(`serviceWorker` in navigator)) throw directError;
+        const registration = await navigator.serviceWorker.ready;
+        await registration.showNotification(title, options);
+        return { method: `service-worker` };
+    }
 }
 
 export { USERS, registerPushForUser, getPushStatus, sendLocalTestNotification };
