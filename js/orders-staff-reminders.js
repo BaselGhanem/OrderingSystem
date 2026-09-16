@@ -26,6 +26,13 @@ const APPROVAL_CONTACTS = [
     { key: `hamza_shbatee`, name: `حمزة الشبيطي`, role: `المراقب المالي`, phone: `0770037491`, email: `hamza.shbatee@dadgroup.com` }
 ];
 
+const GROUP_EMAIL_RECIPIENTS = [
+    `Abdallah.ALnatour@dadgroup.com`,
+    `Mohammad.Amira@dadgroup.com`,
+    `Mohammad.Tawalbeh@dadgroup.com`,
+    `Ziad.hourany@dadgroup.com`
+];
+
 const PENDING_WORKFLOW_STATUSES = [
     `pending`,
     `pending_supervisor_approval`,
@@ -231,6 +238,17 @@ function whatsappNumber(phone) {
     return digits.startsWith(`0`) ? `962${digits.slice(1)}` : digits;
 }
 
+function getGroupEmailRecipients(contact) {
+    const recipients = [contact.email, ...GROUP_EMAIL_RECIPIENTS];
+    const seen = new Set();
+    return recipients.filter(email => {
+        const normalized = String(email || ``).trim().toLowerCase();
+        if (!normalized || seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+    });
+}
+
 function reminderCardHtml(contact, orders) {
     const total = orders.reduce((sum, order) => sum + orderValue(order), 0);
     const disabled = orders.length ? `` : `disabled`;
@@ -248,6 +266,7 @@ function reminderCardHtml(contact, orders) {
         <div class="approval-reminder-actions">
             <button class="approval-whatsapp" data-reminder-action="whatsapp" type="button" ${disabled}><i class="ph ph-whatsapp-logo"></i> واتساب</button>
             <button class="approval-email" data-reminder-action="email" type="button" ${disabled}><i class="ph ph-envelope-simple"></i> إيميل</button>
+            <button class="approval-email" data-reminder-action="group-email" type="button" ${disabled}><i class="ph ph-users-three"></i> إيميل جماعي</button>
         </div>
         <details class="approval-reminder-preview"><summary>معاينة الرسالة</summary><pre>${escapeHtml(message)}</pre></details>
     </article>`;
@@ -336,6 +355,12 @@ async function loadApprovalReminders() {
                 }
 
                 const subject = `تذكير بالموافقة على الطلبيات (${ordersForContact.length})`;
+                if (button.dataset.reminderAction === `group-email`) {
+                    const recipients = getGroupEmailRecipients(contact).join(`,`);
+                    window.location.href = `mailto:${recipients}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+                    return;
+                }
+
                 window.location.href = `mailto:${contact.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
             });
         });
