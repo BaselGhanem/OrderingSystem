@@ -30,7 +30,7 @@
     </main>
 
     <script type="module">
-        import { USERS, registerPushForUser, getPushStatus, sendLocalTestNotification } from `./js/push-notifications.js?v=20260916_push_v1`;
+        import { USERS, registerPushForUser, getPushStatus, sendLocalTestNotification } from `./js/push-notifications.js?v=20260916_push_v2`;
 
         const usersList = document.getElementById(`usersList`);
         const enableBtn = document.getElementById(`enableBtn`);
@@ -52,17 +52,22 @@
         usersList.innerHTML = USERS.map(user => `<button class="user" type="button" data-user-key="${user.key}"><strong>${user.name}</strong><span>${user.role}</span></button>`).join(``);
         usersList.querySelectorAll(`.user`).forEach(button => button.addEventListener(`click`, () => selectUser(button.dataset.userKey)));
 
-        const status = await getPushStatus();
-        if (!status.supported) {
-            showStatus(`هذا المتصفح لا يدعم Web Push. استخدم Chrome أو Edge بإصدار حديث.`, `error`);
-            enableBtn.disabled = true;
-        } else if (status.userKey) {
-            selectUser(status.userKey);
-            if (status.enabled) {
-                const user = USERS.find(item => item.key === status.userKey);
-                showStatus(`الإشعارات مفعلة على هذا الجهاز لـ ${user?.name || `المستخدم المحدد`}.`, `ok`);
-                testBtn.disabled = false;
+        try {
+            const status = await getPushStatus();
+            if (!status.supported) {
+                showStatus(`هذا المتصفح لا يدعم Web Push. استخدم Chrome أو Edge بإصدار حديث.`, `error`);
+                enableBtn.disabled = true;
+            } else if (status.userKey) {
+                selectUser(status.userKey);
+                if (status.enabled) {
+                    const user = USERS.find(item => item.key === status.userKey);
+                    showStatus(`الإشعارات مفعلة على هذا الجهاز لـ ${user?.name || `المستخدم المحدد`}.`, `ok`);
+                    testBtn.disabled = false;
+                }
             }
+        } catch (error) {
+            console.error(`Push status check failed`, error);
+            showStatus(`ظهر خطأ أثناء فحص حالة الإشعارات، لكن يمكنك اختيار اسمك والمحاولة.`, `error`);
         }
 
         enableBtn.addEventListener(`click`, async () => {
