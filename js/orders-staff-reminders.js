@@ -1,5 +1,5 @@
 const firebase = await import(`./firebase.js`);
-const { db, collection, getDocs, doc, getDoc } = firebase;
+const { db, collection, getDocs, query, where, doc, getDoc } = firebase;
 
 const $rem = id => document.getElementById(id);
 
@@ -24,6 +24,15 @@ const APPROVAL_CONTACTS = [
     { key: `abdallah_alnatour`, name: `عبدالله الناطور`, role: `مشرف مبيعات`, phone: `0791520783`, email: `Abdallah.ALnatour@dadgroup.com` },
     { key: `mohammad_amira`, name: `محمد عميرة`, role: `Market Manager`, phone: `0796993332`, email: `Mohammad.Amira@dadgroup.com` },
     { key: `hamza_shbatee`, name: `حمزة الشبيطي`, role: `المراقب المالي`, phone: `0770037491`, email: `hamza.shbatee@dadgroup.com` }
+];
+
+const PENDING_WORKFLOW_STATUSES = [
+    `pending`,
+    `pending_supervisor_approval`,
+    `supervisor_approved`,
+    `market_manager_pending`,
+    `market_manager_approved`,
+    `finance_pending`
 ];
 
 function normalizeArabic(value = ``) {
@@ -108,12 +117,10 @@ function isWithinReminderDateRange(order = {}) {
         const from = new Date(`${fromValue}T00:00:00`);
         if (orderDate < from) return false;
     }
-
     if (toValue) {
         const to = new Date(`${toValue}T23:59:59.999`);
         if (orderDate > to) return false;
     }
-
     return true;
 }
 
@@ -170,11 +177,9 @@ function isAwaitingHamzaApproval(order = {}) {
 
     const financeStatus = String(order.financeStatus || ``).trim();
     if ([`finance_approved`, `finance_rejected`].includes(financeStatus)) return false;
-
     if (order.financeApprovedAt || order.financeRejectedAt) return false;
     if (String(order.financeApprovedBy || ``).trim()) return false;
     if (String(order.financeRejectedBy || ``).trim()) return false;
-
     return true;
 }
 
@@ -250,6 +255,17 @@ function reminderCardHtml(contact, orders) {
 
 let lastReminderData = new Map();
 
+async function fetchPendingApprovalOrders() {
+    const ordersQuery = query(
+        collection(db, `orders`),
+        where(`status`, `in`, PENDING_WORKFLOW_STATUSES)
+    );
+    const snapshot = await getDocs(ordersQuery);
+    const orders = [];
+    snapshot.forEach(row => orders.push({ id: row.id, ...row.data() }));
+    return orders;
+}
+
 async function loadApprovalReminders() {
     const grid = $rem(`approvalReminderGrid`);
     const warning = $rem(`approvalReminderWarning`);
@@ -262,31 +278,28 @@ async function loadApprovalReminders() {
     }
 
     try {
-        const [ordersSnapshot, supervisorMap] = await Promise.all([
-            getDocs(collection(db, `orders`)),
+        const startedAt = performance.now();
+        const [orders, supervisorMap] = await Promise.all([
+            fetchPendingApprovalOrders(),
             loadRepSupervisorMap()
         ]);
 
         const buckets = new Map(APPROVAL_CONTACTS.map(contact => [contact.key, []]));
         let unresolvedSupervisorCount = 0;
 
-        ordersSnapshot.forEach(row => {
-            const order = { id: row.id, ...row.data() };
+        orders.forEach(order => {
             if (isDeletedOrder(order)) return;
             if (!isWithinReminderDateRange(order)) return;
 
             const owner = pendingOwner(order);
-
             if (owner === `finance_controller`) {
                 if (isAwaitingHamzaApproval(order)) buckets.get(`hamza_shbatee`).push(order);
                 return;
             }
-
             if (owner === `market_manager`) {
                 buckets.get(`mohammad_amira`).push(order);
                 return;
             }
-
             if (owner !== `supervisor`) return;
 
             const supervisor = normalizeArabic(resolveSupervisor(order, supervisorMap));
@@ -313,19 +326,21 @@ async function loadApprovalReminders() {
                 const contact = APPROVAL_CONTACTS.find(item => item.key === card?.dataset.reminderContact);
                 if (!contact) return;
 
-                const orders = lastReminderData.get(contact.key) || [];
-                if (!orders.length) return;
+                const ordersForContact = lastReminderData.get(contact.key) || [];
+                if (!ordersForContact.length) return;
 
-                const message = buildReminderMessage(contact, orders);
+                const message = buildReminderMessage(contact, ordersForContact);
                 if (button.dataset.reminderAction === `whatsapp`) {
                     window.open(`https://wa.me/${whatsappNumber(contact.phone)}?text=${encodeURIComponent(message)}`, `_blank`, `noopener,noreferrer`);
                     return;
                 }
 
-                const subject = `تذكير بالموافقة على الطلبيات (${orders.length})`;
+                const subject = `تذكير بالموافقة على الطلبيات (${ordersForContact.length})`;
                 window.location.href = `mailto:${contact.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
             });
         });
+
+        console.info(`Approval reminders loaded: ${orders.length} pending-state orders fetched in ${Math.round(performance.now() - startedAt)}ms`);
     } catch (error) {
         console.error(`Failed to load approval reminders`, error);
         grid.innerHTML = `<div class="approval-reminder-loading"><i class="ph ph-warning-circle"></i> تعذر تحميل الطلبيات المعلقة. حاول التحديث مرة أخرى.</div>`;
@@ -335,7 +350,6 @@ async function loadApprovalReminders() {
 function setReminderMode(enabled) {
     const panel = $rem(`approvalReminderPanel`);
     const reminderTab = $rem(`approvalReminderTab`);
-
     document.body.classList.toggle(`orders-staff-reminder-mode`, enabled);
     if (panel) panel.hidden = !enabled;
     if (reminderTab) reminderTab.classList.toggle(`reminder-active`, enabled);
@@ -347,22 +361,21 @@ function setReminderMode(enabled) {
 }
 
 $rem(`approvalReminderTab`)?.addEventListener(`click`, async () => {
-    applyReminderDefaultDates();
     setReminderMode(true);
+    applyReminderDefaultDates();
     await loadApprovalReminders();
 });
-
 $rem(`approvedByFinanceTab`)?.addEventListener(`click`, () => setReminderMode(false));
 $rem(`followupOrdersTab`)?.addEventListener(`click`, () => setReminderMode(false));
 $rem(`refreshApprovalRemindersBtn`)?.addEventListener(`click`, loadApprovalReminders);
 $rem(`reminderDateFrom`)?.addEventListener(`change`, loadApprovalReminders);
 $rem(`reminderDateTo`)?.addEventListener(`change`, loadApprovalReminders);
 
-function scheduleDefaults() {
+function scheduleDefaultDates() {
     applyMainDefaultDates();
     applyReminderDefaultDates();
     window.setTimeout(applyMainDefaultDates, 250);
 }
 
-if (document.readyState === `complete`) scheduleDefaults();
-else window.addEventListener(`load`, scheduleDefaults, { once: true });
+if (document.readyState === `complete`) scheduleDefaultDates();
+else window.addEventListener(`load`, scheduleDefaultDates, { once: true });
