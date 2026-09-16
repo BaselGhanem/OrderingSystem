@@ -65,7 +65,7 @@
 
         function loadPushModule() {
             if (!pushModulePromise) {
-                pushModulePromise = import('./js/push-notifications.js?v=20260916_push_v4');
+                pushModulePromise = import('./js/push-notifications.js?v=20260916_push_v5');
             }
             return pushModulePromise;
         }
@@ -108,8 +108,9 @@
         testBtn.addEventListener('click', async function() {
             try {
                 const module = await loadPushModule();
-                await module.sendLocalTestNotification(selectedUserKey);
-                showStatus('تم إرسال إشعار تجريبي إلى هذا الجهاز.', 'ok');
+                const result = await module.sendLocalTestNotification(selectedUserKey);
+                const method = result && result.method === 'window-notification' ? 'مباشر من Chrome/Edge' : 'عبر Service Worker';
+                showStatus('تم تشغيل الإشعار التجريبي فعلياً (' + method + ').', 'ok');
             } catch (error) {
                 console.error('Push test failed', error);
                 showStatus(error && error.message ? error.message : 'تعذر إرسال الإشعار التجريبي.', 'error');
