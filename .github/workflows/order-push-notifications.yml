@@ -11,6 +11,19 @@ on:
         required: false
         default: false
         type: boolean
+      test_user:
+        description: 'Optional: send one real Web Push test only'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - hamza_shbatee
+          - ziad_hourany
+          - zakaria
+          - mohammad_amira
+          - abdallah_alnatour
+          - mohammad_tawalbeh
 
 permissions:
   contents: read
@@ -39,4 +52,5 @@ jobs:
         env:
           WEB_PUSH_VAPID_PRIVATE_KEY: ${{ secrets.WEB_PUSH_VAPID_PRIVATE_KEY }}
           FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.force_run || false }}
+          TEST_USER: ${{ github.event_name == 'workflow_dispatch' && inputs.test_user || '' }}
         run: node scripts/send-order-push-notifications.mjs
