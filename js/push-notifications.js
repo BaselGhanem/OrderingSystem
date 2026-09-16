@@ -39,19 +39,23 @@ async function savePushSubscription(user, subscription) {
     }, { merge: true });
 }
 
+async function ensureRegistration() {
+    if (!(`serviceWorker` in navigator)) throw new Error(`المتصفح لا يدعم Service Worker.`);
+    let registration = await navigator.serviceWorker.getRegistration(`./`);
+    if (!registration) registration = await navigator.serviceWorker.register(`./push-sw.js?v=20260916_push_v2`, { scope: `./` });
+    await navigator.serviceWorker.ready;
+    return registration;
+}
+
 async function registerPushForUser(userKey) {
     const user = USERS.find(item => item.key === userKey);
     if (!user) throw new Error(`المستخدم غير معروف.`);
-    if (!(`serviceWorker` in navigator) || !(`PushManager` in window) || !(`Notification` in window)) {
-        throw new Error(`هذا المتصفح لا يدعم إشعارات Web Push.`);
-    }
+    if (!(`PushManager` in window) || !(`Notification` in window)) throw new Error(`هذا المتصفح لا يدعم إشعارات Web Push.`);
 
     const permission = await Notification.requestPermission();
     if (permission !== `granted`) throw new Error(`يجب السماح بالإشعارات من إعدادات المتصفح.`);
 
-    const registration = await navigator.serviceWorker.register(`./push-sw.js`, { scope: `./` });
-    await navigator.serviceWorker.ready;
-
+    const registration = await ensureRegistration();
     let subscription = await registration.pushManager.getSubscription();
     if (!subscription) {
         subscription = await registration.pushManager.subscribe({
@@ -61,7 +65,6 @@ async function registerPushForUser(userKey) {
     }
 
     await savePushSubscription(user, subscription);
-
     localStorage.setItem(`dad_push_user_key`, user.key);
     localStorage.setItem(`dad_push_enabled`, `1`);
     return user;
@@ -71,7 +74,6 @@ async function getPushStatus() {
     if (!(`serviceWorker` in navigator) || !(`PushManager` in window) || !(`Notification` in window)) {
         return { supported: false, enabled: false, permission: `unsupported`, userKey: `` };
     }
-
     const registration = await navigator.serviceWorker.getRegistration(`./`);
     const subscription = registration ? await registration.pushManager.getSubscription() : null;
     return {
@@ -79,6 +81,22 @@ async function getPushStatus() {
         enabled: Boolean(subscription && Notification.permission === `granted`),
         permission: Notification.permission,
         userKey: localStorage.getItem(`dad_push_user_key`) || ``
+    };
+}
+
+async function diagnoseNotifications() {
+    const supported = `Notification` in window && `serviceWorker` in navigator && `PushManager` in window;
+    if (!supported) return { supported: false, permission: `unsupported`, serviceWorker: false, subscription: false, visibleNotifications: 0 };
+
+    const registration = await navigator.serviceWorker.getRegistration(`./`);
+    const subscription = registration ? await registration.pushManager.getSubscription() : null;
+    const notifications = registration ? await registration.getNotifications() : [];
+    return {
+        supported: true,
+        permission: Notification.permission,
+        serviceWorker: Boolean(registration && registration.active),
+        subscription: Boolean(subscription),
+        visibleNotifications: notifications.length
     };
 }
 
@@ -91,12 +109,12 @@ async function sendLocalTestNotification(userKey) {
     if (permission !== `granted`) permission = await Notification.requestPermission();
     if (permission !== `granted`) throw new Error(`يجب السماح بالإشعارات من إعدادات المتصفح.`);
 
+    const registration = await ensureRegistration();
     const targetUrl = new URL(user.target, window.location.href).href;
-    const title = `نظام الطلبيات - إشعار تجريبي`;
-    const body = `تجربة ناجحة يا ${user.name}. هذا هو شكل إشعار الطلبيات الجديدة التي تحتاج إجراء منك.`;
     const tag = `orders-push-test-${Date.now()}`;
-    const options = {
-        body,
+
+    await registration.showNotification(`نظام الطلبيات - تجربة إشعار`, {
+        body: `لديك طلبية جديدة بحاجة إلى إجراء يا ${user.name}. اضغط لفتح صفحة العمل.`,
         icon: new URL(`../favicon.ico`, import.meta.url).href,
         badge: new URL(`../favicon.ico`, import.meta.url).href,
         tag,
@@ -104,24 +122,14 @@ async function sendLocalTestNotification(userKey) {
         requireInteraction: true,
         silent: false,
         timestamp: Date.now(),
-        data: { url: targetUrl }
-    };
+        data: { url: targetUrl, userKey: user.key, test: true }
+    });
 
-    try {
-        const notification = new Notification(title, options);
-        notification.onclick = () => {
-            window.focus();
-            window.location.href = targetUrl;
-            notification.close();
-        };
-        return { method: `window-notification` };
-    } catch (directError) {
-        console.warn(`Direct notification failed, using service worker fallback.`, directError);
-        if (!(`serviceWorker` in navigator)) throw directError;
-        const registration = await navigator.serviceWorker.ready;
-        await registration.showNotification(title, options);
-        return { method: `service-worker` };
-    }
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const created = await registration.getNotifications({ tag });
+    if (!created.length) throw new Error(`Chrome لم يسجل الإشعار بعد إرساله.`);
+
+    return { method: `service-worker`, registered: true, count: created.length };
 }
 
-export { USERS, registerPushForUser, getPushStatus, sendLocalTestNotification };
+export { USERS, registerPushForUser, getPushStatus, diagnoseNotifications, sendLocalTestNotification };
