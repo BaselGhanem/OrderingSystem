@@ -24,6 +24,7 @@ const firebaseConfig = {
 const VAPID_PUBLIC_KEY = `BDKdgrn3Z9nYEs6ZlD_IofwG7Ors1VorIfpIkx3JmuJtlhmuveILrQvNM5PkWiRkjFDgKRxEX4jRy8yi5ZPPoC4`;
 const VAPID_PRIVATE_KEY = process.env.WEB_PUSH_VAPID_PRIVATE_KEY || ``;
 const FORCE_RUN = String(process.env.FORCE_RUN || ``).toLowerCase() === `true`;
+const TEST_USER = String(process.env.TEST_USER || ``).trim();
 const BASE_URL = `https://baselghanem.github.io/OrderingSystem/`;
 
 if (!VAPID_PRIVATE_KEY) throw new Error(`Missing WEB_PUSH_VAPID_PRIVATE_KEY repository secret.`);
@@ -228,6 +229,16 @@ function buildPayload(user, newOrders) {
     });
 }
 
+function buildTestPayload(user) {
+    return JSON.stringify({
+        title: `نظام الطلبيات - اختبار حقيقي`,
+        body: `هذا إشعار Web Push حقيقي لـ ${user.name}. إذا ظهر فهذا يعني أن مسار الإشعارات الخارجي يعمل بنجاح.`,
+        tag: `orders-real-test-${user.key}-${Date.now()}`,
+        url: `${BASE_URL}${user.target}`,
+        userKey: user.key
+    });
+}
+
 async function sendToSubscription(subscriptionRow, payload) {
     const subscription = {
         endpoint: subscriptionRow.endpoint,
@@ -248,7 +259,24 @@ async function sendToSubscription(subscriptionRow, payload) {
     }
 }
 
+async function runRealPushTest(userKey) {
+    const user = USERS.find(item => item.key === userKey);
+    if (!user) throw new Error(`Unknown TEST_USER: ${userKey}`);
+    const subscriptions = await getSubscriptionsForUser(user.key);
+    if (!subscriptions.length) throw new Error(`${user.name}: no active push subscription found. Re-enable notifications on that device first.`);
+    const payload = buildTestPayload(user);
+    const results = await Promise.all(subscriptions.map(subscription => sendToSubscription(subscription, payload)));
+    const delivered = results.filter(Boolean).length;
+    if (!delivered) throw new Error(`${user.name}: real push test failed for all subscriptions.`);
+    console.log(`${user.name}: real push test sent to ${delivered} active subscription(s).`);
+}
+
 async function main() {
+    if (TEST_USER) {
+        await runRealPushTest(TEST_USER);
+        return;
+    }
+
     if (!ammanScheduleAllowsRun()) {
         console.log(`Outside Amman notification schedule; exiting.`);
         return;
