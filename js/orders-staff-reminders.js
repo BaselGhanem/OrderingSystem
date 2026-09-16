@@ -356,7 +356,7 @@ async function loadApprovalReminders() {
 
                 const subject = `تذكير بالموافقة على الطلبيات (${ordersForContact.length})`;
                 if (button.dataset.reminderAction === `group-email`) {
-                    const recipients = getGroupEmailRecipients(contact).join(`,`);
+                    const recipients = getGroupEmailRecipients(contact).join(`;`);
                     window.location.href = `mailto:${recipients}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
                     return;
                 }
