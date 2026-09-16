@@ -42,68 +42,77 @@
     </main>
 
     <script>
-        const usersList = document.getElementById(`usersList`);
-        const enableBtn = document.getElementById(`enableBtn`);
-        const testBtn = document.getElementById(`testBtn`);
-        const statusBox = document.getElementById(`statusBox`);
-        let selectedUserKey = localStorage.getItem(`dad_push_user_key`) || ``;
+        const usersList = document.getElementById('usersList');
+        const enableBtn = document.getElementById('enableBtn');
+        const testBtn = document.getElementById('testBtn');
+        const statusBox = document.getElementById('statusBox');
+        let selectedUserKey = localStorage.getItem('dad_push_user_key') || '';
         let pushModulePromise = null;
 
         function showStatus(message, type) {
-            statusBox.className = `status ${type}`;
+            statusBox.className = 'status ' + type;
             statusBox.textContent = message;
         }
 
         function selectUser(key) {
             selectedUserKey = key;
-            document.querySelectorAll(`.user`).forEach(button => button.classList.toggle(`active`, button.dataset.userKey === key));
+            document.querySelectorAll('.user').forEach(function(button) {
+                button.classList.toggle('active', button.dataset.userKey === key);
+            });
             enableBtn.disabled = false;
-            testBtn.disabled = !(localStorage.getItem(`dad_push_enabled`) === `1` && localStorage.getItem(`dad_push_user_key`) === key);
+            testBtn.disabled = !(localStorage.getItem('dad_push_enabled') === '1' && localStorage.getItem('dad_push_user_key') === key);
         }
 
         function loadPushModule() {
             if (!pushModulePromise) {
-                pushModulePromise = import(`./js/push-notifications.js?v=20260916_push_v3`);
+                pushModulePromise = import('./js/push-notifications.js?v=20260916_push_v4');
             }
             return pushModulePromise;
         }
 
-        usersList.querySelectorAll(`.user`).forEach(button => {
-            button.addEventListener(`click`, () => selectUser(button.dataset.userKey));
+        usersList.querySelectorAll('.user').forEach(function(button) {
+            button.addEventListener('click', function() {
+                selectUser(button.dataset.userKey);
+            });
         });
 
-        if (selectedUserKey && usersList.querySelector(`[data-user-key="${selectedUserKey}"]`)) {
-            selectUser(selectedUserKey);
-            if (localStorage.getItem(`dad_push_enabled`) === `1`) {
-                showStatus(`الإشعارات سبق تفعيلها على هذا الجهاز. يمكنك تجربة الإشعار للتأكد.`, `ok`);
+        if (selectedUserKey) {
+            const matchingButton = Array.from(usersList.querySelectorAll('.user')).find(function(button) {
+                return button.dataset.userKey === selectedUserKey;
+            });
+            if (matchingButton) {
+                selectUser(selectedUserKey);
+                if (localStorage.getItem('dad_push_enabled') === '1') {
+                    showStatus('الإشعارات سبق تفعيلها على هذا الجهاز. يمكنك تجربة الإشعار للتأكد.', 'ok');
+                }
             }
         }
 
-        enableBtn.addEventListener(`click`, async () => {
+        enableBtn.addEventListener('click', async function() {
             if (!selectedUserKey) return;
             enableBtn.disabled = true;
-            showStatus(`جاري تفعيل الإشعارات...`, `ok`);
+            showStatus('جاري تفعيل الإشعارات...', 'ok');
             try {
-                const { registerPushForUser } = await loadPushModule();
-                const user = await registerPushForUser(selectedUserKey);
-                showStatus(`تم تفعيل الإشعارات بنجاح لـ ${user.name} على هذا الجهاز.`, `ok`);
+                const module = await loadPushModule();
+                const user = await module.registerPushForUser(selectedUserKey);
+                showStatus('تم تفعيل الإشعارات بنجاح لـ ' + user.name + ' على هذا الجهاز.', 'ok');
                 testBtn.disabled = false;
             } catch (error) {
-                console.error(`Push activation failed`, error);
-                showStatus(error?.message || `تعذر تفعيل الإشعارات.`, `error`);
+                console.error('Push activation failed', error);
+                showStatus(error && error.message ? error.message : 'تعذر تفعيل الإشعارات.', 'error');
             } finally {
                 enableBtn.disabled = false;
             }
         });
 
-        testBtn.addEventListener(`click`, async () => {
+        testBtn.addEventListener('click', async function() {
             try {
-                const { sendLocalTestNotification } = await loadPushModule();
-                await sendLocalTestNotification(selectedUserKey);
-                showStatus(`تم إرسال إشعار تجريبي إلى هذا الجهاز.`, `ok`);
+                const module = await loadPushModule();
+                await module.sendLocalTestNotification(selectedUserKey);
+                showStatus('تم إرسال إشعار تجريبي إلى هذا الجهاز.', 'ok');
             } catch (error) {
-                console.error(`Push test failed`, error);
-                showStatus(error?.message || `تعذر إرسال الإشعار التجريبي.`, `error`);
+                console.error('Push test failed', error);
+                showStatus(error && error.message ? error.message : 'تعذر إرسال الإشعار التجريبي.', 'error');
             }
         });
     </script>
