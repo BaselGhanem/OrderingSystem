@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>تفعيل إشعارات الطلبيات</title>
+    <link rel="icon" href="favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        *{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:Almarai,sans-serif;background:#f4f7fa;color:#173f59;display:grid;place-items:center;padding:24px}.card{width:min(720px,100%);background:#fff;border:1px solid #dde7ed;border-radius:22px;padding:26px;box-shadow:0 18px 55px rgba(15,78,110,.09)}.icon{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;background:#eaf6f4;color:#0f766e;font-size:30px;margin-bottom:18px}h1{margin:0 0 8px;font-size:1.45rem}p{margin:0;color:#667d8d;line-height:1.9;font-size:.92rem}.notice{margin:18px 0;padding:13px 15px;border-radius:13px;background:#f6f9fb;color:#526a79;font-size:.82rem;line-height:1.8}.users{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}.user{border:1px solid #dbe5eb;border-radius:13px;background:#fff;padding:13px;text-align:right;font-family:inherit;cursor:pointer;color:#173f59}.user strong{display:block;font-size:.91rem}.user span{display:block;margin-top:4px;color:#738693;font-size:.76rem}.user.active{border-color:#0f766e;background:#eef9f7;box-shadow:0 0 0 2px rgba(15,118,110,.08)}.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:12px;padding:12px 17px;font-family:inherit;font-weight:800;cursor:pointer}.primary{background:#0f766e;color:#fff}.secondary{background:#eef3f6;color:#214b65}.btn:disabled{opacity:.45;cursor:not-allowed}.status{margin-top:16px;display:none;padding:12px 14px;border-radius:12px;font-size:.84rem;line-height:1.7}.status.ok{display:block;background:#edf8f1;color:#22643a}.status.error{display:block;background:#fff0f0;color:#8d2d2d}.schedule{margin-top:18px;padding-top:16px;border-top:1px solid #edf1f4;font-size:.78rem;color:#6e8290;line-height:1.8}@media(max-width:620px){.users{grid-template-columns:1fr}.actions{flex-direction:column}.btn{width:100%}.card{padding:20px}}
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="icon"><i class="ph ph-bell-ringing"></i></div>
+        <h1>تفعيل إشعارات الطلبيات</h1>
+        <p>اختر اسمك مرة واحدة، ثم اسمح لمتصفح Chrome أو Edge بإظهار الإشعارات. بعد ذلك سيصلك إشعار فقط عندما تدخل طلبيات جديدة إلى دورك وتصبح بحاجة إلى إجراء منك.</p>
+        <div class="notice"><strong>مهم:</strong> لا يظهر أي إشعار إذا لم توجد طلبيات جديدة. الإشعارات تعمل من الأحد إلى الخميس بين 8:30 صباحاً و5:00 مساءً.</div>
+        <div class="users" id="usersList"></div>
+        <div class="actions">
+            <button class="btn primary" id="enableBtn" type="button" disabled><i class="ph ph-bell"></i> تفعيل الإشعارات</button>
+            <button class="btn secondary" id="testBtn" type="button" disabled><i class="ph ph-paper-plane-tilt"></i> تجربة الإشعار</button>
+        </div>
+        <div class="status" id="statusBox"></div>
+        <div class="schedule">عند الضغط على الإشعار سيتم فتح صفحة العمل الخاصة بالمستخدم مباشرة.</div>
+    </main>
+
+    <script type="module">
+        import { USERS, registerPushForUser, getPushStatus, sendLocalTestNotification } from `./js/push-notifications.js?v=20260916_push_v1`;
+
+        const usersList = document.getElementById(`usersList`);
+        const enableBtn = document.getElementById(`enableBtn`);
+        const testBtn = document.getElementById(`testBtn`);
+        const statusBox = document.getElementById(`statusBox`);
+        let selectedUserKey = ``;
+
+        function showStatus(message, type) {
+            statusBox.className = `status ${type}`;
+            statusBox.textContent = message;
+        }
+
+        function selectUser(key) {
+            selectedUserKey = key;
+            document.querySelectorAll(`.user`).forEach(button => button.classList.toggle(`active`, button.dataset.userKey === key));
+            enableBtn.disabled = false;
+        }
+
+        usersList.innerHTML = USERS.map(user => `<button class="user" type="button" data-user-key="${user.key}"><strong>${user.name}</strong><span>${user.role}</span></button>`).join(``);
+        usersList.querySelectorAll(`.user`).forEach(button => button.addEventListener(`click`, () => selectUser(button.dataset.userKey)));
+
+        const status = await getPushStatus();
+        if (!status.supported) {
+            showStatus(`هذا المتصفح لا يدعم Web Push. استخدم Chrome أو Edge بإصدار حديث.`, `error`);
+            enableBtn.disabled = true;
+        } else if (status.userKey) {
+            selectUser(status.userKey);
+            if (status.enabled) {
+                const user = USERS.find(item => item.key === status.userKey);
+                showStatus(`الإشعارات مفعلة على هذا الجهاز لـ ${user?.name || `المستخدم المحدد`}.`, `ok`);
+                testBtn.disabled = false;
+            }
+        }
+
+        enableBtn.addEventListener(`click`, async () => {
+            if (!selectedUserKey) return;
+            enableBtn.disabled = true;
+            try {
+                const user = await registerPushForUser(selectedUserKey);
+                showStatus(`تم تفعيل الإشعارات بنجاح لـ ${user.name} على هذا الجهاز.`, `ok`);
+                testBtn.disabled = false;
+            } catch (error) {
+                console.error(error);
+                showStatus(error?.message || `تعذر تفعيل الإشعارات.`, `error`);
+            } finally {
+                enableBtn.disabled = false;
+            }
+        });
+
+        testBtn.addEventListener(`click`, async () => {
+            try {
+                await sendLocalTestNotification(selectedUserKey);
+                showStatus(`تم إرسال إشعار تجريبي إلى هذا الجهاز.`, `ok`);
+            } catch (error) {
+                console.error(error);
+                showStatus(error?.message || `تعذر إرسال الإشعار التجريبي.`, `error`);
+            }
+        });
+    </script>
+</body>
+</html>
