@@ -1,5 +1,5 @@
-import webpush from `web-push`;
-import { initializeApp } from `firebase/app`;
+import webpush from 'web-push';
+import { initializeApp } from 'firebase/app';
 import {
     getFirestore,
     collection,
@@ -10,7 +10,7 @@ import {
     where,
     setDoc,
     deleteDoc
-} from `firebase/firestore`;
+} from 'firebase/firestore';
 
 const firebaseConfig = {
     apiKey: `AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g`,
@@ -269,9 +269,39 @@ async function runRealPushTest(userKey) {
     const delivered = results.filter(Boolean).length;
     if (!delivered) throw new Error(`${user.name}: real push test failed for all subscriptions.`);
     console.log(`${user.name}: real push test sent to ${delivered} active subscription(s).`);
+    return delivered;
+}
+
+async function processQueuedRealPushTests() {
+    const snap = await getDocs(query(collection(db, `push_test_requests`), where(`processed`, `==`, false)));
+    if (snap.empty) return;
+
+    for (const row of snap.docs) {
+        const request = row.data() || {};
+        try {
+            const delivered = await runRealPushTest(String(request.userKey || ``));
+            await setDoc(doc(db, `push_test_requests`, row.id), {
+                processed: true,
+                success: true,
+                delivered,
+                processedAt: new Date()
+            }, { merge: true });
+            console.log(`Processed real push test request ${row.id}.`);
+        } catch (error) {
+            await setDoc(doc(db, `push_test_requests`, row.id), {
+                processed: true,
+                success: false,
+                error: String(error?.message || error),
+                processedAt: new Date()
+            }, { merge: true });
+            console.error(`Real push test request ${row.id} failed:`, error?.message || error);
+        }
+    }
 }
 
 async function main() {
+    await processQueuedRealPushTests();
+
     if (TEST_USER) {
         await runRealPushTest(TEST_USER);
         return;
