@@ -35,11 +35,11 @@
 
         <div class="actions">
             <button class="btn primary" id="enableBtn" type="button" disabled><i class="ph ph-bell"></i> تفعيل الإشعارات</button>
-            <button class="btn secondary" id="testBtn" type="button" disabled><i class="ph ph-paper-plane-tilt"></i> تجربة الإشعار</button>
+            <button class="btn secondary" id="testBtn" type="button" disabled><i class="ph ph-paper-plane-tilt"></i> اختبار إشعار حقيقي</button>
         </div>
         <div class="status" id="statusBox"></div>
         <div class="diagnostic" id="diagnosticBox"></div>
-        <div class="schedule">عند الضغط على الإشعار سيتم فتح صفحة العمل الخاصة بالمستخدم مباشرة.</div>
+        <div class="schedule">الاختبار الحقيقي يرسل الطلب إلى الخادم، وسيتم تنفيذه مع أول تشغيل قادم لـ GitHub Action، بحد أقصى يقارب 30 دقيقة خلال ساعات العمل. تحديث الصفحة أو إغلاقها لا يلغي طلب الاختبار.</div>
     </main>
 
     <script>
@@ -50,6 +50,7 @@
         const diagnosticBox = document.getElementById('diagnosticBox');
         let selectedUserKey = localStorage.getItem('dad_push_user_key') || '';
         let pushModulePromise = null;
+        let testPollTimer = null;
 
         function showStatus(message, type) {
             statusBox.className = 'status ' + type;
@@ -72,7 +73,7 @@
 
         function loadPushModule() {
             if (!pushModulePromise) {
-                pushModulePromise = import('./js/push-notifications.js?v=20260916_push_v6');
+                pushModulePromise = import('./js/push-notifications.js?v=20260917_push_v7');
             }
             return pushModulePromise;
         }
@@ -87,6 +88,40 @@
             }
         }
 
+        async function checkRealTestStatus(requestId) {
+            if (!requestId) return;
+            try {
+                const module = await loadPushModule();
+                const result = await module.getRealPushTestStatus(requestId);
+                if (!result || !result.processed) {
+                    showStatus('تم تسجيل طلب الاختبار الحقيقي. بانتظار أول تشغيل قادم لـ GitHub Action...', 'ok');
+                    return;
+                }
+
+                if (testPollTimer) {
+                    clearInterval(testPollTimer);
+                    testPollTimer = null;
+                }
+
+                if (result.success) {
+                    showStatus('الخادم أرسل اختبار Web Push الحقيقي بنجاح إلى ' + (result.delivered || 1) + ' اشتراك. إذا لم يظهر الإشعار الآن فالمشكلة أصبحت في استقبال Chrome/Windows على هذا الجهاز.', 'ok');
+                } else {
+                    showStatus('فشل الاختبار الحقيقي على الخادم: ' + (result.error || 'خطأ غير معروف'), 'error');
+                }
+            } catch (error) {
+                console.error('Real push test status failed', error);
+            }
+        }
+
+        function watchRealTest(requestId) {
+            if (!requestId) return;
+            if (testPollTimer) clearInterval(testPollTimer);
+            checkRealTestStatus(requestId);
+            testPollTimer = setInterval(function() {
+                checkRealTestStatus(requestId);
+            }, 10000);
+        }
+
         usersList.querySelectorAll('.user').forEach(function(button) {
             button.addEventListener('click', function() {
                 selectUser(button.dataset.userKey);
@@ -99,7 +134,7 @@
             });
             if (matchingButton) {
                 selectUser(selectedUserKey);
-                if (localStorage.getItem('dad_push_enabled') === '1') showStatus('الإشعارات سبق تفعيلها على هذا الجهاز. يمكنك تجربة الإشعار للتأكد.', 'ok');
+                if (localStorage.getItem('dad_push_enabled') === '1') showStatus('الإشعارات سبق تفعيلها على هذا الجهاز. يمكنك تنفيذ اختبار إشعار حقيقي.', 'ok');
             }
         }
 
@@ -123,26 +158,22 @@
 
         testBtn.addEventListener('click', async function() {
             testBtn.disabled = true;
-            showStatus('جاري إنشاء إشعار حقيقي عبر Service Worker...', 'ok');
+            showStatus('جاري تسجيل طلب اختبار Web Push حقيقي...', 'ok');
             try {
                 const module = await loadPushModule();
-                const result = await module.sendLocalTestNotification(selectedUserKey);
-                await refreshDiagnostic();
-                if (result && result.registered) {
-                    showStatus('Chrome سجّل الإشعار فعلياً. إذا لم يظهر كبانر، افتح مركز إشعارات Windows؛ الآن سنعرف إن كان النظام يخفي الـ banner فقط.', 'ok');
-                } else {
-                    showStatus('تعذر التأكد من تسجيل الإشعار.', 'error');
-                }
+                const result = await module.queueRealPushTest(selectedUserKey);
+                showStatus('تم تسجيل طلب الاختبار الحقيقي. لا تحتاج لإبقاء الصفحة مفتوحة أو عمل F5؛ بانتظار أول تشغيل قادم لـ GitHub Action.', 'ok');
+                watchRealTest(result.requestId);
             } catch (error) {
-                console.error('Push test failed', error);
-                showStatus(error && error.message ? error.message : 'تعذر إرسال الإشعار التجريبي.', 'error');
-                await refreshDiagnostic();
+                console.error('Real push test queue failed', error);
+                showStatus(error && error.message ? error.message : 'تعذر تسجيل طلب الاختبار الحقيقي.', 'error');
             } finally {
                 testBtn.disabled = false;
             }
         });
 
         refreshDiagnostic();
+        watchRealTest(localStorage.getItem('dad_push_last_test_request') || '');
     </script>
 </body>
 </html>
