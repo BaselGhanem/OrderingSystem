@@ -1,4 +1,5 @@
 const VAPID_PUBLIC_KEY = `BDKdgrn3Z9nYEs6ZlD_IofwG7Ors1VorIfpIkx3JmuJtlhmuveILrQvNM5PkWiRkjFDgKRxEX4jRy8yi5ZPPoC4`;
+const IMMEDIATE_TEST_URL = `https://ordering-system-push-test.baselghanem21.workers.dev/`;
 
 const USERS = [
     { key: `hamza_shbatee`, name: `حمزة الشبيطي`, role: `المراقب المالي`, target: `finance_controller.html` },
@@ -100,9 +101,10 @@ async function diagnoseNotifications() {
     };
 }
 
-async function queueRealPushTest(userKey) {
+async function triggerImmediateRealPushTest(userKey, testToken) {
     const user = USERS.find(item => item.key === userKey);
     if (!user) throw new Error(`اختر المستخدم أولاً.`);
+    if (!testToken) throw new Error(`أدخل TEST_TOKEN.`);
 
     const registration = await ensureRegistration();
     const subscription = await registration.pushManager.getSubscription();
@@ -110,29 +112,27 @@ async function queueRealPushTest(userKey) {
         throw new Error(`فعّل الإشعارات أولاً على هذا الجهاز.`);
     }
 
-    const firebase = await import(`./firebase.js`);
-    const { db, collection, doc, setDoc } = firebase;
-    const requestId = `${user.key}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-    await setDoc(doc(collection(db, `push_test_requests`), requestId), {
-        userKey: user.key,
-        userName: user.name,
-        processed: false,
-        createdAt: new Date(),
-        source: `notifications_page`
+    const response = await fetch(IMMEDIATE_TEST_URL, {
+        method: `POST`,
+        headers: {
+            `Content-Type`: `application/json`,
+            `Authorization`: `Bearer ${testToken}`
+        },
+        body: JSON.stringify({ userKey: user.key })
     });
 
-    localStorage.setItem(`dad_push_last_test_request`, requestId);
-    return { requestId, user };
+    let data = null;
+    try {
+        data = await response.json();
+    } catch (_) {
+        data = null;
+    }
+
+    if (!response.ok) {
+        throw new Error(data?.error || `فشل تشغيل الاختبار الفوري (${response.status}).`);
+    }
+
+    return { user, ...data };
 }
 
-async function getRealPushTestStatus(requestId) {
-    if (!requestId) return null;
-    const firebase = await import(`./firebase.js`);
-    const { db, collection, doc, getDoc } = firebase;
-    const snap = await getDoc(doc(collection(db, `push_test_requests`), requestId));
-    if (!snap.exists()) return null;
-    return { id: requestId, ...snap.data() };
-}
-
-export { USERS, registerPushForUser, getPushStatus, diagnoseNotifications, queueRealPushTest, getRealPushTestStatus };
+export { USERS, registerPushForUser, getPushStatus, diagnoseNotifications, triggerImmediateRealPushTest };
