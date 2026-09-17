@@ -43,10 +43,23 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install notification dependencies
         run: npm install --no-save firebase@12.19.0 web-push@3.6.7
+
+      - name: Fix ESM import specifiers and validate syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/send-order-push-notifications.mjs')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('from `web-push`', "from 'web-push'")
+          text = text.replace('from `firebase/app`', "from 'firebase/app'")
+          text = text.replace('from `firebase/firestore`', "from 'firebase/firestore'")
+          path.write_text(text, encoding='utf-8')
+          PY
+          node --check scripts/send-order-push-notifications.mjs
 
       - name: Send notifications
         env:
