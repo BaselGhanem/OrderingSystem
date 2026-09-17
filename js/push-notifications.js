@@ -115,8 +115,8 @@ async function triggerImmediateRealPushTest(userKey, testToken) {
     const response = await fetch(IMMEDIATE_TEST_URL, {
         method: `POST`,
         headers: {
-            `Content-Type`: `application/json`,
-            `Authorization`: `Bearer ${testToken}`
+            "Content-Type": `application/json`,
+            "Authorization": `Bearer ${testToken}`
         },
         body: JSON.stringify({ userKey: user.key })
     });
