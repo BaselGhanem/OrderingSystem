@@ -122,7 +122,17 @@ async function queueRealPushTest(userKey) {
         source: `notifications_page`
     });
 
+    localStorage.setItem(`dad_push_last_test_request`, requestId);
     return { requestId, user };
 }
 
-export { USERS, registerPushForUser, getPushStatus, diagnoseNotifications, queueRealPushTest };
+async function getRealPushTestStatus(requestId) {
+    if (!requestId) return null;
+    const firebase = await import(`./firebase.js`);
+    const { db, collection, doc, getDoc } = firebase;
+    const snap = await getDoc(doc(collection(db, `push_test_requests`), requestId));
+    if (!snap.exists()) return null;
+    return { id: requestId, ...snap.data() };
+}
+
+export { USERS, registerPushForUser, getPushStatus, diagnoseNotifications, queueRealPushTest, getRealPushTestStatus };
