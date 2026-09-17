@@ -42,7 +42,7 @@ async function savePushSubscription(user, subscription) {
 async function ensureRegistration() {
     if (!(`serviceWorker` in navigator)) throw new Error(`المتصفح لا يدعم Service Worker.`);
     let registration = await navigator.serviceWorker.getRegistration(`./`);
-    if (!registration) registration = await navigator.serviceWorker.register(`./push-sw.js?v=20260916_push_v2`, { scope: `./` });
+    if (!registration) registration = await navigator.serviceWorker.register(`./push-sw.js?v=20260917_push_v3`, { scope: `./` });
     await navigator.serviceWorker.ready;
     return registration;
 }
@@ -100,36 +100,29 @@ async function diagnoseNotifications() {
     };
 }
 
-async function sendLocalTestNotification(userKey) {
+async function queueRealPushTest(userKey) {
     const user = USERS.find(item => item.key === userKey);
     if (!user) throw new Error(`اختر المستخدم أولاً.`);
-    if (!(`Notification` in window)) throw new Error(`المتصفح لا يدعم الإشعارات.`);
-
-    let permission = Notification.permission;
-    if (permission !== `granted`) permission = await Notification.requestPermission();
-    if (permission !== `granted`) throw new Error(`يجب السماح بالإشعارات من إعدادات المتصفح.`);
 
     const registration = await ensureRegistration();
-    const targetUrl = new URL(user.target, window.location.href).href;
-    const tag = `orders-push-test-${Date.now()}`;
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription || Notification.permission !== `granted`) {
+        throw new Error(`فعّل الإشعارات أولاً على هذا الجهاز.`);
+    }
 
-    await registration.showNotification(`نظام الطلبيات - تجربة إشعار`, {
-        body: `لديك طلبية جديدة بحاجة إلى إجراء يا ${user.name}. اضغط لفتح صفحة العمل.`,
-        icon: new URL(`../favicon.ico`, import.meta.url).href,
-        badge: new URL(`../favicon.ico`, import.meta.url).href,
-        tag,
-        renotify: true,
-        requireInteraction: true,
-        silent: false,
-        timestamp: Date.now(),
-        data: { url: targetUrl, userKey: user.key, test: true }
+    const firebase = await import(`./firebase.js`);
+    const { db, collection, doc, setDoc } = firebase;
+    const requestId = `${user.key}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    await setDoc(doc(collection(db, `push_test_requests`), requestId), {
+        userKey: user.key,
+        userName: user.name,
+        processed: false,
+        createdAt: new Date(),
+        source: `notifications_page`
     });
 
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const created = await registration.getNotifications({ tag });
-    if (!created.length) throw new Error(`Chrome لم يسجل الإشعار بعد إرساله.`);
-
-    return { method: `service-worker`, registered: true, count: created.length };
+    return { requestId, user };
 }
 
-export { USERS, registerPushForUser, getPushStatus, diagnoseNotifications, sendLocalTestNotification };
+export { USERS, registerPushForUser, getPushStatus, diagnoseNotifications, queueRealPushTest };
