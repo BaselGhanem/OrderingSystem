@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>إدارة نظام المرتجعات</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="styles.css?v=20260922_firestore_users_v4">
+</head>
+<body data-page="admin">
+<div class="shell">
+    <header class="topbar">
+        <div class="brand"><img src="https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png" alt="Dar Al Dawaa"><div><h1>إدارة نظام المرتجعات</h1><p>المستخدمون والمبيعات التاريخية</p></div></div>
+        <div class="actions"><a class="btn secondary" href="login.html" data-logout><i class="ph ph-sign-out"></i> تسجيل الخروج</a><button id="downloadTemplate" class="btn secondary"><i class="ph ph-download-simple"></i> تنزيل Template</button></div>
+    </header>
+    <div id="banner" class="banner"></div>
+
+    <section id="adminFirebaseNote" class="card admin-system-note hidden">
+        <div class="title-row"><div><h2>حدود النظام</h2>
+            <p><strong>المبيعات هنا هي مبيعات تاريخية فعلية للعملاء فقط للتحقق من أهلية المرتجع.</strong> لا يتم استيراد أي طلبية من نظام الطلبيات، ولا يقرأ نظام المرتجعات أي Collection من مشروع الطلبيات.</p>
+            <p style="margin-top:8px">حساب إدارة مشروع Firebase Console: <b dir="ltr">basel.alghanem09@gmail.com</b> — للتذكير فقط، وليس حساب دخول للنظام.</p>
+            <p style="margin-top:8px"><strong>المستخدمون وكلمات السر تدار من هذه الصفحة.</strong> كلمة السر نفسها لا تحفظ كنص؛ يتم حفظ Salt + PBKDF2-SHA256 Hash داخل Collection مستقل باسم <code>returns_users_config</code>.</p>
+        </div></div>
+    </section>
+
+    <section id="userManagementCard" class="card user-management-card">
+        <div class="title-row"><div><h2>إدارة المستخدمين وكلمات السر</h2><p>أي تعديل هنا يصبح معتمداً مباشرة في شاشة الدخول. تعطيل المستخدم يمنع دخوله بدون حذف بياناته السابقة.</p></div></div>
+        <div id="userForm" class="user-form-panel">
+            <input id="userId" type="hidden">
+            <div class="title-row user-form-title-row"><div><h3 id="userFormTitle">إضافة مستخدم</h3><p id="userPasswordHint">كلمة السر مطلوبة للمستخدم الجديد.</p></div></div>
+            <div class="grid user-form-grid">
+                <div class="field wide"><label for="userName">الاسم</label><input id="userName" type="text" autocomplete="off" placeholder="اسم المستخدم"></div>
+                <div class="field"><label for="userRole">الدور</label><select id="userRole"></select></div>
+                <div class="field"><label for="userPassword">كلمة السر</label><input id="userPassword" type="password" autocomplete="new-password" placeholder="كلمة السر الجديدة"></div>
+                <label class="user-active-toggle"><input id="userActive" type="checkbox" checked><span><strong>المستخدم فعال</strong><small>إلغاء التفعيل يمنع تسجيل الدخول فوراً</small></span></label>
+            </div>
+            <div class="row-actions user-form-actions"><button id="saveUser" type="button" class="btn primary"><i class="ph ph-floppy-disk"></i> حفظ المستخدم</button><button id="cancelUserEdit" type="button" class="btn secondary hidden"><i class="ph ph-x"></i> إلغاء التعديل</button></div>
+        </div>
+        <div id="usersList" class="users-list"><div class="empty">جاري تحميل المستخدمين...</div></div>
+        <p class="muted user-management-note">ملاحظة: اسم المندوب يجب أن يطابق الاسم الموجود في ملف المبيعات التاريخية حتى تظهر له صيدلياته ومبيعاته.</p>
+    </section>
+
+    <section class="card">
+        <div class="title-row"><div><h2>رفع ملف المبيعات التاريخية</h2><p>هذا الملف هو المرجع الذي يسمح بالمرتجع فقط إذا كان العميل قد اشترى الصنف والـBatch والكمية سابقاً. كل ملف جديد يضيف سجلات غير موجودة ولا يلغي أي ملف سابق.</p></div></div>
+        <div class="drop"><i class="ph ph-file-xls" style="font-size:2.6rem;color:#099999"></i><h3>اختر ملف Excel</h3><input id="salesFile" type="file" accept=".xlsx,.xls"></div><div id="preview"></div>
+        <div id="uploadProgress" class="upload-progress hidden"><div class="upload-progress-head"><div><strong id="uploadProgressLabel">تجهيز الرفع...</strong><small id="uploadProgressCount">0 / 0 Documents</small></div><button id="cancelUpload" class="btn danger" type="button"><i class="ph ph-x-circle"></i> إيقاف</button></div><div class="upload-progress-track"><span id="uploadProgressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></span></div><p>يمكن إغلاق الصفحة بعد الضغط على إيقاف. عند رفع الملف نفسه لاحقًا سيكمل من آخر نقطة مكتملة.</p></div>
+        <div class="title-row" style="margin-top:16px;margin-bottom:0"><span></span><button id="commitSales" class="btn primary" disabled><i class="ph ph-cloud-arrow-up"></i> اعتماد وإضافة المبيعات</button></div>
+    </section>
+
+    <section class="card"><div class="title-row"><div><h2>سجل الرفع</h2><p>آخر الملفات التي تمت إضافتها.</p></div></div><div id="uploadLogs"></div></section>
+</div>
+<script type="module" src="app.js?v=20260922_firestore_users_v4"></script>
+</body>
+</html>

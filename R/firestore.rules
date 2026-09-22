@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // This Returns site intentionally uses local front-end passwords rather than Firebase Authentication.
+    // Therefore Firestore cannot securely identify the current application role.
+    // Access is restricted to the four collections used by the Returns application only.
+
+    match /returns_requests/{requestId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    match /returns_pharmacies/{pharmacyId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    match /returns_sales_chunks/{chunkId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    match /returns_imports/{uploadId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+
+    // User directory for the Returns login screen. Passwords are never stored as plaintext.
+    // This project intentionally does not use Firebase Authentication, so these rules
+    // cannot distinguish Admin from other browsers; Admin.html is the management UI.
+    match /returns_users_config/{userId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // Everything outside the Returns data model is blocked.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
