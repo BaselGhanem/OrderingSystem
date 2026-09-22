@@ -75,7 +75,7 @@ function auditLabel(entry = {}) {
 function appendAudit(row, entry) { return [...(Array.isArray(row.auditTrail) ? row.auditTrail : []), entry]; }
 function auditDocRef(requestId) { return doc(collection(db, RETURNS, requestId, AUDIT_SUBCOLLECTION)); }
 async function assertAllocationLedgerReady() {
-    const meta=await getDoc(doc(db,ALLOCATIONS,`__meta__`));
+    const meta=await getDoc(doc(db,ALLOCATIONS,`ledger_meta_v1`));
     if(!meta.exists()||number(meta.data().schemaVersion)<1)throw new Error(`دفتر الكميات يحتاج مزامنة من Admin قبل متابعة عمليات المرتجعات.`);
     return true;
 }
@@ -675,9 +675,8 @@ async function removeAdminUser(id){
 async function initUserManagement(){
     const seeded=await ensureUserDirectorySeeded();
     $(`userRole`).innerHTML=Object.entries(ROLE_LABELS).map(([key,label])=>`<option value="${key}">${escapeHtml(label)}</option>`).join(``);
-    $(`saveUser`).onclick=saveAdminUser;
+    $(`userForm`).addEventListener(`submit`,event=>{event.preventDefault();saveAdminUser();});
     $(`cancelUserEdit`).onclick=resetUserForm;
-    $(`userPassword`).addEventListener(`keydown`,event=>{if(event.key===`Enter`){event.preventDefault();saveAdminUser();}});
     resetUserForm();
     await refreshAdminUsers();
     if(seeded)showBanner(`تم إنشاء دليل المستخدمين في Firebase بنفس كلمات السر الحالية. يمكنك إدارتهم من هنا الآن.`,`success`);
@@ -687,7 +686,7 @@ async function checkAllocationLedgerStatus(){
     const card=$(`allocationMaintenanceCard`),status=$(`allocationLedgerStatus`),button=$(`rebuildAllocations`);
     if(!card||!status||!button)return;
     card.classList.remove(`hidden`);
-    const metaRef=doc(db,ALLOCATIONS,`__meta__`),meta=await getDoc(metaRef);
+    const metaRef=doc(db,ALLOCATIONS,`ledger_meta_v1`),meta=await getDoc(metaRef);
     if(meta.exists()&&number(meta.data().schemaVersion)>=1){status.textContent=`دفتر الكميات مفعّل ومزامن.`;button.classList.add(`hidden`);return;}
     const existing=await getDocs(query(collection(db,RETURNS),limit(1)));
     if(existing.empty){await setDoc(metaRef,{schemaVersion:1,initializedAt:serverNow(),updatedAt:serverNow()},{merge:true});status.textContent=`دفتر الكميات مفعّل. لا توجد مرتجعات سابقة تحتاج ترحيل.`;button.classList.add(`hidden`);return;}
@@ -716,7 +715,7 @@ async function rebuildAllocationLedger(){
             });
         });
         const existingAllocations=await getDocs(collection(db,ALLOCATIONS));
-        const staleIds=existingAllocations.docs.map(item=>item.id).filter(id=>id!==`__meta__`&&!totals.has(id));
+        const staleIds=existingAllocations.docs.map(item=>item.id).filter(id=>id!==`ledger_meta_v1`&&!totals.has(id));
         for(const saleId of staleIds)await setDoc(doc(db,ALLOCATIONS,saleId),{totalAllocated:0,paidAllocated:0,bonusAllocated:0,rebuiltAt:serverNow(),updatedAt:serverNow()},{merge:true});
         let completed=0;
         for(const [saleId,row] of totals){
@@ -725,7 +724,7 @@ async function rebuildAllocationLedger(){
             await setDoc(doc(db,ALLOCATIONS,saleId),{...row,totalPurchasedQty:row.originalSoldQty+row.originalBonusQty,rebuiltAt:serverNow(),updatedAt:serverNow()},{merge:true});
             completed+=1;if(status)status.textContent=`جاري المزامنة: ${completed} / ${totals.size}`;
         }
-        await setDoc(doc(db,ALLOCATIONS,`__meta__`),{schemaVersion:1,rebuiltSales:totals.size,rebuiltAt:serverNow(),updatedAt:serverNow()},{merge:true});
+        await setDoc(doc(db,ALLOCATIONS,`ledger_meta_v1`),{schemaVersion:1,rebuiltSales:totals.size,rebuiltAt:serverNow(),updatedAt:serverNow()},{merge:true});
         status.textContent=`اكتملت المزامنة: ${totals.size.toLocaleString(`en-US`)} سجل بيع محجوز.`;button.classList.add(`hidden`);showBanner(`تمت مزامنة دفتر الكميات بنجاح.`,`success`);
     }catch(error){console.error(error);status.textContent=`تعذرت المزامنة.`;showBanner(error.message||`تعذر إعادة بناء دفتر الكميات.`,`error`);}
     finally{button.disabled=false;}
