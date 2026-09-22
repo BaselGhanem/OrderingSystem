@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260922_p1_v5">
+    <link rel="stylesheet" href="styles.css?v=20260922_p1_v6">
 </head>
 <body data-page="admin">
 <div class="shell">
@@ -35,7 +35,7 @@
 
     <section id="userManagementCard" class="card user-management-card">
         <div class="title-row"><div><h2>إدارة المستخدمين وكلمات السر</h2><p>أي تعديل هنا يصبح معتمداً مباشرة في شاشة الدخول. تعطيل المستخدم يمنع دخوله بدون حذف بياناته السابقة.</p></div></div>
-        <div id="userForm" class="user-form-panel">
+        <form id="userForm" class="user-form-panel" autocomplete="off">
             <input id="userId" type="hidden">
             <div class="title-row user-form-title-row"><div><h3 id="userFormTitle">إضافة مستخدم</h3><p id="userPasswordHint">كلمة السر مطلوبة للمستخدم الجديد.</p></div></div>
             <div class="grid user-form-grid">
@@ -44,8 +44,8 @@
                 <div class="field"><label for="userPassword">كلمة السر</label><input id="userPassword" type="password" autocomplete="new-password" placeholder="كلمة السر الجديدة"></div>
                 <label class="user-active-toggle"><input id="userActive" type="checkbox" checked><span><strong>المستخدم فعال</strong><small>إلغاء التفعيل يمنع تسجيل الدخول فوراً</small></span></label>
             </div>
-            <div class="row-actions user-form-actions"><button id="saveUser" type="button" class="btn primary"><i class="ph ph-floppy-disk"></i> حفظ المستخدم</button><button id="cancelUserEdit" type="button" class="btn secondary hidden"><i class="ph ph-x"></i> إلغاء التعديل</button></div>
-        </div>
+            <div class="row-actions user-form-actions"><button id="saveUser" type="submit" class="btn primary"><i class="ph ph-floppy-disk"></i> حفظ المستخدم</button><button id="cancelUserEdit" type="button" class="btn secondary hidden"><i class="ph ph-x"></i> إلغاء التعديل</button></div>
+        </form>
         <div id="usersList" class="users-list"><div class="empty">جاري تحميل المستخدمين...</div></div>
         <p class="muted user-management-note">ملاحظة: اسم المندوب يجب أن يطابق الاسم الموجود في ملف المبيعات التاريخية حتى تظهر له صيدلياته ومبيعاته.</p>
     </section>
@@ -59,6 +59,6 @@
 
     <section class="card"><div class="title-row"><div><h2>سجل الرفع</h2><p>آخر الملفات التي تمت إضافتها.</p></div></div><div id="uploadLogs"></div></section>
 </div>
-<script type="module" src="app.js?v=20260922_p1_v5"></script>
+<script type="module" src="app.js?v=20260922_p1_v6"></script>
 </body>
 </html>
