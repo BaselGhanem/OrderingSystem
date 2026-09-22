@@ -2,11 +2,25 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // This Returns site intentionally uses local front-end passwords rather than Firebase Authentication.
-    // Therefore Firestore cannot securely identify the current application role.
-    // Access is restricted to the four collections used by the Returns application only.
+    // IMPORTANT SECURITY NOTE:
+    // This Returns site intentionally does not use Firebase Authentication.
+    // Firestore therefore cannot verify the local application role server-side.
+    // Rules restrict access to the Returns data model, but they cannot distinguish
+    // representatives, supervisors or admins without Authentication/backend identity.
 
     match /returns_requests/{requestId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+
+      // Immutable-style audit events are written by the application with serverTimestamp().
+      match /audit/{eventId} {
+        allow read, create: if true;
+        allow update, delete: if false;
+      }
+    }
+
+    // Atomic ledger used to prevent concurrent returns from exceeding historical sales.
+    match /return_allocations/{saleId} {
       allow read, create, update: if true;
       allow delete: if false;
     }
@@ -26,15 +40,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-
     // User directory for the Returns login screen. Passwords are never stored as plaintext.
-    // This project intentionally does not use Firebase Authentication, so these rules
-    // cannot distinguish Admin from other browsers; Admin.html is the management UI.
     match /returns_users_config/{userId} {
       allow read, create, update, delete: if true;
     }
 
-    // Everything outside the Returns data model is blocked.
     match /{document=**} {
       allow read, write: if false;
     }

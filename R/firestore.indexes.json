@@ -1,0 +1,37 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "returns_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "supervisorKey", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "returns_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "repUid", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "returns_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "repPharmacyKey", "order": "ASCENDING" },
+        { "fieldPath": "supervisorKey", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "returns_sales_chunks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "repPharmacyKey", "order": "ASCENDING" },
+        { "fieldPath": "supervisorKey", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

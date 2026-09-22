@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260922_firestore_users_v4">
+    <link rel="stylesheet" href="styles.css?v=20260922_p1_v5">
 </head>
 <body data-page="admin">
 <div class="shell">
@@ -23,6 +23,14 @@
             <p style="margin-top:8px">حساب إدارة مشروع Firebase Console: <b dir="ltr">basel.alghanem09@gmail.com</b> — للتذكير فقط، وليس حساب دخول للنظام.</p>
             <p style="margin-top:8px"><strong>المستخدمون وكلمات السر تدار من هذه الصفحة.</strong> كلمة السر نفسها لا تحفظ كنص؛ يتم حفظ Salt + PBKDF2-SHA256 Hash داخل Collection مستقل باسم <code>returns_users_config</code>.</p>
         </div></div>
+    </section>
+
+    <section id="allocationMaintenanceCard" class="card hidden">
+        <div class="title-row">
+            <div><h2>سلامة دفتر الكميات</h2><p id="allocationLedgerStatus">جاري فحص دفتر الحجز...</p></div>
+            <button id="rebuildAllocations" type="button" class="btn warning"><i class="ph ph-arrows-clockwise"></i> مزامنة دفتر الكميات</button>
+        </div>
+        <p class="muted">يستخدم هذا الإجراء مرة واحدة فقط عند الانتقال من نسخة أقدم تحتوي مرتجعات موجودة قبل تفعيل الحجز الذري. أثناء المزامنة يفضل عدم إدخال مرتجعات جديدة.</p>
     </section>
 
     <section id="userManagementCard" class="card user-management-card">
@@ -51,6 +59,6 @@
 
     <section class="card"><div class="title-row"><div><h2>سجل الرفع</h2><p>آخر الملفات التي تمت إضافتها.</p></div></div><div id="uploadLogs"></div></section>
 </div>
-<script type="module" src="app.js?v=20260922_firestore_users_v4"></script>
+<script type="module" src="app.js?v=20260922_p1_v5"></script>
 </body>
 </html>
