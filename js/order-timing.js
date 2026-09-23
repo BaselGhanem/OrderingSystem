@@ -98,6 +98,9 @@ async function load() {
 }
 ['person','status','from','to','search'].forEach(id => $(id).addEventListener(id === 'search' ? 'input' : 'change', render));
 $('refresh').addEventListener('click', load);
+const todayInAmman = parts(new Date()).key;
+$('from').value = `${todayInAmman.slice(0, 8)}01`;
+$('to').value = todayInAmman;
 load();
 timer = setInterval(() => { if (!document.hidden && rows.some(row=>!row.end)) render(); }, 60000);
 window.addEventListener('pagehide',()=>clearInterval(timer));
