@@ -18,7 +18,8 @@ import {
     limit,
     startAfter,
     documentId,
-    writeBatch
+    writeBatch,
+    runTransaction
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -63,5 +64,6 @@ export {
     limit,
     startAfter,
     documentId,
-    writeBatch
+    writeBatch,
+    runTransaction
 };
