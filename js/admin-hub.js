@@ -35,7 +35,7 @@ function activate() {
     const key = location.hash.slice(1);
     const audit = document.body.dataset.page === `audit`;
     if (audit) {
-        const active = [`manage`, `overview`].includes(key) ? key : `log`;
+        const active = [`manage`, `overview`, `timing`].includes(key) ? key : `log`;
         document.querySelectorAll(`[data-audit-view]`).forEach(panel => { panel.hidden = panel.dataset.auditView !== active; });
         document.querySelectorAll(`[data-hub-tab]`).forEach(tab => {
             tab.classList.toggle(`active`, tab.dataset.hubTab === active);
