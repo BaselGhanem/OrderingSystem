@@ -14,6 +14,14 @@
 <link rel="stylesheet" href="style.css?v=20260720_audit_sort_v3">
 <link rel="stylesheet" href="audit-ui.css?v=20260911">
 <link rel="stylesheet" href="admin-responsive.css?v=20260911">
+<style>
+.audit-bulk-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:16px;background:#edf8f8;border:1px solid #b9dddd;border-radius:16px;margin:0 0 14px;color:#143e43}
+.audit-bulk-bar input,.audit-bulk-bar select{min-height:42px;border:1px solid #bfd6d6;border-radius:10px;padding:8px 12px;font:inherit;background:#fff}
+.audit-bulk-bar input[type=text]{flex:1 1 210px}
+.audit-bulk-bar button:disabled{opacity:.48;cursor:not-allowed}
+.audit-table input[type=checkbox]{width:18px;height:18px;accent-color:#099999;cursor:pointer}
+@media(max-width:640px){.audit-bulk-bar>*{width:100%}.audit-bulk-bar input[type=text]{flex:auto}}
+</style>
 </head>
 <body data-page="audit">
 <div class="offline-banner" id="offline-banner"><i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال.</div>
@@ -123,10 +131,18 @@
 </div>
 </div>
 <div class="audit-mobile-sort"><label for="mobileSort">ترتيب حسب</label><select id="mobileSort"><option value="date">التاريخ</option><option value="order">الطلبية</option><option value="pharmacy">الصيدلية</option><option value="representative">المندوب</option><option value="status">الحالة</option><option value="owner">المطلوب من</option></select><button type="button" class="audit-row-btn" id="sortDirectionBtn">تنازلي</button></div>
+<div class="audit-bulk-bar" id="auditBulkBar">
+<span id="auditSelectionCount" role="status">لم يتم تحديد طلبيات</span>
+<button class="audit-row-btn" id="auditClearSelection" type="button">إلغاء التحديد</button>
+<select id="auditBulkStatus" aria-label="الحالة الجديدة للمحدد"><option value="">اختر الحالة الجديدة</option></select>
+<input id="auditBulkNote" type="text" placeholder="سبب النقل (إجباري)" aria-label="سبب النقل">
+<button class="audit-btn" id="auditBulkApply" type="button" disabled>نقل الطلبيات المحددة</button>
+</div>
 <div class="audit-table-scroll">
 <table class="audit-table">
 <thead>
 <tr>
+<th><input id="auditSelectPage" type="checkbox" aria-label="تحديد كل الطلبيات في الصفحة الحالية"></th>
 <th aria-sort="descending"><button class="audit-sort-btn active" type="button" data-sort-key="date">التاريخ <i class="ph ph-sort-descending"></i></button></th>
 <th aria-sort="none"><button class="audit-sort-btn" type="button" data-sort-key="order">الطلبية <i class="ph ph-arrows-down-up"></i></button></th>
 <th aria-sort="none"><button class="audit-sort-btn" type="button" data-sort-key="pharmacy">الصيدلية <i class="ph ph-arrows-down-up"></i></button></th>
@@ -137,7 +153,7 @@
 </tr>
 </thead>
 <tbody id="auditBody">
-<tr><td colspan="7"><div class="audit-empty">جاري تحميل سجل التدقيق...</div></td></tr>
+<tr><td colspan="8"><div class="audit-empty">جاري تحميل سجل التدقيق...</div></td></tr>
 </tbody>
 </table>
 </div>
@@ -156,12 +172,14 @@
 </div>
 <div id="toast-container"></div>
 <script type="module">
-import { db, collection, getDocs, doc, updateDoc } from './js/firebase.js';
+import { db, collection, getDocs, doc, updateDoc, runTransaction } from './js/firebase.js';
 const $ = id => document.getElementById(id);
 const state = {
 orders: [],
 visible: [],
 selectedOrder: null,
+selectedIds: new Set(),
+bulkBusy: false,
 sortKey: `date`,
 sortDirection: `desc`
 };
@@ -949,7 +967,7 @@ workflowStage: `deleted`
 };
 return { ...base, ...(patches[targetStatus] || { status: targetStatus }) };
 }
-function buildAuditStatusRecord(order, patch, note, targetStatus) {
+function buildAuditStatusRecord(order, patch, note, targetStatus, batchId = ``) {
 return {
 action: `audit_manual_workflow_status_change`,
 user: `Audit Center`,
@@ -973,7 +991,8 @@ marketManagerStatus: patch.marketManagerStatus ?? order.marketManagerStatus ?? `
 financeStatus: patch.financeStatus ?? order.financeStatus ?? ``,
 orderStaffStatus: patch.orderStaffStatus ?? order.orderStaffStatus ?? ``
 },
-notes: note
+notes: note,
+batchId
 };
 }
 async function moveSelectedOrderStatus() {
@@ -1016,6 +1035,68 @@ if (button) {
 button.disabled = false;
 button.innerHTML = originalContent;
 }
+}
+}
+function updateBulkSelection() {
+const count = state.selectedIds.size;
+$('auditSelectionCount').textContent = count ? `${count.toLocaleString('en-US')} طلبية محددة` : 'لم يتم تحديد طلبيات';
+$('auditBulkApply').disabled = !count || state.bulkBusy;
+$('auditClearSelection').disabled = !count || state.bulkBusy;
+const pageIds = state.visible.slice((auditPage - 1) * AUDIT_PAGE_SIZE, auditPage * AUDIT_PAGE_SIZE).map(order => order.id);
+const checked = pageIds.filter(id => state.selectedIds.has(id)).length;
+$('auditSelectPage').checked = !!pageIds.length && checked === pageIds.length;
+$('auditSelectPage').indeterminate = checked > 0 && checked < pageIds.length;
+}
+async function moveBulkOrderStatus() {
+if (state.bulkBusy || !state.selectedIds.size) return;
+const targetStatus = $('auditBulkStatus').value;
+const note = $('auditBulkNote').value.trim();
+if (!targetStatus) return setToast('اختر الحالة الجديدة.', 'warning');
+if (!note) return setToast('سبب النقل إجباري.', 'warning');
+const ids = [...state.selectedIds];
+if (!confirm(`نقل ${ids.length} طلبية إلى «${statusLabel(targetStatus)}»؟\\nسيُسجّل السبب نفسه على كل طلبية.`)) return;
+state.bulkBusy = true;
+updateBulkSelection();
+const button = $('auditBulkApply');
+const batchId = `audit-bulk-${Date.now()}`;
+let success = 0;
+const failed = [];
+for (const id of ids) {
+button.textContent = `جاري النقل ${success + failed.length + 1} / ${ids.length}`;
+try {
+const ref = doc(db, 'orders', id);
+const updated = await runTransaction(db, async transaction => {
+const snapshot = await transaction.get(ref);
+if (!snapshot.exists()) throw new Error('الطلبية غير موجودة');
+const order = { id, ...snapshot.data() };
+const patch = buildWorkflowPatch(targetStatus);
+patch.lastManualStatusChangeNote = note;
+patch.returnReason = targetStatus.startsWith('returned_to_') ? note : (order.returnReason || '');
+patch.returnedBy = targetStatus.startsWith('returned_to_') ? 'Audit Center' : (order.returnedBy || '');
+patch.returnedByRole = targetStatus.startsWith('returned_to_') ? 'audit_admin' : (order.returnedByRole || '');
+patch.returnedAt = targetStatus.startsWith('returned_to_') ? new Date() : (order.returnedAt || null);
+patch.auditTrail = [...(Array.isArray(order.auditTrail) ? order.auditTrail : []), buildAuditStatusRecord(order, patch, note, targetStatus, batchId)];
+transaction.update(ref, patch);
+return { ...order, ...patch };
+});
+const index = state.orders.findIndex(order => order.id === id);
+if (index >= 0) state.orders[index] = updated;
+state.selectedIds.delete(id);
+success++;
+} catch (error) {
+console.error('Bulk status update failed:', id, error);
+failed.push(id);
+}
+}
+state.bulkBusy = false;
+button.textContent = 'نقل الطلبيات المحددة';
+updateStats();
+applyFilters();
+if (failed.length) {
+setToast(`تم نقل ${success} من ${ids.length}. فشل ${failed.length}؛ بقيت محددة لإعادة المحاولة.`, 'warning');
+} else {
+$('auditBulkNote').value = '';
+setToast(`تم نقل ${success} طلبية وتسجيل الحركة لكل منها.`, 'success');
 }
 }
 function sortValue(order, key) {
@@ -1112,12 +1193,13 @@ function renderTable() {
 const body = $(`auditBody`);
 $(`visibleCount`).innerHTML = `<i class="ph ph-eye"></i> ${state.visible.length.toLocaleString(`en-US`)} سجل ظاهر`;
 updateSortHeaders();
+updateBulkSelection();
 if (!state.visible.length) {
 $(`auditPageInfo`).textContent = `0 نتيجة`;
 $(`auditPrev`).disabled = true;
 $(`auditNext`).disabled = true;
 body.innerHTML = `<tr>
-<td colspan="7">
+<td colspan="8">
 <div class="audit-empty">
 <i class="ph ph-magnifying-glass" style="font-size:1.5rem;display:block;margin-bottom:7px"></i>
 لا توجد طلبيات مطابقة للفلاتر الحالية.
@@ -1135,6 +1217,7 @@ body.innerHTML = state.visible.slice((auditPage - 1) * AUDIT_PAGE_SIZE, auditPag
 const status = primaryStatus(order);
 const follow = getWorkflowFollowUp(order);
 return `<tr>
+<td><input type="checkbox" class="audit-select-row" data-select-id="${escapeHtml(order.id)}" aria-label="تحديد الطلبية ${escapeHtml(order.orderNumber || order.id)}" ${state.selectedIds.has(order.id) ? `checked` : ``}></td>
 <td>${escapeHtml(formatDateTime(order.createdAt || order.date || order.timestamp))}</td>
 <td>
 <strong>${escapeHtml(String(order.id || ``).substring(0, 10).toUpperCase())}</strong>
@@ -1159,8 +1242,13 @@ ${escapeHtml(follow.owner || `-`)}
 </td>
 </tr>`;
 }).join(``);
-const labels = [`التاريخ`, `الطلبية / القيمة`, `الصيدلية`, `المندوب`, `الحالة`, `المطلوب من`, `التفاصيل`];
+const labels = [`تحديد`, `التاريخ`, `الطلبية / القيمة`, `الصيدلية`, `المندوب`, `الحالة`, `المطلوب من`, `التفاصيل`];
 body.querySelectorAll(`tr`).forEach(row => [...row.cells].forEach((cell, index) => { cell.dataset.label = labels[index]; }));
+body.querySelectorAll(`[data-select-id]`).forEach(input => input.addEventListener(`change`, () => {
+if (input.checked) state.selectedIds.add(input.dataset.selectId);
+else state.selectedIds.delete(input.dataset.selectId);
+updateBulkSelection();
+}));
 body.querySelectorAll(`[data-id]`).forEach(button => {
 button.addEventListener(`click`, () => openPanel(button.dataset.id));
 });
@@ -1253,7 +1341,7 @@ const originalContent = refreshButton.innerHTML;
 refreshButton.disabled = true;
 refreshButton.innerHTML = `<i class="ph ph-spinner-gap"></i> جاري التحديث...`;
 $(`auditBody`).innerHTML = `<tr>
-<td colspan="7">
+<td colspan="8">
 <div class="audit-empty">
 <i class="ph ph-spinner-gap" style="font-size:1.5rem;display:block;margin-bottom:7px"></i>
 جاري تحميل سجل التدقيق...
@@ -1262,6 +1350,7 @@ $(`auditBody`).innerHTML = `<tr>
 </tr>`;
 try {
 const snapshot = await getDocs(collection(db, `orders`));
+state.selectedIds.clear();
 state.orders = snapshot.docs.map(item => ({
 id: item.id,
 ...item.data()
@@ -1273,7 +1362,7 @@ applyFilters();
 } catch (error) {
 console.error(error);
 $(`auditBody`).innerHTML = `<tr>
-<td colspan="7">
+<td colspan="8">
 <div class="audit-empty">تعذر تحميل البيانات. تحقق من صلاحيات Firebase أو الاتصال.</div>
 </td>
 </tr>`;
@@ -1379,6 +1468,16 @@ applyFilters();
 setToast(`تمت إعادة الفلاتر إلى هذا الشهر.`, `success`);
 }
 function bindEvents() {
+$(`auditBulkStatus`).innerHTML += WORKFLOW_STATUS_OPTIONS.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join(``);
+$(`auditBulkApply`).addEventListener(`click`, moveBulkOrderStatus);
+$(`auditClearSelection`).addEventListener(`click`, () => { state.selectedIds.clear(); renderTable(); });
+$(`auditSelectPage`).addEventListener(`change`, event => {
+state.visible.slice((auditPage - 1) * AUDIT_PAGE_SIZE, auditPage * AUDIT_PAGE_SIZE).forEach(order => {
+if (event.target.checked) state.selectedIds.add(order.id);
+else state.selectedIds.delete(order.id);
+});
+renderTable();
+});
 window.addEventListener(`audit:reload`, loadOrders);
 $(`auditPrev`).addEventListener(`click`, () => { auditPage--; renderTable(); document.querySelector(`.audit-table-card`).scrollIntoView({block: `start`}); });
 $(`auditNext`).addEventListener(`click`, () => { auditPage++; renderTable(); document.querySelector(`.audit-table-card`).scrollIntoView({block: `start`}); });
