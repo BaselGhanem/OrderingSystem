@@ -3,13 +3,6 @@ import { db, collection, getDocs } from './firebase.js';
 const $ = id => document.getElementById(id);
 const ZONE = 'Asia/Amman';
 const owners = { market: 'محمد عميرة', finance: 'حمزة', staff: 'قسم الطلبيات (زياد/زكريا)' };
-// Phone/email details come from the existing approval-reminder configuration.
-// Ziad has a verified email there, but no mobile number; never guess one.
-const contacts = {
-  market: { phone:'962796993332', email:'Mohammad.Amira@dadgroup.com' },
-  finance: { phone:'962770037491', email:'hamza.shbatee@dadgroup.com' },
-  staff: { phone:'', email:'Ziad.hourany@dadgroup.com' }
-};
 const waiting = {
   supervisor_approved: 'market', market_manager_pending: 'market', returned_to_market_manager: 'market',
   market_manager_approved: 'finance', finance_pending: 'finance', returned_to_finance: 'finance',
@@ -44,19 +37,6 @@ function businessMinutes(start, end) {
   return Math.round(total);
 }
 const duration = minutes => `${Math.floor(minutes / 60)} س ${minutes % 60} د`;
-function followMessage(owner, periods) {
-  const heading = owner === 'staff' ? 'متابعة طلبيات قسم الطلبيات' : `متابعة طلبيات بانتظار ${owners[owner]}`;
-  const listed = periods.slice(0, 12).map(row => `- ${row.id} | ${row.pharmacy} | ${duration(row.minutes)} عمل`).join('\n');
-  return `مرحبا،\n${heading}: ${periods.length} طلبية بانتظار الإجراء.\n\n${listed}${periods.length > 12 ? `\nو${periods.length - 12} طلبيات أخرى.` : ''}\n\nيرجى مراجعة الطلبيات وتحديث حالتها في النظام. شكرا.`;
-}
-let followups = new Map();
-function renderFollowups(open) {
-  followups = new Map(Object.keys(owners).map(owner => [owner, open.filter(row => row.owner === owner)]));
-  $('followupCards').innerHTML = Object.entries(owners).map(([owner, label]) => {
-    const list = followups.get(owner), contact = contacts[owner], disabled = list.length ? '' : 'disabled';
-    return `<article class="person"><span>${escape(label)}</span><strong>${list.length} طلبية</strong><div class="follow-actions"><button type="button" data-follow="whatsapp" data-owner="${owner}" ${disabled || (!contact.phone ? 'disabled title="لا يوجد رقم هاتف موثق"' : '')}>واتساب</button><button type="button" data-follow="email" data-owner="${owner}" ${disabled}>إيميل</button></div>${!contact.phone ? '<small>رقم واتساب زياد غير مسجل؛ المتابعة عبر الإيميل متاحة.</small>' : ''}${list.length ? `<details><summary>معاينة الرسالة</summary><pre>${escape(followMessage(owner, list))}</pre></details>` : '<small>لا توجد طلبيات معلقة ضمن الفلاتر الحالية.</small>'}</article>`;
-  }).join('');
-}
 function eventStatus(entry) {
   const next = entry.newValue;
   if (typeof next === 'string') return next;
@@ -89,7 +69,6 @@ function render() {
     (!from || parts(new Date(row.start)).key >= from) && (!to || parts(new Date(row.start)).key <= to) &&
     (!search || `${row.id} ${row.pharmacy}`.toLowerCase().includes(search)));
   const open = selected.filter(row => !row.end);
-  renderFollowups(open);
   $('count').textContent = String(open.length);
   $('oldest').textContent = open.length ? duration(Math.max(...open.map(row => row.minutes))) : '—';
   const closed = selected.filter(row => row.end);
@@ -119,15 +98,6 @@ async function load() {
 }
 ['person','status','from','to','search'].forEach(id => $(id).addEventListener(id === 'search' ? 'input' : 'change', render));
 $('refresh').addEventListener('click', load);
-$('followupCards').addEventListener('click', event => {
-  const button = event.target.closest('button[data-follow]');
-  if (!button || button.disabled) return;
-  const owner = button.dataset.owner, list = followups.get(owner) || [];
-  if (!list.length) return;
-  const message = followMessage(owner, list), contact = contacts[owner];
-  if (button.dataset.follow === 'whatsapp' && contact.phone) window.open(`https://wa.me/${contact.phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-  if (button.dataset.follow === 'email') window.location.href = `mailto:${contact.email}?subject=${encodeURIComponent(`متابعة الطلبيات المعلقة (${list.length})`)}&body=${encodeURIComponent(message)}`;
-});
 load();
 timer = setInterval(() => { if (!document.hidden && rows.some(row=>!row.end)) render(); }, 60000);
 window.addEventListener('pagehide',()=>clearInterval(timer));

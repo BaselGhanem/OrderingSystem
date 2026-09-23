@@ -28,10 +28,6 @@
         <div class="workflow-stat-card"><span>عدد الطلبيات</span><strong id="ordersCount">0</strong></div>
         <div class="workflow-stat-card"><span>القيمة المعروضة</span><strong id="ordersValue">0.00 د.ا</strong></div>
     </section>
-    <details class="manager-timing" style="margin:16px 0;border:1px solid #cce5e4;border-radius:18px;background:#f8fdfc;overflow:hidden">
-        <summary style="cursor:pointer;padding:17px 20px;font-weight:800;color:#087979;list-style-position:inside">زمن معالجة الطلبيات · متابعة واتساب أو إيميل</summary>
-        <iframe title="زمن معالجة الطلبيات والمتابعة" data-src="order-timing.html?view=manager" style="width:100%;height:960px;border:0;background:#f5f9f9"></iframe>
-    </details>
     <section class="workflow-filters">
         <div><label>من تاريخ</label><input id="filterDateFrom" type="date"></div>
         <div><label>إلى تاريخ</label><input id="filterDateTo" type="date"></div>
@@ -84,6 +80,5 @@
 </div>
 <div id="toast-container"></div>
 <script src="js/workflow.js?v=20260913_last_action_live_v1" type="module"></script>
-<script>document.querySelector('.manager-timing').addEventListener('toggle', function () { if (this.open) { const frame = this.querySelector('iframe'); if (!frame.src) frame.src = frame.dataset.src; } });</script>
 </body>
 </html>

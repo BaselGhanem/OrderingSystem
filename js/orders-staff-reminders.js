@@ -395,6 +395,11 @@ $rem(`followupOrdersTab`)?.addEventListener(`click`, () => setReminderMode(false
 $rem(`refreshApprovalRemindersBtn`)?.addEventListener(`click`, loadApprovalReminders);
 $rem(`reminderDateFrom`)?.addEventListener(`change`, loadApprovalReminders);
 $rem(`reminderDateTo`)?.addEventListener(`change`, loadApprovalReminders);
+// The reports card uses the same filters, contacts, messages, and actions.
+if (document.body.dataset.page === `reports-reminders`) {
+    applyReminderDefaultDates();
+    loadApprovalReminders();
+}
 
 function scheduleDefaultDates() {
     applyMainDefaultDates();

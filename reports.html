@@ -274,7 +274,24 @@
                             <i class="ph ph-warning"></i>
                             <span>الطلبيات المكررة محتملة</span>
                         </div>
+                        <div class="report-card-menu special-card" data-target="rep-timing">
+                            <i class="ph ph-clock-counter-clockwise"></i>
+                            <span>زمن معالجة الطلبيات</span>
+                        </div>
+                        <div class="report-card-menu special-card" data-target="rep-reminders">
+                            <i class="ph ph-whatsapp-logo"></i>
+                            <span>متابعة واتساب أو إيميل</span>
+                        </div>
                     </div>
+                </div>
+
+                <div id="rep-timing" class="report-section">
+                    <div class="report-header"><h2>زمن معالجة الطلبيات</h2><button class="btn-secondary back-to-grid-btn" type="button">رجوع للتقارير</button></div>
+                    <iframe title="زمن معالجة الطلبيات" data-src="order-timing.html" style="width:100%;height:980px;border:0;border-radius:18px;background:#f5f9f9"></iframe>
+                </div>
+                <div id="rep-reminders" class="report-section">
+                    <div class="report-header"><h2>متابعة واتساب أو إيميل</h2><button class="btn-secondary back-to-grid-btn" type="button">رجوع للتقارير</button></div>
+                    <iframe title="متابعة واتساب أو إيميل" data-src="reports-reminders.html" style="width:100%;height:980px;border:0;border-radius:18px;background:#f5f9f9"></iframe>
                 </div>
 
                 <div id="rep-all" class="report-section">
@@ -1445,6 +1462,8 @@
                 document.getElementById('reportsGridContainer').style.display = 'none';
                 document.querySelectorAll('.report-section').forEach(s => s.classList.remove('active'));
                 document.getElementById(targetId).classList.add('active');
+                const frame = document.getElementById(targetId).querySelector('iframe[data-src]');
+                if (frame && !frame.hasAttribute('src')) frame.src = frame.dataset.src;
             });
         });
 
