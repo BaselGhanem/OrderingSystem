@@ -188,7 +188,10 @@ function initializeManagerView(managerName) {
     if (myTeamBtn && financeRejectedBtn && allOrdersBtn && teamSection && rejectedSection && allSection) {
         const managerTabs = [myTeamBtn, financeRejectedBtn, allOrdersBtn];
         const showManagerSection = target => {
-            managerTabs.forEach(button => button.classList.remove('active'));
+            document.querySelectorAll('.supervisor-premium-tabs .btn-subtab[data-target-section]').forEach(button => button.classList.remove('active'));
+            ['setTargetsSection', 'targetDashboardSection', 'supervisorReminderSection'].forEach(id => { const section = getEl(id); if (section) section.style.display = 'none'; });
+            if (getEl('advancedManagerDashboard')) getEl('advancedManagerDashboard').style.display = 'grid';
+            if (getEl('managerDateFilters')) getEl('managerDateFilters').style.display = 'block';
             teamSection.style.display = target === 'team' ? 'block' : 'none';
             rejectedSection.style.display = target === 'financeRejected' ? 'block' : 'none';
             allSection.style.display = target === 'all' ? 'block' : 'none';

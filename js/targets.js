@@ -301,11 +301,11 @@ function actualSoldQuantity(repName, product, month) {
 }
 
 function setSupervisorTargetSection(sectionId) {
-    const sections = [`teamOrdersSection`, `allOrdersSection`, `setTargetsSection`, `targetDashboardSection`];
+    const sections = [`teamOrdersSection`, `teamFinanceRejectedSection`, `allOrdersSection`, `setTargetsSection`, `targetDashboardSection`, `supervisorReminderSection`];
     sections.forEach(id => {
         if (el(id)) el(id).style.display = id === sectionId ? `block` : `none`;
     });
-    const targetView = [`setTargetsSection`, `targetDashboardSection`].includes(sectionId);
+    const targetView = [`setTargetsSection`, `targetDashboardSection`, `supervisorReminderSection`].includes(sectionId);
     if (el(`advancedManagerDashboard`)) el(`advancedManagerDashboard`).style.display = targetView ? `none` : `grid`;
     if (el(`managerDateFilters`)) el(`managerDateFilters`).style.display = targetView ? `none` : `block`;
     document.querySelectorAll(`.supervisor-premium-tabs .btn-subtab`).forEach(button => button.classList.toggle(`active`, button.dataset.targetSection === sectionId));
@@ -556,7 +556,7 @@ async function initializeSupervisorTargets() {
         setSupervisorTargetSection(`targetDashboardSection`);
         await refreshSupervisorProgress();
     });
-    [`managerMyTeamBtn`, `managerAllOrdersBtn`].forEach(id => el(id)?.addEventListener(`click`, () => setSupervisorTargetSection(id === `managerMyTeamBtn` ? `teamOrdersSection` : `allOrdersSection`)));
+    [`managerMyTeamBtn`, `managerFinanceRejectedBtn`, `managerAllOrdersBtn`].forEach(id => el(id)?.addEventListener(`click`, () => setSupervisorTargetSection(el(id)?.dataset.targetSection)));
     el(`targetMonthPicker`)?.addEventListener(`change`, refreshTargetEntry);
     el(`targetProgressMonth`)?.addEventListener(`change`, refreshSupervisorProgress);
     el(`targetProgressRepFilter`)?.addEventListener(`change`, refreshSupervisorProgress);
