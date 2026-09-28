@@ -4281,7 +4281,7 @@ async function runMonthlyExport() {
         const sheet = XLSX.utils.json_to_sheet(rows);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, sheet, `الطلبيات`);
-        const filename = `تقرير_طلبيات_الشركة_${month}.xlsx`;
+        const filename = `تقرير_الطلبيات_المفلترة.xlsx`;
         download.onclick = () => XLSX.writeFile(workbook, filename);
         download.hidden = false;
         status.textContent = `تم تجهيز ${orders.length.toLocaleString(`en-US`)} طلبية و${rows.length.toLocaleString(`en-US`)} صنف. إذا لم يبدأ التنزيل اضغط الزر أدناه.`;
