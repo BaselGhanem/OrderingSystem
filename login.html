@@ -284,13 +284,18 @@
 
             window.addEventListener(`load`, () => {
                 authView.classList.add(`auth-stage--ready`);
-                if (sessionStorage.getItem(`adminOrderMode`) === `1`) openAuth(`rep`);
+                if (new URLSearchParams(location.search).get(`returnTo`) === `monthly-export`) {
+                    openAuth(`supervisor`);
+                    document.querySelector(`[data-role-option="supervisor"]`)?.click();
+                    const remember = document.getElementById(`rememberAdmin`) || document.getElementById(`rememberMe`);
+                    if (remember) remember.checked = true;
+                } else if (sessionStorage.getItem(`adminOrderMode`) === `1`) openAuth(`rep`);
             });
             window.addEventListener(`popstate`, () => {
                 if (activeRole) closeAuth();
             });
         })();
     </script>
-    <script src="js/app.js?v=20260923_force_v2" type="module"></script>
+    <script src="js/app.js?v=20260928_monthly_export" type="module"></script>
 </body>
 </html>

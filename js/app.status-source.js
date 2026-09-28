@@ -2105,6 +2105,7 @@ async function loadOrderInitialData() {
 
 async function loadInitialData() {
     try {
+        if (APP_PAGE === `monthly-export`) return await runMonthlyExport();
         if (APP_PAGE === 'login') return await loadLoginInitialData();
         if (APP_PAGE === 'order') return await loadOrderInitialData();
         await loadRepManagerAssignments();
@@ -2272,7 +2273,7 @@ async function bootstrapPage() {
         const adminSession = getAdminSession();
         const isAdminOrderMode = sessionStorage.getItem('adminOrderMode') === '1';
         if (adminSession && adminSession.remember && !isAdminOrderMode) {
-            if (adminSession.type === 'manager') window.location.href = 'supervisor.html';
+            if (adminSession.type === 'manager') window.location.href = new URLSearchParams(location.search).get(`returnTo`) === `monthly-export` ? `monthly-export.html` : `supervisor.html`;
             if (adminSession.type === 'reports') window.location.href = 'reports.html';
         }
     }
@@ -2629,7 +2630,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
 
         if (isAdmin) {
             sessionStorage.removeItem('activeOrderContext');
-            window.location.href = 'supervisor.html';
+            window.location.href = new URLSearchParams(location.search).get(`returnTo`) === `monthly-export` ? `monthly-export.html` : `supervisor.html`;
             return;
         }
 
@@ -4138,7 +4139,7 @@ if (confirmAdminLoginBtn) confirmAdminLoginBtn.onclick = (e) => {
             sessionStorage.removeItem('adminOrderMode');
             window.location.href = 'reports.html';
         } else {
-            window.location.href = 'supervisor.html';
+            window.location.href = new URLSearchParams(location.search).get(`returnTo`) === `monthly-export` ? `monthly-export.html` : `supervisor.html`;
         }
     } else {
         showToast("رمز المرور غير صحيح!", "error");
@@ -4242,3 +4243,53 @@ btnClearManagerFilter?.addEventListener('click', () => {
     handleManagerDateChange();
     showToast('تم محو جميع الفلاتر', 'success');
 });
+
+
+// Uses the existing supervisor export schema; server-only reads prevent stale downloads.
+async function runMonthlyExport() {
+    const status = getEl(`exportStatus`);
+    const retry = getEl(`retryExport`);
+    const download = getEl(`downloadExport`);
+    const session = getAdminSession();
+    if (!session || session.type !== `manager`) {
+        location.replace(`login.html?returnTo=monthly-export`);
+        return;
+    }
+    retry.onclick = runMonthlyExport;
+    retry.hidden = true;
+    download.hidden = true;
+    status.textContent = `جاري جلب جميع طلبيات الشهر من الخادم...`;
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, `0`)}`;
+    getEl(`exportPeriod`).textContent = `${month}-01 — ${month}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
+    try {
+        const { getDocsFromServer } = await import(`https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js`);
+        const [snapshot, products] = await Promise.all([
+            getDocsFromServer(query(collection(db, `orders`), where(`createdAt`, `>=`, start), where(`createdAt`, `<`, end))),
+            getDocsFromServer(collection(db, `products`))
+        ]);
+        productsList = products.docs.map(item => ({ id: item.id, ...item.data() }));
+        const orders = sortSupervisorOrders(snapshot.docs.map(item => ({ id: item.id, ...item.data() })), `all`);
+        const rows = buildFlatOrderExportRows(orders);
+        if (!rows.length) {
+            status.textContent = `لا توجد أصناف طلبيات للتصدير خلال هذا الشهر.`;
+            retry.hidden = false;
+            return;
+        }
+        const sheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, sheet, `الطلبيات`);
+        const filename = `تقرير_طلبيات_الشركة_${month}.xlsx`;
+        download.onclick = () => XLSX.writeFile(workbook, filename);
+        download.hidden = false;
+        status.textContent = `تم تجهيز ${orders.length.toLocaleString(`en-US`)} طلبية و${rows.length.toLocaleString(`en-US`)} صنف. إذا لم يبدأ التنزيل اضغط الزر أدناه.`;
+        download.click();
+    } catch (error) {
+        console.error(`Monthly export failed`, error);
+        status.textContent = `تعذر تجهيز الملف الكامل. تحقق من الاتصال ثم أعد المحاولة.`;
+        retry.hidden = false;
+    }
+    retry.onclick = runMonthlyExport;
+}
