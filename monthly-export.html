@@ -1,5 +1,72 @@
 <!doctype html>
-<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>تصدير طلبيات الشهر</title>
-<style>body{margin:0;background:#f2f7f7;color:#183b43;font-family:Tahoma,Arial,sans-serif;display:grid;place-items:center;min-height:100dvh}main{box-sizing:border-box;width:min(92%,520px);background:white;border-radius:24px;padding:36px;box-shadow:0 16px 60px #164a4910}h1{font-size:24px}p{line-height:1.9}#exportPeriod{direction:ltr;color:#527477}button,a{font:inherit}button{border:0;border-radius:12px;padding:14px 22px;background:#099999;color:white;cursor:pointer}a{display:block;margin-top:24px;color:#527477;font-size:14px}[hidden]{display:none!important}</style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script></head>
-<body data-page="monthly-export"><main><h1>تصدير طلبيات الشركة</h1><p id="exportPeriod"></p><p id="exportStatus" role="status" aria-live="polite">جاري تجهيز التصدير...</p><button id="downloadExport" hidden>تنزيل ملف Excel</button><button id="retryExport" hidden>إعادة المحاولة</button><a href="supervisor.html">فتح صفحة المشرف</a></main><script type="module" src="js/app.js?v=20260928_monthly_export"></script></body></html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#06181c"><title>تصدير طلبيات الشهر</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:28px 16px;background:#06181c;color:#edfdfb;font-family:Tahoma,Arial,sans-serif;isolation:isolate;overflow-x:hidden}
+.ambient{position:fixed;inset:0;overflow:hidden;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 50% 0%,#124548 0%,transparent 65%)}
+.ambient:before,.ambient:after{content:"";position:absolute;width:65vmax;height:65vmax;border-radius:50%;filter:blur(70px);opacity:.17;background:#099999;animation:drift 16s ease-in-out infinite alternate}.ambient:before{top:-45vmax;right:-10vmax}.ambient:after{bottom:-48vmax;left:-20vmax;animation-delay:-8s}
+.grid{position:absolute;inset:0;background-image:linear-gradient(#91ffed06 1px,transparent 1px),linear-gradient(90deg,#91ffed06 1px,transparent 1px);background-size:54px 54px;mask-image:radial-gradient(ellipse,#000,transparent 75%)}
+main{position:relative;width:min(100%,540px);padding:36px 32px 28px;text-align:center;border:1px solid #a3fff21c;border-radius:32px;background:linear-gradient(145deg,#163a3eaa,#0a2026e8);box-shadow:0 32px 100px #0006,inset 0 1px #ffffff0d;animation:enter .8s ease-out}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:12px;direction:ltr;font-size:10px;letter-spacing:2px;color:#b4cfce}.brand span:last-child{letter-spacing:1px;padding:7px 10px;border:1px solid #82ddd327;border-radius:20px;color:#82ddd3}
+.visual{position:relative;width:224px;height:224px;margin:30px auto 22px;display:grid;place-items:center}
+.halo{position:absolute;inset:12px;border:1px solid #64e8d520;border-radius:50%;box-shadow:0 0 45px #09999916,inset 0 0 35px #09999910;animation:breathe 3s ease-in-out infinite}
+.orbit{position:absolute;inset:0;border:1px dashed #80e8dc2b;border-radius:50%;animation:spin 22s linear infinite}.orbit:before{content:"";position:absolute;top:21px;left:34px;width:7px;height:7px;background:#adffed;border-radius:50%;box-shadow:0 0 18px #76ffdf}
+.orbit.second{inset:28px;border-style:solid;border-color:transparent #57ddc85c transparent #57ddc814;animation:spin 4s linear infinite reverse}
+.core{position:relative;width:108px;height:124px;border-radius:22px;background:linear-gradient(140deg,#1c746f,#0c3c40);border:1px solid #8bffe558;box-shadow:0 15px 45px #0005,0 0 40px #09999930;display:grid;place-items:center;animation:float 3.6s ease-in-out infinite;overflow:hidden}
+.core:after{content:"";position:absolute;inset:0;background:linear-gradient(transparent,#b5fff32b,transparent);height:40%;animation:scan 2.6s ease-in-out infinite}
+.icon{width:52px;height:60px;fill:none;stroke:#c4fff1;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.success-icon,.error-icon{display:none}.spark{position:absolute;width:4px;height:4px;border-radius:50%;background:#9dffe5;box-shadow:0 0 12px #73ffd5;animation:spark 3s ease-in-out infinite}.s1{top:30px;right:29px}.s2{bottom:36px;left:20px;animation-delay:1s}.s3{bottom:15px;right:65px;animation-delay:2s}
+.eyebrow{font-size:10px;letter-spacing:3px;color:#72cfc5;margin:0 0 12px;direction:ltr}
+h1{font-size:clamp(23px,5vw,30px);line-height:1.5;margin:0 0 14px;font-weight:700;letter-spacing:-.7px}
+#exportPeriod{direction:ltr;unicode-bidi:isolate;display:inline-block;font-family:Tahoma,Arial,sans-serif;font-size:12px;letter-spacing:1px;color:#c0d8d7;background:#05191e66;border:1px solid #a1e4da15;padding:10px 15px;border-radius:12px;margin:0 0 20px;min-height:35px}
+#exportStatus{color:#b6cdce;font-size:14px;line-height:1.95;min-height:55px;margin:0 auto 20px;max-width:410px}
+.track{height:3px;background:#ffffff09;border-radius:5px;overflow:hidden;margin:0 auto 18px;max-width:280px;direction:ltr}.track:after{content:"";display:block;width:35%;height:100%;border-radius:5px;background:linear-gradient(90deg,transparent,#70f5d9,transparent);animation:progress 1.8s ease-in-out infinite}
+.note{font-size:11px;color:#72989b;margin:0 0 20px;line-height:1.8}
+button{font:inherit;width:100%;border:1px solid #aaffeb44;border-radius:15px;padding:15px 18px;background:linear-gradient(115deg,#099999,#087d7c);color:white;cursor:pointer;box-shadow:0 7px 24px #09999925;transition:transform .2s,filter .2s}button:hover{transform:translateY(-2px);filter:brightness(1.15)}button:active{transform:translateY(0)}button:focus-visible,a:focus-visible{outline:2px solid #9fffe4;outline-offset:5px}
+a{display:inline-block;color:#8aaeb0;text-decoration:none;margin-top:24px;font-size:12px;transition:color .2s}a:hover{color:#caffee}
+.footer{direction:ltr;margin-top:27px;color:#62878b;font-size:9px;letter-spacing:2px}
+[hidden]{display:none!important}
+body:has(#downloadExport:not([hidden])) .core{background:linear-gradient(135deg,#146a54,#0c3837);animation:pop .6s ease-out}
+body:has(#downloadExport:not([hidden])) .file-icon,body:has(#retryExport:not([hidden])) .file-icon{display:none}
+body:has(#downloadExport:not([hidden])) .success-icon{display:block;stroke-dasharray:100;animation:draw .9s ease-out}
+body:has(#downloadExport:not([hidden])) .track:after{width:100%;background:#6ce7c2;animation:none}
+body:has(#downloadExport:not([hidden])) .note,body:has(#retryExport:not([hidden])) .note{display:none}
+body:has(#downloadExport:not([hidden])) .orbit{animation-duration:40s}
+body:has(#downloadExport:not([hidden])) .core:after,body:has(#retryExport:not([hidden])) .core:after{display:none}
+body:has(#retryExport:not([hidden])) .error-icon{display:block;stroke:#ffdaac}
+body:has(#retryExport:not([hidden])) .core{animation:none;background:#493b30;border-color:#d5ae7166}
+body:has(#retryExport:not([hidden])) .track{visibility:hidden}
+body:has(#retryExport:not([hidden])) .orbit,body:has(#retryExport:not([hidden])) .spark{animation-play-state:paused}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes float{50%{transform:translateY(-8px) rotate(-3deg)}}@keyframes breathe{50%{transform:scale(.94);opacity:.5}}@keyframes scan{from{transform:translateY(-140%)}to{transform:translateY(350%)}}@keyframes spark{50%{opacity:.2;transform:translateY(-12px)}}@keyframes progress{from{transform:translateX(-100%)}to{transform:translateX(390%)}}@keyframes drift{to{transform:translate(15%,20%)}}@keyframes enter{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}@keyframes pop{50%{transform:scale(1.12)}}@keyframes draw{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
+@media(max-width:400px){main{padding:26px 20px 23px;border-radius:25px}.visual{margin-top:22px;width:200px;height:200px}.brand{font-size:9px;letter-spacing:1px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}.track:after{width:100%;opacity:.6}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body data-page="monthly-export">
+<div class="ambient" aria-hidden="true"><div class="grid"></div></div>
+<main>
+<div class="brand"><span>ORDERING SYSTEM</span><span>BASEL'S SPACE</span></div>
+<div class="visual" aria-hidden="true">
+<div class="halo"></div><div class="orbit"></div><div class="orbit second"></div>
+<div class="core">
+<svg class="icon file-icon" viewBox="0 0 52 60"><path d="M12 3h20l9 10v43H12z"/><path d="M32 3v11h9M19 24h15M19 32h15M19 40h15M26 24v23M19 47h15"/></svg>
+<svg class="icon success-icon" viewBox="0 0 52 60"><circle cx="26" cy="30" r="22"/><path d="m15 30 8 8 15-17" stroke-width="3"/></svg>
+<svg class="icon error-icon" viewBox="0 0 52 60"><circle cx="26" cy="30" r="22"/><path d="M26 17v16m0 8v1" stroke-width="3"/></svg>
+</div><i class="spark s1"></i><i class="spark s2"></i><i class="spark s3"></i>
+</div>
+<p class="eyebrow">YOUR MONTH. ONE FILE.</p>
+<h1>تصدير طلبيات الشركة</h1>
+<p id="exportPeriod"></p>
+<p id="exportStatus" role="status" aria-live="polite">جاري تجهيز التصدير...</p>
+<div class="track" aria-hidden="true"></div>
+<p class="note">لحظات، وملفك بين إيديك</p>
+<button id="downloadExport" hidden>تنزيل ملف Excel</button>
+<button id="retryExport" hidden>إعادة المحاولة</button>
+<a href="supervisor.html">العودة إلى صفحة المشرف ↗</a>
+<div class="footer">LESS WAITING · MORE DOING</div>
+</main>
+<script type="module" src="js/app.js?v=20260928_monthly_export"></script>
+</body></html>
