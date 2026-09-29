@@ -43,6 +43,8 @@
     .carousel-viewport{overflow:hidden}.offers{gap:14px;transition:transform .5s cubic-bezier(.22,.8,.25,1)}.offer,.offer:first-child{flex:0 0 76%;transition:filter .45s,opacity .45s,scale .45s;filter:blur(2.2px);opacity:.62;scale:.96}.offer.active{filter:none;opacity:1;scale:1}.offer:not(.active){pointer-events:none}.previews{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-top:21px}.preview{min-width:0;min-height:81px;border-radius:12px;border:1px solid #d8e7e5;background:#fff;text-align:right;padding:9px;cursor:pointer;color:#466166;transition:.2s;overflow:hidden}.preview:not(.active) strong{filter:blur(1.3px);opacity:.7}.preview.active{background:#e9f8f5;border-color:#099999;box-shadow:0 0 0 1px #099999}.preview span{display:block;color:#099999;font-size:10px;font-weight:900}.preview strong{display:block;font-size:11px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.preview small{display:block;font-size:10px;font-weight:800;direction:ltr;text-align:right}
     .loader{position:fixed;inset:0;z-index:9999;background:#f4faf8;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .45s,visibility .45s}.loader.hidden{opacity:0;visibility:hidden}.loader-orbit{width:130px;height:130px;border-radius:50%;border:1px solid #b9dfd7;display:grid;place-items:center;position:relative;box-shadow:0 0 0 20px #e5f5f1}.loader-orbit b{font-size:21px;letter-spacing:1px;color:#087b79;font-weight:900}.loader-orbit span{position:absolute;width:11px;height:11px;background:#099999;border-radius:50%;top:50%;left:50%;animation:orbit 1.7s linear infinite}.loader-orbit span:nth-child(2){animation-delay:-.57s;opacity:.65}.loader-orbit span:nth-child(3){animation-delay:-1.14s;opacity:.4}.loader p{color:#6c8988;font-size:13px;font-weight:800;margin-top:40px}@keyframes orbit{from{transform:rotate(0deg) translateX(65px) rotate(0deg)}to{transform:rotate(360deg) translateX(65px) rotate(-360deg)}}
     @media(max-width:680px){.brand-logo{width:64px;height:42px}.countdown-wrap{padding:13px}.countdown{width:100%;justify-content:space-between}.countdown span{flex:1;min-width:0}.countdown b{font-size:21px}.offer,.offer:first-child{flex-basis:83%;min-height:455px}.previews{gap:4px}.preview{min-height:70px;padding:5px;border-radius:8px}.preview strong{font-size:9px}.preview small{font-size:9px}}
+    .offer,.offer:first-child{min-height:610px;padding:0 30px 22px;background:#fff}.offer:before{display:none}.offer-top{margin:0 -30px;padding:22px 30px;background:linear-gradient(120deg,#073c4b,#087e80);min-height:80px;align-items:center}.offer-top .number{background:#ffffff22;color:#fff;border:1px solid #ffffff4c}.offer-top .product-code{color:#ceebe7}.offer-heading{margin:26px 0 24px}.offer-kicker{color:#078b86}.product-name,.offer:first-child .product-name{font-size:clamp(25px,4vw,34px);margin:5px 0 0}.tier-heading{display:flex;justify-content:space-between;gap:9px;align-items:center;color:#6e8389;font-size:12px;font-weight:800;margin-bottom:10px}.tier-heading span:last-child{color:#078d80}.tier-list{display:grid;gap:10px}.tier{display:flex;align-items:center;gap:14px;min-height:90px;border:1px solid #e0eae8;border-radius:16px;background:#f8fbfa;padding:12px 16px;position:relative}.tier-index{width:37px;height:37px;display:grid;place-items:center;flex:none;border-radius:11px;background:#e5f5f1;color:#087e79;font-size:13px;font-weight:900}.tier-numbers{display:flex;align-items:center;gap:16px;flex:1}.tier-numbers>div{display:flex;align-items:baseline;gap:6px}.tier-numbers strong{font-size:31px;color:#163c43;font-weight:900;line-height:1}.tier-numbers span{font-size:11px;color:#71888a;font-weight:800;white-space:nowrap}.tier-numbers i{font-style:normal;font-size:22px;color:#7ba8a0;font-weight:900}.tier-bonus strong{color:#099999}.tier-label{border-radius:99px;background:#e7f4ef;color:#087b74;font-size:10px;font-weight:900;padding:5px 9px;white-space:nowrap}.tier-premium{border-color:#d6c49a;background:linear-gradient(105deg,#fffdf7,#f9f4e6);box-shadow:0 8px 20px #7c622115}.tier-premium .tier-index{background:#b49558;color:#fff}.tier-premium .tier-label{background:#e9dcc0;color:#705527}.tier-premium .tier-bonus strong{color:#86652b}.offer-foot{margin-top:auto;padding-top:18px}.offer-foot strong{font-size:11px}
+    @media(max-width:680px){.offer,.offer:first-child{min-height:600px;padding:0 16px 18px}.offer-top{margin:0 -16px;padding:16px;min-height:66px}.offer-heading{margin:23px 0 23px}.tier-heading{font-size:10px}.tier{gap:7px;padding:9px;min-height:85px}.tier-index{width:29px;height:29px;font-size:10px}.tier-numbers{gap:7px}.tier-numbers>div{display:block;text-align:center}.tier-numbers strong{display:block;font-size:27px}.tier-numbers span{font-size:9px}.tier-numbers i{font-size:17px}.tier-label{font-size:8px;padding:4px 5px}.offer-foot{font-size:10px;gap:5px}.offer-foot strong{font-size:9px}}
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
   </style>
 </head>
@@ -77,7 +79,7 @@
     }
     updateCountdown();
     setInterval(updateCountdown,1000);
-    const tiers = [{qty:5,bonus:10},{qty:20,bonus:25},{qty:10,bonus:5},{qty:30,bonus:15},{qty:12,bonus:8}];
+    const tiers = [{qty:5,bonus:10,label:"البداية"},{qty:20,bonus:50,label:"الأكثر طلبا"},{qty:30,bonus:75,label:"القيمة الأعلى"}];
     let products = [];
         let currentSlide = 0;
         const track = offersEl;
@@ -129,20 +131,20 @@
     function render() {
       const selected = randomSample(products,5);
       offersEl.innerHTML = selected.map((product,index) => {
-        const tier = tiers[index];
         const code = product.productCode || product.product_code || product.code || '';
         return `<article class="offer" role="group" aria-roledescription="عرض" aria-label="العرض ${index+1} من 5">
           <div class="offer-top"><span class="number">العرض ${String(index+1).padStart(2,'0')}</span><span class="product-code">${code ? `CODE · ${escapeHtml(code)}` : ''}</span></div>
-          <div class="offer-heading"><span class="offer-kicker">صنف مختار للصيدلية</span><h3 class="product-name">${escapeHtml(product.name)}</h3></div><span class="slide-watermark" aria-hidden="true">${String(index+1).padStart(2,'0')}</span>
-          <div class="deal" aria-label="اشتر ${tier.qty} قطعة واحصل على ${tier.bonus} قطعة بونص">
-            <div class="deal-part"><span class="deal-icon" aria-hidden="true">▣</span><div><strong>${tier.qty}</strong><span>قطعة شراء</span></div></div>
-            <span class="plus" aria-hidden="true">+</span>
-            <div class="deal-part bonus"><span class="deal-icon" aria-hidden="true">✦</span><div><strong>${tier.bonus}</strong><span>قطعة بونص</span></div></div>
-          </div>
-          <div class="offer-foot"><span>إجمالي القطع في المثال</span><strong>${tier.qty+tier.bonus} قطعة</strong></div>
+          <div class="offer-heading"><span class="offer-kicker">عرض مخصص للصيدلية · 3 مستويات</span><h3 class="product-name">${escapeHtml(product.name)}</h3></div>
+          <div class="tier-heading"><span>اختر كمية الشراء المناسبة</span><span>البونص يزيد مع الكمية ✦</span></div>
+          <div class="tier-list">${tiers.map((tier,i) => `<div class="tier ${i===2 ? 'tier-premium' : ''}" aria-label="اشتر ${tier.qty} قطعة واحصل على ${tier.bonus} قطعة بونص">
+            <div class="tier-index">${i===2 ? '✦' : String(i+1).padStart(2,'0')}</div>
+            <div class="tier-numbers"><div><strong>${tier.qty}</strong><span>قطعة شراء</span></div><i aria-hidden="true">+</i><div class="tier-bonus"><strong>${tier.bonus}</strong><span>بونص</span></div></div>
+            <div class="tier-label">${tier.label}</div>
+          </div>`).join('')}</div>
+          <div class="offer-foot"><span>تصور تجريبي · الكميات غير معتمدة</span><strong>اسحب للعرض التالي ←</strong></div>
         </article>`;
       }).join('');
-            dotsEl.innerHTML = selected.map((product,i) => `<button type="button" class="preview" aria-label="اذهب إلى العرض ${i+1}: ${escapeHtml(product.name)}" data-slide="${i}"><span>0${i+1}</span><strong>${escapeHtml(product.name)}</strong><small>${tiers[i].qty} + ${tiers[i].bonus}</small></button>`).join('');
+            dotsEl.innerHTML = selected.map((product,i) => `<button type="button" class="preview" aria-label="اذهب إلى العرض ${i+1}: ${escapeHtml(product.name)}" data-slide="${i}"><span>0${i+1}</span><strong>${escapeHtml(product.name)}</strong><small>3 مستويات عرض</small></button>`).join('');
       dotsEl.querySelectorAll('.preview').forEach(dot => dot.addEventListener('click',() => showSlide(Number(dot.dataset.slide))));
       showSlide(0);
           }
