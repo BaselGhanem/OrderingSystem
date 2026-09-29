@@ -1534,12 +1534,10 @@ async function getOrdersForPrint(ids, existingOrders = []) {
     const byId = new Map(existingOrders.map(order => [order.id, order]));
     const orders = [];
     for (const id of ids) {
-        if (byId.has(id)) {
-            orders.push(byId.get(id));
-        } else {
-            const orderDoc = await getDoc(doc(db, 'orders', id));
-            if (orderDoc.exists()) orders.push({ id: orderDoc.id, ...orderDoc.data() });
-        }
+        // Read the saved order at print time; the list can contain an older snapshot.
+        const orderDoc = await getDoc(doc(db, 'orders', id));
+        if (orderDoc.exists()) orders.push({ id: orderDoc.id, ...orderDoc.data() });
+        else if (byId.has(id)) orders.push(byId.get(id));
     }
     return orders;
 }
@@ -1553,6 +1551,10 @@ function escapePrintHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
+function getPrintableItemBonus(item = {}) {
+    return parseAppNumber(item.bonus ?? item.bonusQty ?? item.freeQty ?? item.free ?? 0);
+}
+
 function buildPrintableOrder(order) {
     const items = Array.isArray(order.items) ? order.items : [];
     const rows = items.map((item, index) => `
@@ -1561,7 +1563,7 @@ function buildPrintableOrder(order) {
             <td>${escapePrintHtml(getProductCodeFromItem(item))}</td>
             <td class="item-name">${escapePrintHtml(item.name || '-')}</td>
             <td>${parseAppNumber(item.qty).toLocaleString('en-US')}</td>
-            <td>${parseAppNumber(item.bonus).toLocaleString('en-US')}</td>
+            <td>${getPrintableItemBonus(item).toLocaleString('en-US')}</td>
             <td>${parseAppNumber(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td>${parseAppNumber(item.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td>${escapePrintHtml(item.note || '-')}</td>
