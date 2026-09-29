@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#087d80">
+  <meta name="description" content="تصور تجريبي لعروض الأصناف المخصصة للصيدليات">
+  <title>عروض الصيدلية | تصور تجريبي</title>
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:light;--ink:#16323c;--muted:#667b82;--teal:#099999;--deep:#075e64;--line:#e0e9e9;--paper:#fff;--bg:#f3f7f6}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font-family:Cairo,Arial,sans-serif}button{font:inherit}button:focus-visible{outline:3px solid #e8a951;outline-offset:3px}
+    .topline{height:5px;background:linear-gradient(90deg,#075e64,#099999,#8ac9bd)}
+    .shell{width:min(1120px,calc(100% - 36px));margin:auto}
+    header{background:#fff;border-bottom:1px solid var(--line)}
+    .header-inner{min-height:92px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .brand{display:flex;align-items:center;gap:14px}.brand-mark{width:48px;height:48px;border-radius:15px;background:linear-gradient(140deg,#08777b,#10aba4);color:white;display:grid;place-items:center;font-size:27px;font-weight:900;box-shadow:0 9px 22px #09999932}.brand strong{display:block;font-size:18px;line-height:1.3}.brand small{display:block;color:var(--muted);font-size:12px;font-weight:700}
+    .header-tag{border:1px solid #b9dfd8;background:#edf9f5;color:#086f70;border-radius:99px;padding:7px 14px;font-size:12px;font-weight:800;white-space:nowrap}
+    main{padding-bottom:70px}
+    .hero{margin-top:30px;padding:45px clamp(23px,5vw,65px);border-radius:28px;background:radial-gradient(circle at 10% 10%,#42c2b955,transparent 30%),linear-gradient(125deg,#073e4a,#076d72 58%,#099999);color:#fff;position:relative;overflow:hidden;box-shadow:0 22px 45px #074e5b21}
+    .hero:after{content:"";position:absolute;width:380px;height:380px;border:1px solid #ffffff26;border-radius:50%;left:-100px;bottom:-240px;box-shadow:0 0 0 50px #ffffff0b,0 0 0 100px #ffffff09;pointer-events:none}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;border:1px solid #ffffff62;background:#ffffff16;border-radius:99px;padding:6px 13px;font-size:12px;font-weight:800}
+    .hero h1{font-size:clamp(30px,4.5vw,51px);line-height:1.28;letter-spacing:-1px;max-width:720px;margin:20px 0 12px;font-weight:900}
+    .hero p{max-width:690px;line-height:1.9;color:#e2f6f3;margin:0;font-size:15px}
+    .hero-meta{margin-top:27px;display:flex;gap:10px;flex-wrap:wrap}.hero-meta span{border-radius:10px;background:#ffffff18;border:1px solid #ffffff2c;padding:8px 12px;font-weight:700;font-size:12px}
+    .notice{display:flex;align-items:flex-start;gap:12px;margin:22px 0 30px;padding:15px 18px;background:#fffaf0;border:1px solid #f4dfac;border-radius:15px;color:#715525;font-size:13px;line-height:1.7}.notice b{white-space:nowrap}
+    .section-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:20px}.section-head h2{font-size:24px;margin:0 0 4px;font-weight:900}.section-head p{margin:0;color:var(--muted);font-size:13px}.refresh{background:#fff;border:1px solid #b8d9d7;border-radius:12px;color:#087476;padding:10px 15px;cursor:pointer;font-weight:800;white-space:nowrap;transition:.2s}.refresh:hover{background:#e9f8f5;transform:translateY(-2px)}.refresh:disabled{opacity:.55;cursor:wait;transform:none}
+    .offers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.offer{background:var(--paper);border:1px solid var(--line);border-radius:21px;padding:22px;min-width:0;box-shadow:0 8px 22px #174c4a0a;transition:transform .2s,box-shadow .2s}.offer:hover{transform:translateY(-3px);box-shadow:0 16px 32px #174c4a15}.offer:first-child{grid-column:1/-1;background:linear-gradient(110deg,#fff 70%,#effaf7)}
+    .offer-top{display:flex;justify-content:space-between;gap:16px;align-items:start}.number{color:#099999;background:#eaf8f5;border-radius:11px;padding:6px 11px;font-size:12px;font-weight:900;white-space:nowrap}.product-code{font-size:11px;color:#83939a;font-weight:700;direction:ltr;text-align:left}.product-name{margin:17px 0 19px;font-size:20px;font-weight:900;line-height:1.5;overflow-wrap:anywhere;min-height:48px}.offer:first-child .product-name{font-size:24px}
+    .deal{display:flex;align-items:stretch;gap:10px;min-height:93px}.deal-part{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;background:#f4f7f7;border:1px solid #e8eeee;border-radius:15px;padding:12px;min-width:0}.deal-part.bonus{background:#ecf9f5;border-color:#ccece1;color:#087d75}.deal-part strong{display:block;font-size:29px;line-height:1;font-weight:900;font-variant-numeric:tabular-nums}.deal-part span{display:block;color:var(--muted);font-size:11px;font-weight:800;white-space:nowrap}.deal-part.bonus span{color:#368c84}.plus{align-self:center;font-size:22px;font-weight:900;color:#8ca3a3}.deal-icon{font-size:22px;opacity:.72}
+    .offer-foot{margin-top:17px;padding-top:14px;border-top:1px solid #e9efee;display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:12px;color:var(--muted)}.offer-foot strong{color:#087c77;font-size:13px;white-space:nowrap}
+    .feedback{margin-top:34px;padding:27px;border-radius:23px;border:1px solid #d7e7e3;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:20px}.feedback h2{margin:0 0 5px;font-size:21px}.feedback p{margin:0;color:var(--muted);font-size:13px;line-height:1.8}.feedback .hint{border:1px solid #cde6e0;color:#0b7776;background:#f0faf6;border-radius:12px;padding:10px 15px;font-size:12px;font-weight:800;white-space:nowrap}
+    footer{text-align:center;color:#829197;font-size:12px;padding:20px}
+    .message{grid-column:1/-1;background:#fff;border:1px solid var(--line);padding:28px;text-align:center;border-radius:18px;color:var(--muted);line-height:1.8}
+    @media(max-width:680px){.shell{width:min(100% - 28px,1120px)}.header-inner{min-height:75px}.brand-mark{width:42px;height:42px}.brand strong{font-size:15px}.header-tag{font-size:10px;padding:5px 9px}.hero{margin-top:16px;border-radius:21px;padding:30px 23px}.hero h1{letter-spacing:0}.notice{display:block}.notice b{display:block;margin-bottom:3px}.section-head{align-items:start}.section-head h2{font-size:21px}.refresh{padding:8px 11px;font-size:12px}.offers{grid-template-columns:1fr;gap:13px}.offer:first-child{grid-column:auto}.offer{padding:18px}.offer:first-child .product-name,.product-name{font-size:19px;min-height:0}.feedback{display:block}.feedback .hint{display:inline-block;margin-top:14px}.deal-part strong{font-size:27px}}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <div class="topline"></div>
+  <header><div class="shell header-inner"><div class="brand"><div class="brand-mark" aria-hidden="true">+</div><div><strong>عروض الصيدلية</strong><small>Dar Al Dawaa · DAD Group</small></div></div><span class="header-tag">تصور أولي · لاستطلاع الرأي</span></div></header>
+  <main class="shell">
+    <section class="hero"><span class="eyebrow">✦ تجربة مخصصة للصيدليات</span><h1>عروض أوضح.<br>قرار طلب أسهل.</h1><p>تخيل صفحة تعرض لك مجموعة مختارة من الأصناف، مع كمية الشراء والبونص بشكل مباشر وسهل المقارنة.</p><div class="hero-meta"><span>5 أصناف في كل عرض</span><span>كمية الشراء + البونص</span><span>تجربة قابلة للتطوير</span></div></section>
+    <aside class="notice"><b>للتجربة فقط</b><span>الأصناف مختارة عشوائيا من قائمة المنتجات، والكميات والبونص أمثلة توضيحية غير معتمدة. لا يمكن تقديم طلب أو المطالبة بهذه العروض من هذه الصفحة.</span></aside>
+    <div class="section-head"><div><h2>عروض مقترحة لك</h2><p>اضغط «تغيير الأصناف» لتجربة تشكيلة مختلفة.</p></div><button type="button" class="refresh" id="refresh" disabled>↻ تغيير الأصناف</button></div>
+    <section class="offers" id="offers" aria-live="polite"><div class="message">جاري تحميل الأصناف...</div></section>
+    <section class="feedback"><div><h2>شو رأيك بالفكرة؟</h2><p>هل عرض الكمية والبونص بهالشكل بيساعدك تقارن العروض بسرعة؟ شارك رأيك مع الشخص اللي أرسل لك الصفحة.</p></div><span class="hint">التصميم تجريبي ومفتوح للملاحظات</span></section>
+  </main>
+  <footer>Dar Al Dawaa · نموذج أولي لقياس الاهتمام · لا يمثل عرض بيع معتمدا</footer>
+  <script type="module">
+    import { db, collection, getDocs } from './js/firebase.js';
+    const offersEl = document.getElementById('offers');
+    const refresh = document.getElementById('refresh');
+    const tiers = [{qty:5,bonus:10},{qty:20,bonus:25},{qty:10,bonus:5},{qty:30,bonus:15},{qty:12,bonus:8}];
+    let products = [];
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    function randomSample(rows, count) {
+      const copy = rows.slice();
+      for (let i=0; i<count; i++) {
+        const j=i+Math.floor(Math.random()*(copy.length-i));
+        [copy[i],copy[j]]=[copy[j],copy[i]];
+      }
+      return copy.slice(0,count);
+    }
+    function render() {
+      const selected = randomSample(products,5);
+      offersEl.innerHTML = selected.map((product,index) => {
+        const tier = tiers[index];
+        const code = product.productCode || product.product_code || product.code || '';
+        return `<article class="offer">
+          <div class="offer-top"><span class="number">العرض ${String(index+1).padStart(2,'0')}</span><span class="product-code">${code ? `CODE · ${escapeHtml(code)}` : ''}</span></div>
+          <h3 class="product-name">${escapeHtml(product.name)}</h3>
+          <div class="deal" aria-label="اشتر ${tier.qty} قطعة واحصل على ${tier.bonus} قطعة بونص">
+            <div class="deal-part"><span class="deal-icon" aria-hidden="true">▣</span><div><strong>${tier.qty}</strong><span>قطعة شراء</span></div></div>
+            <span class="plus" aria-hidden="true">+</span>
+            <div class="deal-part bonus"><span class="deal-icon" aria-hidden="true">✦</span><div><strong>${tier.bonus}</strong><span>قطعة بونص</span></div></div>
+          </div>
+          <div class="offer-foot"><span>إجمالي القطع في المثال</span><strong>${tier.qty+tier.bonus} قطعة</strong></div>
+        </article>`;
+      }).join('');
+    }
+    refresh.addEventListener('click',render);
+    try {
+      const snapshot = await getDocs(collection(db,'products'));
+      const seen = new Set();
+      products = snapshot.docs.map(row => ({id:row.id,...row.data()})).filter(product => {
+        const name = String(product.name || '').trim();
+        if (!name || seen.has(name)) return false;
+        seen.add(name);
+        return true;
+      });
+      if (products.length < 5) throw new Error('Not enough products');
+      refresh.disabled = false;
+      render();
+    } catch (error) {
+      console.error('Offers preview could not load products',error);
+      offersEl.innerHTML = '<div class="message">تعذر تحميل الأصناف حاليا. حاول تحديث الصفحة لاحقا.</div>';
+    }
+  </script>
+</body>
+</html>
