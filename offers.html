@@ -36,7 +36,9 @@
     footer{text-align:center;color:#829197;font-size:12px;padding:20px}
     .message{grid-column:1/-1;background:#fff;border:1px solid var(--line);padding:28px;text-align:center;border-radius:18px;color:var(--muted);line-height:1.8}
     @media(max-width:680px){.shell{width:min(100% - 28px,1120px)}.header-inner{min-height:75px}.brand-mark{width:42px;height:42px}.brand strong{font-size:15px}.header-tag{font-size:10px;padding:5px 9px}.hero{margin-top:16px;border-radius:21px;padding:30px 23px}.hero h1{letter-spacing:0}.notice{display:block}.notice b{display:block;margin-bottom:3px}.section-head{align-items:start}.section-head h2{font-size:21px}.refresh{padding:8px 11px;font-size:12px}.offers{grid-template-columns:1fr;gap:13px}.offer:first-child{grid-column:auto}.offer{padding:18px}.offer:first-child .product-name,.product-name{font-size:19px;min-height:0}.feedback{display:block}.feedback .hint{display:inline-block;margin-top:14px}.deal-part strong{font-size:27px}}
-    @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+    .carousel-shell{max-width:760px;margin:0 auto}.carousel-viewport{overflow:hidden;border-radius:28px;box-shadow:0 22px 50px #144c4b1a;background:#fff;touch-action:pan-y;user-select:none;cursor:grab}.carousel-viewport:active{cursor:grabbing}.offers{display:flex;gap:0;transition:transform .48s cubic-bezier(.22,.8,.25,1);will-change:transform;direction:rtl}.offer,.offer:first-child{flex:0 0 100%;grid-column:auto;border:0;border-radius:0;box-shadow:none;transform:none;background:linear-gradient(160deg,#fff 60%,#eef9f6);min-height:475px;padding:clamp(25px,5vw,46px);display:flex;flex-direction:column;position:relative;overflow:hidden}.offer:before{content:"";position:absolute;width:340px;height:340px;border:1px solid #d8efea;border-radius:50%;top:-230px;left:-130px;box-shadow:0 0 0 42px #e2f5f045,0 0 0 84px #e2f5f025;pointer-events:none}.offer:hover{transform:none;box-shadow:none}.offer-top{position:relative}.number{background:#087d80;color:white;padding:8px 15px;border-radius:99px}.product-code{font-size:12px}.offer-heading{margin:auto 0 25px;position:relative}.offer-kicker{font-size:12px;color:#138e88;font-weight:900;letter-spacing:.1px}.product-name,.offer:first-child .product-name{font-size:clamp(26px,4.4vw,38px);min-height:0;margin:7px 0 0;line-height:1.45}.deal{min-height:125px;position:relative}.deal-part{border-radius:19px}.deal-part strong{font-size:clamp(36px,6vw,54px)}.deal-part span{font-size:13px}.deal-icon{font-size:27px}.offer-foot{margin-top:23px;font-size:13px;position:relative}.offer-foot strong{font-size:16px}.slide-watermark{position:absolute;left:30px;bottom:114px;font-size:88px;font-weight:900;color:#09999909;pointer-events:none}.carousel-controls{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:17px}.carousel-actions{display:flex;gap:9px}.nav-arrow{width:45px;height:45px;border:1px solid #cde4df;background:#fff;border-radius:13px;color:#087a79;font-size:24px;font-weight:800;cursor:pointer;display:grid;place-items:center;transition:.2s}.nav-arrow:hover:not(:disabled){background:#eaf9f5;transform:translateY(-2px)}.nav-arrow:disabled{opacity:.35;cursor:default}.slide-status{color:#617b7c;font-weight:800;font-size:13px;white-space:nowrap}.slide-status b{font-size:18px;color:#087b7d}.dots{display:flex;justify-content:center;gap:8px;margin:7px 0 0;direction:ltr}.dot{height:8px;width:8px;padding:0;border:0;border-radius:99px;background:#bfdad5;cursor:pointer;transition:.25s}.dot.active{width:30px;background:#099999}.carousel-hint{text-align:center;color:#8a9b9b;font-size:11px;margin:9px 0 0}.carousel-viewport .message{width:100%}
+        @media(max-width:680px){.carousel-viewport{border-radius:21px}.offer,.offer:first-child{min-height:465px;padding:23px}.offer-heading{margin:auto 0 23px}.product-name,.offer:first-child .product-name{font-size:clamp(23px,7vw,31px)}.deal{min-height:110px}.deal-part{padding:9px;gap:5px}.deal-part strong{font-size:37px}.deal-icon{font-size:20px}.offer-foot{margin-top:18px}.slide-watermark{bottom:100px}.carousel-controls{margin-top:13px}}
+        @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
   </style>
 </head>
 <body>
@@ -46,7 +48,14 @@
     <section class="hero"><span class="eyebrow">✦ تجربة مخصصة للصيدليات</span><h1>عروض أوضح.<br>قرار طلب أسهل.</h1><p>تخيل صفحة تعرض لك مجموعة مختارة من الأصناف، مع كمية الشراء والبونص بشكل مباشر وسهل المقارنة.</p><div class="hero-meta"><span>5 أصناف في كل عرض</span><span>كمية الشراء + البونص</span><span>تجربة قابلة للتطوير</span></div></section>
     <aside class="notice"><b>للتجربة فقط</b><span>الأصناف مختارة عشوائيا من قائمة المنتجات، والكميات والبونص أمثلة توضيحية غير معتمدة. لا يمكن تقديم طلب أو المطالبة بهذه العروض من هذه الصفحة.</span></aside>
     <div class="section-head"><div><h2>عروض مقترحة لك</h2><p>اضغط «تغيير الأصناف» لتجربة تشكيلة مختلفة.</p></div><button type="button" class="refresh" id="refresh" disabled>↻ تغيير الأصناف</button></div>
-    <section class="offers" id="offers" aria-live="polite"><div class="message">جاري تحميل الأصناف...</div></section>
+    <div class="carousel-shell">
+            <div class="carousel-viewport" id="carouselViewport" aria-label="عروض الأصناف" aria-roledescription="كاروسيل">
+              <section class="offers" id="offers" aria-live="polite"><div class="message">جاري تحميل الأصناف...</div></section>
+            </div>
+            <div class="carousel-controls"><div class="carousel-actions"><button type="button" class="nav-arrow" id="nextSlide" aria-label="العرض التالي" disabled>←</button><button type="button" class="nav-arrow" id="prevSlide" aria-label="العرض السابق" disabled>→</button></div><span class="slide-status"><b id="slideIndex">1</b> / 5</span></div>
+            <div class="dots" id="dots" aria-label="اختيار العرض"></div>
+            <p class="carousel-hint">اسحب البطاقة يمينا أو يسارا لاستعراض الأصناف</p>
+          </div>
     <section class="feedback"><div><h2>شو رأيك بالفكرة؟</h2><p>هل عرض الكمية والبونص بهالشكل بيساعدك تقارن العروض بسرعة؟ شارك رأيك مع الشخص اللي أرسل لك الصفحة.</p></div><span class="hint">التصميم تجريبي ومفتوح للملاحظات</span></section>
   </main>
   <footer>Dar Al Dawaa · نموذج أولي لقياس الاهتمام · لا يمثل عرض بيع معتمدا</footer>
@@ -56,6 +65,41 @@
     const refresh = document.getElementById('refresh');
     const tiers = [{qty:5,bonus:10},{qty:20,bonus:25},{qty:10,bonus:5},{qty:30,bonus:15},{qty:12,bonus:8}];
     let products = [];
+        let currentSlide = 0;
+        const track = offersEl;
+        const dotsEl = document.getElementById('dots');
+        const nextButton = document.getElementById('nextSlide');
+        const prevButton = document.getElementById('prevSlide');
+        const viewport = document.getElementById('carouselViewport');
+        function showSlide(index) {
+          currentSlide = Math.max(0,Math.min(4,index));
+          track.style.transform = `translateX(${currentSlide * 100}%)`;
+          document.getElementById('slideIndex').textContent = String(currentSlide+1);
+          nextButton.disabled = currentSlide === 4;
+          prevButton.disabled = currentSlide === 0;
+          dotsEl.querySelectorAll('.dot').forEach((dot,i) => {
+            dot.classList.toggle('active',i===currentSlide);
+            dot.setAttribute('aria-current',i===currentSlide ? 'true' : 'false');
+          });
+        }
+        nextButton.addEventListener('click',() => showSlide(currentSlide+1));
+        prevButton.addEventListener('click',() => showSlide(currentSlide-1));
+        let touchStart = null;
+        viewport.addEventListener('touchstart',event => { touchStart = {x:event.touches[0].clientX,y:event.touches[0].clientY}; },{passive:true});
+        viewport.addEventListener('touchend',event => {
+          if (!touchStart) return;
+          const dx=event.changedTouches[0].clientX-touchStart.x;
+          const dy=event.changedTouches[0].clientY-touchStart.y;
+          if(Math.abs(dx)>45 && Math.abs(dx)>Math.abs(dy)*1.3) showSlide(currentSlide+(dx>0?1:-1));
+          touchStart=null;
+        },{passive:true});
+        viewport.setAttribute('tabindex','0');
+        viewport.addEventListener('keydown',event => {
+          if(event.key==='ArrowLeft' || event.key==='ArrowRight'){
+            event.preventDefault();
+            showSlide(currentSlide+(event.key==='ArrowLeft'?1:-1));
+          }
+        });
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     function randomSample(rows, count) {
       const copy = rows.slice();
@@ -70,9 +114,9 @@
       offersEl.innerHTML = selected.map((product,index) => {
         const tier = tiers[index];
         const code = product.productCode || product.product_code || product.code || '';
-        return `<article class="offer">
+        return `<article class="offer" role="group" aria-roledescription="عرض" aria-label="العرض ${index+1} من 5">
           <div class="offer-top"><span class="number">العرض ${String(index+1).padStart(2,'0')}</span><span class="product-code">${code ? `CODE · ${escapeHtml(code)}` : ''}</span></div>
-          <h3 class="product-name">${escapeHtml(product.name)}</h3>
+          <div class="offer-heading"><span class="offer-kicker">صنف مختار للصيدلية</span><h3 class="product-name">${escapeHtml(product.name)}</h3></div><span class="slide-watermark" aria-hidden="true">${String(index+1).padStart(2,'0')}</span>
           <div class="deal" aria-label="اشتر ${tier.qty} قطعة واحصل على ${tier.bonus} قطعة بونص">
             <div class="deal-part"><span class="deal-icon" aria-hidden="true">▣</span><div><strong>${tier.qty}</strong><span>قطعة شراء</span></div></div>
             <span class="plus" aria-hidden="true">+</span>
@@ -81,8 +125,11 @@
           <div class="offer-foot"><span>إجمالي القطع في المثال</span><strong>${tier.qty+tier.bonus} قطعة</strong></div>
         </article>`;
       }).join('');
-    }
-    refresh.addEventListener('click',render);
+            dotsEl.innerHTML = selected.map((_,i) => `<button type="button" class="dot" aria-label="اذهب إلى العرض ${i+1}" data-slide="${i}"></button>`).join('');
+            dotsEl.querySelectorAll('.dot').forEach(dot => dot.addEventListener('click',() => showSlide(Number(dot.dataset.slide))));
+            showSlide(0);
+          }
+          refresh.addEventListener('click',render);
     try {
       const snapshot = await getDocs(collection(db,'products'));
       const seen = new Set();
