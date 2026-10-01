@@ -16,6 +16,8 @@
     <script>
         (() => {
             const ADMIN_SESSION_KEY = `dad_admin_session_v2`;
+            const REP_SESSION_KEY = `dad_rep_session_v1`;
+            const SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
             const LEGACY_ADMIN_KEYS = [`managerName`, `adminType`, `authToken`, `adminPassword`];
             const SWITCH_PARAMS = [`switch`, `logout`, `reset`, `forceLogin`];
             const safeJson = value => {
@@ -25,6 +27,7 @@
             const mustSwitch = SWITCH_PARAMS.some(key => params.has(key));
 
             if (mustSwitch) {
+                localStorage.removeItem(REP_SESSION_KEY);
                 localStorage.removeItem(ADMIN_SESSION_KEY);
                 sessionStorage.removeItem(ADMIN_SESSION_KEY);
                 LEGACY_ADMIN_KEYS.forEach(key => {
@@ -39,18 +42,28 @@
             } else {
                 const adminOrderMode = sessionStorage.getItem(`adminOrderMode`) === `1`;
                 const orderContext = sessionStorage.getItem(`activeOrderContext`);
-                const repId = sessionStorage.getItem(`repId`);
-                const repName = sessionStorage.getItem(`repName`);
+                let repId = sessionStorage.getItem(`repId`);
+                let repName = sessionStorage.getItem(`repName`);
+                const rememberedRep = safeJson(localStorage.getItem(REP_SESSION_KEY));
+                const validRememberedRep = rememberedRep?.remember === true && rememberedRep.repId && rememberedRep.repName &&
+                    Number.isFinite(rememberedRep.savedAt) && rememberedRep.savedAt <= Date.now() && Date.now() - rememberedRep.savedAt <= SESSION_TTL;
+                if (rememberedRep && !validRememberedRep) localStorage.removeItem(REP_SESSION_KEY);
+                if (!adminOrderMode && (!repId || !repName) && validRememberedRep) {
+                    repId = rememberedRep.repId; repName = rememberedRep.repName;
+                    sessionStorage.setItem(`repId`, repId); sessionStorage.setItem(`repName`, repName);
+                }
                 if (!adminOrderMode && (orderContext || (repId && repName))) {
                     window.location.replace(`order.html`);
                     return;
                 }
                 const adminSession = safeJson(localStorage.getItem(ADMIN_SESSION_KEY)) || safeJson(sessionStorage.getItem(ADMIN_SESSION_KEY));
-                if (!adminOrderMode && adminSession?.remember && adminSession.type === `manager`) {
+                const validRememberedAdmin = adminSession?.remember && adminSession.name && adminSession.token &&
+                    Number.isFinite(adminSession.savedAt) && adminSession.savedAt <= Date.now() && Date.now() - adminSession.savedAt <= SESSION_TTL;
+                if (!adminOrderMode && validRememberedAdmin && adminSession.type === `manager`) {
                     window.location.replace(`supervisor.html`);
                     return;
                 }
-                if (!adminOrderMode && adminSession?.remember && adminSession.type === `reports`) {
+                if (!adminOrderMode && validRememberedAdmin && adminSession.type === `reports`) {
                     window.location.replace(`reports.html`);
                 }
             }
@@ -143,11 +156,11 @@
                             </div>
                             <label class="remember-row" for="rememberRepPass">
                                 <input id="rememberRepPass" type="checkbox">
-                                <span>تذكر كلمة المرور</span>
+                                <span>تذكر تسجيل الدخول</span>
                             </label>
                         </div>
 
-                        <button class="primary-button" id="startOrderBtn" type="button" disabled>
+                        <button class="primary-button" id="startOrderBtn" type="submit" disabled>
                             تسجيل الدخول
                             <i class="ph ph-sign-in" aria-hidden="true"></i>
                         </button>
@@ -186,7 +199,7 @@
                             <span>تذكر تسجيل الدخول</span>
                         </label>
 
-                        <button class="primary-button" id="confirmAdminLoginBtn" type="button">
+                        <button class="primary-button" id="confirmAdminLoginBtn" type="submit">
                             تسجيل الدخول
                             <i class="ph ph-sign-in" aria-hidden="true"></i>
                         </button>
@@ -296,6 +309,6 @@
             });
         })();
     </script>
-    <script src="js/app.js?v=20261001_bonus1" type="module"></script>
+    <script src="js/app.js?v=20261001_login1" type="module"></script>
 </body>
 </html>

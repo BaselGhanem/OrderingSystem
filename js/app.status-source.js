@@ -357,6 +357,7 @@ const APP_PAGE = document.body?.dataset?.page || 'legacy';
 const COMPANY_LOGO_URL = 'https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png';
 const ADMIN_SESSION_KEY = 'dad_admin_session_v2';
 const ADMIN_SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
+const REP_SESSION_KEY = `dad_rep_session_v1`;
 const LEGACY_ADMIN_KEYS = ['managerName', 'adminType', 'authToken', 'adminPassword'];
 const AUTH_SWITCH_PARAMS = ['switch', 'logout', 'reset', 'forceLogin'];
 
@@ -1730,13 +1731,39 @@ function getCurrentFilteredAllOrders() {
 
 function goToLogin() { window.location.href = 'login.html'; }
 
-function saveRepSession(repId, repName) {
-    sessionStorage.setItem('repId', repId);
-    sessionStorage.setItem('repName', repName);
+function getRememberedRepSession() {
+    try {
+        const session = JSON.parse(localStorage.getItem(REP_SESSION_KEY) || `null`);
+        if (!session) return null;
+        if (!session.repId || !session.repName || session.remember !== true ||
+            !Number.isFinite(session.savedAt) || session.savedAt > Date.now() ||
+            Date.now() - session.savedAt > ADMIN_SESSION_TTL) {
+            localStorage.removeItem(REP_SESSION_KEY);
+            return null;
+        }
+        return session;
+    } catch (_) { localStorage.removeItem(REP_SESSION_KEY); return null; }
+}
+function saveRepSession(repId, repName, remember) {
+    sessionStorage.setItem(`repId`, repId);
+    sessionStorage.setItem(`repName`, repName);
+    if (remember === true) {
+        localStorage.setItem(REP_SESSION_KEY, JSON.stringify({ repId, repName, remember: true, savedAt: Date.now() }));
+    } else {
+        const previous = getRememberedRepSession();
+        if (remember === false || (previous && previous.repId !== repId)) localStorage.removeItem(REP_SESSION_KEY);
+    }
 }
 function loadRepSession() {
-    const id = sessionStorage.getItem('repId');
-    const name = sessionStorage.getItem('repName');
+    let id = sessionStorage.getItem(`repId`);
+    let name = sessionStorage.getItem(`repName`);
+    if ((!id || !name) && sessionStorage.getItem(`adminOrderMode`) !== `1`) {
+        const remembered = getRememberedRepSession();
+        if (remembered) {
+            id = remembered.repId; name = remembered.repName;
+            saveRepSession(id, name);
+        }
+    }
     if (id && name) {
         currentRepId = id;
         currentRepName = name;
@@ -1745,8 +1772,9 @@ function loadRepSession() {
     return false;
 }
 function clearRepSession() {
-    sessionStorage.removeItem('repId');
-    sessionStorage.removeItem('repName');
+    sessionStorage.removeItem(`repId`);
+    sessionStorage.removeItem(`repName`);
+    localStorage.removeItem(REP_SESSION_KEY);
 }
 
 const repSelect = document.getElementById('repSelect');
@@ -2531,7 +2559,7 @@ if (repSelect) repSelect.onchange = async event => {
     if (startOrderBtn) startOrderBtn.disabled = false;
 };
 
-if (startOrderBtn) startOrderBtn.onclick = async event => {
+async function submitRepresentativeLogin(event) {
     event.preventDefault();
     if (!repSelect?.value) return showToast(`الرجاء اختيار اسم المندوب.`, `warning`);
 
@@ -2559,11 +2587,20 @@ if (startOrderBtn) startOrderBtn.onclick = async event => {
 
     currentRepId = repSelect.value;
     currentRepName = selectedRepName;
-    saveRepSession(currentRepId, currentRepName);
+    if (sessionStorage.getItem(`adminOrderMode`) !== `1`) clearAdminSession();
+    saveRepSession(currentRepId, currentRepName, !!rememberPassword?.checked);
     localStorage.setItem(`dad_last_rep_id`, currentRepId);
     sessionStorage.removeItem(`activeOrderContext`);
     window.location.href = `order.html`;
-};
+}
+const representativeLoginForm = getEl(`repLoginForm`);
+if (representativeLoginForm) representativeLoginForm.addEventListener(`submit`, submitRepresentativeLogin);
+else if (startOrderBtn) {
+    startOrderBtn.onclick = submitRepresentativeLogin;
+    getEl(`repPasswordInput`)?.addEventListener(`keydown`, event => {
+        if (event.key === `Enter` && !event.isComposing) { event.preventDefault(); startOrderBtn.click(); }
+    });
+}
 
 if (submitOrderBtn) submitOrderBtn.onclick = async () => {
     if (!navigator.onLine) {
@@ -4165,18 +4202,17 @@ function openAdminLoginBox() {
     if (passInput) { passInput.value = ''; passInput.focus(); }
 }
 
-getEl('adminPasswordInput')?.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); getEl('confirmAdminLoginBtn')?.click(); }
-});
-
 const confirmAdminLoginBtn = getEl('confirmAdminLoginBtn');
-if (confirmAdminLoginBtn) confirmAdminLoginBtn.onclick = (e) => {
+function submitAdminLogin(e) {
     e.preventDefault();
     if (!selectedAdminType) return showToast("الرجاء تحديد هويتك من البطاقات أعلاه", "warning");
     const pass = getEl('adminPasswordInput')?.value || '';
     const SECRET_HASH = "MjAyNjA0";
     if (btoa(pass) === SECRET_HASH) {
         const rememberMe = !!(getEl('rememberAdmin')?.checked || getEl('rememberMe')?.checked);
+        clearRepSession();
+        sessionStorage.removeItem(`activeOrderContext`);
+        sessionStorage.removeItem(`adminOrderMode`);
         saveAdminSession(selectedAdminName, selectedAdminType, rememberMe);
         if (selectedAdminType === 'reports') {
             sessionStorage.removeItem('adminOrderMode');
@@ -4187,7 +4223,15 @@ if (confirmAdminLoginBtn) confirmAdminLoginBtn.onclick = (e) => {
     } else {
         showToast("رمز المرور غير صحيح!", "error");
     }
-};
+}
+const administratorLoginForm = getEl(`adminLoginForm`);
+if (administratorLoginForm) administratorLoginForm.addEventListener(`submit`, submitAdminLogin);
+else if (confirmAdminLoginBtn) {
+    confirmAdminLoginBtn.onclick = submitAdminLogin;
+    getEl(`adminPasswordInput`)?.addEventListener(`keydown`, event => {
+        if (event.key === `Enter` && !event.isComposing) { event.preventDefault(); confirmAdminLoginBtn.click(); }
+    });
+}
 getEl('selectAllAllOrders')?.addEventListener('change', function() {
     const checkboxes = document.querySelectorAll('.all-order-checkbox');
     checkboxes.forEach(cb => cb.checked = this.checked);
