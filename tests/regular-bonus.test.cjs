@@ -36,3 +36,22 @@ test(`no-bonus and missing-policy fallback retain their defined behavior`, async
     assert.throws(() => validatePolicy({ mode: `tiers`, tiers: [{ qty: 0, bonus: 0 }] }));
     assert.throws(() => validatePolicy({ mode: `tiers`, tiers: [{ qty: 12, bonus: 1 }, { qty: 12, bonus: 2 }] }));
 });
+
+ test(`template round trip validates all products and rejects incorrect uploads`, async () => {
+    const { validatePolicy, productBonusKey } = await modulePromise;
+    const importSource = fs.readFileSync(path.join(root, `js/regular-bonus-import.js`), `utf8`).replace(/^import[^\n]+\n/, source + `\n`);
+    const { templateRows, parseBonusRows } = await import(`data:text/javascript;base64,${Buffer.from(importSource).toString(`base64`)}`);
+    const policies = JSON.parse(defaults);
+    const products = Object.entries(policies).map(([code, policy]) => ({ code, name: policy.name }));
+    const rows = templateRows(products, product => validatePolicy(policies[productBonusKey(product)]));
+    const parsed = parseBonusRows(rows, products);
+    assert.equal(Object.keys(parsed).length, 86);
+    for (const product of products) assert.deepEqual(parsed[product.code], validatePolicy(policies[product.code]));
+    const invalid = structuredClone(rows); invalid[1][0] = `UNKNOWN`;
+    assert.throws(() => parseBonusRows(invalid, products), /غير موجود/);
+    assert.throws(() => parseBonusRows([...rows, rows[1]], products), /مكرر/);
+    const missing = structuredClone(rows); missing[1][4] = ``;
+    assert.throws(() => parseBonusRows(missing, products), /أكمل/);
+    const subset = parseBonusRows([rows[0], rows[1]], products);
+    assert.equal(Object.keys(subset).length, 1);
+ });
