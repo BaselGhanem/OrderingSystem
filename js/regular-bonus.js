@@ -99,10 +99,10 @@ export function attachBonusRow(row, findProduct, recalculate, { preserveExisting
         hint.textContent = policy.mode === `none` ? `هذا الصنف بدون بونص` : policy.mode === `tiers` ? `البونص تلقائي؛ الاستثناء في ملاحظات الصنف` : ``;
         if (policy.mode === `tiers`) {
             select.add(new Option(`اختر الكمية والبونص`, ``));
-            for (const tier of policy.tiers) select.add(new Option(`${tier.qty} قطعة + ${tier.bonus} بونص`, String(tier.qty)));
             const max = policy.tiers.at(-1);
             const min = policy.tiers[0];
             if (min.qty > 1) select.add(new Option(`كمية أقل من ${min.qty} — بدون بونص`, `below`));
+            for (const tier of policy.tiers) select.add(new Option(`${tier.qty} قطعة + ${tier.bonus} بونص`, String(tier.qty)));
             select.add(new Option(`كمية أكبر من ${max.qty}`, `custom`));
             if (legacy) {
                 select.add(new Option(`القيمة الحالية: ${legacy.qty} + ${legacy.bonus} بونص`, `legacy`));
