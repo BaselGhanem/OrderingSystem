@@ -1,3 +1,15 @@
+
+function extraItemCount(order = {}) {
+    return (Array.isArray(order.items) ? order.items : []).filter(item => String(item.note ?? ``).trim() !== ``).length;
+}
+function extraBadge(order = {}) {
+    const count = extraItemCount(order);
+    return count ? `<span class="extra-order-badge" title="توجد ملاحظات على مستوى الصنف"><b dir="ltr">Extra</b><small>${count} أصناف</small></span>` : ``;
+}
+function matchesExtraFilter(order, id) {
+    const value = document.getElementById(id)?.value || ``;
+    return !value || (value === `extra` ? extraItemCount(order) > 0 : extraItemCount(order) === 0);
+}
 import { loadBonusConfiguration, attachBonusRow } from './regular-bonus.js?v=20261001_bonus1';
 import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js';
 
@@ -3271,11 +3283,13 @@ function applyManagerFilters() {
 
     const filtered = managerOrdersData.filter(order =>
         !isOrderDeleted(order) &&
+        matchesExtraFilter(order, `supervisorExtraFilter`) &&
         supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal)
     );
     const financeSelections = { ...selections, status: '' };
     const financeRejectedOrders = managerOrdersData.filter(order =>
         !isOrderDeleted(order) &&
+        matchesExtraFilter(order, `supervisorExtraFilter`) &&
         (getEffectiveOrderStatus(order) === 'finance_rejected' || order.financeStatus === 'finance_rejected') &&
         supervisorOrderMatchesSelections(order, financeSelections, null, fromVal, toVal)
     );
@@ -3312,7 +3326,7 @@ function renderManagerOrders(orders) {
             <td data-label="المندوب">${order.repName || '-'}</td>
             <td data-label="الصيدلية">${order.pharmacyName || '-'}</td>
             <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getReservedOrderBadge(order)}${getOrderFollowupNote(order) ? `<div class="workflow-reason" style="margin-top:6px;">${escapePrintHtml(getOrderFollowupNote(order))}</div>` : ''}</td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getReservedOrderBadge(order)}${APP_PAGE === `supervisor` ? extraBadge(order) : ``}${getOrderFollowupNote(order) ? `<div class="workflow-reason" style="margin-top:6px;">${escapePrintHtml(getOrderFollowupNote(order))}</div>` : ''}</td>
             <td data-label="إجراء">
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 ${!isApproved ? `<button class="action-btn approve-btn" title="موافقة"><i class="ph ph-check-circle"></i></button><button class="action-btn return-rep-btn" title="إرجاع للمندوب"><i class="ph ph-arrow-u-down-right"></i></button>` : ''}
@@ -3457,7 +3471,7 @@ function renderAllOrders(orders) {
             <td data-label="المندوب" class="all-rep-col">${order.repName || '-'}</td>
             <td data-label="الصيدلية" class="all-pharm-col">${order.pharmacyName || '-'}${unassignedBadge}</td>
             <td data-label="القيمة">${parseAppNumber(order.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getReservedOrderBadge(order)}</td>
+            <td data-label="الحالة"><span class="status-badge ${statusClass}">${getWorkflowStatusLabel(statusClass)}</span>${getReservedOrderBadge(order)}${APP_PAGE === `supervisor` ? extraBadge(order) : ``}</td>
             <td data-label="إجراء"><button class="btn-view" title="عرض التفاصيل"><i class="ph ph-eye"></i></button>
                 <button class="action-btn edit-btn" title="تعديل"><i class="ph ph-pencil"></i></button>
                 ${canApproveFromAll ? `<button class="action-btn approve-all-order-btn" title="موافقة"><i class="ph ph-check-circle"></i></button>` : ''}
@@ -3535,19 +3549,20 @@ function showOrderDetails(order) {
     const items = Array.isArray(order.items) ? order.items : [];
     items.forEach(i => {
         const row = document.createElement('tr');
+        if (APP_PAGE === `supervisor` && String(i.note ?? ``).trim()) row.classList.add(`extra-item-row`);
         const qtyVal = parseAppNumber(i.qty);
         const bonusVal = parseAppNumber(i.bonus);
         const bonusPctStr = (qtyVal > 0 && bonusVal > 0)
             ? `<div style="font-size:0.75rem; color:var(--primary); font-weight:bold; margin-top:2px;">${Math.round((bonusVal / qtyVal) * 100)}% بونص</div>`
             : '';
         row.innerHTML = `
-            <td style="font-weight:600;">${i.name || '-'}</td>
+            <td style="font-weight:600;">${escapePrintHtml(i.name || '-')} ${APP_PAGE === `supervisor` ? extraBadge({ items: [i] }) : ``}</td>
             <td>${getProductCodeFromItem(i) || '-'}</td>
             <td style="text-align:center;">${qtyVal}</td>
             <td style="text-align:center;">${bonusVal} ${bonusPctStr}</td>
             <td style="text-align:center;">${parseAppNumber(i.price).toFixed(2)}</td>
             <td style="text-align:center;">${parseAppNumber(i.total).toFixed(2)}</td>
-            <td>${i.note || '-'}</td>
+            <td class="extra-item-note">${escapePrintHtml(i.note || '-')}</td>
         `;
         body.appendChild(row);
     });
@@ -3594,12 +3609,13 @@ function filterAllOrders() {
     const selections = synchronizeSupervisorCascadingFilters('all');
     const fromVal = getEl('managerFilterFrom')?.value;
     const toVal = getEl('managerFilterTo')?.value;
-    const filterKey = `${selections.rep}|${selections.pharmacy}|${selections.status}|${selections.orderType}|${fromVal || ``}|${toVal || ``}`;
+    const filterKey = `${getEl(`supervisorExtraFilter`)?.value || ``}|${selections.rep}|${selections.pharmacy}|${selections.status}|${selections.orderType}|${fromVal || ``}|${toVal || ``}`;
     if (allOrdersLastFilterKey && allOrdersLastFilterKey !== filterKey) allOrdersPageIndex = 0;
     allOrdersLastFilterKey = filterKey;
 
     const summaryFiltered = allOrdersRangeData.filter(order =>
         !isOrderDeleted(order) &&
+        matchesExtraFilter(order, `supervisorExtraFilter`) &&
         supervisorOrderMatchesSelections(order, selections, null, fromVal, toVal)
     );
     const sortedAll = sortSupervisorOrders(summaryFiltered, 'all');
@@ -3845,7 +3861,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
             </td>
             <td class="price-cell" style="padding: 8px; text-align: center; font-weight: bold; color: #333;">${parseFloat(price).toFixed(2)}</td>
             <td class="row-total" style="padding: 8px; text-align: center; font-weight: bold; color: #d32f2f;">${parseFloat(rowTotal).toFixed(2)}</td>
-            <td style="padding: 8px;"><input type="text" class="item-note-input" value="${note}" placeholder="ملاحظة..." style="width:100%; min-width:100px; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"></td>
+            <td style="padding: 8px;"><input type="text" class="item-note-input" value="${escapePrintHtml(note)}" placeholder="ملاحظة..." style="width:100%; min-width:100px; padding: 8px; border:1px solid #ccc; border-radius:4px; outline:none;"></td>
             <td style="padding: 8px; text-align: center;"><button type="button" class="btn-danger del-row" style="padding: 6px 10px; border-radius: 4px; border:none; background:#dc3545; color:white; cursor:pointer;"><i class="ph ph-trash"></i></button></td>
         `;
         const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions');
@@ -3891,6 +3907,10 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
 
         tr.querySelector('.del-row').onclick = () => { tr.remove(); updateEditTotal(); };
         
+        if (APP_PAGE === `supervisor` && String(note).trim()) {
+            tr.classList.add(`extra-item-row`);
+            tr.querySelector(`td`).insertAdjacentHTML(`beforeend`, extraBadge({ items: [{ note }] }));
+        }
         if (editBody) editBody.appendChild(tr);
         if (userType === `representative`) attachBonusRow(tr, name => productsList.find(product => product.name === name), updateEditTotal, { preserveExisting: !!productName });
         calcEditBonus(); // 🟢 حساب النسبة لحظة تحميل السطر للمرة الأولى
@@ -4307,3 +4327,5 @@ async function runMonthlyExport() {
     }
     retry.onclick = runMonthlyExport;
 }
+
+getEl(`supervisorExtraFilter`)?.addEventListener(`change`, () => { allOrdersPageIndex = 0; applyManagerFilters(); filterAllOrders(); });

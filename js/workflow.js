@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./workflow.status-source.js?v=20261001_bonus2`, import.meta.url);
+const sourceUrl = new URL(`./workflow.status-source.js?v=20261001_extra1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];

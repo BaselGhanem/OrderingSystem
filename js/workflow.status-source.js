@@ -1,3 +1,15 @@
+
+function extraItemCount(order = {}) {
+    return (Array.isArray(order.items) ? order.items : []).filter(item => String(item.note ?? ``).trim() !== ``).length;
+}
+function extraBadge(order = {}) {
+    const count = extraItemCount(order);
+    return count ? `<span class="extra-order-badge" title="توجد ملاحظات على مستوى الصنف"><b dir="ltr">Extra</b><small>${count} أصناف</small></span>` : ``;
+}
+function matchesExtraFilter(order, id) {
+    const value = document.getElementById(id)?.value || ``;
+    return !value || (value === `extra` ? extraItemCount(order) > 0 : extraItemCount(order) === 0);
+}
 import { db, collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter, documentId, onSnapshot } from './firebase.js';
 
 const COMPANY_LOGO_URL = 'https://www.dadgroup.com/wp-content/uploads/2023/11/uplift-dad-website-05.png';
@@ -1084,10 +1096,10 @@ async function returnOrderStep(orderId, target, reason, actor, role, action) {
 function buildWorkflowItemRow(item = {}, index = 0, prefix = 'mm') {
     const calc = calculateItem(item);
     return `
-        <tr data-index="${index}"${prefix === `staff` ? ` data-approved-bonus="${calc.bonus}"` : ``}>
+        <tr class="${prefix === `mm` && String(calc.note ?? ``).trim() ? `extra-item-row` : ``}" data-index="${index}"${prefix === `staff` ? ` data-approved-bonus="${calc.bonus}"` : ``}>
             <td>${index + 1}</td>
             <td class="${prefix}-code-cell" data-original-code="${escapeHtml(getItemProductCode(calc) || '')}">${escapeHtml(getItemProductCode(calc) || '-')}</td>
-            <td class="item-name-cell">
+            <td class="item-name-cell">${prefix === `mm` ? extraBadge({ items: [calc] }) : ``}
                 <select class="${prefix}-product workflow-product-select" style="min-width:${workflowProductFieldWidth(calc.name || '')}ch; width:100%;">
                     ${productOptionsHtml(calc.name || '')}
                 </select>
@@ -1341,6 +1353,7 @@ function applyMarketFilters() {
             ? awaitingMarketManager
             : (status ? orderStatus === status : eligible);
         return statusMatch &&
+            matchesExtraFilter(order, `marketExtraFilter`) &&
             inDateRange(order, from, to) &&
             (!rep || (order.repName || '').toLowerCase().includes(rep)) &&
             (!pharm || (order.pharmacyName || '').toLowerCase().includes(pharm) || getPharmacyCode(order).toLowerCase().includes(pharm));
@@ -1426,7 +1439,7 @@ function renderMarketOrders() {
                 <td data-label="الصيدلية" class="staff-pharmacy-cell" title="${escapeHtml(order.pharmacyName || '-')}">${escapeHtml(order.pharmacyName || '-')}</td>
                 <td data-label="الأصناف"><button class="action-btn view-btn" type="button" title="عرض تفاصيل الأصناف"><i class="ph ph-eye"></i> ${escapeHtml(itemCountLabel(order))}</button></td>
                 <td data-label="الإجمالي">${formatMoney(order.grandTotal)} د.ا</td>
-                <td data-label="الحالة"><span class="status-badge ${escapeHtml(displayStatus)}">${escapeHtml(displayStatus === 'market_manager_pending' ? 'بانتظار اعتماد مدير السوق' : statusLabel(displayStatus))}</span>${reservedOrderBadgeHtml(order)}</td>
+                <td data-label="الحالة"><span class="status-badge ${escapeHtml(displayStatus)}">${escapeHtml(displayStatus === 'market_manager_pending' ? 'بانتظار اعتماد مدير السوق' : statusLabel(displayStatus))}</span>${reservedOrderBadgeHtml(order)}${extraBadge(order)}</td>
                 <td data-label="ملاحظة الطلب" class="workflow-note-cell" title="${escapeHtml(getOrderNote(order) || '-')}">${escapeHtml(getOrderNote(order) || '-')}</td>
                 <td data-label="الإجراءات" class="workflow-actions-cell">${buildOrderSummaryRowActions('market')}</td>
             `;
@@ -2359,3 +2372,5 @@ async function boot() {
 }
 
 boot();
+
+document.getElementById(`marketExtraFilter`)?.addEventListener(`change`, applyMarketFilters);
