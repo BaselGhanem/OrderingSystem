@@ -32,6 +32,14 @@ export function calculateRegularBonus(quantity, policy) {
     return result;
 }
 
+export function constrainManualQuantity(value, policy, choice) {
+    if (value === `` || ![`below`, `custom`].includes(choice)) return String(value);
+    const qty = Number(value);
+    if (!Number.isSafeInteger(qty) || qty < 1) return ``;
+    if (choice === `below`) return String(Math.min(qty, policy.tiers[0].qty - 1));
+    return qty > policy.tiers.at(-1).qty ? String(qty) : ``;
+}
+
 let overrides = {};
 let readyPromise;
 let loadError;
@@ -77,6 +85,8 @@ export function attachBonusRow(row, findProduct, recalculate, { preserveExisting
         quantity.setCustomValidity(``);
         if (legacy && select.value === `legacy`) return;
         try {
+            if (policy.mode === `tiers` && select.value === `below` && Number(quantity.value) >= policy.tiers[0].qty) throw new Error(`الكمية يجب أن تكون من 1 إلى ${policy.tiers[0].qty - 1}`);
+            if (policy.mode === `tiers` && select.value === `custom` && Number(quantity.value) <= policy.tiers.at(-1).qty) throw new Error(`الكمية يجب أن تكون أكبر من ${policy.tiers.at(-1).qty}`);
             const value = calculateRegularBonus(quantity.value, policy);
             if (value !== null) bonus.value = String(value);
         } catch (error) { quantity.setCustomValidity(error.message); bonus.value = `0`; }
@@ -130,7 +140,24 @@ export function attachBonusRow(row, findProduct, recalculate, { preserveExisting
         apply(); notify();
         if (custom || below) quantity.focus();
     });
-    quantity.addEventListener(`input`, () => { legacy = null; apply(); bonus.oninput?.(); });
+    quantity.addEventListener(`input`, () => {
+        legacy = null;
+        if (policy.mode === `tiers` && select.value === `below`) {
+            const original = quantity.value;
+            quantity.value = constrainManualQuantity(original, policy, select.value);
+            if (original !== quantity.value) hint.textContent = select.value === `below`
+                ? `المسموح من 1 إلى ${policy.tiers[0].qty - 1} فقط، بدون بونص`
+                : `أدخل عددا صحيحا أكبر من ${policy.tiers.at(-1).qty}`;
+        }
+        apply(); notify();
+    });
+    quantity.addEventListener(`blur`, () => {
+        if (policy.mode !== `tiers` || select.value !== `custom`) return;
+        const original = quantity.value;
+        quantity.value = constrainManualQuantity(original, policy, select.value);
+        if (original !== quantity.value) hint.textContent = `أدخل عددا صحيحا أكبر من ${policy.tiers.at(-1).qty}`;
+        apply(); notify();
+    });
     input.addEventListener(`blur`, () => { configure(); notify(); });
     row.regularBonusChanged = () => { configure(); notify(); };
     row.validateRegularBonus = () => {

@@ -59,3 +59,15 @@ test(`no-bonus and missing-policy fallback retain their defined behavior`, async
     const subset = parseBonusRows([rows[0], rows[1]], products);
     assert.equal(Object.keys(subset).length, 1);
  });
+
+ test(`manual input is bounded by selected quantity option`, async () => {
+    const { constrainManualQuantity } = await modulePromise;
+    const policy = { mode: `tiers`, tiers: [{qty:6,bonus:1},{qty:100,bonus:15}] };
+    assert.equal(constrainManualQuantity(`10`,policy,`below`),`5`);
+    assert.equal(constrainManualQuantity(`6`,policy,`below`),`5`);
+    assert.equal(constrainManualQuantity(`5`,policy,`below`),`5`);
+    assert.equal(constrainManualQuantity(`0`,policy,`below`),``);
+    assert.equal(constrainManualQuantity(`2.5`,policy,`below`),``);
+    assert.equal(constrainManualQuantity(`100`,policy,`custom`),``);
+    assert.equal(constrainManualQuantity(`101`,policy,`custom`),`101`);
+ });
