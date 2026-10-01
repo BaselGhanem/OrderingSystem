@@ -1,3 +1,4 @@
+import { loadBonusConfiguration, attachBonusRow } from './regular-bonus.js?v=20261001_bonus1';
 import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js';
 
 // ==========================================
@@ -2069,6 +2070,7 @@ async function loadLoginInitialData() {
 }
 
 async function loadOrderInitialData() {
+    try { await loadBonusConfiguration(); } catch (error) { console.error(`Bonus configuration unavailable`, error); }
     // صفحة المندوب تحتاج قائمة الأصناف فقط عند تحميلها؛ الصيدليات تُجلب عند فتح زر FAB.
     // تجنب تحميل كل المندوبين وكل الصيدليات هنا يقلل زمن فتح الصفحة وعمليات IndexedDB.
     await loadRepManagerAssignments();
@@ -2402,6 +2404,7 @@ function addNewRow(prefill = null) {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
         if (!selectedProd) return;
         if (!enforceNoMixedOrderForRow(tr, selectedProd)) return;
+        tr.regularBonusChanged?.();
         const pr = parseAppNumber(selectedProd.price);
         s.dataset.productCode = selectedProd?.productCode || selectedProd?.product_code || selectedProd?.code || '';
         p.innerText = pr.toFixed(2);
@@ -2424,6 +2427,7 @@ function addNewRow(prefill = null) {
             if(err) err.remove();
             const selectedProd = productsList.find(prod => prod.name === val);
             if (selectedProd) enforceNoMixedOrderForRow(tr, selectedProd);
+            tr.regularBonusChanged?.();
         }
     });
 
@@ -2471,6 +2475,7 @@ function addNewRow(prefill = null) {
         }
         syncReservationIndicators();
     }
+    attachBonusRow(tr, name => productsList.find(product => product.name === name), updateGrandTotal);
 }
 
 function updateGrandTotal() {
@@ -2542,6 +2547,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
         return;
     }
 
+    if (![...document.querySelectorAll(`#orderBody tr`)].every(row => !row.querySelector(`.product-input`)?.value.trim() || row.validateRegularBonus?.() !== false)) return;
     const items = [];
     let invalidItem = false;
 
@@ -3650,6 +3656,9 @@ async function ensureProductsLoaded() {
 }
 
 async function openEditOrder(orderId, userType) {
+    if (userType === `representative`) {
+        try { await loadBonusConfiguration(); } catch (error) { showToast(`تعذر تحميل شرائح البونص. أعد المحاولة لاحقا.`, `error`); return; }
+    }
     const loaded = await ensureProductsLoaded();
     if (!loaded) { showToast("لم يتم تحميل المنتجات بشكل صحيح.", "error"); return; }
 
@@ -3857,6 +3866,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
 
         setupAutocomplete(s, sug, productNames, (selectedName) => { 
             const prod = productsList.find(pr => pr.name === selectedName); 
+            tr.regularBonusChanged?.();
             const pr = prod ? parseFloat(prod.price) : 0; 
             s.dataset.productCode = prod?.productCode || prod?.product_code || prod?.code || ''; 
             p.innerText = pr.toFixed(2); 
@@ -3882,6 +3892,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         tr.querySelector('.del-row').onclick = () => { tr.remove(); updateEditTotal(); };
         
         if (editBody) editBody.appendChild(tr);
+        if (userType === `representative`) attachBonusRow(tr, name => productsList.find(product => product.name === name), updateEditTotal, { preserveExisting: !!productName });
         calcEditBonus(); // 🟢 حساب النسبة لحظة تحميل السطر للمرة الأولى
         updateEditTotal();
     }    
@@ -3912,6 +3923,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
             if (!selectedPharm) { editPharmInput.style.border = "2px solid red"; return showToast("يرجى اختيار صيدلية صحيحة من القائمة.", "error"); }
             const newRepName = getOperationalRepNameForPharmacy(selectedPharm, selectedBaseRepName);
 
+            if (![...document.querySelectorAll(`#editOrderBody tr`)].every(row => !row.querySelector(`.product-input`)?.value.trim() || row.validateRegularBonus?.() !== false)) return;
             document.querySelectorAll('#editOrderBody tr').forEach(r => {
                 const inp = r.querySelector('.product-input');
                 if (inp && inp.value.trim() !== "") {

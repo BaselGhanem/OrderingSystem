@@ -1084,7 +1084,7 @@ async function returnOrderStep(orderId, target, reason, actor, role, action) {
 function buildWorkflowItemRow(item = {}, index = 0, prefix = 'mm') {
     const calc = calculateItem(item);
     return `
-        <tr data-index="${index}">
+        <tr data-index="${index}"${prefix === `staff` ? ` data-approved-bonus="${calc.bonus}"` : ``}>
             <td>${index + 1}</td>
             <td class="${prefix}-code-cell" data-original-code="${escapeHtml(getItemProductCode(calc) || '')}">${escapeHtml(getItemProductCode(calc) || '-')}</td>
             <td class="item-name-cell">
@@ -1093,8 +1093,8 @@ function buildWorkflowItemRow(item = {}, index = 0, prefix = 'mm') {
                 </select>
             </td>
             <td><input class="${prefix}-qty" type="number" min="0" step="1" value="${calc.qty}"></td>
-            <td><input class="${prefix}-bonus" type="number" min="0" step="1" value="${calc.bonus}"></td>
-            <td><input class="${prefix}-bonus-pct" type="number" min="0" step="0.01" value="${calc.bonusPct}"></td>
+            <td><input class="${prefix}-bonus"${prefix === `staff` ? ` readonly aria-readonly="true" title="تعديل البونص للمشرف ومدير السوق والأدمن فقط"` : ``} type="number" min="0" step="1" value="${calc.bonus}"></td>
+            <td><input class="${prefix}-bonus-pct"${prefix === `staff` ? ` readonly aria-readonly="true" title="النسبة للعرض فقط"` : ``} type="number" min="0" step="0.01" value="${calc.bonusPct}"></td>
             <td class="${prefix}-price" data-price="${calc.price}">${formatMoney(calc.price)}</td>
             <td class="${prefix}-subtotal">${formatMoney(calc.total)}</td>
             <td><input class="${prefix}-note workflow-item-note-input" type="text" value="${escapeHtml(calc.note || '')}" placeholder="ملاحظة الصنف"></td>
@@ -2063,15 +2063,10 @@ function recalcStaffRow(row, source = '') {
     const pctInput = row.querySelector('.staff-bonus-pct');
     const price = parseNumber(row.querySelector('.staff-price')?.dataset.price);
     let qty = Math.max(0, parseNumber(qtyInput?.value));
-    let bonus = Math.max(0, parseNumber(bonusInput?.value));
-    let pct = Math.max(0, parseNumber(pctInput?.value));
-    if (source === 'pct') {
-        bonus = qty > 0 ? Math.round((qty * pct) / 100) : 0;
-        if (bonusInput) bonusInput.value = bonus;
-    } else {
-        pct = qty > 0 ? Number(((bonus / qty) * 100).toFixed(2)) : 0;
-        if (pctInput) pctInput.value = pct;
-    }
+    const bonus = Math.max(0, parseNumber(row.dataset.approvedBonus));
+    const pct = qty > 0 ? Number(((bonus / qty) * 100).toFixed(2)) : 0;
+    if (bonusInput) bonusInput.value = bonus;
+    if (pctInput) pctInput.value = pct;
     if (qtyInput) qtyInput.value = qty;
     row.querySelector('.staff-subtotal').textContent = formatMoney(qty * price);
     updateStaffModalTotal();
@@ -2080,8 +2075,6 @@ function recalcStaffRow(row, source = '') {
 function bindStaffItemRow(row) {
     row.querySelector('.staff-product')?.addEventListener('change', () => recalcStaffRow(row, 'product'));
     row.querySelector('.staff-qty')?.addEventListener('input', () => recalcStaffRow(row, 'qty'));
-    row.querySelector('.staff-bonus')?.addEventListener('input', () => recalcStaffRow(row, 'bonus'));
-    row.querySelector('.staff-bonus-pct')?.addEventListener('input', () => recalcStaffRow(row, 'pct'));
     row.querySelector('.staff-delete-item')?.addEventListener('click', () => {
         if (!confirm('هل أنت متأكد من حذف هذا الصنف من الطلبية؟')) return;
         row.dataset.deleted = '1';
@@ -2135,7 +2128,7 @@ function collectStaffModalItems() {
             return;
         }
         const qty = Math.max(0, parseNumber(row.querySelector('.staff-qty')?.value));
-        const bonus = Math.max(0, parseNumber(row.querySelector('.staff-bonus')?.value));
+        const bonus = Math.max(0, parseNumber(originalItems[index] ? calculateItem(original).bonus : 0));
         const price = parseNumber(row.querySelector('.staff-price')?.dataset.price);
         const productName = row.querySelector('.staff-product')?.value || original.name || '';
         const product = getProductByName(productName);

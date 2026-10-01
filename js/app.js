@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20260929_print_bonus`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20261001_bonus1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -26,6 +26,7 @@ try {
     if (!response.ok) throw new Error(`Unable to load application source: ${response.status}`);
 
     let source = await response.text();
+    source = source.replace("'./regular-bonus.js?v=20261001_bonus1'", JSON.stringify(new URL(`./regular-bonus.js?v=20261001_bonus1`, import.meta.url).href));
     const resolverPattern = /function getEffectiveOrderStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
     const canonicalResolver = `function getEffectiveOrderStatus(order = {}) {
     const directStatus = order.status || order.orderStatus || order.workflowStatus || '';

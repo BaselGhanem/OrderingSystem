@@ -1,5 +1,5 @@
 (() => {
-    const currentVersion = `20260923-2`;
+    const currentVersion = `20261001-bonus1`;
     const versionUrl = new URL(`./version.json`, document.baseURI);
     let checking = false;
     let reloading = false;
