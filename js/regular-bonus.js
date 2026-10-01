@@ -22,6 +22,7 @@ export function calculateRegularBonus(quantity, policy) {
     const valid = validatePolicy(policy);
     if (valid.mode === `manual`) return null;
     if (valid.mode === `none`) return 0;
+    if (qty < valid.tiers[0].qty) return 0;
     const exact = valid.tiers.find(tier => tier.qty === qty);
     if (exact) return exact.bonus;
     const max = valid.tiers.at(-1);
@@ -94,11 +95,14 @@ export function attachBonusRow(row, findProduct, recalculate, { preserveExisting
         select.hidden = policy.mode !== `tiers`;
         quantity.hidden = policy.mode === `tiers`;
         quantity.min = `1`;
+        quantity.removeAttribute(`max`);
         hint.textContent = policy.mode === `none` ? `هذا الصنف بدون بونص` : policy.mode === `tiers` ? `البونص تلقائي؛ الاستثناء في ملاحظات الصنف` : ``;
         if (policy.mode === `tiers`) {
             select.add(new Option(`اختر الكمية والبونص`, ``));
             for (const tier of policy.tiers) select.add(new Option(`${tier.qty} قطعة + ${tier.bonus} بونص`, String(tier.qty)));
             const max = policy.tiers.at(-1);
+            const min = policy.tiers[0];
+            if (min.qty > 1) select.add(new Option(`كمية أقل من ${min.qty} — بدون بونص`, `below`));
             select.add(new Option(`كمية أكبر من ${max.qty}`, `custom`));
             if (legacy) {
                 select.add(new Option(`القيمة الحالية: ${legacy.qty} + ${legacy.bonus} بونص`, `legacy`));
@@ -108,6 +112,8 @@ export function attachBonusRow(row, findProduct, recalculate, { preserveExisting
                 apply();
             } else if (!reset && Number(quantity.value) > max.qty) {
                 select.value = `custom`; quantity.hidden = false; quantity.min = String(max.qty + 1); apply();
+            } else if (!reset && Number(quantity.value) > 0 && Number(quantity.value) < min.qty) {
+                select.value = `below`; quantity.hidden = false; quantity.max = String(min.qty - 1); apply();
             } else { quantity.value = ``; bonus.value = `0`; }
         } else if (!legacy) { apply(); }
     }
@@ -115,11 +121,14 @@ export function attachBonusRow(row, findProduct, recalculate, { preserveExisting
         legacy = null;
         bonus.readOnly = policy.mode !== `manual`;
         const custom = select.value === `custom`;
-        quantity.hidden = !custom;
+        const below = select.value === `below`;
+        quantity.hidden = !(custom || below);
         quantity.min = custom ? String(policy.tiers.at(-1).qty + 1) : `1`;
-        quantity.value = custom ? `` : select.value;
+        if (below) quantity.max = String(policy.tiers[0].qty - 1);
+        else quantity.removeAttribute(`max`);
+        quantity.value = custom || below ? `` : select.value;
         apply(); notify();
-        if (custom) quantity.focus();
+        if (custom || below) quantity.focus();
     });
     quantity.addEventListener(`input`, () => { legacy = null; apply(); bonus.oninput?.(); });
     input.addEventListener(`blur`, () => { configure(); notify(); });

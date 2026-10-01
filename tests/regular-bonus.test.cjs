@@ -25,6 +25,10 @@ test(`above maximum uses truncation, including exact integer and 100% cases`, as
     assert.equal(calculateRegularBonus(213, policy), 31);
     assert.equal(calculateRegularBonus(220, policy), 33);
     assert.equal(calculateRegularBonus(213, { mode: `tiers`, tiers: [{ qty: 100, bonus: 100 }] }), 213);
+    assert.equal(calculateRegularBonus(1, policy), 0);
+    assert.equal(calculateRegularBonus(11, policy), 0);
+    assert.equal(calculateRegularBonus(12, policy), 1);
+    assert.throws(() => calculateRegularBonus(0, policy));
     assert.throws(() => calculateRegularBonus(20, policy));
     assert.throws(() => calculateRegularBonus(99, policy));
     assert.throws(() => calculateRegularBonus(100.5, policy));
