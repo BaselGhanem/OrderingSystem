@@ -1,4 +1,4 @@
-import { validatePolicy, productBonusKey } from './regular-bonus.js?v=20261001_bonus1';
+import { validatePolicy, productBonusKey } from './regular-bonus.js?v=20261001_review1';
 
 export const bonusModes = { tiers: `شرائح`, none: `بدون بونص`, manual: `يدوي` };
 export function templateRows(products, policyFor) {
@@ -16,6 +16,13 @@ export function parseBonusRows(rows, products) {
     if (!rows.length) throw new Error(`الملف فارغ`);
     const headers = rows[0].map(value => String(value ?? ``).trim());
     for (const header of [`كود الصنف`, `اسم الصنف`, `نوع البونص`]) if (!headers.includes(header)) throw new Error(`عمود مفقود: ${header}`);
+    const seenHeaders = new Set();
+    for (const header of headers.filter(Boolean)) {
+        if (seenHeaders.has(header)) throw new Error(`عمود مكرر: ${header}`);
+        seenHeaders.add(header);
+        const match = /^بونص (\d+)$/.exec(header);
+        if (match && !headers.includes(`كمية ${match[1]}`)) throw new Error(`عمود مفقود: كمية ${match[1]}`);
+    }
     const codeIndex = headers.indexOf(`كود الصنف`);
     const modeIndex = headers.indexOf(`نوع البونص`);
     const productMap = new Map(products.map(product => [productBonusKey(product), product]));

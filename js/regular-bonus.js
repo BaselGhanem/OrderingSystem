@@ -43,20 +43,26 @@ export function constrainManualQuantity(value, policy, choice) {
 let overrides = {};
 let readyPromise;
 let loadError;
+let configurationLoaded = false;
 export async function loadBonusConfiguration() {
-    if (!readyPromise) readyPromise = (async () => {
-        const { db, doc, getDoc } = await import(`./firebase.js`);
-        let timeout;
-        const snapshot = await Promise.race([
-            getDoc(doc(db, `settings`, `regularBonus`)),
-            new Promise((resolve, reject) => { timeout = setTimeout(() => reject(new Error(`تعذر تحميل إعدادات البونص خلال المهلة`)), 15000); })
-        ]).finally(() => clearTimeout(timeout));
-        overrides = snapshot.exists() ? snapshot.data().policies || {} : {};
-        for (const policy of Object.values(overrides)) validatePolicy(policy);
-    })().catch(error => { loadError = error; throw error; });
+    if (!readyPromise || loadError) {
+        loadError = null;
+        configurationLoaded = false;
+        readyPromise = (async () => {
+            const { db, doc, getDoc } = await import(`./firebase.js`);
+            let timeout;
+            const snapshot = await Promise.race([
+                getDoc(doc(db, `settings`, `regularBonus`)),
+                new Promise((resolve, reject) => { timeout = setTimeout(() => reject(new Error(`تعذر تحميل إعدادات البونص خلال المهلة`)), 15000); })
+            ]).finally(() => clearTimeout(timeout));
+            overrides = snapshot.exists() ? snapshot.data().policies || {} : {};
+            for (const policy of Object.values(overrides)) validatePolicy(policy);
+            configurationLoaded = true;
+        })().catch(error => { loadError = error; throw error; });
+    }
     return readyPromise;
 }
-export function configurationAvailable() { return !!readyPromise && !loadError; }
+export function configurationAvailable() { return configurationLoaded && !loadError; }
 export function getBonusPolicy(product) {
     const key = productBonusKey(product);
     return validatePolicy(overrides[key] || bonusDefaults[key] || { mode: `manual`, tiers: [] });
@@ -69,7 +75,7 @@ export function attachBonusRow(row, findProduct, recalculate, { preserveExisting
     const select = document.createElement(`select`);
     select.className = `regular-bonus-select`;
     select.setAttribute(`aria-label`, `شريحة الكمية والبونص`);
-    select.style.cssText = `width:100%;min-width:125px;padding:9px;border:1px solid #b6d7d7;border-radius:8px;font:inherit;background:#fff;color:#173c45;`;
+    select.style.cssText = `width:100%;min-width:225px;padding:9px;border:1px solid #b6d7d7;border-radius:8px;font:inherit;background:#fff;color:#173c45;`;
     quantity.before(select);
     quantity.step = `1`;
     const hint = document.createElement(`small`);
@@ -95,8 +101,10 @@ export function attachBonusRow(row, findProduct, recalculate, { preserveExisting
         const product = findProduct(input.value.trim());
         const nextKey = productBonusKey(product);
         if (nextKey === productKey && reset) return;
+        const changedProduct = productKey !== null && nextKey !== productKey;
         productKey = nextKey;
         if (legacy && legacy.name !== input.value.trim()) legacy = null;
+        if (changedProduct && !legacy) { quantity.value = ``; bonus.value = `0`; }
         policy = getBonusPolicy(product);
         signature = JSON.stringify(policy);
         select.replaceChildren();

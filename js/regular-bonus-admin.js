@@ -1,6 +1,6 @@
-import { templateRows, parseBonusRows } from './regular-bonus-import.js?v=20261001_bonus_template1';
+import { templateRows, parseBonusRows } from './regular-bonus-import.js?v=20261001_review1';
 import { db, collection, getDocs, doc, setDoc } from './firebase.js';
-import { loadBonusConfiguration, getBonusPolicy, productBonusKey, validatePolicy } from './regular-bonus.js?v=20261001_bonus1';
+import { loadBonusConfiguration, getBonusPolicy, productBonusKey, validatePolicy } from './regular-bonus.js?v=20261001_review1';
 
 const host = document.getElementById(`regularBonusPanel`);
 host.innerHTML = `<h2>إدارة البونص المنتظم</h2><p>حدد الصنف ونوع البونص وشرائحه. الحساب فوق أعلى شريحة يعتمد على نسبة البونص فيها مع حذف الكسور.</p><label>بحث عن الصنف<input id="bonusSearch" type="search" placeholder="الاسم أو الكود" style="width:100%;padding:12px;margin:8px 0"></label><select id="bonusProduct" aria-label="الصنف" style="width:100%;padding:12px;margin:8px 0"></select><label>طريقة البونص<select id="bonusMode" style="width:100%;padding:12px;margin:8px 0"><option value="tiers">شرائح وبونص تلقائي</option><option value="none">بدون بونص — الكمية يدوية</option><option value="manual">الكمية والبونص يدويان</option></select></label><div id="bonusTiers"></div><button type="button" id="bonusAddTier" class="btn-local">إضافة شريحة</button><button type="button" id="bonusSave" class="btn-local">حفظ شرائح الصنف</button><p id="bonusStatus" role="status"></p>`;
@@ -26,6 +26,7 @@ download.onclick = () => {
 upload.onchange = async () => {
     pendingImport = null; importSave.hidden = true; preview.textContent = ``;
     if (!upload.files[0] || busy) return;
+    setBusy(true);
     try {
         const workbook = XLSX.read(await upload.files[0].arrayBuffer(), { type: `array` });
         const sheet = workbook.Sheets[`Regular Bonus`];
@@ -42,18 +43,19 @@ upload.onchange = async () => {
         }
         preview.append(list); importSave.hidden = !changed.length;
     } catch (error) { preview.textContent = `لم يتم استيراد أي تغيير: ${error.message}`; }
+    finally { setBusy(false); }
 };
 importSave.onclick = async () => {
     if (busy || !pendingImport || !Object.keys(pendingImport).length) return;
     const policies = pendingImport;
-    busy = true; importSave.disabled = true; save.disabled = true; upload.disabled = true; productSelect.disabled = true;
+    setBusy(true);
     try {
         await setDoc(doc(db, `settings`, `regularBonus`), { policies, updatedAt: new Date().toISOString() }, { merge: true });
         for (const [key, policy] of Object.entries(policies)) saved.set(key, policy);
         pendingImport = null; importSave.hidden = true; upload.value = ``;
         selectProduct(); preview.textContent = `تم حفظ شرائح ${Object.keys(policies).length} صنفا بنجاح. تطبق عند إعادة فتح صفحة الطلبية.`;
     } catch (error) { preview.textContent = `تعذر حفظ الملف؛ لم يكتمل الاستيراد: ${error.message}`; }
-    finally { busy = false; importSave.disabled = false; upload.disabled = false; productSelect.disabled = false; save.disabled = !active; }
+    finally { setBusy(false); }
 };
 const productSelect = document.getElementById(`bonusProduct`);
 const mode = document.getElementById(`bonusMode`);
@@ -64,6 +66,12 @@ let products = [];
 const saved = new Map();
 let active;
 let busy = false;
+function setBusy(value) {
+    busy = value;
+    host.setAttribute(`aria-busy`, String(value));
+    host.querySelectorAll(`input, select, button`).forEach(control => { control.disabled = value; });
+    if (!value) save.disabled = !active;
+}
 function addTier(qty = ``, bonus = ``) {
     const row = document.createElement(`div`);
     row.style.cssText = `display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;align-items:center;`;
@@ -113,14 +121,14 @@ save.onclick = async () => {
         });
         const policy = validatePolicy({ mode: mode.value, tiers: values });
         const key = productBonusKey(active);
-        busy = true; save.disabled = true; productSelect.disabled = true; upload.disabled = true;
+        setBusy(true);
         status.textContent = `جاري حفظ الشرائح…`;
         await setDoc(doc(db, `settings`, `regularBonus`), { policies: { [key]: policy }, updatedAt: new Date().toISOString() }, { merge: true });
         saved.set(key, policy);
         pendingImport = null; importSave.hidden = true; upload.value = ``; preview.textContent = ``;
         status.textContent = `تم الحفظ. تطبق الشرائح عند فتح صفحة الطلبية مجددا؛ الطلبات المحفوظة لا تتغير.`;
     } catch (error) { status.textContent = `لم يتم الحفظ: ${error.message}`; }
-    finally { busy = false; save.disabled = !active; productSelect.disabled = false; upload.disabled = false; }
+    finally { setBusy(false); }
 };
 save.disabled = true;
 status.textContent = `جاري تحميل الأصناف والشرائح…`;

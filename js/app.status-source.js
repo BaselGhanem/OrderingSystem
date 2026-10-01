@@ -4,11 +4,23 @@ function extraItemCount(order = {}) {
 }
 function extraBadge(order = {}) {
     const count = extraItemCount(order);
-    return count ? `<span class="extra-order-badge" title="توجد ملاحظات على مستوى الصنف"><b dir="ltr">Extra</b><small>${count} أصناف</small></span>` : ``;
+    return count ? `<span class="extra-order-badge" title="توجد ملاحظات على مستوى الصنف"><b dir="ltr">Extra</b><small>${count === 1 ? `صنف واحد` : count === 2 ? `صنفان` : `${count} أصناف`}</small></span>` : ``;
 }
 function matchesExtraFilter(order, id) {
     const value = document.getElementById(id)?.value || ``;
     return !value || (value === `extra` ? extraItemCount(order) > 0 : extraItemCount(order) === 0);
+}
+function bindExtraNoteMarker(row, noteSelector, nameCell) {
+    const note = row.querySelector(noteSelector);
+    if (!note || !nameCell) return;
+    const update = () => {
+        const hasNote = String(note.value ?? ``).trim() !== ``;
+        row.classList.toggle(`extra-item-row`, hasNote);
+        nameCell.querySelectorAll(`.extra-order-badge`).forEach(badge => badge.remove());
+        if (hasNote) nameCell.insertAdjacentHTML(`beforeend`, extraBadge({ items: [{ note: note.value }] }));
+    };
+    note.addEventListener(`input`, update);
+    update();
 }
 import { loadBonusConfiguration, attachBonusRow } from './regular-bonus.js?v=20261001_bonus1';
 import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js';
@@ -3907,10 +3919,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
 
         tr.querySelector('.del-row').onclick = () => { tr.remove(); updateEditTotal(); };
         
-        if (APP_PAGE === `supervisor` && String(note).trim()) {
-            tr.classList.add(`extra-item-row`);
-            tr.querySelector(`td`).insertAdjacentHTML(`beforeend`, extraBadge({ items: [{ note }] }));
-        }
+        if (APP_PAGE === `supervisor`) bindExtraNoteMarker(tr, `.item-note-input`, tr.querySelector(`td`));
         if (editBody) editBody.appendChild(tr);
         if (userType === `representative`) attachBonusRow(tr, name => productsList.find(product => product.name === name), updateEditTotal, { preserveExisting: !!productName });
         calcEditBonus(); // 🟢 حساب النسبة لحظة تحميل السطر للمرة الأولى
@@ -4262,6 +4271,7 @@ btnClearManagerFilter?.addEventListener('click', () => {
         'managerPharmacyFilter',
         'managerStatusFilter',
         `managerOrderTypeFilter`,
+        `supervisorExtraFilter`,
         'filterAllRep',
         'filterAllPharmacy',
         'filterAllStatus',

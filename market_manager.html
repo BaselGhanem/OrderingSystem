@@ -31,7 +31,8 @@
     <section class="workflow-filters">
         <div><label>من تاريخ</label><input id="filterDateFrom" type="date"></div>
         <div><label>إلى تاريخ</label><input id="filterDateTo" type="date"></div>
-        <div><label>المندوب</label><label class="extra-filter-label">تصنيف البونص <select id="marketExtraFilter" class="form-control"><option value="">الكل</option><option value="regular">منتظمة</option><option value="extra">Extra</option></select></label><input id="filterRepresentative" type="search" placeholder="بحث باسم المندوب"></div>
+        <div><label for="filterRepresentative">المندوب</label><input id="filterRepresentative" type="search" placeholder="بحث باسم المندوب"></div>
+        <div><label for="marketExtraFilter">تصنيف البونص</label><select id="marketExtraFilter" class="form-control"><option value="">الكل</option><option value="regular">منتظمة</option><option value="extra">Extra</option></select></div>
         <div><label>الصيدلية</label><input id="filterPharmacy" type="search" placeholder="بحث بالصيدلية أو الكود"></div>
         <div><label>الحالة</label><select id="filterStatus"><option value="">جميع الحالات</option><option value="awaiting_market_manager">بانتظار اعتماد مدير السوق</option><option value="returned_to_market_manager">مرجعة لمدير السوق</option></select></div>
         <div><label>نوع الطلبية</label><select id="filterOrderType"><option value="">جميع أنواع الطلبيات</option><option value="regular">طلبيات أصناف متاحة</option><option value="reserved">طلبيات أصناف مقطوعة</option></select></div>
@@ -79,6 +80,6 @@
     </div>
 </div>
 <div id="toast-container"></div>
-<script src="js/workflow.js?v=20261001_extra1" type="module"></script>
+<script src="js/workflow.js?v=20261001_review1" type="module"></script>
 </body>
 </html>

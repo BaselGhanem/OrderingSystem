@@ -4,11 +4,23 @@ function extraItemCount(order = {}) {
 }
 function extraBadge(order = {}) {
     const count = extraItemCount(order);
-    return count ? `<span class="extra-order-badge" title="توجد ملاحظات على مستوى الصنف"><b dir="ltr">Extra</b><small>${count} أصناف</small></span>` : ``;
+    return count ? `<span class="extra-order-badge" title="توجد ملاحظات على مستوى الصنف"><b dir="ltr">Extra</b><small>${count === 1 ? `صنف واحد` : count === 2 ? `صنفان` : `${count} أصناف`}</small></span>` : ``;
 }
 function matchesExtraFilter(order, id) {
     const value = document.getElementById(id)?.value || ``;
     return !value || (value === `extra` ? extraItemCount(order) > 0 : extraItemCount(order) === 0);
+}
+function bindExtraNoteMarker(row, noteSelector, nameCell) {
+    const note = row.querySelector(noteSelector);
+    if (!note || !nameCell) return;
+    const update = () => {
+        const hasNote = String(note.value ?? ``).trim() !== ``;
+        row.classList.toggle(`extra-item-row`, hasNote);
+        nameCell.querySelectorAll(`.extra-order-badge`).forEach(badge => badge.remove());
+        if (hasNote) nameCell.insertAdjacentHTML(`beforeend`, extraBadge({ items: [{ note: note.value }] }));
+    };
+    note.addEventListener(`input`, update);
+    update();
 }
 import { db, collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter, documentId, onSnapshot } from './firebase.js';
 
@@ -1169,6 +1181,7 @@ function updateMarketModalTotal() {
 }
 
 function bindMarketItemRow(row) {
+    bindExtraNoteMarker(row, `.mm-note`, row.querySelector(`.item-name-cell`));
     row.querySelector('.mm-product')?.addEventListener('change', () => recalcMarketRow(row, 'product'));
     row.querySelector('.mm-qty')?.addEventListener('input', () => recalcMarketRow(row, 'qty'));
     row.querySelector('.mm-bonus')?.addEventListener('input', () => recalcMarketRow(row, 'bonus'));
