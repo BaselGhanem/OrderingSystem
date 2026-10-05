@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer"><title>الصفحة السرية | نظام الطلبيات</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef6f6;color:#183b40;font-family:Tahoma,Arial,sans-serif;min-height:100vh}main{max-width:1000px;margin:32px auto;padding:0 18px}header,.panel{background:white;border:1px solid #dceaea;border-radius:22px;padding:24px;box-shadow:0 12px 36px #183b4008}header{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:20px}h1{font-size:24px;margin:0 0 8px}p{color:#647b80;line-height:1.8;margin:0}nav{display:flex;gap:8px;flex-wrap:wrap}a,button{font:inherit;border:0;border-radius:12px;padding:12px 16px;background:#099999;color:white;text-decoration:none;cursor:pointer}a{background:#edf6f6;color:#167777}button:disabled{opacity:.6;cursor:wait}input{font:inherit;width:100%;min-width:0;border:1px solid #cbdede;border-radius:12px;padding:14px;margin:12px 0;color:#183b40;background:white}input:focus{outline:3px solid #09999930;border-color:#099999}.lock-panel{max-width:480px;margin:50px auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.card{background:white;border:1px solid #dceaea;border-radius:18px;padding:20px;display:grid;gap:14px}.card h2{font-size:17px;margin:0;overflow-wrap:anywhere}.number{direction:ltr;font-size:26px;font-weight:bold;letter-spacing:2px;color:#077979}.card button{background:#edf6f6;color:#167777;padding:9px}.tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}.tools input{flex:1;min-width:160px}.status{min-height:25px;margin-top:12px;color:#b45309}#message{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#183b40;color:white;border-radius:12px;padding:12px 20px;max-width:90%;z-index:10}[hidden]{display:none!important}@media(max-width:500px){main{margin:16px auto;padding:0 12px}header,.panel{padding:20px}.grid{grid-template-columns:1fr}.lock-panel{margin:24px auto}h1{font-size:21px}}@media print{body{display:none}}
+</style></head><body><main><header><div><h1>الصفحة السرية</h1><p>دليل الأسماء والأرقام</p></div><nav><a href="setting.html">الإعدادات</a><a href="audit.html">التدقيق</a><button id="lock" hidden type="button">قفل الصفحة</button></nav></header>
+<section id="gate" class="panel lock-panel"><h2>فتح الصفحة</h2><p>أدخل كلمة مرور الصفحة السرية.</p><form id="unlock"><label for="password">كلمة المرور</label><input id="password" type="password" autocomplete="off" required dir="ltr"><button id="submit" type="submit">فتح الصفحة</button><p class="status" id="error" role="status"></p></form></section>
+<section id="vault" hidden><div class="tools"><input id="search" type="search" aria-label="البحث بالاسم أو الرقم" placeholder="ابحث بالاسم أو الرقم"><p id="count" aria-live="polite"></p></div><div id="cards" class="grid"></div><p id="empty" hidden>لا توجد نتائج مطابقة.</p></section></main><div id="message" role="status" hidden></div>
+<script>
+const payload = {"salt": "wP7zh8zh3SLr4yaUEyCWNQ==", "iv": "gaRhT1IiodHWCcKA", "data": "DV++Y1VmaA6bO5ggWK+lZKw+dunIQFF9Slry5enHcH3nlCniyD++YbeA7cXvNfiWNNiQwMCWgB0vIiAfPkQsMrf3qdM0UqjOqO/y1IWmUXNk3UyubwGYby+f+X7G30r7FPhGBsT+X/UIi1hiRwjZjk0FcS5i4CGZ1CcH2QUSuWtK330Q0LXTy+zsMttSMjhfvXfqJ7dg4T89qAzodZTwH6VQkkHIKMQxYSqvy9yjp/SsarqJ8ScRF0qRey0N431xQ9Hcp6PFcvEVu+S15DOXl4LxqTnH/n9rtzDxRlg3NArPTUJiFyisAMGPy5pgzfhM80df3wKsOcFFbY+9BqnyiNWXMSv06M5bYQOFXX/1zpsaHyP/WDONYEGfzVBbgPS4ahBIGch480pbBPzCCSMR5ierznlN9F+HMzG7jx+KWQXyTc2+FfOecAn2ODLOGvt2GbmZ0x3fip0E5vInzTMUE9JmFpd9ATkgWRFMgAcout2rSPqmFj3FC1Fiqo95V63uJcgmiob5BQ7X00osMt1gpxixg8k/zDyO4QVBQ7EIhQhznN0V4V1G5RG9tY8WW7/katjRmvikVh8ErHSwcX6R193vWShJn7UL+WXNllJV11awXkFfvsUB8+ihoQrRv4WHObc6EECqaUoLVJOH3H6ubUNvD76HXzoyPZChWQFxpA9C5tDh2lJGEami+j8rPKgjHlFYtnsz4+kTehSuFWdTgXBGcpNJv1F+4bAROiz9KxWMqew="};
+const $ = id => document.getElementById(id);
+let entries = [], timer, toastTimer;
+const bytes = value => Uint8Array.from(atob(value), c => c.charCodeAt(0));
+function lock(){entries=[]; $(`cards`).replaceChildren(); $(`vault`).hidden=true; $(`lock`).hidden=true; $(`gate`).hidden=false; $(`password`).value=``; $(`search`).value=``; $(`error`).textContent=``; clearTimeout(timer);}
+function resetTimer(){clearTimeout(timer); if(entries.length)timer=setTimeout(lock,5*60*1000);}
+function render(){
+ const term=$(`search`).value.trim().toLocaleLowerCase();
+ const visible=entries.filter(row=>row.some(value=>value.toLocaleLowerCase().includes(term)));
+ $(`cards`).replaceChildren(); $(`count`).textContent=`${visible.length} / ${entries.length}`; $(`empty`).hidden=visible.length>0;
+ for(const [name,number] of visible){
+  const card=document.createElement(`article`);card.className=`card`;
+  const title=document.createElement(`h2`);title.textContent=name;title.dir=`auto`;
+  const value=document.createElement(`div`);value.className=`number`;value.textContent=number;
+  const copy=document.createElement(`button`);copy.type=`button`;copy.textContent=`نسخ الرقم`;copy.setAttribute(`aria-label`,`نسخ رقم ${name}`);
+  copy.addEventListener(`click`,async()=>{try{await navigator.clipboard.writeText(number);$(`message`).textContent=`تم نسخ الرقم`;}catch{$(`message`).textContent=`تعذر النسخ، انسخ الرقم يدويا.`;} $(`message`).hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$(`message`).hidden=true,2200);});
+  card.append(title,value,copy);$(`cards`).append(card);
+ }
+}
+$(`unlock`).addEventListener(`submit`,async event=>{
+ event.preventDefault();$(`submit`).disabled=true;$(`error`).textContent=`جاري التحقق…`;
+ try{
+  const password=$(`password`).value;$(`password`).value=``;
+  const material=await crypto.subtle.importKey(`raw`,new TextEncoder().encode(password),`PBKDF2`,false,[`deriveKey`]);
+  const key=await crypto.subtle.deriveKey({name:`PBKDF2`,salt:bytes(payload.salt),iterations:600000,hash:`SHA-256`},material,{name:`AES-GCM`,length:256},false,[`decrypt`]);
+  const plain=await crypto.subtle.decrypt({name:`AES-GCM`,iv:bytes(payload.iv)},key,bytes(payload.data));
+  entries=JSON.parse(new TextDecoder().decode(plain));render();$(`gate`).hidden=true;$(`vault`).hidden=false;$(`lock`).hidden=false;$(`error`).textContent=``;resetTimer();$(`search`).focus();
+ }catch{$(`error`).textContent=`تعذر فتح الصفحة. تحقق من كلمة المرور واستخدم متصفحا حديثا.`;$(`password`).focus();}
+ finally{$(`submit`).disabled=false;}
+});
+$(`lock`).addEventListener(`click`,()=>{lock();$(`password`).focus();});$(`search`).addEventListener(`input`,render);
+for(const event of [`pointerdown`,`keydown`])document.addEventListener(event,resetTimer);
+window.addEventListener(`pagehide`,lock);document.addEventListener(`visibilitychange`,()=>{if(document.hidden)lock();});
+</script></body></html>
