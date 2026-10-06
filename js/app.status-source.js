@@ -22,7 +22,7 @@ function bindExtraNoteMarker(row, noteSelector, nameCell) {
     note.addEventListener(`input`, update);
     update();
 }
-import { ensureForecastBeforeOrder } from './forecast-store.js?v=20261006_forecast1';
+import { ensureForecastBeforeOrder } from './forecast-store.js?v=20261006_forecast2';
 import { loadBonusConfiguration, attachBonusRow } from './regular-bonus.js?v=20261001_bonus1';
 import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js';
 

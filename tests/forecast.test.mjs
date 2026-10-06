@@ -78,10 +78,11 @@ const passSource = `const payload = ${JSON.stringify({ salt: base64(salt), iv: b
 const context = vm.createContext({ console, navigator: { onLine: true }, sessionStorage: store, localStorage: { getItem: () => null }, Date, Number, String, Map, Set, Error, Object, Array, JSON, Boolean, TextEncoder, TextDecoder, Uint8Array, atob, crypto: webcrypto, structuredClone,
     fetch: async url => url.includes(`pass.html`) ? { ok: true, text: async () => passSource } : { ok: true, json: async () => [{ readTime: `2026-10-06T10:00:00Z` }] }
 });
+let readCount = 0, collectionReadCount = 0;
 const sdk = {
     collection: (_, path) => ({ path }), doc: (...args) => args.length === 1 ? ({ path: `${args[0].path}/audit${++counter}` }) : ref(...args),
-    getDocFromServer: async reference => snapshot(reference),
-    getDocsFromServer: async reference => { const items = [...memory.keys()].filter(key => key.startsWith(`${reference.path}/`)).map(path => snapshot({ path })); return { docs: items, size: items.length }; },
+    getDocFromServer: async reference => { readCount++; return snapshot(reference); },
+    getDocsFromServer: async reference => { collectionReadCount++; const items = [...memory.keys()].filter(key => key.startsWith(`${reference.path}/`)).map(path => snapshot({ path })); return { docs: items, size: items.length }; },
     setDoc: async (reference, value, options) => memory.set(reference.path, options?.merge ? { ...memory.get(reference.path), ...value } : value),
     serverTimestamp: () => new Date(`2026-10-06T09:00:00Z`),
     query: value => value, orderBy: () => null, documentId: () => null, limit: () => null, startAfter: () => null,
@@ -92,6 +93,14 @@ const module = new vm.SourceTextModule(fs.readFileSync(new URL(`../js/forecast-s
 await module.link(specifier => specifier.includes(`forecast-core`) ? synthetic(core) : specifier.includes(`firebase-firestore`) ? synthetic(sdk) : synthetic({ db: {} }));
 await module.evaluate();
 const api = module.namespace;
+const beforeConfig = readCount;
+await Promise.all([api.loadConfig(), api.loadConfig(), api.loadConfig()]);
+assert.equal(readCount - beforeConfig, 1, `Concurrent config reads share one request`);
+const beforeMissing = collectionReadCount;
+assert.equal((await api.loadDataset(`2027-01`)).sales, null);
+assert.equal(collectionReadCount, beforeMissing, `Missing sales must not read whole pharmacy and rep collections`);
+assert.ok((await api.loadDataset(`2027-01`, { routingOnly: true })).routes.size > 0, `Import preview can resolve codes before importing sales`);
+assert.match(api.errorMessage({ code: `resource-exhausted` }), /الاستهلاك/);
 assert.equal((await api.checkOrderGate(`r1`)).allowed, false);
 assert.equal((await api.checkOrderGate(`r3`)).allowed, true);
 await assert.rejects(api.saveForecast(`2026-10`, `r1`, { [`1001`]: { amount: null } }, 0, true), /تعبئة/);

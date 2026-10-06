@@ -1,5 +1,5 @@
-import { MONTH_NAMES, monthLabel, validMonth, normalizeName, eligibleRows, progress, forecastValue, invoiceTotals, parseSalesRows, dateValue } from './forecast-core.js?v=20261006_forecast1';
-import * as api from './forecast-store.js?v=20261006_forecast1';
+import { MONTH_NAMES, monthLabel, validMonth, normalizeName, eligibleRows, progress, forecastValue, invoiceTotals, parseSalesRows, dateValue } from './forecast-core.js?v=20261006_forecast2';
+import * as api from './forecast-store.js?v=20261006_forecast2';
 
 const escape = value => String(value ?? ``).replace(/[&<>"']/g, c => ({ [`&`]: `&amp;`, [`<`]: `&lt;`, [`>`]: `&gt;`, [`"`]: `&quot;`, [`'`]: `&#39;` })[c]);
 const money = amount => amount === undefined || amount === null ? `—` : (amount / 100).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -37,7 +37,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
         const controls = [...host.querySelectorAll(`button,input,select,textarea`)];
         const disabled = controls.map(control => control.disabled);
         controls.forEach(control => control.disabled = true);
-        try { await action(); } catch (error) { notify(error.message || `تعذر إتمام العملية`, `error`); }
+        try { await action(); } catch (error) { notify(api.errorMessage ? api.errorMessage(error) : error.message || `تعذر إتمام العملية`, `error`); }
         finally { state.busy = false; controls.forEach((control, index) => { if (control.isConnected) control.disabled = disabled[index]; }); updateSummary(); }
     }
     function stats(items) { return `<div class="fc-stats">${items.map(([label, value]) => `<article class="fc-stat"><span>${escape(label)}</span><b>${escape(value)}</b></article>`).join(``)}</div>`; }
@@ -196,7 +196,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
     }
     async function previewImport(matrix, filename, year) {
         const parsed = parseSalesRows(matrix);
-        const reference = await api.loadDataset(`${year}-01`);
+        const reference = await api.loadDataset(`${year}-01`, { routingOnly: true });
         const unmatched = Object.keys(parsed.customers).filter(code => !reference.routes.has(code));
         state.pending = { parsed, filename, year };
         $(`fcImportPreview`).hidden = false;
@@ -217,5 +217,5 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
     $(`fcMonth`).onchange = () => { if (state.busy) { $(`fcMonth`).value = state.month; return; } if (state.dirty && !confirm(`يوجد تعديل غير محفوظ. تغيير الشهر يفقد هذه التعديلات. المتابعة؟`)) { $(`fcMonth`).value = state.month; return; } state.month = $(`fcMonth`).value; if (!admin || state.admin) run(load); };
     window.addEventListener(`beforeunload`, event => { if (state.dirty) { event.preventDefault(); event.returnValue = ``; } });
     if (!admin) await run(load);
-    else { state.config = await api.loadConfig(); state.month = state.config.activeMonth; $(`fcMonth`).value = state.month; }
+    else { await run(async () => { state.config = await api.loadConfig(); state.month = state.config.activeMonth; $(`fcMonth`).value = state.month; }); }
 }

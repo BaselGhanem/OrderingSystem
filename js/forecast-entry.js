@@ -1,4 +1,4 @@
-import { session, checkOrderGate } from './forecast-store.js?v=20261006_forecast1';
+import { session, checkOrderGate, errorMessage } from './forecast-store.js?v=20261006_forecast2';
 const context = session();
 if (document.body.dataset.page === `order` && context.repId && sessionStorage.getItem(`adminOrderMode`) !== `1`) {
     const panel = document.createElement(`div`);
@@ -9,11 +9,13 @@ if (document.body.dataset.page === `order` && context.repId && sessionStorage.ge
     link.style.cssText = `display:inline-block;background:#099999;color:white;padding:8px 16px;border-radius:10px;text-decoration:none`;
     panel.append(message, link); document.getElementById(`mainTabs`)?.after(panel);
     let checking = false;
+    let lastCheck = 0;
     async function refresh() {
-        if (checking) return;
+        if (checking || Date.now() - lastCheck < 30000) return;
         checking = true;
+        lastCheck = Date.now();
         try { const gate = await checkOrderGate(context.repId); panel.hidden = gate.allowed; message.textContent = gate.allowed ? `` : `قبل إدخال طلبية، أكد توقعات ${gate.month} لكل صيدلياتك. تم تعبئة ${gate.filled} من ${gate.total}.`; }
-        catch (error) { panel.hidden = false; message.textContent = error.message; }
+        catch (error) { panel.hidden = false; message.textContent = errorMessage(error); }
         finally { checking = false; }
     }
     refresh();

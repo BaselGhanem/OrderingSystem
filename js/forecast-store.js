@@ -1,6 +1,6 @@
 import { db } from './firebase.js';
 import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, setDoc, runTransaction, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261006_forecast1';
+import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261006_forecast2';
 
 const configRef = () => doc(db, `system_settings`, `forecast`);
 const salesRef = year => doc(db, `forecast_sales`, String(year));
@@ -35,25 +35,39 @@ function requireAdmin() { if (!adminPassword) throw new Error(`افتح إدار
 export function lockAdmin() { adminPassword = ``; }
 export async function attachedBaseline() {
     requireAdmin();
-    const response = await fetch(`forecast-baseline.enc.json?v=20261006_forecast1`, { cache: `no-store` });
+    const response = await fetch(`forecast-baseline.enc.json?v=20261006_forecast2`, { cache: `no-store` });
     if (!response.ok) throw new Error(`تعذر تحميل الملف المرفق`);
     return decryptPayload(await response.json(), adminPassword);
 }
 const rows = snapshot => snapshot.docs.map(item => ({ ...item.data(), id: item.id }));
-export async function loadConfig() {
+const pendingReads = new Map();
+function shareRead(key, action) {
+    if (pendingReads.has(key)) return pendingReads.get(key);
+    const request = Promise.resolve().then(action).finally(() => pendingReads.delete(key));
+    pendingReads.set(key, request);
+    return request;
+}
+export function errorMessage(error) {
+    return /(^|\/)resource-exhausted$/.test(error?.code || ``) ? `وصل Firestore إلى حد الاستهلاك أو الطلبات. تعذر التحقق من البيانات؛ راجع Usage في Firebase قبل إعادة المحاولة.` : error?.message || `تعذر إتمام العملية`;
+}
+export function loadConfig() { return shareRead(`config`, async () => {
     const snapshot = await getDocFromServer(configRef());
     return snapshot.exists() ? snapshot.data() : { enabled: false, activeMonth: ammanMonth() };
-}
-export async function loadDataset(month) {
+}); }
+export function loadDataset(month, { routingOnly = false } = {}) {
     if (!validMonth(month)) throw new Error(`اختر شهرا صحيحا`);
-    const [sales, pharmacies, reps, assignments] = await Promise.all([
-        getDocFromServer(salesRef(month.slice(0, 4))), getDocsFromServer(collection(db, `pharmacies`)), getDocsFromServer(collection(db, `reps`)),
+    return shareRead(`dataset:${month.slice(0, 4)}:${routingOnly}`, async () => {
+    const sales = routingOnly ? null : await getDocFromServer(salesRef(month.slice(0, 4)));
+    const salesData = sales?.exists() ? sales.data() : null;
+    if (!routingOnly && !salesData) return { sales: null, reps: [], pharmacies: [], routes: new Map(), conflicts: new Map(), invalid: [], rows: [] };
+    const [pharmacies, reps, assignments] = await Promise.all([
+        getDocsFromServer(collection(db, `pharmacies`)), getDocsFromServer(collection(db, `reps`)),
         getDocFromServer(doc(db, `system_settings`, `rep_supervisor_assignments`))
     ]);
-    const salesData = sales.exists() ? sales.data() : null;
     const repRows = rows(reps), pharmacyRows = rows(pharmacies);
     const routing = resolveRoutes(pharmacyRows, repRows, assignments.exists() ? assignments.data()?.assignments : {});
     return { sales: salesData, reps: repRows, pharmacies: pharmacyRows, ...routing, rows: eligibleRows(salesData, routing.routes) };
+    });
 }
 export async function loadForecast(month, repId) {
     const snapshot = await getDocFromServer(forecastRef(month, repId));
@@ -98,7 +112,7 @@ export async function ensureForecastBeforeOrder(repId) {
         window.showToast?.(`أكد توقعات ${result.month} لجميع الصيدليات قبل إدخال طلبية.`, `warning`);
         window.dispatchEvent(new CustomEvent(`forecast:blocked`, { detail: result }));
         return false;
-    } catch (error) { window.showToast?.(error.message, `error`); return false; }
+    } catch (error) { window.showToast?.(errorMessage(error), `error`); return false; }
 }
 export async function saveForecast(month, repId, entries, revision, confirm) {
     if (session().repId !== repId || sessionStorage.getItem(`adminOrderMode`) === `1`) throw new Error(`الدخول كمندوب مطلوب لتعبئة التوقع`);

@@ -2,8 +2,8 @@
 globalThis.__fixture = await (await fetch(`forecast.fixture.json`)).json();
 if (new URLSearchParams(location.search).get(`mode`) === `admin`) globalThis.__fixture.docs.r1 = { status: `confirmed`, revision: 2, entries: { [`1001`]: { amount: 0, note: `تم` }, [`1002`]: { amount: 12550, note: `` } } };
 window.confirm = () => true;
-const source = await (await fetch(`../js/forecast-ui.js?v=20261006_forecast1`)).text();
-const transformed = source.replace(`'./forecast-core.js?v=20261006_forecast1'`, JSON.stringify(new URL(`../js/forecast-core.js?v=20261006_forecast1`,location.href).href)).replace(`'./forecast-store.js?v=20261006_forecast1'`, JSON.stringify(new URL(`forecast-api.fixture.js`,location.href).href));
+const source = await (await fetch(`../js/forecast-ui.js?v=20261006_forecast2`)).text();
+const transformed = source.replace(`'./forecast-core.js?v=20261006_forecast2'`, JSON.stringify(new URL(`../js/forecast-core.js?v=20261006_forecast2`,location.href).href)).replace(`'./forecast-store.js?v=20261006_forecast2'`, JSON.stringify(new URL(`forecast-api.fixture.js`,location.href).href));
 const url = URL.createObjectURL(new Blob([transformed],{type:`text/javascript`}));
 const { mountForecast } = await import(url);
 await mountForecast(document.getElementById(`forecastApp`), { mode:new URLSearchParams(location.search).get(`mode`) || `rep` });

@@ -17,7 +17,7 @@ document.querySelectorAll(`[data-target-section]`).forEach(button => button.addE
     document.querySelectorAll(`.supervisor-premium-tabs .btn-subtab`).forEach(tab => tab.classList.toggle(`active`, tab === button));
     const section = document.getElementById(id);
     if (!section.querySelector(`iframe`)) {
-        const frame = document.createElement(`iframe`); frame.src = `forecast.html?mode=${modes[id]}&v=20261006_forecast1`;
+        const frame = document.createElement(`iframe`); frame.src = `forecast.html?mode=${modes[id]}&v=20261006_forecast2`;
         frame.title = modes[id] === `team` ? `توقعات فريقي` : `متابعة التوقع مقابل المفوتر`;
         frame.style.cssText = `display:block;width:100%;min-height:1100px;border:0;border-radius:20px;background:#f2f7f8`;
         section.append(frame);
