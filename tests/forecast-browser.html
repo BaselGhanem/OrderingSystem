@@ -35,7 +35,7 @@ check(adminDoc.querySelector(`#fcAdminControls`).hidden,`كلمة مرور خا�
 input(adminDoc,`#fcAdminPassword`,`test-only`);adminDoc.querySelector(`#fcAdminLogin`).requestSubmit();
 await until(()=>!adminDoc.querySelector(`#fcAdminControls`).hidden&&adminDoc.querySelector(`#fcAttached`)&&!adminDoc.querySelector(`#fcAttached`).disabled);
 adminDoc.querySelector(`#fcAttached`).click();await until(()=>!adminDoc.querySelector(`#fcImport`).hidden&&!adminDoc.querySelector(`#fcImport`).disabled);
-adminDoc.querySelector(`#fcImport`).click();await until(()=>adminWindow.__fixture.imported===3);
+adminDoc.querySelector(`#fcImport`).click();await until(()=>adminWindow.__fixture.imported===3&&adminDoc.querySelector(`#fcPermit`)&&!adminDoc.querySelector(`#fcPermit`).disabled);
 check(adminWindow.__fixture.imported===3,`معاينة واعتماد الملف تعملان دون تعديل بيانات حقيقية`);
 input(adminDoc,`#fcHours`,`4`);adminDoc.querySelector(`#fcPermit`).click();await until(()=>adminWindow.__fixture.permit?.hours===4&&!adminDoc.querySelector(`#fcRevoke`).disabled);
 check(adminWindow.__fixture.permit.hours===4,`المهلة تحفظ بعدد الساعات المطلوب`);
