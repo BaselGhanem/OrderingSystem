@@ -2325,17 +2325,19 @@ async function exportOrders(orders) {
     const results = await Promise.allSettled(orders.map(order => {
         const previousHistory = Array.isArray(order.exportHistory) ? order.exportHistory : [];
         const exportEntry = buildExportEntry('orders_staff_excel', 'Ziad/Zakaria', orders.length, hide, exportFileName);
+        exportEntry.invoiced = true;
+        const invoiceMoment = new Date();
         return updateOrderWithAudit(order.id, {
             status: 'orders_staff_hidden',
             orderStaffStatus: 'orders_staff_hidden',
             exportedBy: 'Ziad/Zakaria',
-            exportedAt: new Date(),
+            exportedAt: invoiceMoment,
             exportHistory: [...previousHistory, exportEntry],
             hiddenByOrderStaff: !!hide,
-            hiddenAt: hide ? new Date() : null,
-            isInvoiced: !!hide,
-            invoicedAt: hide ? new Date() : null,
-            invoicedBy: hide ? 'Ziad/Zakaria' : ''
+            hiddenAt: hide ? invoiceMoment : null,
+            isInvoiced: true,
+            invoicedAt: invoiceMoment,
+            invoicedBy: 'Ziad/Zakaria'
         }, auditEntry(action, 'Ziad/Zakaria', 'orders_staff', { status: order.status, orderStaffStatus: order.orderStaffStatus || '' }, { status: 'orders_staff_hidden', orderStaffStatus: 'orders_staff_hidden', hiddenAfterExport: hide, exportFileName }));
     }));
     state.suspendRender = false;
@@ -2387,3 +2389,4 @@ async function boot() {
 boot();
 
 document.getElementById(`marketExtraFilter`)?.addEventListener(`change`, applyMarketFilters);
+

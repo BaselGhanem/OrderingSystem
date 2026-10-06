@@ -22,6 +22,7 @@ function bindExtraNoteMarker(row, noteSelector, nameCell) {
     note.addEventListener(`input`, update);
     update();
 }
+import { ensureForecastBeforeOrder } from './forecast-store.js?v=20261006_forecast1';
 import { loadBonusConfiguration, attachBonusRow } from './regular-bonus.js?v=20261001_bonus1';
 import { db, collection, getDocs, query, where, addDoc, doc, updateDoc, getDoc, setDoc, onSnapshot } from './firebase.js';
 
@@ -214,7 +215,7 @@ function initializeManagerView(managerName) {
         const managerTabs = [myTeamBtn, financeRejectedBtn, allOrdersBtn];
         const showManagerSection = target => {
             document.querySelectorAll('.supervisor-premium-tabs .btn-subtab[data-target-section]').forEach(button => button.classList.remove('active'));
-            ['setTargetsSection', 'targetDashboardSection', 'supervisorReminderSection'].forEach(id => { const section = getEl(id); if (section) section.style.display = 'none'; });
+            ['setTargetsSection', 'targetDashboardSection', 'supervisorReminderSection', 'forecastTeamSection', 'forecastTrackingSection'].forEach(id => { const section = getEl(id); if (section) section.style.display = 'none'; });
             if (getEl('advancedManagerDashboard')) getEl('advancedManagerDashboard').style.display = 'grid';
             if (getEl('managerDateFilters')) getEl('managerDateFilters').style.display = 'block';
             teamSection.style.display = target === 'team' ? 'block' : 'none';
@@ -1931,6 +1932,7 @@ function showRepresentativeHome() {
 
 async function openOrderPharmacyPicker() {
     if (!currentRepId && !loadRepSession()) return goToLogin();
+    if (!isAdmin && !await ensureForecastBeforeOrder(currentRepId)) return;
     const modal = getEl(`orderPharmacyModal`);
     const input = getEl(`orderPharmacyInput`);
     const suggestions = getEl(`orderPharmacySuggestions`);
@@ -2603,6 +2605,7 @@ else if (startOrderBtn) {
 }
 
 if (submitOrderBtn) submitOrderBtn.onclick = async () => {
+    if (!isAdmin && !await ensureForecastBeforeOrder(currentRepId)) return;
     if (!navigator.onLine) {
         showToast("أنت في وضع عدم الاتصال (Offline). لا يمكن إرسال الطلبية الآن.", "error");
         return;
@@ -4383,3 +4386,4 @@ async function runMonthlyExport() {
 }
 
 getEl(`supervisorExtraFilter`)?.addEventListener(`change`, () => { allOrdersPageIndex = 0; applyManagerFilters(); filterAllOrders(); });
+

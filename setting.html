@@ -595,7 +595,8 @@
         }
     </style>
 <link rel="stylesheet" href="admin-responsive.css?v=20260923_force_v2">
-<script src="js/version-check.js?v=20261001_bonus1" defer></script></head>
+<script src="js/version-check.js?v=20261006_forecast1" defer></script><link rel="stylesheet" href="forecast.css?v=20261006_forecast1">
+</head>
 <body>
     <div class="bg-shapes"><div class="shape shape-1"></div><div class="shape shape-2"></div></div>
 
@@ -617,7 +618,8 @@
         </header>
 
         <nav class="settings-tabs" aria-label="أقسام إعدادات الموقع">
-            <button type="button" class="tab-button" data-target="regularBonusPanel">البونص المنتظم</button>
+            <button type="button" class="tab-button" data-target="forecastAdminPanel">توقعات المبيعات</button>
+<button type="button" class="tab-button" data-target="regularBonusPanel">البونص المنتظم</button>
             <button type="button" class="tab-button active" data-target="productsPanel"><i class="ph ph-package"></i> الأصناف</button>
             <button type="button" class="tab-button" data-target="pharmaciesPanel"><i class="ph ph-storefront"></i> الصيدليات</button>
             <button type="button" class="tab-button" data-target="supervisorTargetsPanel"><i class="ph ph-crosshair"></i> تارجت المشرفين</button>
@@ -660,7 +662,8 @@
             <div id="supervisorTargetsStatus" class="status-box"></div>
         </section>
 
-        <section id="regularBonusPanel" class="settings-card"></section>
+        <section id="forecastAdminPanel" class="settings-card forecast-root"></section>
+<section id="regularBonusPanel" class="settings-card"></section>
         <section id="assignmentsPanel" class="settings-card"><div class="admin-tool-host" data-tool-host="assignments"></div></section>
         <section id="areasPanel" class="settings-card"><div class="admin-tool-host" data-tool-host="areas"></div></section>
         <section id="productsPanel" class="settings-card active">
@@ -2815,5 +2818,7 @@
 <script type="module" src="js/admin-hub.js?v=20260923_force_v2"></script>
 <script type="module" src="js/pharmacy-search.js?v=20260923_force_v2"></script>
 <script type="module" src="js/regular-bonus-admin.js?v=20261001_review1"></script>
+<script type="module" src="js/forecast-admin.js?v=20261006_forecast1"></script>
 </body>
 </html>
+

@@ -1,5 +1,5 @@
 (() => {
-    const currentVersion = `20261001-bonus1`;
+    const currentVersion = `20261006-forecast1`;
     const versionUrl = new URL(`./version.json`, document.baseURI);
     let checking = false;
     let reloading = false;
@@ -33,3 +33,4 @@
         if (document.visibilityState === `visible`) checkVersion();
     }, 60_000);
 })();
+

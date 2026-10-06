@@ -26,6 +26,24 @@ check(doc.documentElement.scrollWidth<=w.innerWidth,`الموبايل بلا ت�
 doc.querySelector(`#fcConfirm`).click();await until(()=>doc.querySelector(`#fcMessage`).textContent.includes(`تم تأكيد جميع`));
 check(doc.querySelectorAll(`[data-code]`).length===0&&doc.querySelector(`#fcSave`).disabled,`التأكيد يقفل التعديل`);
 check(w.__fixture.docs.r1.entries[`1001`].amount===0&&w.__fixture.docs.r1.entries[`1002`].amount===12550,`القيم المالية محفوظة بدقة`);
+const adminGeneration=String(Date.now());frame.style.width=`100%`;frame.src=`forecast-fixture.html?mode=admin&t=${adminGeneration}`;
+await until(()=>frame.contentDocument.location.search.includes(adminGeneration)&&frame.contentWindow?.fixtureReady&&frame.contentDocument.querySelector(`#fcAdminPassword`));
+const adminDoc=frame.contentDocument,adminWindow=frame.contentWindow;
+input(adminDoc,`#fcAdminPassword`,`wrong`);adminDoc.querySelector(`#fcAdminLogin`).requestSubmit();
+await until(()=>adminDoc.querySelector(`#fcMessage`).textContent.includes(`غير صحيحة`));
+check(adminDoc.querySelector(`#fcAdminControls`).hidden,`كلمة مرور خاطئة لا تفتح الإدارة التجريبية`);
+input(adminDoc,`#fcAdminPassword`,`test-only`);adminDoc.querySelector(`#fcAdminLogin`).requestSubmit();
+await until(()=>!adminDoc.querySelector(`#fcAdminControls`).hidden&&adminDoc.querySelector(`#fcAttached`)&&!adminDoc.querySelector(`#fcAttached`).disabled);
+adminDoc.querySelector(`#fcAttached`).click();await until(()=>!adminDoc.querySelector(`#fcImport`).hidden&&!adminDoc.querySelector(`#fcImport`).disabled);
+adminDoc.querySelector(`#fcImport`).click();await until(()=>adminWindow.__fixture.imported===3);
+check(adminWindow.__fixture.imported===3,`معاينة واعتماد الملف تعملان دون تعديل بيانات حقيقية`);
+input(adminDoc,`#fcHours`,`4`);adminDoc.querySelector(`#fcPermit`).click();await until(()=>adminWindow.__fixture.permit?.hours===4&&!adminDoc.querySelector(`#fcRevoke`).disabled);
+check(adminWindow.__fixture.permit.hours===4,`المهلة تحفظ بعدد الساعات المطلوب`);
+adminDoc.querySelector(`#fcRevoke`).click();await until(()=>adminWindow.__fixture.permit===null&&!adminDoc.querySelector(`#fcReopen`).disabled);
+check(adminWindow.__fixture.permit===null,`يمكن إلغاء المهلة`);
+input(adminDoc,`#fcReopenReason`,`تصحيح التوقع`);adminDoc.querySelector(`#fcReopen`).click();await until(()=>adminWindow.__fixture.reopened===`تصحيح التوقع`&&!adminDoc.querySelector(`#fcAdminLock`).disabled);
+check(adminWindow.__fixture.docs.r1.entries[`1002`].amount===12550,`إعادة الفتح تحفظ الأرقام السابقة`);
+adminDoc.querySelector(`#fcAdminLock`).click();check(adminDoc.querySelector(`#fcAdminControls`).hidden,`يمكن قفل الإدارة`);
 results.textContent+=`\nPASS — جميع الفحوص نجحت`;
 }catch(error){results.textContent+=`\nFAIL — ${error.message}`;}finally{button.disabled=false;}
 };

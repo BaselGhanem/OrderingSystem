@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20261001_login1`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20261006_forecast1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -98,6 +98,7 @@ try {
     }
 
     source = source.replace(resolverPattern, canonicalResolver);
+    source = source.replace("'./forecast-store.js?v=20261006_forecast1'", JSON.stringify(new URL(`./forecast-store.js?v=20261006_forecast1`, import.meta.url).href));
     source = source.replace(supervisorDeletePattern, supervisorDeleteResolver);
     source = source.replace(/from\s+(['"])\.\/firebase\.js\1/, `from ${JSON.stringify(firebaseUrl)}`);
     source = source.replace(
@@ -147,3 +148,4 @@ if (document.readyState === `loading`) {
         }
     });
 }
+
