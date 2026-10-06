@@ -1,0 +1,32 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Forecast browser checks</title><style>body{font-family:Tahoma;background:#eef4f5;padding:20px;color:#123c48}button{background:#099999;color:white;border:0;border-radius:10px;padding:12px;cursor:pointer;margin:5px}iframe{display:block;border:1px solid #dae5e6;border-radius:16px;background:#fff;width:390px;max-width:100%;height:1500px;margin:15px 0}#results{padding:15px;border-radius:12px;background:white;white-space:pre-wrap;line-height:1.8}p{font-size:13px}</style></head><body><h1>فحص التوقعات ببيانات تجريبية معزولة</h1><p>هذه الصفحة لا تتصل بقاعدة البيانات ولا تحفظ أي بيانات حقيقية.</p><button id="run">تشغيل الفحص الآمن</button><button id="mobile">معاينة المندوب / موبايل</button><button id="tracking">معاينة المشرف / متابعة المفوتر</button><div id="results" role="status">جاهز للفحص</div><iframe id="preview" title="معاينة التوقعات التجريبية" src="forecast-fixture.html"></iframe><script type="module">
+const frame=document.getElementById(`preview`),results=document.getElementById(`results`);
+const delay = () => new Promise(resolve => setTimeout(resolve,60));
+async function until(predicate){for(let i=0;i<150;i++){if(predicate())return;await delay();}throw Error(`انتهت مهلة انتظار المعاينة`);}
+const check = (condition,message) => {if(!condition)throw Error(message);results.textContent+=`\n✓ ${message}`;};
+const input = (doc,selector,value) => {const element=doc.querySelector(selector);element.value=value;element.dispatchEvent(new Event(`input`,{bubbles:true}));};
+document.getElementById(`mobile`).onclick=()=>{frame.style.width=`390px`;frame.src=`forecast-fixture.html?mode=rep`;};
+document.getElementById(`tracking`).onclick=()=>{frame.style.width=`100%`;frame.src=`forecast-fixture.html?mode=tracking`;};
+document.getElementById(`run`).onclick=async()=>{
+const button=document.getElementById(`run`);button.disabled=true;results.textContent=`جاري الفحص…`;frame.style.width=`390px`;frame.src=`forecast-fixture.html?mode=rep&t=${Date.now()}`;
+try{
+await until(()=>frame.contentWindow?.fixtureReady&&frame.contentDocument.querySelector(`[data-code="1001"]`));
+const doc=frame.contentDocument,w=frame.contentWindow;
+check(doc.querySelectorAll(`tbody tr`).length===2,`تظهر صيدليات المندوب فقط`);
+check(doc.querySelector(`#fcConfirm`).disabled,`الفراغ يمنع التأكيد`);
+input(doc,`[data-code="1001"]`,`0`);input(doc,`[data-note="1001"]`,`ملاحظة محفوظة`);doc.querySelector(`#fcSave`).click();
+await until(()=>doc.querySelector(`#fcMessage`).textContent.includes(`حفظ التوقعات جزئيا`));
+check(doc.querySelector(`#fcConfirm`).disabled,`الحفظ الجزئي لا يؤكد الصيدليات الفارغة`);
+check(doc.querySelector(`[data-note="1001"]`).value===`ملاحظة محفوظة`,`تبقى الملاحظة بعد الحفظ`);
+input(doc,`[data-code="1002"]`,`1bad`);input(doc,`#fcSearch`,`الأولى`);doc.querySelector(`#fcSave`).click();
+await until(()=>doc.querySelector(`#fcMessage`).textContent.includes(`صحح القيم`));
+check(w.__fixture.saved===1,`القيمة غير الصالحة تمنع الحفظ حتى عند إخفاء صفها بالبحث`);
+input(doc,`#fcSearch`,``);check(doc.querySelector(`[data-code="1002"]`).value===`1bad`,`البحث لا يفقد الإدخال غير الصالح`);
+input(doc,`[data-code="1002"]`,`125.50`);check(!doc.querySelector(`#fcConfirm`).disabled,`الصفر قيمة صحيحة ويسمح بالتأكيد بعد استكمال الجميع`);
+check(doc.documentElement.scrollWidth<=w.innerWidth,`الموبايل بلا تمرير أفقي للصفحة`);
+doc.querySelector(`#fcConfirm`).click();await until(()=>doc.querySelector(`#fcMessage`).textContent.includes(`تم تأكيد جميع`));
+check(doc.querySelectorAll(`[data-code]`).length===0&&doc.querySelector(`#fcSave`).disabled,`التأكيد يقفل التعديل`);
+check(w.__fixture.docs.r1.entries[`1001`].amount===0&&w.__fixture.docs.r1.entries[`1002`].amount===12550,`القيم المالية محفوظة بدقة`);
+results.textContent+=`\nPASS — جميع الفحوص نجحت`;
+}catch(error){results.textContent+=`\nFAIL — ${error.message}`;}finally{button.disabled=false;}
+};
+</script></body></html>

@@ -1,0 +1,11 @@
+<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../forecast.css"><title>Forecast isolated fixture</title></head><body style="margin:0;background:#f2f7f8"><main id="forecastApp" class="forecast-root"></main><script type="module">
+globalThis.__fixture = await (await fetch(`forecast.fixture.json`)).json();
+window.confirm = () => true;
+const source = await (await fetch(`../js/forecast-ui.js?v=20261006_forecast1`)).text();
+const transformed = source.replace(`'./forecast-core.js?v=20261006_forecast1'`, JSON.stringify(new URL(`../js/forecast-core.js?v=20261006_forecast1`,location.href).href)).replace(`'./forecast-store.js?v=20261006_forecast1'`, JSON.stringify(new URL(`forecast-api.fixture.js`,location.href).href));
+const url = URL.createObjectURL(new Blob([transformed],{type:`text/javascript`}));
+const { mountForecast } = await import(url);
+await mountForecast(document.getElementById(`forecastApp`), { mode:new URLSearchParams(location.search).get(`mode`) || `rep` });
+URL.revokeObjectURL(url);
+window.fixtureReady = true;
+</script></body></html>
