@@ -19,7 +19,7 @@ import {
     startAfter,
     documentId,
     writeBatch
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+} from "./firestore-meter.js?v=20261006_reads1";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",
@@ -65,3 +65,4 @@ export {
     documentId,
     writeBatch
 };
+

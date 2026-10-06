@@ -90,7 +90,7 @@ const sdk = {
 };
 const synthetic = exports => new vm.SyntheticModule(Object.keys(exports), function () { for (const [name, value] of Object.entries(exports)) this.setExport(name, value); }, { context });
 const module = new vm.SourceTextModule(fs.readFileSync(new URL(`../js/forecast-store.js`, import.meta.url), `utf8`), { context });
-await module.link(specifier => specifier.includes(`forecast-core`) ? synthetic(core) : specifier.includes(`firebase-firestore`) ? synthetic(sdk) : synthetic({ db: {} }));
+await module.link(specifier => specifier.includes(`forecast-core`) ? synthetic(core) : (specifier.includes(`firebase-firestore`) || specifier.includes(`firestore-meter`)) ? synthetic(sdk) : synthetic({ db: {} }));
 await module.evaluate();
 const api = module.namespace;
 const beforeConfig = readCount;

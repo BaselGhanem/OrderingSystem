@@ -19,7 +19,7 @@ import {
     startAfter,
     documentId,
     runTransaction                         
-} from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"; // 🟢 تم تعديل الرقم هنا
+} from "https://baselghanem.github.io/OrderingSystem/js/firestore-meter-v10.js?v=20261006_reads1"; // 🟢 تم تعديل الرقم هنا
 
 // إعدادات الاتصال بقاعدة البيانات (كما هي بدون تغيير)
 const firebaseConfig = {

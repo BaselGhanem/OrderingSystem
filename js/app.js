@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20261006_forecast2`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20261006_reads1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -26,6 +26,7 @@ try {
     if (!response.ok) throw new Error(`Unable to load application source: ${response.status}`);
 
     let source = await response.text();
+    source = source.replaceAll(`https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js`, new URL(`./firestore-meter.js?v=20261006_reads1`, import.meta.url).href);
     source = source.replace("'./regular-bonus.js?v=20261001_bonus1'", JSON.stringify(new URL(`./regular-bonus.js?v=20261001_review1`, import.meta.url).href));
     const resolverPattern = /function getEffectiveOrderStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
     const canonicalResolver = `function getEffectiveOrderStatus(order = {}) {
@@ -98,7 +99,7 @@ try {
     }
 
     source = source.replace(resolverPattern, canonicalResolver);
-    source = source.replace("'./forecast-store.js?v=20261006_forecast2'", JSON.stringify(new URL(`./forecast-store.js?v=20261006_forecast2`, import.meta.url).href));
+    source = source.replace("'./forecast-store.js?v=20261006_reads1'", JSON.stringify(new URL(`./forecast-store.js?v=20261006_reads1`, import.meta.url).href));
     source = source.replace(supervisorDeletePattern, supervisorDeleteResolver);
     source = source.replace(/from\s+(['"])\.\/firebase\.js\1/, `from ${JSON.stringify(firebaseUrl)}`);
     source = source.replace(
@@ -121,7 +122,7 @@ try {
         );
     }
 
-    moduleUrl = URL.createObjectURL(new Blob([source], { type: `text/javascript` }));
+    moduleUrl = URL.createObjectURL(new Blob([source + `\n//# sourceURL=${sourceUrl.href}`], { type: `text/javascript` }));
     await import(moduleUrl);
 } finally {
     originalListeners.forEach(({ target, addEventListener }) => {
@@ -148,4 +149,5 @@ if (document.readyState === `loading`) {
         }
     });
 }
+
 

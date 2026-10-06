@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./workflow.status-source.js?v=20261006_forecast2`, import.meta.url);
+const sourceUrl = new URL(`./workflow.status-source.js?v=20261006_reads1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -24,6 +24,7 @@ try {
     if (!response.ok) throw new Error(`Unable to load workflow source: ${response.status}`);
 
     let source = await response.text();
+    source = source.replaceAll(`https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js`, new URL(`./firestore-meter.js?v=20261006_reads1`, import.meta.url).href);
 
     const rawResolverPattern = /function getRawPrimaryStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
     const primaryResolverPattern = /function getPrimaryStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
@@ -320,7 +321,7 @@ try {
         );
     }
 
-    moduleUrl = URL.createObjectURL(new Blob([source], { type: `text/javascript` }));
+    moduleUrl = URL.createObjectURL(new Blob([source + `\n//# sourceURL=${sourceUrl.href}`], { type: `text/javascript` }));
     await import(moduleUrl);
 } finally {
     originalListeners.forEach(({ target, addEventListener }) => {
@@ -345,4 +346,5 @@ if (document.readyState === `loading`) {
         }
     });
 }
+
 

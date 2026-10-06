@@ -1243,7 +1243,7 @@ export default `<!DOCTYPE html>
       writeBatch,
       serverTimestamp,
       arrayUnion
-    } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-lite.js";
+    } from "https://baselghanem.github.io/OrderingSystem/js/firestore-meter-lite.js?v=20261006_reads1";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDSTrX3Y-jF4k7lBS1AApVHHZXTGmWjk-g",

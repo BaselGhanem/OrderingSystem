@@ -1,4 +1,4 @@
-import { session, checkOrderGate, errorMessage } from './forecast-store.js?v=20261006_forecast2';
+import { session, checkOrderGate, errorMessage } from './forecast-store.js?v=20261006_reads1';
 const context = session();
 if (document.body.dataset.page === `order` && context.repId && sessionStorage.getItem(`adminOrderMode`) !== `1`) {
     const panel = document.createElement(`div`);

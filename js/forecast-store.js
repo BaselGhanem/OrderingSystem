@@ -1,6 +1,6 @@
 import { db } from './firebase.js';
-import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, setDoc, runTransaction, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261006_forecast2';
+import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, setDoc, runTransaction, serverTimestamp } from './firestore-meter.js?v=20261006_reads1';
+import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261006_reads1';
 
 const configRef = () => doc(db, `system_settings`, `forecast`);
 const salesRef = year => doc(db, `forecast_sales`, String(year));
@@ -35,7 +35,7 @@ function requireAdmin() { if (!adminPassword) throw new Error(`افتح إدار
 export function lockAdmin() { adminPassword = ``; }
 export async function attachedBaseline() {
     requireAdmin();
-    const response = await fetch(`forecast-baseline.enc.json?v=20261006_forecast2`, { cache: `no-store` });
+    const response = await fetch(`forecast-baseline.enc.json?v=20261006_reads1`, { cache: `no-store` });
     if (!response.ok) throw new Error(`تعذر تحميل الملف المرفق`);
     return decryptPayload(await response.json(), adminPassword);
 }
@@ -198,3 +198,4 @@ export async function loadOrders() {
     }
     return orders;
 }
+
