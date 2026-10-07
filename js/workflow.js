@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./workflow.status-source.js?v=20261006_reads1`, import.meta.url);
+const sourceUrl = new URL(`./workflow.status-source.js?v=20261007_staff_load1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -24,7 +24,7 @@ try {
     if (!response.ok) throw new Error(`Unable to load workflow source: ${response.status}`);
 
     let source = await response.text();
-    source = source.replaceAll(`https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js`, new URL(`./firestore-meter.js?v=20261006_reads1`, import.meta.url).href);
+    source = source.replaceAll(`https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js`, new URL(`./firestore-meter.js?v=20261007_staff_load1`, import.meta.url).href);
 
     const rawResolverPattern = /function getRawPrimaryStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
     const primaryResolverPattern = /function getPrimaryStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
@@ -262,11 +262,18 @@ try {
 
     subscribeOrders(applyOrdersStaffFilters);
 
-    // Do not rely exclusively on Listen/WebChannel. A one-shot read guarantees the
-    // actionable queue is populated even when realtime transport temporarily fails.
-    refreshOrdersFromFirebase(currentPageOrderSource(), PAGE_CACHE_KEY, false).catch(error => {
-        console.warn('Orders Staff one-shot refresh failed', error);
-    });
+    // subscribeOrders already attaches the live queue. A second getDocs here
+    // duplicated all three queries and competed with the reminder request.
+    const loadingTimer = window.setTimeout(() => {
+        if (state.lastRefreshAt) return;
+        showDataModeNotice('الاتصال بقاعدة البيانات بطيء. آخر بيانات محلية تبقى ظاهرة حتى عودة الاتصال.');
+        if (!state.orders.length) setLoadingRow('ordersStaffBody', 12, 'تعذر الاتصال بقاعدة البيانات حاليا. سيتم التحديث تلقائيا عند عودة الاتصال.');
+    }, 15000);
+    const renderOrders = state.onOrdersChange;
+    state.onOrdersChange = () => {
+        if (state.lastRefreshAt) window.clearTimeout(loadingTimer);
+        renderOrders?.();
+    };
 }`;
 
     const requiredPatterns = [

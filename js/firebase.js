@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
     initializeFirestore,
+    memoryLocalCache,
     persistentLocalCache,
     persistentMultipleTabManager,
     collection,
@@ -36,12 +37,13 @@ const app = initializeApp(firebaseConfig);
 // Firestore Listen back-channel and falling into offline mode. Force long
 // polling for this operational web app so proxies, antivirus software and
 // restrictive networks cannot indefinitely buffer the realtime stream.
+const independentStaffCache = [`orders-staff`, `reports-reminders`].includes(document.body?.dataset.page);
 const db = initializeFirestore(app, {
     experimentalForceLongPolling: true,
     experimentalLongPollingOptions: {
         timeoutSeconds: 25
     },
-    localCache: persistentLocalCache({
+    localCache: independentStaffCache ? memoryLocalCache() : persistentLocalCache({
         tabManager: persistentMultipleTabManager()
     })
 });

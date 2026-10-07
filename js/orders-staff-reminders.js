@@ -285,11 +285,30 @@ async function fetchPendingApprovalOrders() {
     return orders;
 }
 
-async function loadApprovalReminders() {
+let reminderRequest = null;
+let reminderSnapshot = null;
+let reminderLoadedAt = 0;
+let reminderRenderToken = 0;
+
+function reminderData(force = false) {
+    if (reminderRequest) return reminderRequest;
+    if (!force && reminderSnapshot && Date.now() - reminderLoadedAt < 60000) return Promise.resolve(reminderSnapshot);
+    reminderRequest = Promise.all([fetchPendingApprovalOrders(), loadRepSupervisorMap()])
+        .then(data => {
+            reminderSnapshot = data;
+            reminderLoadedAt = Date.now();
+            return data;
+        }).finally(() => { reminderRequest = null; });
+    return reminderRequest;
+}
+
+async function loadApprovalReminders(force = false) {
     const grid = $rem(`approvalReminderGrid`);
     const warning = $rem(`approvalReminderWarning`);
     if (!grid) return;
 
+    const renderToken = ++reminderRenderToken;
+    let slowTimer;
     grid.innerHTML = `<div class="approval-reminder-loading"><i class="ph ph-circle-notch ph-spin"></i> جاري تحميل الطلبيات المعلقة...</div>`;
     if (warning) {
         warning.hidden = true;
@@ -298,10 +317,14 @@ async function loadApprovalReminders() {
 
     try {
         const startedAt = performance.now();
-        const [orders, supervisorMap] = await Promise.all([
-            fetchPendingApprovalOrders(),
-            loadRepSupervisorMap()
-        ]);
+        const dataPromise = reminderData(force === true);
+        slowTimer = window.setTimeout(() => {
+            if (renderToken !== reminderRenderToken) return;
+            grid.innerHTML = `<div class="approval-reminder-loading"><i class="ph ph-warning-circle"></i> الاتصال بقاعدة البيانات بطيء. سيتم عرض الطلبيات عند وصول الرد. يمكنك إعادة المحاولة بزر تحديث.</div>`;
+        }, 15000);
+        const [orders, supervisorMap] = await dataPromise;
+        if (renderToken !== reminderRenderToken) return;
+        window.clearTimeout(slowTimer);
 
         const buckets = new Map(APPROVAL_CONTACTS.map(contact => [contact.key, []]));
         let unresolvedSupervisorCount = 0;
@@ -367,8 +390,11 @@ async function loadApprovalReminders() {
 
         console.info(`Approval reminders loaded: ${orders.length} pending-state orders fetched in ${Math.round(performance.now() - startedAt)}ms`);
     } catch (error) {
+        if (renderToken !== reminderRenderToken) return;
         console.error(`Failed to load approval reminders`, error);
         grid.innerHTML = `<div class="approval-reminder-loading"><i class="ph ph-warning-circle"></i> تعذر تحميل الطلبيات المعلقة. حاول التحديث مرة أخرى.</div>`;
+    } finally {
+        window.clearTimeout(slowTimer);
     }
 }
 
@@ -392,9 +418,9 @@ $rem(`approvalReminderTab`)?.addEventListener(`click`, async () => {
 });
 $rem(`approvedByFinanceTab`)?.addEventListener(`click`, () => setReminderMode(false));
 $rem(`followupOrdersTab`)?.addEventListener(`click`, () => setReminderMode(false));
-$rem(`refreshApprovalRemindersBtn`)?.addEventListener(`click`, loadApprovalReminders);
-$rem(`reminderDateFrom`)?.addEventListener(`change`, loadApprovalReminders);
-$rem(`reminderDateTo`)?.addEventListener(`change`, loadApprovalReminders);
+$rem(`refreshApprovalRemindersBtn`)?.addEventListener(`click`, () => loadApprovalReminders(true));
+$rem(`reminderDateFrom`)?.addEventListener(`change`, () => loadApprovalReminders());
+$rem(`reminderDateTo`)?.addEventListener(`change`, () => loadApprovalReminders());
 // The reports card uses the same filters, contacts, messages, and actions.
 if (document.body.dataset.page === `reports-reminders`) {
     applyReminderDefaultDates();
