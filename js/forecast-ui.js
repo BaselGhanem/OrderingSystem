@@ -7,7 +7,7 @@ const amountText = amount => Number.isSafeInteger(amount) ? (amount / 100).toFix
 const dateText = value => dateValue(value)?.toLocaleString(`en-GB`, { timeZone: `Asia/Amman`, hour12: true }) || `—`;
 export async function mountForecast(host, { mode = `rep` } = {}) {
     host.classList.add(`forecast-root`);
-    const state = { month: ``, config: null, dataset: null, docs: new Map(), entries: {}, invalid: new Set(), rawInputs: new Map(), dirty: false, busy: false, selected: ``, orders: null, filter: ``, status: `all`, pending: null, admin: false, permits: new Map(), request: 0 };
+    const state = { month: ``, config: null, dataset: null, docs: new Map(), entries: {}, invalid: new Set(), rawInputs: new Map(), dirty: false, busy: false, selected: ``, orders: null, filter: ``, status: `all`, pending: null, template: null, monitoring: false, admin: false, permits: new Map(), request: 0 };
     const $ = id => host.querySelector(`#${id}`);
     const notify = (message, type = ``) => { const element = $(`fcMessage`); if (element) { element.textContent = message; element.className = `fc-status ${type}`; element.hidden = false; } };
     const acting = api.session();
@@ -18,7 +18,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
     host.innerHTML = `<div class="fc-shell"><header class="fc-hero"><div><small dir="ltr">SALES FORECAST</small><h1>${admin ? `إدارة توقعات المبيعات` : mode === `tracking` ? `متابعة التوقع مقابل المفوتر` : team ? `توقعات فريقي` : `توقعات مبيعاتي`}</h1><p id="fcIdentity">${escape(team ? acting.admin.name : admin ? `إدارة شهرية للمبيعات والتوقعات` : acting.repName)}</p></div><div><label for="fcMonth">الشهر</label><br><input id="fcMonth" type="month" aria-label="شهر التوقع"></div></header>
     ${!admin && window.self === window.top ? `<nav class="fc-quick-nav"><a class="fc-link secondary" href="${team ? `supervisor.html` : `order.html`}">العودة للنظام</a></nav>` : ``}
     <div id="fcMessage" role="status" class="fc-status" hidden></div>
-    ${admin ? `<section id="fcAdminGate" class="fc-panel"><h2>فتح إدارة التوقعات</h2><p class="fc-muted">استخدم كلمة مرور الصفحة السرية. إعادة فتح التوقعات ومنح المهلة متاحتان هنا فقط.</p><form id="fcAdminLogin" class="fc-toolbar"><input id="fcAdminPassword" type="password" autocomplete="off" required aria-label="كلمة مرور الإدارة"><button type="submit">فتح الإدارة</button></form></section><section id="fcAdminControls" class="fc-panel" hidden><h2>المبيعات الفعلية وإعدادات الشهر</h2><div class="fc-fields"><label class="fc-field">سنة ملف المبيعات<input id="fcYear" type="number" min="2020" max="2099" step="1"></label><label class="fc-field">رفع ملف المبيعات<input id="fcUpload" type="file" accept=".xlsx,.xls"></label></div><div class="fc-toolbar"><button id="fcAttached" type="button" class="secondary">معاينة الملف المرفق: يناير–سبتمبر 2026</button><button id="fcImport" type="button" hidden>اعتماد ملف المبيعات</button></div><div id="fcImportPreview" class="fc-report" hidden></div><p class="fc-muted">الربط بكود الصيدلية فقط. رفع المبيعات يحدث الأشهر الموجودة بالملف ويحافظ على التوقعات والأشهر السابقة.</p><div class="fc-fields"><label class="fc-field">شهر التعبئة ومنع الطلبات<input id="fcActiveMonth" type="month"></label><label class="fc-field">إلزام التأكيد قبل إدخال الطلبية<select id="fcEnforce"><option value="yes">مفعل</option><option value="no">غير مفعل</option></select></label></div><div class="fc-toolbar"><button id="fcConfigSave" type="button">حفظ إعداد الشهر</button><button id="fcAdminLock" type="button" class="secondary">قفل الإدارة</button></div></section>` : ``}
+    ${admin ? `<section id="fcAdminGate" class="fc-panel"><h2>فتح إدارة التوقعات</h2><p class="fc-muted">استخدم كلمة مرور الصفحة السرية. إعادة فتح التوقعات ومنح المهلة متاحتان هنا فقط.</p><form id="fcAdminLogin" class="fc-toolbar"><input id="fcAdminPassword" type="password" autocomplete="off" required aria-label="كلمة مرور الإدارة"><button type="submit">فتح الإدارة</button></form></section><section id="fcAdminControls" class="fc-panel" hidden><h2>المبيعات الفعلية وإعدادات الشهر</h2><p class="fc-muted">إعداد المنع الحالي لا يُحمّل تلقائيًا. اضغط عرض التوقعات لقراءة الإعداد الحالي قبل تغييره، أو اختر الإعداد المطلوب صراحةً واحفظه.</p><div class="fc-fields"><label class="fc-field">سنة ملف المبيعات<input id="fcYear" type="number" min="2020" max="2099" step="1"></label><label class="fc-field">رفع ملف المبيعات<input id="fcUpload" type="file" accept=".xlsx,.xls"></label></div><div class="fc-toolbar"><button id="fcTemplateDownload" type="button">تنزيل قالب Excel</button><button id="fcMonitor" type="button" class="secondary">عرض توقعات المندوبين والمهل</button><button id="fcAttached" type="button" class="secondary">معاينة الملف المرفق: يناير–سبتمبر 2026</button><button id="fcImport" type="button" hidden>اعتماد ملف المبيعات</button></div><div id="fcTemplatePreview" class="fc-report" hidden></div><p class="fc-muted">القالب من الملف المرفق، دون قراءة Firestore. عبئ المبيعات الفعلية للشهر الجديد، واكتب 0 عند عدم وجود بيع. لا تترك قيم المبيعات فارغة. لمتابعة المندوبين اضغط زر عرض التوقعات.</p><div id="fcImportPreview" class="fc-report" hidden></div><p class="fc-muted">الربط بكود الصيدلية فقط. رفع المبيعات يحدث الأشهر الموجودة بالملف ويحافظ على التوقعات والأشهر السابقة.</p><div class="fc-fields"><label class="fc-field">شهر التعبئة ومنع الطلبات<input id="fcActiveMonth" type="month"></label><label class="fc-field">إلزام التأكيد قبل إدخال الطلبية<select id="fcEnforce"><option value="">اختر الإعداد المطلوب</option><option value="yes">مفعل</option><option value="no">غير مفعل</option></select></label></div><div class="fc-toolbar"><button id="fcConfigSave" type="button">حفظ إعداد الشهر</button><button id="fcAdminLock" type="button" class="secondary">قفل الإدارة</button></div></section>` : ``}
     <div id="fcContent"><div class="fc-busy"><span class="fc-spinner"></span>جاري تحميل البيانات من النظام…</div></div></div>`;
     const selectedRows = () => state.dataset.rows.filter(row => !team || normalizeName(row.supervisor) === normalizeName(acting.admin.name));
     const representativeRows = () => eligibleRows(state.dataset.sales, state.dataset.routes, acting.repId);
@@ -194,28 +194,46 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
     function syncAdminControls() {
         $(`fcYear`).value ||= state.month.slice(0, 4); $(`fcActiveMonth`).value = state.config.activeMonth; $(`fcEnforce`).value = state.config.enabled ? `yes` : `no`;
     }
+
+    function templateRows() {
+        if (!state.template) throw new Error(`افتح الإدارة أولاً لتحميل القالب`);
+        const parsed = parseSalesRows(state.template.matrix);
+        const month = Number(state.month.slice(5));
+        const sameYear = String(state.template.year) === String($(`fcYear`).value);
+        const last = Math.max(month, sameYear ? parsed.months.at(-1) : 1);
+        return Object.entries(parsed.customers).map(([code, customer]) => {
+            const row = { [`Cust No`]: code, [`Cust Name`]: customer.name };
+            for (let m = 1; m <= last; m++) row[MONTH_NAMES[m - 1]] = sameYear && Number.isSafeInteger(customer.months[String(m)]) ? customer.months[String(m)] / 100 : ``;
+            return row;
+        });
+    }
+    function showTemplate() {
+        const rows = templateRows(), headers = Object.keys(rows[0] || {});
+        const preview = $(`fcTemplatePreview`); preview.hidden = false;
+        preview.innerHTML = `<h3>قالب المبيعات الفعلية — ${escape($(`fcYear`).value)}</h3><p>${rows.length} صيدلية. معاينة أول 10 صفوف؛ التنزيل يحتوي على جميع الصفوف. هذا الملف للمبيعات الفعلية، وتوقعات المندوبين تبقى منفصلة.</p><div style="overflow:auto"><table class="fc-table"><thead><tr>${headers.map(h => `<th>${escape(h)}</th>`).join(``)}</tr></thead><tbody>${rows.slice(0,10).map(row => `<tr>${headers.map(h => `<td>${escape(row[h])}</td>`).join(``)}</tr>`).join(``)}</tbody></table></div>`;
+    }
     async function previewImport(matrix, filename, year) {
         const parsed = parseSalesRows(matrix);
-        const reference = await api.loadDataset(`${year}-01`, { routingOnly: true });
-        const unmatched = Object.keys(parsed.customers).filter(code => !reference.routes.has(code));
+        if (!/^20\d{2}$/.test(String(year))) throw new Error(`سنة الملف غير صالحة`);
         state.pending = { parsed, filename, year };
         $(`fcImportPreview`).hidden = false;
-        $(`fcImportPreview`).textContent = `تم فحص ${parsed.count} صيدلية، من يناير إلى ${MONTH_NAMES[parsed.months.at(-1) - 1]} ${year}. أكواد غير مرتبطة أو متعارضة: ${unmatched.length}. لم يتم حفظ أي تغيير بعد.`;
+        $(`fcImportPreview`).textContent = `تم فحص ${parsed.count} صيدلية، من يناير إلى ${MONTH_NAMES[parsed.months.at(-1) - 1]} ${year}. تم فحص الملف محليًا دون قراءة بيانات النظام. لم يتم حفظ أي تغيير بعد.`;
         $(`fcImport`).hidden = false;
-        if (unmatched.length) { const list = document.createElement(`ul`); for (const code of unmatched.slice(0, 25)) { const item = document.createElement(`li`); item.textContent = `${code} — ${parsed.customers[code].name}`; list.append(item); } $(`fcImportPreview`).append(list); }
     }
     if (admin) {
         $(`fcContent`).hidden = true;
-        $(`fcAdminLogin`).onsubmit = event => { event.preventDefault(); run(async () => { const password = $(`fcAdminPassword`).value; $(`fcAdminPassword`).value = ``; await api.unlockAdmin(password); state.admin = true; $(`fcAdminGate`).hidden = true; $(`fcAdminControls`).hidden = false; $(`fcContent`).hidden = false; await load(); }); };
+        $(`fcAdminLogin`).onsubmit = event => { event.preventDefault(); run(async () => { const password = $(`fcAdminPassword`).value; $(`fcAdminPassword`).value = ``; await api.unlockAdmin(password); state.admin = true; $(`fcAdminGate`).hidden = true; $(`fcAdminControls`).hidden = false; $(`fcContent`).hidden = true; state.template = await api.attachedBaseline(); showTemplate(); }); };
+        $(`fcTemplateDownload`).onclick = () => run(async () => { showTemplate(); exportWorkbook(templateRows(), `Sales_Template_${$(`fcYear`).value}_${state.month.slice(5)}.xlsx`); });
+        $(`fcMonitor`).onclick = () => run(async () => { state.monitoring = true; $(`fcContent`).hidden = false; await load(); });
         $(`fcAttached`).onclick = () => run(async () => { const baseline = await api.attachedBaseline(); $(`fcYear`).value = baseline.year; await previewImport(baseline.matrix, baseline.filename, String(baseline.year)); });
         $(`fcUpload`).onchange = () => { state.pending = null; $(`fcImport`).hidden = true; $(`fcImportPreview`).hidden = true; const file = $(`fcUpload`).files[0]; if (!file) return; run(async () => { if (!globalThis.XLSX) throw new Error(`تعذر تحميل مكتبة قراءة Excel`); const workbook = XLSX.read(await file.arrayBuffer(), { type: `array` }); if (workbook.SheetNames.length !== 1) throw new Error(`استخدم ملف مبيعات بورقة واحدة فقط`); await previewImport(XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: null, raw: true }), file.name, $(`fcYear`).value); }); };
-        $(`fcYear`).onchange = () => { state.pending = null; $(`fcImport`).hidden = true; $(`fcImportPreview`).hidden = true; $(`fcUpload`).value = ``; };
-        $(`fcImport`).onclick = () => run(async () => { if (!state.pending) return; const { parsed, year, filename } = state.pending; if (!confirm(`اعتماد مبيعات ${parsed.count} صيدلية لسنة ${year} وتحديث الأشهر الموجودة بالملف؟`)) return; await api.importSales(parsed, year, filename); state.pending = null; $(`fcImport`).hidden = true; $(`fcUpload`).value = ``; await load(); notify(`تم اعتماد المبيعات. اختر شهر التعبئة ثم احفظ إعداد الشهر لتفعيل المنع.`); });
-        $(`fcConfigSave`).onclick = () => run(async () => { const month = $(`fcActiveMonth`).value; await api.saveConfig(month, $(`fcEnforce`).value === `yes`); state.month = month; await load(); notify(`تم حفظ إعداد ${monthLabel(month)}.`); });
-        $(`fcAdminLock`).onclick = () => { api.lockAdmin(); state.admin = false; state.pending = null; $(`fcAdminGate`).hidden = false; $(`fcAdminControls`).hidden = true; $(`fcContent`).hidden = true; };
+        $(`fcYear`).onchange = () => { state.pending = null; $(`fcImport`).hidden = true; $(`fcImportPreview`).hidden = true; $(`fcUpload`).value = ``; if (state.template) showTemplate(); };
+        $(`fcImport`).onclick = () => run(async () => { if (!state.pending) return; const { parsed, year, filename } = state.pending; if (!confirm(`اعتماد مبيعات ${parsed.count} صيدلية لسنة ${year} وتحديث الأشهر الموجودة بالملف؟`)) return; await api.importSales(parsed, year, filename); state.pending = null; $(`fcImport`).hidden = true; $(`fcUpload`).value = ``; state.monitoring = false; $(`fcContent`).hidden = true; notify(`تم اعتماد المبيعات. اختر شهر التعبئة ثم احفظ إعداد الشهر لتفعيل المنع.`); });
+        $(`fcConfigSave`).onclick = () => run(async () => { const month = $(`fcActiveMonth`).value; if (!$(`fcEnforce`).value) throw new Error(`اختر إعداد المنع المطلوب أو اعرض التوقعات لتحميل الإعداد الحالي`); await api.saveConfig(month, $(`fcEnforce`).value === `yes`); state.month = month; $(`fcMonth`).value = month; state.monitoring = false; $(`fcContent`).hidden = true; notify(`تم حفظ إعداد ${monthLabel(month)}.`); });
+        $(`fcAdminLock`).onclick = () => { api.lockAdmin(); state.admin = false; state.pending = null; state.template = null; state.monitoring = false; $(`fcTemplatePreview`).innerHTML = ``; $(`fcImportPreview`).textContent = ``; $(`fcAdminGate`).hidden = false; $(`fcAdminControls`).hidden = true; $(`fcContent`).hidden = true; };
     }
-    $(`fcMonth`).onchange = () => { if (state.busy) { $(`fcMonth`).value = state.month; return; } if (state.dirty && !confirm(`يوجد تعديل غير محفوظ. تغيير الشهر يفقد هذه التعديلات. المتابعة؟`)) { $(`fcMonth`).value = state.month; return; } state.month = $(`fcMonth`).value; if (!admin || state.admin) run(load); };
+    $(`fcMonth`).onchange = () => { if (state.busy) { $(`fcMonth`).value = state.month; return; } if (state.dirty && !confirm(`يوجد تعديل غير محفوظ. تغيير الشهر يفقد هذه التعديلات. المتابعة؟`)) { $(`fcMonth`).value = state.month; return; } state.month = $(`fcMonth`).value; if (!admin) run(load); else if (state.admin) { if (state.template) showTemplate(); if (state.monitoring) run(load); } };
     window.addEventListener(`beforeunload`, event => { if (state.dirty) { event.preventDefault(); event.returnValue = ``; } });
     if (!admin) await run(load);
-    else { await run(async () => { state.config = await api.loadConfig(); state.month = state.config.activeMonth; $(`fcMonth`).value = state.month; }); }
+    else { const parts = new Intl.DateTimeFormat(`en-CA`, { timeZone: `Asia/Amman`, year: `numeric`, month: `2-digit` }).formatToParts(new Date()); state.month = `${parts.find(p => p.type === `year`).value}-${parts.find(p => p.type === `month`).value}`; $(`fcMonth`).value = state.month; $(`fcYear`).value = state.month.slice(0, 4); $(`fcActiveMonth`).value = state.month; $(`fcEnforce`).value = ``; }
 }
