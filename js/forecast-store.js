@@ -1,5 +1,5 @@
 import { db } from './firebase.js';
-import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, setDoc, runTransaction, serverTimestamp } from './firestore-meter.js?v=20261006_reads1';
+import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, setDoc, writeBatch, runTransaction, serverTimestamp } from './firestore-meter.js?v=20261006_reads1';
 import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261006_reads1';
 
 const configRef = () => doc(db, `system_settings`, `forecast`);
@@ -142,18 +142,13 @@ export async function saveForecast(month, repId, entries, revision, confirm) {
 export async function importSales(parsed, year, filename) {
     requireAdmin();
     if (!/^20\d\d$/.test(String(year))) throw new Error(`السنة غير صحيحة`);
-    const ref = salesRef(year);
-    await runTransaction(db, async transaction => {
-        const snapshot = await transaction.get(ref);
-        const previous = snapshot.exists() ? snapshot.data() : {};
-        const customers = { ...(previous.customers || {}) };
-        for (const [code, row] of Object.entries(parsed.customers)) customers[code] = { name: row.name, months: { ...(customers[code]?.months || {}), ...row.months } };
-        const mergedMonths = [...new Set([...(previous.months || []), ...parsed.months])].sort((a, b) => a - b);
-        const payload = { year: Number(year), customers, months: mergedMonths, filename, updatedAt: serverTimestamp(), revision: (previous.revision || 0) + 1 };
-        if (new TextEncoder().encode(JSON.stringify(payload)).length > 750000) throw new Error(`ملف المبيعات أكبر من الحد الآمن للحفظ`);
-        transaction.set(ref, payload);
-        transaction.set(doc(collection(db, `forecast_audit`)), { action: `sales_import`, year: Number(year), rowCount: parsed.count, months: parsed.months, filename, at: serverTimestamp() });
-    });
+    // A complete annual workbook is authoritative; no server read or transaction.
+    const payload = { year: Number(year), customers: parsed.customers, months: parsed.months, filename, updatedAt: serverTimestamp(), importMode: `full_replace` };
+    if (new TextEncoder().encode(JSON.stringify(payload)).length > 750000) throw new Error(`ملف المبيعات أكبر من الحد الآمن للحفظ`);
+    const batch = writeBatch(db);
+    batch.set(salesRef(year), payload);
+    batch.set(doc(collection(db, `forecast_audit`)), { action: `sales_import`, mode: `full_replace`, year: Number(year), rowCount: parsed.count, months: parsed.months, filename, at: serverTimestamp() });
+    await batch.commit();
 }
 export async function saveConfig(month, enabled) {
     requireAdmin();
