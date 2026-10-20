@@ -247,3 +247,84 @@ body[data-rep-tab="order"] .rep-new-order-fab { display: none !important; }
     .rep-finance-justification-submit { width:100% !important; }
     .rep-pharmacy-picker { padding:18px; }
 }
+
+/* Representative My Orders: one uninterrupted filter/action row.
+   On narrow viewports only the filter strip scrolls; the page never expands. */
+.rep-premium-page #myOrdersScreen .orders-toolbar {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 10px;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(9,153,153,.38) transparent;
+    padding: 14px;
+}
+.rep-premium-page #myOrdersScreen .orders-toolbar .filter-grid {
+    display: grid;
+    flex: 1 0 950px;
+    width: auto;
+    min-width: 950px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    align-items: end;
+    gap: 9px;
+}
+.rep-premium-page #myOrdersScreen .orders-toolbar .input-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-width: 0;
+    margin: 0;
+}
+.rep-premium-page #myOrdersScreen .orders-toolbar .input-group label {
+    margin: 0 0 7px;
+    font-size: .81rem;
+    line-height: 1.35;
+    font-weight: 800;
+    white-space: nowrap;
+}
+.rep-premium-page #myOrdersScreen .orders-toolbar .input-group input,
+.rep-premium-page #myOrdersScreen .orders-toolbar .input-group select {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    height: 46px;
+    min-height: 46px;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 10px;
+    margin: 0;
+    font-family: inherit;
+    font-size: .83rem;
+    text-overflow: ellipsis;
+}
+.rep-premium-page #myOrdersScreen .orders-toolbar .table-actions {
+    display: flex;
+    flex: 0 0 145px;
+    min-width: 145px;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    margin: 0;
+}
+.rep-premium-page #myOrdersScreen .orders-toolbar .table-actions #printMyOrdersBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    min-width: 0;
+    height: 46px;
+    min-height: 46px;
+    margin: 0;
+    padding: 0 10px;
+    font-family: inherit;
+    font-size: .83rem;
+    font-weight: 800;
+    line-height: 1.3;
+    white-space: nowrap;
+}
