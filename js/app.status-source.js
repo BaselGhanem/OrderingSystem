@@ -4069,6 +4069,19 @@ async function loadReports() {
             os.sort((a,b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
             if (!isAdmin && currentRepName) os = os.filter(o => o.repName === currentRepName);
             reportsOrdersData = os;
+            const productChoices = new Set();
+            os.forEach(order => (Array.isArray(order.items) ? order.items : []).forEach(item => {
+                const name = String(item?.name || item?.productName || item?.product || '').trim();
+                if (name) productChoices.add(name);
+            }));
+            const productOptions = getEl('reportProductOptions');
+            if (productOptions) {
+                productOptions.replaceChildren(...[...productChoices].sort((a,b) => a.localeCompare(b, 'ar')).map(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    return option;
+                }));
+            }
             body.innerHTML = '';
             if (os.length === 0) {
                 body.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="ph ph-package"></i><h3>لا توجد طلبيات</h3></div></td></tr>`;
@@ -4077,6 +4090,7 @@ async function loadReports() {
             os.forEach(o => {
                 const tr = document.createElement('tr');
                 tr.className = `row-${o.status}`;
+                tr.dataset.productNames = (Array.isArray(o.items) ? o.items : []).map(item => String(item?.name || item?.productName || item?.product || '')).join(' ').toLocaleLowerCase();
                 tr.innerHTML = `
                     <td data-label="تحديد"><input type="checkbox" class="report-order-checkbox" value="${o.id}" style="width:18px;height:18px;cursor:pointer;margin:0;"></td>
                     <td data-label="آخر تحديث">${formatOrderLastAction(o)}</td>
@@ -4095,18 +4109,21 @@ async function loadReports() {
 }
 
 function filterReportsTable() {
-    const repFilter = (getEl('filterRep')?.value || '').toLowerCase();
-    const pharmFilter = (getEl('filterPharmacy')?.value || '').toLowerCase();
+    const repFilter = (getEl('filterRep')?.value || '').trim().toLocaleLowerCase();
+    const pharmFilter = (getEl('filterPharmacy')?.value || '').trim().toLocaleLowerCase();
+    const productFilter = (getEl('filterReportProduct')?.value || '').trim().toLocaleLowerCase();
     document.querySelectorAll('#reportsBody tr').forEach(row => {
         if(row.children.length > 1) {
-            const rep = row.querySelector('.rep-col')?.innerText.toLowerCase() || '';
-            const pharm = row.querySelector('.pharm-col')?.innerText.toLowerCase() || '';
-            row.style.display = (rep.includes(repFilter) && pharm.includes(pharmFilter)) ? '' : 'none';
+            const rep = row.querySelector('.rep-col')?.textContent.toLocaleLowerCase() || '';
+            const pharm = row.querySelector('.pharm-col')?.textContent.toLocaleLowerCase() || '';
+            const products = row.dataset.productNames || '';
+            row.style.display = (rep.includes(repFilter) && pharm.includes(pharmFilter) && products.includes(productFilter)) ? '' : 'none';
         }
     });
 }
 getEl('filterRep')?.addEventListener('input', filterReportsTable);
 getEl('filterPharmacy')?.addEventListener('input', filterReportsTable);
+getEl('filterReportProduct')?.addEventListener('input', filterReportsTable);
 getEl('selectAllReportsOrders')?.addEventListener('change', function() {
     document.querySelectorAll('.report-order-checkbox').forEach(cb => cb.checked = this.checked);
 });
