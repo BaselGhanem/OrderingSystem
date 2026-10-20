@@ -2341,35 +2341,89 @@ async function bootstrapPage() {
 function bindPharmacyHistoryButton() {
     const historyBtn = getEl('showPharmHistoryBtn');
     if (!historyBtn) return;
+
     historyBtn.onclick = async () => {
-        showToast("جاري جلب السجل التاريخي للصيدلية...", "info");
+        showToast('جاري جلب السجل التاريخي للصيدلية...', 'info');
         try {
-            const qFilter = query(collection(db, "orders"), where("pharmacyName", "==", currentPharmacyName));
+            const selectedPharmacy = currentPharmacyName;
+            const qFilter = query(collection(db, 'orders'), where('pharmacyName', '==', selectedPharmacy));
             const snap = await getDocs(qFilter);
-            let history = [];
+            const history = [];
             snap.forEach(d => history.push({ id: d.id, ...d.data() }));
-            if (history.length === 0) return showToast("لا توجد طلبيات سابقة لهذه الصيدلية.", "warning");
-            history.sort((a,b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
-            const historyBody = getEl('pharmacyHistoryBody');
-            if (!historyBody) return;
-            historyBody.innerHTML = '';
-            if (getEl('historyModalSubtitle')) getEl('historyModalSubtitle').innerText = `صيدلية ${currentPharmacyName}`;
-            history.forEach(o => {
-                const tr = document.createElement('tr');
-                tr.className = `row-${o.status}`;
-                tr.innerHTML = `
-                    <td>${formatOrderLastAction(o)}</td>
-                    <td>${o.repName || '-'}</td>
-                    <td>${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ا</td>
-                    <td><span class="status-badge ${getEffectiveOrderStatus(o)}">${getWorkflowStatusLabel(getEffectiveOrderStatus(o))}</span></td>
-                    <td><button class="action-btn edit-btn btn-view-history" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
-                `;
-                tr.querySelector('.btn-view-history').onclick = () => showOrderDetails(o);
-                historyBody.appendChild(tr);
-            });
-            getEl('pharmacyHistoryModal').style.display = 'flex';
-        } catch(e) {
-            showToast("تعذر جلب السجل، تأكد من الاتصال.", "error");
+            if (history.length === 0) {
+                showToast('لا توجد طلبيات سابقة لهذه الصيدلية.', 'warning');
+                return;
+            }
+
+            history.sort((a, b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
+            const body = getEl('pharmacyHistoryBody');
+            const modal = getEl('pharmacyHistoryModal');
+            const productInput = getEl('pharmacyHistoryProductFilter');
+            const productOptions = getEl('pharmacyHistoryProductOptions');
+            const clearButton = getEl('clearPharmacyHistoryProductFilter');
+            const resultCount = getEl('pharmacyHistoryResultCount');
+            if (!body || !modal) return;
+
+            const subtitle = getEl('historyModalSubtitle');
+            if (subtitle) subtitle.textContent = `صيدلية ${selectedPharmacy}`;
+            if (productInput) productInput.value = '';
+
+            if (productOptions) {
+                const names = new Set();
+                history.forEach(order => getOrderProductNamesForFilter(order).forEach(name => names.add(name)));
+                const fragment = document.createDocumentFragment();
+                [...names].sort((a, b) => a.localeCompare(b, 'ar')).forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    fragment.appendChild(option);
+                });
+                productOptions.replaceChildren(fragment);
+            }
+
+            const renderHistory = () => {
+                const search = (productInput?.value || '').trim().toLocaleLowerCase();
+                const visible = history.filter(order =>
+                    !search || getOrderProductNamesForFilter(order)
+                        .some(name => name.toLocaleLowerCase().includes(search))
+                );
+
+                if (resultCount) resultCount.textContent = `عرض ${visible.length} من ${history.length} طلبية`;
+                body.replaceChildren();
+                if (!visible.length) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 5;
+                    td.className = 'empty-state';
+                    td.textContent = 'لا توجد طلبيات تحتوي الصنف المطلوب';
+                    tr.appendChild(td);
+                    body.appendChild(tr);
+                    return;
+                }
+                visible.forEach(o => {
+                    const tr = document.createElement('tr');
+                    tr.className = `row-${o.status}`;
+                    tr.innerHTML = `
+                        <td>${formatOrderLastAction(o)}</td>
+                        <td>${escapePrintHtml(o.repName || '-')}</td>
+                        <td>${parseAppNumber(o.grandTotal).toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ا</td>
+                        <td><span class="status-badge ${getEffectiveOrderStatus(o)}">${getWorkflowStatusLabel(getEffectiveOrderStatus(o))}</span></td>
+                        <td><button class="action-btn edit-btn btn-view-history" title="عرض التفاصيل"><i class="ph ph-eye"></i></button></td>
+                    `;
+                    tr.querySelector('.btn-view-history').onclick = () => showOrderDetails(o);
+                    body.appendChild(tr);
+                });
+            };
+            if (productInput) productInput.oninput = renderHistory;
+            if (clearButton) clearButton.onclick = () => {
+                if (productInput) productInput.value = '';
+                renderHistory();
+                productInput?.focus();
+            };
+            renderHistory();
+            modal.style.display = 'flex';
+        } catch (error) {
+            console.error('Pharmacy history failed:', error);
+            showToast('تعذر جلب السجل، تأكد من الاتصال.', 'error');
         }
     };
 }
