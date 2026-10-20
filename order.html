@@ -35,7 +35,15 @@
 .target-progress-track i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#099999,#087174); }
 @media (max-width:700px) { .rep-target-filter { width:100%; } }
 </style>
-<script src="js/version-check.js?v=20261006_reads1" defer></script></head><body class="rep-premium-page" data-page="order"><div class="offline-banner" id="offline-banner">
+<script src="js/version-check.js?v=20261006_reads1" defer></script><style>
+#reportsScreen .report-filter-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px;padding:16px;border:1px solid rgba(9,153,153,.15);border-radius:16px;background:rgba(9,153,153,.035)}
+#reportsScreen .report-filter-field {display:flex;flex-direction:column;gap:7px;min-width:0}
+#reportsScreen .report-filter-field label {font-size:13px;font-weight:700;color:#087b7b}
+#reportsScreen .report-filter-field input {width:100%;min-width:0;box-sizing:border-box;padding:12px 13px;border:1px solid #cbdede;border-radius:11px;background:#fff;color:#173b43;font:inherit;outline:none;transition:border-color .2s ease,box-shadow .2s ease}
+#reportsScreen .report-filter-field input:focus {border-color:#099999;box-shadow:0 0 0 3px rgba(9,153,153,.12)}
+@media(max-width:760px){#reportsScreen .report-filter-grid{grid-template-columns:1fr;padding:12px;gap:10px}}
+</style>
+</head><body class="rep-premium-page" data-page="order"><div class="offline-banner" id="offline-banner">
 <i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال. النظام يعمل محلياً وسيتم المزامنة لاحقاً.
     </div><div class="saving-indicator" id="saving-indicator">
 <div class="spinner"></div> جارٍ الحفظ والتحديث...
@@ -120,6 +128,7 @@
 <div class="input-group"><label for="myOrdersDateFrom">من تاريخ</label><input id="myOrdersDateFrom" type="date"/></div>
 <div class="input-group"><label for="myOrdersDateTo">إلى تاريخ</label><input id="myOrdersDateTo" type="date"/></div>
 <div class="input-group"><label for="myOrdersPharmacyFilter">بحث الصيدلية</label><input id="myOrdersPharmacyFilter" placeholder="اكتب اسم الصيدلية..." type="search"/></div>
+<div class="input-group"><label for="myOrdersProductFilter">بحث الصنف</label><input id="myOrdersProductFilter" list="myOrdersProductOptions" placeholder="ابحث أو اختر الصنف..." type="search" autocomplete="off"/><datalist id="myOrdersProductOptions"></datalist></div>
 <div class="input-group"><label for="myOrdersStatusFilter">حالة الطلبية</label><select id="myOrdersStatusFilter" aria-label="تصفية طلبياتي حسب الحالة"><option value="">جميع الحالات</option></select></div>
 <div class="input-group"><label for="myOrdersOrderTypeFilter">نوع الطلبية</label><select id="myOrdersOrderTypeFilter" aria-label="تصفية طلبياتي حسب نوع الطلبية"><option value="">جميع أنواع الطلبيات</option><option value="regular">طلبيات أصناف متاحة</option><option value="reserved">طلبيات أصناف مقطوعة</option></select></div>
 </div>
@@ -162,9 +171,10 @@
 <i class="ph ph-file-xls"></i> تصدير للاكسل
                 </button><button class="btn-secondary print-btn" id="printReportsOrdersBtn" type="button"><i class="ph ph-printer"></i> طباعة المحدد</button>
 </div>
-<div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-<input id="filterRep" placeholder="تصفية باسم المندوب..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;" type="text"/>
-<input id="filterPharmacy" placeholder="تصفية باسم الصيدلية..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc;" type="text"/>
+<div class="report-filter-grid" role="search" aria-label="فلاتر سجل الطلبيات">
+<div class="report-filter-field"><label for="filterRep">المندوب</label><input id="filterRep" placeholder="ابحث باسم المندوب..." type="search" autocomplete="off"/></div>
+<div class="report-filter-field"><label for="filterPharmacy">الصيدلية</label><input id="filterPharmacy" placeholder="ابحث باسم الصيدلية..." type="search" autocomplete="off"/></div>
+<div class="report-filter-field"><label for="filterReportProduct">الصنف</label><input id="filterReportProduct" list="reportProductOptions" placeholder="ابحث أو اختر الصنف..." type="search" autocomplete="off"/><datalist id="reportProductOptions"></datalist></div>
 </div>
 <div class="table-responsive mobile-cards">
 <table class="order-table" id="reportsTable">
@@ -286,6 +296,6 @@
 </table>
 </div>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20261020_productfilter1" type="module"></script><script src="js/targets.js?v=20260923_force_v2" type="module"></script><script type="module" src="js/forecast-entry.js?v=20261006_reads1"></script>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20261020_productfilter2" type="module"></script><script src="js/targets.js?v=20260923_force_v2" type="module"></script><script type="module" src="js/forecast-entry.js?v=20261006_reads1"></script>
 </body></html>
 
