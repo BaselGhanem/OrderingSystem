@@ -147,6 +147,7 @@ window.addEventListener('DOMContentLoaded', () => {
     getEl('myOrdersDateFrom')?.addEventListener('change', applyMyOrdersFilters);
     getEl('myOrdersDateTo')?.addEventListener('change', applyMyOrdersFilters);
     getEl('myOrdersPharmacyFilter')?.addEventListener('input', applyMyOrdersFilters);
+    getEl('myOrdersProductFilter')?.addEventListener('input', applyMyOrdersFilters);
     getEl('myOrdersStatusFilter')?.addEventListener('change', applyMyOrdersFilters);
     getEl(`myOrdersOrderTypeFilter`)?.addEventListener(`change`, applyMyOrdersFilters);
     getEl('selectAllMyOrders')?.addEventListener('change', function() {
@@ -2740,10 +2741,39 @@ async function loadMyOrders() {
             snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
             orders.sort((a,b) => (getOrderLastActionDate(b)?.getTime() || 0) - (getOrderLastActionDate(a)?.getTime() || 0));
             currentMyOrdersData = orders.filter(order => isRepVisibleOrderStatus(getEffectiveOrderStatus(order)));
+            updateMyOrdersProductOptions();
             renderFinanceRejectedOrders();
             applyMyOrdersFilters();
         }, () => showToast("خطأ في جلب البيانات.", "error"));
     } catch(e) { showToast("خطأ في جلب البيانات.", "error"); }
+}
+
+function getOrderProductNamesForFilter(order = {}) {
+    return (Array.isArray(order.items) ? order.items : [])
+        .map(item => String(item?.name || item?.productName || item?.product || '').trim())
+        .filter(Boolean);
+}
+
+function matchesMyOrdersProductFilter(order, normalizedSearch) {
+    if (!normalizedSearch) return true;
+    return getOrderProductNamesForFilter(order)
+        .some(name => name.toLocaleLowerCase().includes(normalizedSearch));
+}
+
+function updateMyOrdersProductOptions() {
+    const list = getEl('myOrdersProductOptions');
+    if (!list) return;
+    const unique = new Set();
+    currentMyOrdersData.forEach(order => {
+        getOrderProductNamesForFilter(order).forEach(name => unique.add(name));
+    });
+    const fragment = document.createDocumentFragment();
+    [...unique].sort((a, b) => a.localeCompare(b, 'ar')).forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        fragment.appendChild(option);
+    });
+    list.replaceChildren(fragment);
 }
 
 function synchronizeMyOrdersStatusFilter() {
@@ -2753,6 +2783,7 @@ function synchronizeMyOrdersStatusFilter() {
     const fromVal = getEl('myOrdersDateFrom')?.value || '';
     const toVal = getEl('myOrdersDateTo')?.value || '';
     const pharmacyFilter = (getEl('myOrdersPharmacyFilter')?.value || '').toLowerCase().trim();
+    const productFilter = (getEl('myOrdersProductFilter')?.value || '').toLocaleLowerCase().trim();
     const orderTypeFilter = normalizeSupervisorFilterText(getEl(`myOrdersOrderTypeFilter`)?.value);
     let selectedStatus = normalizeSupervisorFilterText(statusSelect.value);
 
@@ -2762,7 +2793,7 @@ function synchronizeMyOrdersStatusFilter() {
             const pharmacyCode = String(getPharmacyCodeFromOrder(order) || '').toLowerCase();
             const pharmacyMatches = !pharmacyFilter || pharmacyName.includes(pharmacyFilter) || pharmacyCode.includes(pharmacyFilter);
             const orderTypeMatches = !orderTypeFilter || getOrderType(order) === orderTypeFilter;
-            return isOrderInDateRange(order, fromVal, toVal) && pharmacyMatches && orderTypeMatches;
+            return isOrderInDateRange(order, fromVal, toVal) && pharmacyMatches && orderTypeMatches && matchesMyOrdersProductFilter(order, productFilter);
         }),
         order => getEffectiveOrderStatus(order)
     );
@@ -2791,6 +2822,7 @@ function applyMyOrdersFilters() {
     const fromVal = getEl('myOrdersDateFrom')?.value || '';
     const toVal = getEl('myOrdersDateTo')?.value || '';
     const pharmacyFilter = (getEl('myOrdersPharmacyFilter')?.value || '').toLowerCase().trim();
+    const productFilter = (getEl('myOrdersProductFilter')?.value || '').toLocaleLowerCase().trim();
     const orderTypeFilter = normalizeSupervisorFilterText(getEl(`myOrdersOrderTypeFilter`)?.value);
     const statusFilter = synchronizeMyOrdersStatusFilter();
     const filtered = currentMyOrdersData.filter(order => {
@@ -2799,6 +2831,7 @@ function applyMyOrdersFilters() {
         const status = normalizeSupervisorFilterText(getEffectiveOrderStatus(order));
         return isOrderInDateRange(order, fromVal, toVal) &&
             (!pharmacyFilter || pharmacyName.includes(pharmacyFilter) || pharmacyCode.includes(pharmacyFilter)) &&
+            matchesMyOrdersProductFilter(order, productFilter) &&
             (!statusFilter || status === statusFilter) &&
             (!orderTypeFilter || getOrderType(order) === orderTypeFilter);
     });
