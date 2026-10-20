@@ -4121,6 +4121,73 @@ function filterReportsTable() {
         }
     });
 }
+function setupReportProductFilter() {
+    const rep = getEl('filterRep');
+    const pharmacy = getEl('filterPharmacy');
+    if (!rep || !pharmacy || !rep.parentElement || rep.parentElement !== pharmacy.parentElement) return;
+    if (getEl('filterReportProduct')) return;
+
+    const panel = rep.parentElement;
+    panel.classList.add('report-filter-panel');
+    panel.style.removeProperty('display');
+    panel.style.removeProperty('gap');
+    panel.style.removeProperty('flex-wrap');
+
+    const product = document.createElement('input');
+    product.id = 'filterReportProduct';
+    product.type = 'search';
+    product.setAttribute('list', 'reportProductOptions');
+    product.setAttribute('autocomplete', 'off');
+    product.placeholder = 'ابحث أو اختر الصنف';
+
+    const productOptions = document.createElement('datalist');
+    productOptions.id = 'reportProductOptions';
+    panel.appendChild(productOptions);
+
+    [
+        [rep, 'المندوب'],
+        [pharmacy, 'الصيدلية'],
+        [product, 'الصنف']
+    ].forEach(([input, title]) => {
+        input.removeAttribute('style');
+        input.classList.add('report-filter-input');
+        const field = document.createElement('div');
+        field.className = 'report-filter-field';
+        const label = document.createElement('label');
+        label.htmlFor = input.id;
+        label.textContent = title;
+        field.append(label, input);
+        panel.appendChild(field);
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `
+        #reportsScreen .report-filter-panel {
+            display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+            gap:12px; margin-bottom:20px; padding:16px;
+            border:1px solid rgba(9,153,153,.15); border-radius:16px;
+            background:rgba(9,153,153,.035);
+        }
+        #reportsScreen .report-filter-field {display:flex; flex-direction:column; gap:7px; min-width:0}
+        #reportsScreen .report-filter-field label {font-size:13px; font-weight:700; color:#087b7b}
+        #reportsScreen .report-filter-input {
+            width:100%; min-width:0; box-sizing:border-box;
+            padding:12px 13px; border:1px solid #cbdede;
+            border-radius:11px; background:#fff; color:#173b43;
+            font:inherit; outline:none;
+            transition:border-color .2s ease,box-shadow .2s ease;
+        }
+        #reportsScreen .report-filter-input:focus {
+            border-color:#099999; box-shadow:0 0 0 3px rgba(9,153,153,.12);
+        }
+        @media(max-width:760px) {
+            #reportsScreen .report-filter-panel {grid-template-columns:1fr; padding:12px; gap:10px}
+        }
+    `;
+    document.head.appendChild(style);
+}
+setupReportProductFilter();
+
 getEl('filterRep')?.addEventListener('input', filterReportsTable);
 getEl('filterPharmacy')?.addEventListener('input', filterReportsTable);
 getEl('filterReportProduct')?.addEventListener('input', filterReportsTable);
