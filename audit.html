@@ -16,6 +16,25 @@
 <link rel="stylesheet" href="admin-responsive.css?v=20260923_force_v2">
 <script src="js/version-check.js?v=20261006_reads1" defer></script><style>
 .audit-search-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:20px}.audit-search-actions span{color:#526b70;font-size:.9rem}.audit-filter-card{border-top:3px solid #099999}.audit-hero{padding-block:24px}.audit-pagination{flex-wrap:wrap;gap:12px}.audit-btn:disabled{opacity:.55;cursor:wait}@media(max-width:640px){.audit-search-actions .audit-btn{width:100%}.audit-search-actions span{line-height:1.8}.audit-actions{flex-wrap:wrap}}
+
+/* Audit layout: explicit spacing, balanced actions and readable status. */
+body[data-page="audit"]{background:#f3f7f8;font-size:14px}
+body[data-page="audit"] .audit-shell{width:min(1440px,calc(100% - 56px));margin:28px auto 36px;gap:20px}
+.audit-shell .audit-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,400px);align-items:center;gap:28px;background:#fff;border:1px solid #e0eaed;border-radius:22px;padding:28px 30px;box-shadow:0 8px 30px #163c4305}
+.audit-title{gap:18px}.audit-logo-wrap{width:76px;height:76px;border-radius:20px;background:#f8fbfb}.audit-logo-wrap img{width:60px;height:60px}.audit-title h1{font-size:32px;margin:6px 0}.audit-title p{font-size:13px;line-height:1.8}.audit-eyebrow{font-size:10px;letter-spacing:1.7px}
+.audit-shell .audit-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:none;width:100%;align-items:stretch}.audit-actions>.audit-btn{min-height:46px;padding:10px 14px}.audit-nav-pair{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.audit-nav-pair .audit-btn{padding:9px 8px;font-size:11px;min-height:42px}
+.audit-load-panel{position:relative;isolation:isolate;display:flex;align-items:center;gap:14px;min-width:0;border:1px solid #dbe7e9;border-radius:16px;background:#fff;padding:17px 22px 20px;overflow:hidden;transition:border-color .35s,box-shadow .35s,background .35s}.audit-load-symbol{width:42px;height:42px;border-radius:13px;background:#eef5f6;color:#6a858b;display:grid;place-items:center;font-size:25px;flex:none}.audit-load-copy{flex:1;min-width:0}.audit-load-copy>strong{font-size:14px;color:#24484e}.audit-live{font-size:12px;margin-top:3px;line-height:1.8;color:#5c747b;overflow-wrap:anywhere}.audit-load-tag{font-size:11px;font-weight:700;padding:5px 10px;border:1px solid #deeaeb;border-radius:20px;flex:none;color:#58727a;background:#f8fbfb}.audit-neon-track{position:absolute;bottom:0;inset-inline:20px;height:3px;border-radius:9px;background:#e6eeee}.audit-neon-track span{display:block;height:100%;width:0;border-radius:inherit;background:#0fbdb3;transition:width .5s}
+.audit-load-panel[data-state="loading"]{border-color:#84c9c5}.audit-load-panel[data-state="loading"] .audit-load-symbol{background:#e6f7f5;color:#087d7d}.audit-load-panel[data-state="loading"] .audit-load-symbol i{animation:audit-spin 1.2s linear infinite}.audit-load-panel[data-state="loading"] .audit-neon-track span{width:30%;animation:audit-scan 1.6s ease-in-out infinite}
+.audit-load-panel[data-state="complete"]{border-color:#52cabe;background:linear-gradient(110deg,#fff 30%,#f0fcf8);box-shadow:0 0 0 1px #55dfc51c,0 0 22px #15c8ae1c}.audit-load-panel[data-state="complete"] .audit-load-symbol{background:#e1f8ed;color:#087d61;box-shadow:0 0 16px #23d5a936}.audit-load-panel[data-state="complete"] .audit-load-tag{background:#e5f8ee;color:#146b4e;border-color:#b8e7d2}.audit-load-panel[data-state="complete"] .audit-neon-track span{width:100%;background:linear-gradient(90deg,#099999,#40eab9,#099999);box-shadow:0 0 8px #1de0ae,0 0 18px #1de0ae88;animation:audit-finish 1s ease-out 1}
+.audit-load-panel[data-state="stopped"],.audit-load-panel[data-state="error"]{border-color:#e3c08b;background:#fffbf5}.audit-load-panel[data-state="stopped"] .audit-load-symbol,.audit-load-panel[data-state="error"] .audit-load-symbol{color:#956321;background:#fff0d9}
+[data-audit-view="log"]{gap:20px}.audit-stats{gap:14px}.audit-stat{padding:20px 22px;border-radius:16px;min-height:120px}.audit-stat-copy span{font-size:12px}.audit-stat-copy strong{font-size:30px}.audit-stat-copy small{font-size:11px;line-height:1.7}.audit-stat-icon{width:44px;height:44px;display:grid}
+.audit-filter-card{padding:24px;border-top:1px solid #dce8e9;box-shadow:0 4px 20px #193c4303}.audit-section-head{margin-bottom:20px}.audit-section-head h2{font-size:18px}.audit-section-head p{font-size:12px;line-height:1.8}.audit-section-icon{display:grid;place-items:center;width:40px;height:40px;background:#edf8f6;border-radius:12px;flex:none}.audit-filters{grid-template-columns:repeat(6,minmax(0,1fr));gap:18px 16px}.audit-field{grid-column:span 2;gap:8px}.audit-field.search-field{grid-column:1/-1;grid-row:1}.audit-field.preset-field{grid-column:span 2}.audit-field label{font-size:12px}.audit-field input,.audit-field select{min-height:48px;border-radius:11px;padding:10px 14px;font-size:14px;background:#fcfdfd}.audit-field input[type="date"]{direction:ltr;text-align:left}.search-field input{min-height:52px;background:#f6faf9;font-size:15px}.audit-preset-group{min-height:48px}.audit-preset-btn{font-size:12px}.audit-search-actions{display:grid;grid-template-columns:160px auto minmax(0,1fr);align-items:center;gap:14px;margin-top:22px;padding-top:18px;border-top:1px solid #eef2f3}.audit-search-actions>#searchAuditBtn{min-height:48px;font-size:14px;box-shadow:0 5px 12px #09999918}.audit-search-actions>#searchHint{grid-column:3;font-size:12px;line-height:1.8}.audit-search-actions>#stopSearchAudit[hidden]+#searchHint{grid-column:2/-1}
+.audit-table-card{overflow:hidden}.audit-table-card>.audit-section-head{padding:22px 24px 0;align-items:flex-start;gap:20px}.audit-table-summary{justify-content:flex-end;max-width:42%;gap:8px}.audit-table-summary .audit-badge{font-size:11px;line-height:1.8}.audit-table{min-width:900px}.audit-table th{font-size:12px;padding:16px}.audit-table td{font-size:13px;padding:18px 16px}.audit-table td:nth-child(1){font-size:12px;font-variant-numeric:tabular-nums}.audit-table td:nth-child(2)>strong{font:600 12px Arial,sans-serif;direction:ltr;display:inline-block}.audit-mini{font-size:11px;line-height:1.7}.audit-pagination{padding:18px 24px;border-top:1px solid #edf2f3;gap:14px}.audit-row-btn{min-height:42px}.audit-shell+a{font-size:12px}
+@keyframes audit-spin{to{transform:rotate(360deg)}}@keyframes audit-scan{0%,100%{transform:translateX(0)}50%{transform:translateX(-220%)}}@keyframes audit-finish{0%{opacity:.35;filter:brightness(1.8)}100%{opacity:1;filter:brightness(1)}}
+@media(max-width:1100px){.audit-shell .audit-hero{grid-template-columns:minmax(0,1fr) 340px;padding:24px;gap:20px}.audit-title h1{font-size:28px}.audit-logo-wrap{width:60px;height:60px}.audit-logo-wrap img{width:48px;height:48px}.audit-stat{padding:16px}.audit-stat-icon{display:none}.audit-table-card>.audit-section-head{flex-wrap:wrap}.audit-table-summary{max-width:100%;justify-content:flex-start}}
+@media(max-width:800px){body[data-page="audit"] .audit-shell{width:calc(100% - 28px);margin:14px auto 28px;gap:14px}.audit-shell .audit-hero{grid-template-columns:1fr;padding:22px;gap:20px}.audit-title h1{font-size:27px}.audit-title p{font-size:12px}.audit-shell .audit-actions{grid-template-columns:1fr 1fr}.audit-nav-pair{grid-template-columns:repeat(3,minmax(0,1fr))}.audit-stat{min-height:105px}.audit-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px}.audit-field{grid-column:span 1}.audit-field.search-field,.audit-field.preset-field{grid-column:1/-1}.audit-field:last-child{grid-column:span 1}.audit-filter-card{padding:20px}.audit-section-head h2{font-size:16px}.audit-section-head p{font-size:11px}.audit-search-actions{grid-template-columns:1fr 1fr}.audit-search-actions>#searchHint,.audit-search-actions>#stopSearchAudit[hidden]+#searchHint{grid-column:1/-1}.audit-search-actions>#searchAuditBtn{grid-column:1}.audit-load-panel{padding:15px 16px 19px;gap:10px;flex-wrap:wrap}.audit-load-tag{margin-inline-start:52px}.audit-live{font-size:11px}.audit-load-copy{flex-basis:calc(100% - 60px)}.audit-stat-copy small{font-size:10px}.audit-table-card>.audit-section-head{padding:18px 0 0}.audit-table-summary{max-width:100%;justify-content:flex-start}.audit-section-icon{width:34px;height:34px;font-size:18px}.audit-mobile-sort{padding:0}.audit-table td{padding:8px 0;font-size:13px}.audit-pagination{padding:16px 0}.audit-table-card{overflow:visible}}
+@media(max-width:420px){.audit-shell .audit-hero{padding:18px}.audit-title{gap:12px}.audit-title h1{font-size:24px}.audit-eyebrow{font-size:8px;letter-spacing:1px}.audit-nav-pair .audit-btn{font-size:10px;padding:8px 5px}.audit-filter-card{padding:16px}.audit-section-head{gap:10px}.audit-section-icon{display:none}.audit-stat{padding:14px 12px}.audit-stat-copy strong{font-size:27px}.audit-field input,.audit-field select{font-size:16px;padding:9px}.audit-stat-copy span{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.audit-load-panel *{animation:none!important;transition:none!important}}
 </style></head>
 <body data-page="audit">
 <div class="offline-banner" id="offline-banner"><i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال.</div>
@@ -30,7 +49,7 @@
 <div class="audit-eyebrow">DAR ALDAWAA / OPERATIONS</div>
 <h1>مركز التدقيق</h1>
 <p>سجل التدقيق ومسار الطلبيات · تحميل عند البحث فقط</p>
-<div class="audit-live" id="auditLoadState" role="status">حدد الفلاتر ثم اضغط بحث</div>
+
 </div>
 </div>
 <div class="audit-actions">
@@ -43,6 +62,12 @@
 </div>
 </div>
 </header>
+<section class="audit-load-panel" id="auditLoadPanel" data-state="idle" aria-busy="false">
+<div class="audit-load-symbol" aria-hidden="true"><i class="ph ph-circle-dashed" id="auditLoadIcon"></i></div>
+<div class="audit-load-copy"><strong id="auditLoadTitle">جاهز للبحث</strong><div class="audit-live" id="auditLoadState" role="status" aria-live="polite">حدد الفلاتر ثم اضغط بحث</div></div>
+<span class="audit-load-tag" id="auditLoadTag">تحميل عند الطلب</span>
+<div class="audit-neon-track" aria-hidden="true"><span></span></div>
+</section>
 <div data-audit-view="log">
 <section class="audit-stats">
 <article class="audit-stat orders">
@@ -104,7 +129,7 @@
 <select id="historyFilter"><option value="">الكل</option></select>
 </div>
 </div>
-<div class="audit-search-actions"><button class="audit-btn" id="searchAuditBtn" type="button"><i class="ph ph-magnifying-glass"></i> بحث</button><button class="audit-btn secondary" id="stopSearchAudit" type="button" hidden>ايقاف البحث</button><span id="searchHint" role="status">البحث يشمل الفترة المحددة بالكامل عند الحاجة · عرض 25 نتيجة بكل صفحة · تفضيل النسخة المحلية</span></div>
+<div class="audit-search-actions"><button class="audit-btn" id="searchAuditBtn" type="button"><i class="ph ph-magnifying-glass"></i> بحث</button><button class="audit-btn secondary" id="stopSearchAudit" type="button" hidden>ايقاف البحث</button><span id="searchHint" role="status">البحث ضمن الفترة المحددة · 25 نتيجة بالصفحة · اولوية للنسخة المحلية</span></div>
 </section>
 <section class="audit-table-card">
 <div class="audit-section-head">
@@ -1248,6 +1273,14 @@ let searchCursor = null;
 let searchHasMore = false;
 let searchBusy = false;
 let stopSearchRequested = false;
+function setAuditLoadPhase(phase, title, tag) {
+$(`auditLoadPanel`).dataset.state = phase;
+$(`auditLoadPanel`).setAttribute(`aria-busy`, phase === `loading` ? `true` : `false`);
+$(`auditLoadTitle`).textContent = title;
+$(`auditLoadTag`).textContent = tag;
+$(`auditLoadIcon`).className = phase === `loading` ? `ph ph-spinner-gap` : phase === `complete` ? `ph ph-check-circle` : phase === `error` ? `ph ph-warning-circle` : phase === `stopped` ? `ph ph-pause-circle` : `ph ph-circle-dashed`;
+}
+
 let searchDirty = true;
 const batchCache = new Map();
 let localCachePromise;
@@ -1300,6 +1333,7 @@ transaction.oncomplete = transaction.onerror = transaction.onabort = () => resol
 });
 }
 function markSearchDirty() {
+setAuditLoadPhase(`idle`, `الفلاتر جاهزة للتطبيق`, `بانتظار البحث`);
 searchDirty = true;
 $(`loadMoreAudit`).hidden = true;
 $(`searchHint`).textContent = `تم تغيير الفلاتر · اضغط بحث لتطبيقها`;
@@ -1316,6 +1350,7 @@ if (!values || !values.from || !values.to) return setToast(`حدد تاريخ ا
 if (values.from > values.to) return setToast(`تاريخ البداية يجب ان يسبق تاريخ النهاية`, `warning`);
 if (more && (searchDirty || !searchHasMore)) return;
 searchBusy = true;
+setAuditLoadPhase(`loading`, `جاري البحث عن النتائج`, `تحميل قيد التنفيذ`);
 stopSearchRequested = false;
 $(`stopSearchAudit`).hidden = false;
 const controls = [`searchAuditBtn`, `refreshBtn`, `loadMoreAudit`, `exportAuditBtn`, `clearFiltersBtn`];
@@ -1358,9 +1393,11 @@ if (more) { auditPage = Math.min(Math.max(1, previousPageCount + 1), Math.max(1,
 renderTable();
 $(`lastLoadedAt`).textContent = `${usedServer ? `يتضمن بيانات من السيرفر` : `نسخة محلية`} · ${new Date(oldestSavedAt).toLocaleString(`en-GB`)}`;
 $(`auditLoadState`).textContent = `تم فحص ${state.orders.length} طلبية · ${state.visible.length} مطابقة · ${searchHasMore ? stopSearchRequested ? `تم ايقاف البحث قبل اكتماله · يمكنك المتابعة` : `توجد طلبيات اخرى يمكن البحث فيها` : `اكتمل البحث في الفترة المحددة`}`;
+setAuditLoadPhase(stopSearchRequested && searchHasMore ? `stopped` : `complete`, stopSearchRequested && searchHasMore ? `تم ايقاف البحث` : `اكتمل تحميل النتائج`, searchHasMore ? `نتائج جزئية · متاح المزيد` : `اكتمل فحص الفترة`);
 $(`searchHint`).textContent = `البحث الجزئي بالاسم والرقم فعال · النسخة المحلية لا تتحدث تلقائيا · التصدير للنتائج التي تم العثور عليها حتى الان`;
 } catch (error) {
 console.error(error);
+setAuditLoadPhase(`error`, `تعذر اكمال التحميل`, `اعد المحاولة`);
 $(`auditLoadState`).textContent = `تعذر جلب الدفعة · النتائج السابقة محفوظة`;
 setToast(`تعذر البحث، تحقق من الاتصال وصلاحيات قاعدة البيانات`, `error`);
 } finally {
