@@ -104,13 +104,13 @@
 <select id="historyFilter"><option value="">الكل</option></select>
 </div>
 </div>
-<div class="audit-search-actions"><button class="audit-btn" id="searchAuditBtn" type="button"><i class="ph ph-magnifying-glass"></i> بحث</button><span id="searchHint" role="status">لن يتم جلب الطلبيات حتى تضغط بحث · 25 طلبية بكل دفعة · تفضيل النسخة المحلية</span></div>
+<div class="audit-search-actions"><button class="audit-btn" id="searchAuditBtn" type="button"><i class="ph ph-magnifying-glass"></i> بحث</button><button class="audit-btn secondary" id="stopSearchAudit" type="button" hidden>ايقاف البحث</button><span id="searchHint" role="status">البحث يشمل الفترة المحددة بالكامل عند الحاجة · عرض 25 نتيجة بكل صفحة · تفضيل النسخة المحلية</span></div>
 </section>
 <section class="audit-table-card">
 <div class="audit-section-head">
 <div class="audit-section-title">
 <div class="audit-section-icon"><i class="ph ph-list-dashes"></i></div>
-<div><h2>سجل الطلبيات</h2><p>التاريخ يحدد نطاق الجلب من قاعدة البيانات · باقي الفلاتر والترتيب تطبق على الدفعات المحملة فقط</p></div>
+<div><h2>سجل الطلبيات</h2><p>البحث بالاسم او الرقم يشمل الطلبيات ضمن الفترة المحددة · يتم فحص دفعات اضافية تلقائيا للوصول للنتائج</p></div>
 </div>
 <div class="audit-table-summary">
 <span class="audit-badge" id="visibleCount"><i class="ph ph-eye"></i> 0 سجل ظاهر</span>
@@ -136,7 +136,7 @@
 </tbody>
 </table>
 </div>
-<div class="audit-pagination"><button type="button" class="audit-row-btn" id="auditPrev">السابق</button><span id="auditPageInfo" role="status"></span><button type="button" class="audit-row-btn" id="auditNext">التالي</button><button type="button" class="audit-btn" id="loadMoreAudit" hidden>فحص 25 طلبية اضافية</button></div>
+<div class="audit-pagination"><button type="button" class="audit-row-btn" id="auditPrev">السابق</button><span id="auditPageInfo" role="status"></span><button type="button" class="audit-row-btn" id="auditNext">التالي</button><button type="button" class="audit-btn" id="loadMoreAudit" hidden>عرض المزيد من النتائج</button></div>
 </section>
 </div>
 </main>
@@ -1117,7 +1117,7 @@ body.innerHTML = `<tr>
 <td colspan="7">
 <div class="audit-empty">
 <i class="ph ph-magnifying-glass" style="font-size:1.5rem;display:block;margin-bottom:7px"></i>
-لا توجد طلبيات مطابقة للفلاتر الحالية.
+${searchBusy ? `جاري البحث في الفترة المحددة…` : searchHasMore ? `لم تظهر نتائج في الجزء المفحوص بعد · اضغط عرض المزيد لاكمال البحث` : `لا توجد طلبيات مطابقة في الفترة المحددة`}
 </div>
 </td>
 </tr>`;
@@ -1247,6 +1247,7 @@ let activeSearch = null;
 let searchCursor = null;
 let searchHasMore = false;
 let searchBusy = false;
+let stopSearchRequested = false;
 let searchDirty = true;
 const batchCache = new Map();
 let localCachePromise;
@@ -1315,15 +1316,23 @@ if (!values || !values.from || !values.to) return setToast(`حدد تاريخ ا
 if (values.from > values.to) return setToast(`تاريخ البداية يجب ان يسبق تاريخ النهاية`, `warning`);
 if (more && (searchDirty || !searchHasMore)) return;
 searchBusy = true;
+stopSearchRequested = false;
+$(`stopSearchAudit`).hidden = false;
 const controls = [`searchAuditBtn`, `refreshBtn`, `loadMoreAudit`, `exportAuditBtn`, `clearFiltersBtn`];
 controls.forEach(id => $(id).disabled = true);
 document.querySelectorAll(`.audit-filters input,.audit-filters select,.audit-preset-btn`).forEach(el => el.disabled = true);
 $(`auditLoadState`).textContent = `جاري جلب دفعة من 25 طلبية كحد اقصى…`;
 try {
-const cursor = more ? searchCursor : null;
+if (!more) { state.orders = []; activeSearch = {...values}; searchCursor = null; searchHasMore = true; }
+const targetMatches = state.orders.filter(order => auditOrderMatchesFilters(order, values)).length + AUDIT_PAGE_SIZE;
+const previousPageCount = Math.ceil(state.visible.length / AUDIT_PAGE_SIZE);
+let usedServer = false;
+let oldestSavedAt = Date.now();
+do {
+const cursor = searchCursor;
 const key = JSON.stringify([values.from, values.to, cursor?.id || ``]);
 let batch = !force && await readAuditCache(key);
-const fromLocal = Boolean(batch);
+if (!batch) usedServer = true;
 if (!batch) {
 const end = new Date(`${values.to}T00:00:00`);
 end.setDate(end.getDate() + 1);
@@ -1334,7 +1343,7 @@ const snapshot = await getDocs(query(collection(db, `orders`), ...constraints));
 batch = { orders: snapshot.docs.map(item => ({...item.data(), id: item.id})), cursor: snapshot.empty ? null : {id: snapshot.docs.at(-1).id, createdAt: snapshot.docs.at(-1).data().createdAt}, savedAt: Date.now(), hasMore: snapshot.size === AUDIT_PAGE_SIZE };
 await writeAuditCache(key, batch);
 }
-if (!more) { state.orders = []; activeSearch = {...values}; }
+oldestSavedAt = Math.min(oldestSavedAt, batch.savedAt);
 const known = new Set(state.orders.map(order => order.id));
 state.orders.push(...batch.orders.filter(order => !known.has(order.id)));
 searchCursor = batch.cursor;
@@ -1342,16 +1351,21 @@ searchHasMore = batch.hasMore;
 searchDirty = false;
 applyFilters();
 updateStats();
-if (more) { auditPage = Math.max(1, Math.ceil(state.visible.length / AUDIT_PAGE_SIZE)); renderTable(); }
-$(`lastLoadedAt`).textContent = `${fromLocal ? `نسخة محلية` : `نسخة من السيرفر`} · ${new Date(batch.savedAt).toLocaleString(`en-GB`)}`;
-$(`auditLoadState`).textContent = `تم فحص ${state.orders.length} طلبية · ${state.visible.length} مطابقة · ${searchHasMore ? `يمكن فحص الدفعة التالية` : `انتهت الفترة المحددة`}`;
-$(`searchHint`).textContent = `النتائج والاحصائيات والتصدير تخص البيانات المحملة فقط · النسخة المحلية لا تتحدث تلقائيا، استخدم تحديث البيانات لجلب الجديد`;
+$(`auditLoadState`).textContent = `جاري البحث · تم فحص ${state.orders.length} طلبية · ${state.visible.length} مطابقة`;
+await new Promise(resolve => setTimeout(resolve, 0));
+} while (searchHasMore && state.visible.length < targetMatches && !stopSearchRequested);
+if (more) { auditPage = Math.min(Math.max(1, previousPageCount + 1), Math.max(1, Math.ceil(state.visible.length / AUDIT_PAGE_SIZE))); }
+renderTable();
+$(`lastLoadedAt`).textContent = `${usedServer ? `يتضمن بيانات من السيرفر` : `نسخة محلية`} · ${new Date(oldestSavedAt).toLocaleString(`en-GB`)}`;
+$(`auditLoadState`).textContent = `تم فحص ${state.orders.length} طلبية · ${state.visible.length} مطابقة · ${searchHasMore ? stopSearchRequested ? `تم ايقاف البحث قبل اكتماله · يمكنك المتابعة` : `توجد طلبيات اخرى يمكن البحث فيها` : `اكتمل البحث في الفترة المحددة`}`;
+$(`searchHint`).textContent = `البحث الجزئي بالاسم والرقم فعال · النسخة المحلية لا تتحدث تلقائيا · التصدير للنتائج التي تم العثور عليها حتى الان`;
 } catch (error) {
 console.error(error);
 $(`auditLoadState`).textContent = `تعذر جلب الدفعة · النتائج السابقة محفوظة`;
 setToast(`تعذر البحث، تحقق من الاتصال وصلاحيات قاعدة البيانات`, `error`);
 } finally {
 searchBusy = false;
+$(`stopSearchAudit`).hidden = true;
 controls.forEach(id => $(id).disabled = false);
 document.querySelectorAll(`.audit-filters input,.audit-filters select,.audit-preset-btn`).forEach(el => el.disabled = false);
 $(`loadMoreAudit`).hidden = !searchHasMore || searchDirty;
@@ -1472,6 +1486,7 @@ $(`datePresetMonth`).addEventListener(`click`, () => setDatePreset(`month`));
 $(`datePresetYear`).addEventListener(`click`, () => setDatePreset(`year`));
 $(`datePresetToday`).addEventListener(`click`, () => setDatePreset(`today`));
 $(`clearFiltersBtn`).addEventListener(`click`, clearFilters);
+$(`stopSearchAudit`).addEventListener(`click`, () => { stopSearchRequested = true; });
 $(`searchAuditBtn`).addEventListener(`click`, () => loadOrders());
 $(`searchBox`).addEventListener(`keydown`, event => { if (event.key === `Enter`) loadOrders(); });
 $(`loadMoreAudit`).addEventListener(`click`, () => loadOrders(true));
