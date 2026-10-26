@@ -14,7 +14,9 @@
 <link rel="stylesheet" href="style.css?v=20260923_force_v2">
 <link rel="stylesheet" href="audit-ui.css?v=20260923_force_v2">
 <link rel="stylesheet" href="admin-responsive.css?v=20260923_force_v2">
-<script src="js/version-check.js?v=20261006_reads1" defer></script></head>
+<script src="js/version-check.js?v=20261006_reads1" defer></script><style>
+.audit-search-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:20px}.audit-search-actions span{color:#526b70;font-size:.9rem}.audit-filter-card{border-top:3px solid #099999}.audit-hero{padding-block:24px}.audit-pagination{flex-wrap:wrap;gap:12px}.audit-btn:disabled{opacity:.55;cursor:wait}@media(max-width:640px){.audit-search-actions .audit-btn{width:100%}.audit-search-actions span{line-height:1.8}.audit-actions{flex-wrap:wrap}}
+</style></head>
 <body data-page="audit">
 <div class="offline-banner" id="offline-banner"><i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال.</div>
 <div class="bg-shapes"><div class="shape shape-1"></div><div class="shape shape-2"></div></div>
@@ -27,13 +29,13 @@
 <div>
 <div class="audit-eyebrow">DAR ALDAWAA / OPERATIONS</div>
 <h1>مركز التدقيق</h1>
-<p>رؤية مركزية لمسار الطلبيات، حركات التدقيق، سجلات التصدير والطباعة، ومتابعة المسؤول الحالي عن كل طلبية.</p>
-<div class="audit-live" id="auditLoadState" role="status">جاري تحميل البيانات…</div>
+<p>سجل التدقيق ومسار الطلبيات · تحميل عند البحث فقط</p>
+<div class="audit-live" id="auditLoadState" role="status">حدد الفلاتر ثم اضغط بحث</div>
 </div>
 </div>
 <div class="audit-actions">
 <button class="audit-btn secondary" id="refreshBtn" type="button"><i class="ph ph-arrow-clockwise"></i> تحديث البيانات</button>
-<button class="audit-btn secondary" id="exportAuditBtn" type="button"><i class="ph ph-file-xls"></i> تصدير Excel</button>
+<button class="audit-btn secondary" id="exportAuditBtn" type="button"><i class="ph ph-file-xls"></i> تصدير النتائج المحملة</button>
 <div class="audit-nav-pair">
 <a class="audit-btn secondary" href="pass.html"><i class="ph ph-lock-key"></i> الصفحة السرية</a>
 <a class="audit-btn secondary" href="market_manager.html"><i class="ph ph-briefcase"></i> مدير السوق</a>
@@ -41,31 +43,22 @@
 </div>
 </div>
 </header>
-<nav class="hub-tabs" aria-label="أدوات التدقيق">
-<a href="#log" data-hub-tab="log" class="active">سجل التدقيق</a>
-<a href="#overview" data-hub-tab="overview">لوحة القيادة</a>
-<a href="#timing" data-hub-tab="timing">زمن معالجة الطلبيات</a>
-<a href="#manage" data-hub-tab="manage">إدارة وتعديل الطلبيات</a>
-</nav>
-<div data-audit-view="overview" hidden><div data-tool-host="overview" class="admin-tool-host"></div></div>
-<div data-audit-view="timing" hidden><iframe title="زمن معالجة الطلبيات" src="order-timing.html?v=20260923_monthdefault1" style="width:100%;min-height:900px;border:0;border-radius:20px;background:#f5f9f9"></iframe></div>
-<div data-audit-view="manage" hidden><div data-tool-host="manage" class="admin-tool-host"></div></div>
 <div data-audit-view="log">
 <section class="audit-stats">
 <article class="audit-stat orders">
-<div class="audit-stat-copy"><span>إجمالي الطلبيات</span><strong id="statOrders">0</strong><small>جميع الطلبات المحملة من النظام</small></div>
+<div class="audit-stat-copy"><span>الطلبيات المحملة</span><strong id="statOrders">0</strong><small>الطلبيات المفحوصة في هذا البحث</small></div>
 <div class="audit-stat-icon"><i class="ph ph-files"></i></div>
 </article>
 <article class="audit-stat audit">
-<div class="audit-stat-copy"><span>حركات التدقيق</span><strong id="statAudit">0</strong><small>إجمالي الحركات المسجلة تاريخيًا</small></div>
+<div class="audit-stat-copy"><span>حركات التدقيق</span><strong id="statAudit">0</strong><small>ضمن الطلبيات المحملة فقط</small></div>
 <div class="audit-stat-icon"><i class="ph ph-shield-check"></i></div>
 </article>
 <article class="audit-stat export">
-<div class="audit-stat-copy"><span>سجلات التصدير</span><strong id="statExport">0</strong><small>عمليات التصدير المسجلة</small></div>
+<div class="audit-stat-copy"><span>سجلات التصدير</span><strong id="statExport">0</strong><small>ضمن الطلبيات المحملة فقط</small></div>
 <div class="audit-stat-icon"><i class="ph ph-file-arrow-down"></i></div>
 </article>
 <article class="audit-stat print">
-<div class="audit-stat-copy"><span>سجلات الطباعة</span><strong id="statPrint">0</strong><small>عمليات الطباعة المسجلة</small></div>
+<div class="audit-stat-copy"><span>سجلات الطباعة</span><strong id="statPrint">0</strong><small>ضمن الطلبيات المحملة فقط</small></div>
 <div class="audit-stat-icon"><i class="ph ph-printer"></i></div>
 </article>
 </section>
@@ -111,12 +104,13 @@
 <select id="historyFilter"><option value="">الكل</option></select>
 </div>
 </div>
+<div class="audit-search-actions"><button class="audit-btn" id="searchAuditBtn" type="button"><i class="ph ph-magnifying-glass"></i> بحث</button><span id="searchHint" role="status">لن يتم جلب الطلبيات حتى تضغط بحث · 25 طلبية بكل دفعة · تفضيل النسخة المحلية</span></div>
 </section>
 <section class="audit-table-card">
 <div class="audit-section-head">
 <div class="audit-section-title">
 <div class="audit-section-icon"><i class="ph ph-list-dashes"></i></div>
-<div><h2>سجل الطلبيات</h2><p>اضغط على عنوان أي عمود للترتيب تصاعديًا أو تنازليًا، وعلى التفاصيل لعرض السجل الكامل.</p></div>
+<div><h2>سجل الطلبيات</h2><p>التاريخ يحدد نطاق الجلب من قاعدة البيانات · باقي الفلاتر والترتيب تطبق على الدفعات المحملة فقط</p></div>
 </div>
 <div class="audit-table-summary">
 <span class="audit-badge" id="visibleCount"><i class="ph ph-eye"></i> 0 سجل ظاهر</span>
@@ -138,11 +132,11 @@
 </tr>
 </thead>
 <tbody id="auditBody">
-<tr><td colspan="7"><div class="audit-empty">جاري تحميل سجل التدقيق...</div></td></tr>
+<tr><td colspan="7"><div class="audit-empty">حدد الفترة والفلاتر ثم اضغط بحث لعرض النتائج</div></td></tr>
 </tbody>
 </table>
 </div>
-<div class="audit-pagination"><button type="button" class="audit-row-btn" id="auditPrev">السابق</button><span id="auditPageInfo" role="status"></span><button type="button" class="audit-row-btn" id="auditNext">التالي</button></div>
+<div class="audit-pagination"><button type="button" class="audit-row-btn" id="auditPrev">السابق</button><span id="auditPageInfo" role="status"></span><button type="button" class="audit-row-btn" id="auditNext">التالي</button><button type="button" class="audit-btn" id="loadMoreAudit" hidden>فحص 25 طلبية اضافية</button></div>
 </section>
 </div>
 </main>
@@ -157,7 +151,7 @@
 </div>
 <div id="toast-container"></div>
 <script type="module">
-import { db, collection, getDocs, doc, updateDoc } from './js/firebase.js';
+import { db, collection, getDocs, doc, updateDoc, query, where, orderBy, limit, startAfter, documentId } from './js/firebase.js';
 const $ = id => document.getElementById(id);
 const state = {
 orders: [],
@@ -634,7 +628,7 @@ fromDate = new Date(today.getFullYear(), 0, 1);
 $(`dateFrom`).value = toDateInputValue(fromDate);
 $(`dateTo`).value = toDateInputValue(today);
 setActivePreset(preset);
-if (shouldApply) applyFilters();
+if (shouldApply) markSearchDirty();
 }
 function inDateRange(order = {}, from = ``, to = ``) {
 const date = normalizeDate(order.createdAt || order.date || order.timestamp);
@@ -1007,6 +1001,8 @@ const index = state.orders.findIndex(item => item.id === order.id);
 const updated = { ...order, ...patch };
 if (index >= 0) state.orders[index] = updated;
 state.selectedOrder = updated;
+await clearAuditCache();
+updateStats();
 setToast(`تم نقل حالة الطلبية وتسجيل الحركة بنجاح.`, `success`);
 applyFilters();
 openPanel(order.id);
@@ -1101,14 +1097,14 @@ renderTable();
 }
 function applyFilters() {
 auditPage = 1;
-if (refreshAuditDynamicFilters()) return applyFilters();
-const values = currentFilterValues();
+
+const values = activeSearch || currentFilterValues();
 state.visible = state.orders.filter(order => auditOrderMatchesFilters(order, values));
 sortVisibleOrders();
 renderTable();
 }
 let auditPage = 1;
-const AUDIT_PAGE_SIZE = 40;
+const AUDIT_PAGE_SIZE = 25;
 function renderTable() {
 const body = $(`auditBody`);
 $(`visibleCount`).innerHTML = `<i class="ph ph-eye"></i> ${state.visible.length.toLocaleString(`en-US`)} سجل ظاهر`;
@@ -1247,42 +1243,118 @@ state.selectedOrder = null;
 document.body.style.overflow = ``;
 panelReturnFocus?.focus();
 }
-async function loadOrders() {
-$(`auditLoadState`).textContent = `جاري تحميل البيانات…`;
-const refreshButton = $(`refreshBtn`);
-const originalContent = refreshButton.innerHTML;
-refreshButton.disabled = true;
-refreshButton.innerHTML = `<i class="ph ph-spinner-gap"></i> جاري التحديث...`;
-$(`auditBody`).innerHTML = `<tr>
-<td colspan="7">
-<div class="audit-empty">
-<i class="ph ph-spinner-gap" style="font-size:1.5rem;display:block;margin-bottom:7px"></i>
-جاري تحميل سجل التدقيق...
-</div>
-</td>
-</tr>`;
+let activeSearch = null;
+let searchCursor = null;
+let searchHasMore = false;
+let searchBusy = false;
+let searchDirty = true;
+const batchCache = new Map();
+let localCachePromise;
+function openAuditCache() {
+if (!localCachePromise) localCachePromise = new Promise(resolve => {
 try {
-const snapshot = await getDocs(collection(db, `orders`));
-state.orders = snapshot.docs.map(item => ({
-id: item.id,
-...item.data()
-}));
-updateStats();
-$(`auditLoadState`).textContent = `تم تحميل البيانات · حدّث لعرض التغييرات الجديدة`;
-$(`lastLoadedAt`).innerHTML = `<i class="ph ph-clock"></i> آخر تحميل: ${new Date().toLocaleString(`en-GB`)}`;
+const request = indexedDB.open(`ordering-audit-pages-v1`, 1);
+request.onupgradeneeded = () => request.result.createObjectStore(`pages`);
+request.onsuccess = () => resolve(request.result);
+request.onerror = () => resolve(null);
+request.onblocked = () => resolve(null);
+} catch { resolve(null); }
+});
+return localCachePromise;
+}
+async function readAuditCache(key) {
+if (batchCache.has(key)) return batchCache.get(key);
+const database = await openAuditCache();
+if (!database) return null;
+return new Promise(resolve => {
+try {
+const request = database.transaction(`pages`, `readonly`).objectStore(`pages`).get(key);
+request.onsuccess = () => resolve(request.result || null);
+request.onerror = () => resolve(null);
+} catch { resolve(null); }
+});
+}
+async function writeAuditCache(key, value) {
+batchCache.set(key, value);
+const database = await openAuditCache();
+if (!database) return;
+await new Promise(resolve => {
+try {
+const transaction = database.transaction(`pages`, `readwrite`);
+transaction.objectStore(`pages`).put(value, key);
+transaction.oncomplete = transaction.onerror = transaction.onabort = () => resolve();
+} catch { resolve(); }
+});
+}
+async function clearAuditCache() {
+batchCache.clear();
+const database = await openAuditCache();
+if (!database) return;
+await new Promise(resolve => {
+try {
+const transaction = database.transaction(`pages`, `readwrite`);
+transaction.objectStore(`pages`).clear();
+transaction.oncomplete = transaction.onerror = transaction.onabort = () => resolve();
+} catch { resolve(); }
+});
+}
+function markSearchDirty() {
+searchDirty = true;
+$(`loadMoreAudit`).hidden = true;
+$(`searchHint`).textContent = `تم تغيير الفلاتر · اضغط بحث لتطبيقها`;
+}
+function initializeFilterOptions() {
+rebuildAuditSelect(`statusFilter`, Object.keys(WORKFLOW_STATUS_LABELS), WORKFLOW_STATUS_LABELS, `كل الحالات`);
+rebuildAuditSelect(`ownerFilter`, Object.keys(OWNER_LABELS), OWNER_LABELS);
+rebuildAuditSelect(`historyFilter`, Object.keys(HISTORY_LABELS), HISTORY_LABELS);
+}
+async function loadOrders(more = false, force = false) {
+if (searchBusy) return;
+const values = more ? activeSearch : currentFilterValues();
+if (!values || !values.from || !values.to) return setToast(`حدد تاريخ البداية والنهاية قبل البحث`, `warning`);
+if (values.from > values.to) return setToast(`تاريخ البداية يجب ان يسبق تاريخ النهاية`, `warning`);
+if (more && (searchDirty || !searchHasMore)) return;
+searchBusy = true;
+const controls = [`searchAuditBtn`, `refreshBtn`, `loadMoreAudit`, `exportAuditBtn`, `clearFiltersBtn`];
+controls.forEach(id => $(id).disabled = true);
+document.querySelectorAll(`.audit-filters input,.audit-filters select,.audit-preset-btn`).forEach(el => el.disabled = true);
+$(`auditLoadState`).textContent = `جاري جلب دفعة من 25 طلبية كحد اقصى…`;
+try {
+const cursor = more ? searchCursor : null;
+const key = JSON.stringify([values.from, values.to, cursor?.id || ``]);
+let batch = !force && await readAuditCache(key);
+const fromLocal = Boolean(batch);
+if (!batch) {
+const end = new Date(`${values.to}T00:00:00`);
+end.setDate(end.getDate() + 1);
+const constraints = [where(`createdAt`, `>=`, new Date(`${values.from}T00:00:00`)), where(`createdAt`, `<`, end), orderBy(`createdAt`, `desc`), orderBy(documentId(), `desc`)];
+if (cursor) constraints.push(startAfter(normalizeDate(cursor.createdAt), cursor.id));
+constraints.push(limit(AUDIT_PAGE_SIZE));
+const snapshot = await getDocs(query(collection(db, `orders`), ...constraints));
+batch = { orders: snapshot.docs.map(item => ({...item.data(), id: item.id})), cursor: snapshot.empty ? null : {id: snapshot.docs.at(-1).id, createdAt: snapshot.docs.at(-1).data().createdAt}, savedAt: Date.now(), hasMore: snapshot.size === AUDIT_PAGE_SIZE };
+await writeAuditCache(key, batch);
+}
+if (!more) { state.orders = []; activeSearch = {...values}; }
+const known = new Set(state.orders.map(order => order.id));
+state.orders.push(...batch.orders.filter(order => !known.has(order.id)));
+searchCursor = batch.cursor;
+searchHasMore = batch.hasMore;
+searchDirty = false;
 applyFilters();
+updateStats();
+if (more) { auditPage = Math.max(1, Math.ceil(state.visible.length / AUDIT_PAGE_SIZE)); renderTable(); }
+$(`lastLoadedAt`).textContent = `${fromLocal ? `نسخة محلية` : `نسخة من السيرفر`} · ${new Date(batch.savedAt).toLocaleString(`en-GB`)}`;
+$(`auditLoadState`).textContent = `تم فحص ${state.orders.length} طلبية · ${state.visible.length} مطابقة · ${searchHasMore ? `يمكن فحص الدفعة التالية` : `انتهت الفترة المحددة`}`;
+$(`searchHint`).textContent = `النتائج والاحصائيات والتصدير تخص البيانات المحملة فقط · النسخة المحلية لا تتحدث تلقائيا، استخدم تحديث البيانات لجلب الجديد`;
 } catch (error) {
 console.error(error);
-$(`auditBody`).innerHTML = `<tr>
-<td colspan="7">
-<div class="audit-empty">تعذر تحميل البيانات. تحقق من صلاحيات Firebase أو الاتصال.</div>
-</td>
-</tr>`;
-setToast(`تعذر تحميل بيانات التدقيق.`, `error`);
-$(`auditLoadState`).textContent = `تعذر تحميل البيانات · أعد المحاولة`;
+$(`auditLoadState`).textContent = `تعذر جلب الدفعة · النتائج السابقة محفوظة`;
+setToast(`تعذر البحث، تحقق من الاتصال وصلاحيات قاعدة البيانات`, `error`);
 } finally {
-refreshButton.disabled = false;
-refreshButton.innerHTML = originalContent;
+searchBusy = false;
+controls.forEach(id => $(id).disabled = false);
+document.querySelectorAll(`.audit-filters input,.audit-filters select,.audit-preset-btn`).forEach(el => el.disabled = false);
+$(`loadMoreAudit`).hidden = !searchHasMore || searchDirty;
 }
 }
 function exportVisibleAudit() {
@@ -1376,11 +1448,11 @@ $(`statusFilter`).value = ``;
 $(`ownerFilter`).value = ``;
 $(`historyFilter`).value = ``;
 setDatePreset(`month`, false);
-applyFilters();
-setToast(`تمت إعادة الفلاتر إلى هذا الشهر.`, `success`);
+markSearchDirty();
+setToast(`تمت إعادة الفلاتر إلى هذا الشهر، اضغط بحث للتطبيق`, `success`);
 }
 function bindEvents() {
-window.addEventListener(`audit:reload`, loadOrders);
+
 $(`auditPrev`).addEventListener(`click`, () => { auditPage--; renderTable(); document.querySelector(`.audit-table-card`).scrollIntoView({block: `start`}); });
 $(`auditNext`).addEventListener(`click`, () => { auditPage++; renderTable(); document.querySelector(`.audit-table-card`).scrollIntoView({block: `start`}); });
 $(`mobileSort`).addEventListener(`change`, event => toggleSort(event.target.value));
@@ -1390,7 +1462,7 @@ $(id).addEventListener(id === `searchBox` ? `input` : `change`, () => {
 if ([`dateFrom`, `dateTo`].includes(id)) {
 setActivePreset(``);
 }
-applyFilters();
+markSearchDirty();
 });
 });
 document.querySelectorAll(`[data-sort-key]`).forEach(button => {
@@ -1400,7 +1472,10 @@ $(`datePresetMonth`).addEventListener(`click`, () => setDatePreset(`month`));
 $(`datePresetYear`).addEventListener(`click`, () => setDatePreset(`year`));
 $(`datePresetToday`).addEventListener(`click`, () => setDatePreset(`today`));
 $(`clearFiltersBtn`).addEventListener(`click`, clearFilters);
-$(`refreshBtn`).addEventListener(`click`, loadOrders);
+$(`searchAuditBtn`).addEventListener(`click`, () => loadOrders());
+$(`searchBox`).addEventListener(`keydown`, event => { if (event.key === `Enter`) loadOrders(); });
+$(`loadMoreAudit`).addEventListener(`click`, () => loadOrders(true));
+$(`refreshBtn`).addEventListener(`click`, async () => { if (searchBusy) return; await clearAuditCache(); loadOrders(false, true); });
 $(`exportAuditBtn`).addEventListener(`click`, exportVisibleAudit);
 $(`closePanelBtn`).addEventListener(`click`, closePanel);
 $(`auditPanelOverlay`).addEventListener(`click`, event => {
@@ -1423,13 +1498,14 @@ if (!navigator.onLine) {
 $(`offline-banner`).classList.add(`show`);
 }
 }
+initializeFilterOptions();
 bindEvents();
+$(`auditPrev`).disabled = true;
+$(`auditNext`).disabled = true;
 setDatePreset(`month`, false);
 updateSortHeaders();
-loadOrders();
 </script>
-<script type="module" src="js/admin-hub.js?v=20260923_force_v2"></script>
+
 <a href="read-diagnostics.html" style="display:block;margin:20px;text-align:center;color:#099999;font-weight:bold">تشخيص قراءات Firestore</a>
 </body>
 </html>
-
