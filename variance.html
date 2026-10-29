@@ -21,12 +21,12 @@
 <section class="box"><h2>المقارنة</h2><div class="tools">
 <div class="field"><label>لقطة سابقة محفوظة على هذا الجهاز</label><select id="baseline"><option value="">لا توجد لقطة مختارة</option></select></div>
 <div class="field"><label>او ادخل قيمة الشاشة السابقة (د.ا)</label><input id="manual" inputmode="decimal" type="number" step="0.01" placeholder="مثال: 54464.97"></div>
-</div><div class="actions"><button id="compare" class="btn secondary" disabled>تحليل الفرق</button></div>
+</div><div class="tools" style="margin-top:12px"><div class="field"><label>وقت القراءة السابقة (لمراجعة سجل الحركات)</label><input id="historicalFrom" type="datetime-local"></div><div class="field"><label>وقت القراءة الحالية</label><input id="historicalTo" type="datetime-local"></div></div><div class="actions"><button id="compare" class="btn secondary" disabled>تحليل الفرق وسجل الحركات</button></div>
 <div class="notice">القيمة السابقة وحدها تثبت مقدار الاختلاف فقط ولا تكشف مسبباته. لتحديد الطلبات المسؤولة بدقة، يجب وجود لقطة سابقة تتضمن معرف كل طلبية وقيمتها. اللقطات الجديدة تحفظ محليا على هذا الجهاز فقط، ولا تعدل اي بيانات في Firebase.</div>
 <div class="cards"><div class="metric"><small>قيمة الاساس</small><strong id="previous">—</strong></div><div class="metric"><small>القيمة الحالية</small><strong id="current">—</strong></div><div class="metric diff"><small>الفرق</small><strong id="delta">—</strong></div></div>
 </section>
 <section class="box" id="breakdown"><h2>تفصيل اسباب الفرق</h2><div id="explanation"></div><div class="cards" id="parts"></div><div class="tablewrap" style="margin-top:16px"><table><thead><tr><th>نوع التغير</th><th>الصيدلية</th><th>رقم الطلبية</th><th>القيمة السابقة</th><th>القيمة الحالية</th><th>الاثر على الفرق</th></tr></thead><tbody id="rows"></tbody></table></div></section>
-<section class="box"><h2>ما يمكن مراجعته في البيانات الحالية</h2><div id="audit" class="muted">سيظهر بعد جلب الطلبيات</div></section>
+<section class="box"><h2>الحركات المسجلة خلال فترة الاختلاف</h2><div id="forensic" class="muted">اختر وقتي القراءة ثم اضغط تحليل الفرق</div></section><section class="box"><h2>ما يمكن مراجعته في البيانات الحالية</h2><div id="audit" class="muted">سيظهر بعد جلب الطلبيات</div></section>
 <footer>VARIANCE · Read-only analytics · دون تسجيل دخول للصفحة · صلاحيات القراءة يحددها Firestore</footer>
 </main>
 <script type="module">
@@ -37,7 +37,7 @@ const n = v=>Number(String(v??0).replace(/,/g,''))||0;
 const esc = v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const date = v=>v?.toDate?.() || (v?.seconds?new Date(v.seconds*1000):new Date(v||0));
 const localDay = d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
-const now=new Date();$('from').value=localDay(new Date(now.getFullYear(),now.getMonth(),1));$('to').value=localDay(now);
+const now=new Date();const dtLocal=d=>localDay(d)+'T'+[String(d.getHours()).padStart(2,'0'),String(d.getMinutes()).padStart(2,'0')].join(':');$('historicalTo').value=dtLocal(now);$('historicalFrom').value=dtLocal(new Date(now.getTime()-86400000));$('from').value=localDay(new Date(now.getFullYear(),now.getMonth(),1));$('to').value=localDay(now);
 let orders=[], actual=[], comparison=[], dataReady=false;
 const storageKey=()=>['variance-v1',$('rep').value,$('from').value,$('to').value].join(':');
 const readSnapshots=()=>{try{return JSON.parse(localStorage.getItem(storageKey())||'[]')}catch{return []}};
@@ -74,6 +74,42 @@ refreshBaseline();
 }
 function renderAudit(){const events=actual.flatMap(o=>o.audit.map(x=>({o,e:x}))).filter(x=>/edit|update|delete|return|reject|cancel|restore|price|qty|total|amount/i.test(String(x.e.action||x.e.type||''))).sort((a,b)=>date(b.e.timestamp||b.e.at||b.e.createdAt)-date(a.e.timestamp||a.e.at||a.e.createdAt)).slice(0,20);
 $('audit').innerHTML='<p>عدد الطلبيات في النطاق: <b>'+actual.length+'</b> · الاجمالي: <b>'+money(actual.reduce((s,x)=>s+x.value,0))+' د.ا</b></p>'+(events.length?'<p>احدث احداث التعديل او الارجاع المسجلة (قرائن للمراجعة وليست اثباتا لقيمة الفرق):</p>'+events.map(x=>'<details><summary>'+esc(x.o.pharmacy)+' · '+esc(x.e.action||x.e.type||'تحديث')+'</summary><div>رقم الطلبية: '+esc(x.o.id)+'<br>التاريخ: '+esc(String(x.e.timestamp?.toDate?.()?.toLocaleString('ar-JO')||x.e.at||'غير متوفر'))+'<br>الملاحظة: '+esc(x.e.note||x.e.reason||'غير متوفرة')+'</div></details>').join(''):'<p class="muted">لا توجد احداث تعديل واضحة في سجلات الطلبيات الحالية ضمن النطاق</p>')}
+
+function historicalEventTime(e){
+const raw=e.timestamp||e.at||e.changedAt||e.createdAt||e.updatedAt;
+const d=date(raw);return isNaN(d.getTime())?null:d;
+}
+function amountFromRecord(v){
+if(v===null||v===undefined)return null;
+if(typeof v==='number')return Number.isFinite(v)?v:null;
+if(typeof v==='string'){const parsed=Number(v.replace(/,/g,''));return v.trim()&&Number.isFinite(parsed)?parsed:null}
+if(typeof v!=='object')return null;
+for(const key of ['grandTotal','orderGrandTotal','orderTotal','totalValue','totalAmount']){
+ if(Object.hasOwn(v,key)){const found=amountFromRecord(v[key]);if(found!==null)return found}
+}
+if(Array.isArray(v.items)&&v.items.length&&v.items.every(item=>item&& (item.total!==undefined||(item.price!==undefined&&item.qty!==undefined)))){
+ return v.items.reduce((sum,item)=>sum+n(item.total!==undefined?item.total:n(item.price)*n(item.qty)),0)
+}
+return null;
+}
+function forensic(expectedDelta){
+const from=new Date($('historicalFrom').value),to=new Date($('historicalTo').value),el=$('forensic');
+if(isNaN(from.getTime())||isNaN(to.getTime())||from>=to){el.innerHTML='<div class="notice">حدد وقتين صحيحين، وقت القراءة السابقة يجب ان يسبق الوقت الحالي</div>';return}
+const inPeriod=orders.filter(within).flatMap(o=>(Array.isArray(o.auditTrail)?o.auditTrail:[]).map(e=>({o,e,t:historicalEventTime(e)}))).filter(x=>x.t&&x.t>=from&&x.t<=to).sort((a,b)=>b.t-a.t);
+const records=inPeriod.map(({o,e,t})=>{
+const before=amountFromRecord(e.oldValue??e.previousValue??e.from);
+const after=amountFromRecord(e.newValue??e.to);
+return {id:o.id,pharmacy:o.pharmacyName||'-',action:e.action||e.type||'تحديث',actor:e.user||e.actor||e.by||'-',time:t,before,after,delta:before!==null&&after!==null?after-before:null,note:e.notes||e.note||e.reason||''}
+});
+const known=records.filter(x=>x.delta!==null&&Math.abs(x.delta)>.005);
+const evidenceSum=known.reduce((s,x)=>s+x.delta,0);
+const residual=expectedDelta===null?null:expectedDelta-evidenceSum;
+const moneySigned=x=>(x>0?'+':'')+money(x);
+el.innerHTML='<div class="cards"><div class="metric"><small>حركات خلال الفترة</small><strong>'+records.length+'</strong></div><div class="metric"><small>تغيرات مالية ذات قيمة قبل وبعد</small><strong>'+known.length+'</strong></div><div class="metric"><small>مجموع تغير القيم الموثقة</small><strong>'+moneySigned(evidenceSum)+'</strong></div>'+(residual===null?'':'<div class="metric"><small>الفرق غير المفسر بعد</small><strong>'+moneySigned(residual)+'</strong></div>')+'</div><p class="muted">مجموع الحركات الموثقة لا يعتبر تسوية كاملة تلقائيا: قد توجد طلبات دخلت او خرجت من الفترة، او تعديلات لا تسجل قيمة قديمة، او تغيرات في حالة الطلبية</p>'+
+(records.length?'<div class="tablewrap"><table><thead><tr><th>وقت الحركة</th><th>الصيدلية</th><th>نوع الحركة</th><th>المنفذ</th><th>قبل</th><th>بعد</th><th>الفرق</th></tr></thead><tbody>'+
+records.map(x=>'<tr><td>'+esc(x.time.toLocaleString('en-GB'))+'</td><td>'+esc(x.pharmacy)+'</td><td>'+esc(x.action)+'</td><td>'+esc(x.actor)+'</td><td class="num">'+(x.before===null?'غير مسجل':money(x.before))+'</td><td class="num">'+(x.after===null?'غير مسجل':money(x.after))+'</td><td class="num">'+(x.delta===null?'غير قابل للحساب':moneySigned(x.delta))+'</td></tr>').join('')+'</tbody></table></div>':'<div class="notice">لم يتم العثور على حركات مؤرخة خلال الفترة في auditTrail للطلبيات الموجودة حاليا. هذا لا يثبت عدم حدوث تغيير.</div>');
+}
+
 function compare(){
 if(!dataReady)return;
 const saved=$('baseline').value, manual=$('manual').value;
@@ -84,7 +120,8 @@ const before=prevSaved?prevSaved.orders.reduce((s,x)=>s+x.value,0):n(manual);
 const delta=currentTotal-before;
 $('previous').textContent=money(before);$('current').textContent=money(currentTotal);$('delta').textContent=(delta>0?'+':'')+money(delta);$('delta').className=delta>=0?'positive':'negative';
 $('breakdown').style.display='block';
-if(!prevSaved){$('explanation').innerHTML='<div class="notice">فرق مؤكد مقداره '+money(delta)+' د.ا. لم يتم توفير تفاصيل الطلبات السابقة، لذلك لا يمكن تحديد الصيدليات او التعديلات التي سببته. ثبات العدد بين صورتين لا يثبت ان نفس الطلبات بقيت دون تغيير.</div>';$('parts').innerHTML='';$('rows').innerHTML='<tr><td colspan="6" class="empty">لتفصيل الاسباب بدقة، قارن مع لقطة محفوظة تحتوي تفاصيل الطلبات</td></tr>';comparison=[];return}
+if(!prevSaved){forensic(delta);$('explanation').innerHTML='<div class="notice">فرق مؤكد مقداره '+money(delta)+' د.ا. لم يتم توفير تفاصيل الطلبات السابقة، لذلك لا يمكن تحديد الصيدليات او التعديلات التي سببته. ثبات العدد بين صورتين لا يثبت ان نفس الطلبات بقيت دون تغيير.</div>';$('parts').innerHTML='';$('rows').innerHTML='<tr><td colspan="6" class="empty">لتفصيل الاسباب بدقة، قارن مع لقطة محفوظة تحتوي تفاصيل الطلبات</td></tr>';comparison=[];return}
+forensic(delta);
 const old=new Map(prevSaved.orders.map(x=>[x.id,x]));const fresh=new Map(actual.map(x=>[x.id,x]));
 const changes=[];for(const [id,o] of fresh){const p=old.get(id);if(!p)changes.push({kind:'طلبية جديدة',id,pharmacy:o.pharmacy,prev:0,next:o.value,diff:o.value});else if(Math.abs(o.value-p.value)>.005)changes.push({kind:'تغير قيمة',id,pharmacy:o.pharmacy,prev:p.value,next:o.value,diff:o.value-p.value})}
 for(const [id,p] of old){if(!fresh.has(id))changes.push({kind:'خروج من النطاق او حذف',id,pharmacy:p.pharmacy,prev:p.value,next:0,diff:-p.value})}
