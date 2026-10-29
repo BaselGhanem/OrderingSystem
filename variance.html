@@ -27,7 +27,7 @@
 </section>
 <section class="box" id="breakdown"><h2>تفصيل اسباب الفرق</h2><div id="explanation"></div><div class="cards" id="parts"></div><div class="tablewrap" style="margin-top:16px"><table><thead><tr><th>نوع التغير</th><th>الصيدلية</th><th>رقم الطلبية</th><th>القيمة السابقة</th><th>القيمة الحالية</th><th>الاثر على الفرق</th></tr></thead><tbody id="rows"></tbody></table></div></section>
 <section class="box"><h2>ما يمكن مراجعته في البيانات الحالية</h2><div id="audit" class="muted">سيظهر بعد جلب الطلبيات</div></section>
-<footer>VARIANCE · Read-only analytics · بيانات المندوبين حسب صلاحيات Firestore الحالية</footer>
+<footer>VARIANCE · Read-only analytics · دون تسجيل دخول للصفحة · صلاحيات القراءة يحددها Firestore</footer>
 </main>
 <script type="module">
 import {db,collection,getDocs,query,where} from './js/firebase.js';
@@ -38,7 +38,7 @@ const esc = v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':
 const date = v=>v?.toDate?.() || (v?.seconds?new Date(v.seconds*1000):new Date(v||0));
 const localDay = d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
 const now=new Date();$('from').value=localDay(new Date(now.getFullYear(),now.getMonth(),1));$('to').value=localDay(now);
-let orders=[], actual=[], comparison=[], userRep=sessionStorage.getItem('repId')||'', userName=sessionStorage.getItem('repName')||'', dataReady=false;
+let orders=[], actual=[], comparison=[], dataReady=false;
 const storageKey=()=>['variance-v1',$('rep').value,$('from').value,$('to').value].join(':');
 const readSnapshots=()=>{try{return JSON.parse(localStorage.getItem(storageKey())||'[]')}catch{return []}};
 const setState=(message,error=false)=>{$('state').textContent=message;$('state').style.background=error?'#fff0ed':'#edf4f5'};
@@ -50,8 +50,8 @@ function refreshReps(){let list=[...new Map(orders.map(o=>[String(o.repId||o.rep
 async function load(){
 $('load').disabled=true;setState('جاري قراءة الطلبات من Firestore...');
 try{
-const rep=$('rep').value||userRep;if(!rep){setState('اختر المندوب اولا',true);return}
-let snap=await getDocs(query(collection(db,'orders'),where(userRep?'repId':'repId','==',rep)));
+const rep=$('rep').value;if(!rep){setState('اختر المندوب اولا',true);return}
+let snap=await getDocs(query(collection(db,'orders'),where('repId','==',rep)));
 orders=snap.docs.map(d=>({id:d.id,...d.data()}));
 actual=orders.filter(o=>visible(o)&&within(o)).map(normalize);
 dataReady=true;
@@ -62,7 +62,14 @@ $('current').textContent=money(total);setState('تم جلب '+actual.length+' ط
 finally{$('load').disabled=false}
 }
 async function init(){
-if(userRep){$('rep').innerHTML='<option value="'+esc(userRep)+'">'+esc(userName||userRep)+'</option>';$('rep').value=userRep;setState('تم التعرف على جلسة المندوب الحالية')}else{$('rep').innerHTML='<option value="">يجب تسجيل الدخول من صفحة النظام اولا</option>';setState('الرجاء الدخول الى حساب المندوب من النظام ثم فتح هذه الصفحة',true)}
+$('rep').innerHTML='<option value="">جاري تحميل المندوبين...</option>';
+try{
+const snap=await getDocs(collection(db,'reps'));
+const list=snap.docs.map(d=>({id:d.id,name:d.data().name||d.data().repName||d.id})).sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+$('rep').innerHTML='<option value="">اختر المندوب</option>';
+for(const rep of list){const option=document.createElement('option');option.value=rep.id;option.textContent=rep.name;$('rep').append(option)}
+setState('اختر المندوب والفترة ثم اضغط جلب الطلبيات');
+}catch(error){console.error(error);$('rep').innerHTML='<option value="">تعذر تحميل قائمة المندوبين</option>';setState('تعذر تحميل المندوبين من Firebase: '+(error?.message||'تحقق من صلاحيات Firestore'),true)}
 refreshBaseline();
 }
 function renderAudit(){const events=actual.flatMap(o=>o.audit.map(x=>({o,e:x}))).filter(x=>/edit|update|delete|return|reject|cancel|restore|price|qty|total|amount/i.test(String(x.e.action||x.e.type||''))).sort((a,b)=>date(b.e.timestamp||b.e.at||b.e.createdAt)-date(a.e.timestamp||a.e.at||a.e.createdAt)).slice(0,20);
