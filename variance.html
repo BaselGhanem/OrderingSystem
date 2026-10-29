@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
+<title>VARIANCE | تحليل اختلاف قيم الطلبيات</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--teal:#099999;--navy:#123b50;--gray:#617584;--line:#dce8eb;--bg:#f1f7f7}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:600 14px Cairo,Arial,sans-serif;color:var(--navy)}main{width:min(1160px,calc(100% - 26px));margin:25px auto 55px}header{background:linear-gradient(125deg,#123b50,#095b65);color:white;border-radius:24px;padding:30px;box-shadow:0 15px 40px #123b5020}header h1{font-size:clamp(25px,4vw,44px);line-height:1.2;margin:8px 0}header p{opacity:.85;margin:0}h2{font-size:19px;margin:0 0 14px}.badge{display:inline-block;background:#e6f6f4;color:#087f80;border-radius:30px;padding:3px 12px;font-size:12px;font-weight:900}.badge.warn{background:#fff0db;color:#a76302}.box{background:#fff;border:1px solid var(--line);padding:23px;border-radius:22px;margin-top:18px;box-shadow:0 4px 28px #153c4a08}.tools,.cards,.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px}.field label{display:block;margin-bottom:6px;color:#52697a}.field input,.field select{width:100%;border:1px solid #cfdee2;border-radius:11px;padding:12px;background:#fbfdfd;font:inherit;color:var(--navy);min-width:0}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:17px}.btn{background:var(--teal);color:#fff;border:0;border-radius:12px;padding:12px 17px;font:800 13px Cairo;cursor:pointer}.btn.secondary{background:#eaf3f4;color:#174456}.btn:disabled{opacity:.45;cursor:not-allowed}.metric{border:1px solid var(--line);border-radius:15px;padding:20px;background:#fff}.metric small{display:block;color:var(--gray)}.metric strong{display:block;font-size:clamp(22px,3vw,30px);direction:ltr;text-align:right;margin-top:8px;font-weight:900}.metric.diff{background:#edf9f7;border-color:#a6ded9}.muted{color:var(--gray)}.notice{background:#fff9eb;color:#785a22;padding:14px;border:1px solid #f0deb1;border-radius:12px;line-height:1.9;margin:12px 0}.empty{padding:25px;text-align:center;color:#6e8391}.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:14px}table{border-collapse:collapse;width:100%;min-width:670px}td,th{padding:11px;border-bottom:1px solid #e6eff0;text-align:right}th{background:#edf4f5;color:#405c6a;font-size:12px}tbody tr:last-child td{border-bottom:0}td.num{direction:ltr;text-align:left;font-variant-numeric:tabular-nums}details{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px}summary{cursor:pointer;font-weight:800}.status{padding:9px 12px;border-radius:12px;background:#edf4f5;margin-top:12px;line-height:1.8}.positive{color:#087d76}.negative{color:#bf4242}#breakdown{display:none}footer{color:#7c9298;text-align:center;margin:24px;font-size:12px}@media(max-width:600px){header{padding:23px}.box{padding:15px}.actions .btn{flex:1}.metric strong{font-size:23px}}
+</style>
+</head>
+<body data-page="variance"><main>
+<header><span style="opacity:.8;letter-spacing:3px">DAD / ORDERING INTELLIGENCE</span><h1>VARIANCE <span style="font-weight:500">/ تحليل الفروقات</span></h1><p>تفسير التغير في اجمالي قيم طلبيات المندوب بناء على بيانات فعلية ولقطات مقارنة محفوظة</p></header>
+<section class="box"><h2>نطاق التحليل</h2>
+<div class="tools">
+<div class="field"><label>المندوب</label><select id="rep"><option value="">جاري تحميل المندوبين...</option></select></div>
+<div class="field"><label>من تاريخ انشاء الطلبية</label><input type="date" id="from"></div>
+<div class="field"><label>الى تاريخ انشاء الطلبية</label><input type="date" id="to"></div>
+</div><div class="actions"><button class="btn" id="load">جلب الطلبيات الحالية</button><button class="btn secondary" id="save" disabled>حفظ لقطة للمقارنة مستقبلا</button><button class="btn secondary" id="export" disabled>تصدير تقرير CSV</button><a href="order.html" class="btn secondary" style="text-decoration:none">العودة للنظام</a></div><div id="state" class="status">اختر المندوب، ثم اجلب البيانات من النظام</div></section>
+<section class="box"><h2>المقارنة</h2><div class="tools">
+<div class="field"><label>لقطة سابقة محفوظة على هذا الجهاز</label><select id="baseline"><option value="">لا توجد لقطة مختارة</option></select></div>
+<div class="field"><label>او ادخل قيمة الشاشة السابقة (د.ا)</label><input id="manual" inputmode="decimal" type="number" step="0.01" placeholder="مثال: 54464.97"></div>
+</div><div class="actions"><button id="compare" class="btn secondary" disabled>تحليل الفرق</button></div>
+<div class="notice">القيمة السابقة وحدها تثبت مقدار الاختلاف فقط ولا تكشف مسبباته. لتحديد الطلبات المسؤولة بدقة، يجب وجود لقطة سابقة تتضمن معرف كل طلبية وقيمتها. اللقطات الجديدة تحفظ محليا على هذا الجهاز فقط، ولا تعدل اي بيانات في Firebase.</div>
+<div class="cards"><div class="metric"><small>قيمة الاساس</small><strong id="previous">—</strong></div><div class="metric"><small>القيمة الحالية</small><strong id="current">—</strong></div><div class="metric diff"><small>الفرق</small><strong id="delta">—</strong></div></div>
+</section>
+<section class="box" id="breakdown"><h2>تفصيل اسباب الفرق</h2><div id="explanation"></div><div class="cards" id="parts"></div><div class="tablewrap" style="margin-top:16px"><table><thead><tr><th>نوع التغير</th><th>الصيدلية</th><th>رقم الطلبية</th><th>القيمة السابقة</th><th>القيمة الحالية</th><th>الاثر على الفرق</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+<section class="box"><h2>ما يمكن مراجعته في البيانات الحالية</h2><div id="audit" class="muted">سيظهر بعد جلب الطلبيات</div></section>
+<footer>VARIANCE · Read-only analytics · بيانات المندوبين حسب صلاحيات Firestore الحالية</footer>
+</main>
+<script type="module">
+import {db,collection,getDocs,query,where} from './js/firebase.js';
+const $ = id=>document.getElementById(id);
+const money = n=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const n = v=>Number(String(v??0).replace(/,/g,''))||0;
+const esc = v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const date = v=>v?.toDate?.() || (v?.seconds?new Date(v.seconds*1000):new Date(v||0));
+const localDay = d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+const now=new Date();$('from').value=localDay(new Date(now.getFullYear(),now.getMonth(),1));$('to').value=localDay(now);
+let orders=[], actual=[], comparison=[], userRep=sessionStorage.getItem('repId')||'', userName=sessionStorage.getItem('repName')||'', dataReady=false;
+const storageKey=()=>['variance-v1',$('rep').value,$('from').value,$('to').value].join(':');
+const readSnapshots=()=>{try{return JSON.parse(localStorage.getItem(storageKey())||'[]')}catch{return []}};
+const setState=(message,error=false)=>{$('state').textContent=message;$('state').style.background=error?'#fff0ed':'#edf4f5'};
+const visible=o=>!['deleted_by_market_manager','deleted_by_supervisor','deleted_by_orders_staff','deleted_by_reports'].includes(o.status||o.orderStatus||'');
+const within=o=>{let d=date(o.createdAt||o.updatedAt);let s=localDay(d);return !isNaN(d)&&s>=$('from').value&&s<=$('to').value};
+const normalize=o=>({id:o.id,pharmacy:o.pharmacyName||'-',value:n(o.grandTotal),status:o.status||'',updated:date(o.updatedAt||o.createdAt).toISOString(),audit:Array.isArray(o.auditTrail)?o.auditTrail:[]});
+function refreshBaseline(){let b=$('baseline');b.innerHTML='<option value="">اختر لقطة</option>';readSnapshots().forEach((x,i)=>{let o=document.createElement('option');o.value=String(i);o.textContent=x.savedAt+' | '+x.orders.length+' طلبية | '+money(x.orders.reduce((s,v)=>s+v.value,0));b.append(o)})}
+function refreshReps(){let list=[...new Map(orders.map(o=>[String(o.repId||o.repName||''),o.repName||o.repId])).entries()].filter(([id])=>id).sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'ar'));$('rep').innerHTML='<option value="">اختر المندوب</option>';for(const [id,name] of list){const option=document.createElement('option');option.value=id;option.textContent=name;$('rep').append(option)}if(userRep){let chosen=list.find(([id])=>id===userRep);if(chosen)$('rep').value=userRep} else if(userName){let chosen=list.find(([,name])=>name===userName);if(chosen)$('rep').value=chosen[0]}}
+async function load(){
+$('load').disabled=true;setState('جاري قراءة الطلبات من Firestore...');
+try{
+const rep=$('rep').value||userRep;if(!rep){setState('اختر المندوب اولا',true);return}
+let snap=await getDocs(query(collection(db,'orders'),where(userRep?'repId':'repId','==',rep)));
+orders=snap.docs.map(d=>({id:d.id,...d.data()}));
+actual=orders.filter(o=>visible(o)&&within(o)).map(normalize);
+dataReady=true;
+$('save').disabled=false;$('compare').disabled=false;$('export').disabled=false;
+refreshBaseline();renderAudit();let total=actual.reduce((s,o)=>s+o.value,0);
+$('current').textContent=money(total);setState('تم جلب '+actual.length+' طلبية بقيمة '+money(total)+' د.ا | القراءة بحسب فلاتر تاريخ انشاء الطلبية');
+}catch(err){console.error(err);setState('تعذر جلب البيانات: '+(err?.message||'راجع صلاحيات الاتصال'),true)}
+finally{$('load').disabled=false}
+}
+async function init(){
+if(userRep){$('rep').innerHTML='<option value="'+esc(userRep)+'">'+esc(userName||userRep)+'</option>';$('rep').value=userRep;setState('تم التعرف على جلسة المندوب الحالية')}else{$('rep').innerHTML='<option value="">يجب تسجيل الدخول من صفحة النظام اولا</option>';setState('الرجاء الدخول الى حساب المندوب من النظام ثم فتح هذه الصفحة',true)}
+refreshBaseline();
+}
+function renderAudit(){const events=actual.flatMap(o=>o.audit.map(x=>({o,e:x}))).filter(x=>/edit|update|delete|return|reject|cancel|restore|price|qty|total|amount/i.test(String(x.e.action||x.e.type||''))).sort((a,b)=>date(b.e.timestamp||b.e.at||b.e.createdAt)-date(a.e.timestamp||a.e.at||a.e.createdAt)).slice(0,20);
+$('audit').innerHTML='<p>عدد الطلبيات في النطاق: <b>'+actual.length+'</b> · الاجمالي: <b>'+money(actual.reduce((s,x)=>s+x.value,0))+' د.ا</b></p>'+(events.length?'<p>احدث احداث التعديل او الارجاع المسجلة (قرائن للمراجعة وليست اثباتا لقيمة الفرق):</p>'+events.map(x=>'<details><summary>'+esc(x.o.pharmacy)+' · '+esc(x.e.action||x.e.type||'تحديث')+'</summary><div>رقم الطلبية: '+esc(x.o.id)+'<br>التاريخ: '+esc(String(x.e.timestamp?.toDate?.()?.toLocaleString('ar-JO')||x.e.at||'غير متوفر'))+'<br>الملاحظة: '+esc(x.e.note||x.e.reason||'غير متوفرة')+'</div></details>').join(''):'<p class="muted">لا توجد احداث تعديل واضحة في سجلات الطلبيات الحالية ضمن النطاق</p>')}
+function compare(){
+if(!dataReady)return;
+const saved=$('baseline').value, manual=$('manual').value;
+const prevSaved=saved!==''?readSnapshots()[Number(saved)]:null;
+if(!prevSaved&&manual===''){setState('اختر لقطة سابقة او ادخل القيمة السابقة',true);return}
+const currentTotal=actual.reduce((s,x)=>s+x.value,0);
+const before=prevSaved?prevSaved.orders.reduce((s,x)=>s+x.value,0):n(manual);
+const delta=currentTotal-before;
+$('previous').textContent=money(before);$('current').textContent=money(currentTotal);$('delta').textContent=(delta>0?'+':'')+money(delta);$('delta').className=delta>=0?'positive':'negative';
+$('breakdown').style.display='block';
+if(!prevSaved){$('explanation').innerHTML='<div class="notice">فرق مؤكد مقداره '+money(delta)+' د.ا. لم يتم توفير تفاصيل الطلبات السابقة، لذلك لا يمكن تحديد الصيدليات او التعديلات التي سببته. ثبات العدد بين صورتين لا يثبت ان نفس الطلبات بقيت دون تغيير.</div>';$('parts').innerHTML='';$('rows').innerHTML='<tr><td colspan="6" class="empty">لتفصيل الاسباب بدقة، قارن مع لقطة محفوظة تحتوي تفاصيل الطلبات</td></tr>';comparison=[];return}
+const old=new Map(prevSaved.orders.map(x=>[x.id,x]));const fresh=new Map(actual.map(x=>[x.id,x]));
+const changes=[];for(const [id,o] of fresh){const p=old.get(id);if(!p)changes.push({kind:'طلبية جديدة',id,pharmacy:o.pharmacy,prev:0,next:o.value,diff:o.value});else if(Math.abs(o.value-p.value)>.005)changes.push({kind:'تغير قيمة',id,pharmacy:o.pharmacy,prev:p.value,next:o.value,diff:o.value-p.value})}
+for(const [id,p] of old){if(!fresh.has(id))changes.push({kind:'خروج من النطاق او حذف',id,pharmacy:p.pharmacy,prev:p.value,next:0,diff:-p.value})}
+changes.sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));comparison=changes;
+const summary=Object.entries(changes.reduce((a,x)=>(a[x.kind]=(a[x.kind]||0)+x.diff,a),{}));
+$('explanation').innerHTML='<div class="status">تمت المقارنة بين نفس معرفات الطلبيات ضمن النطاق المحفوظ. مجموع التغيرات '+money(changes.reduce((s,x)=>s+x.diff,0))+' د.ا. الطلبات الخارجة قد تكون محذوفة او لم تعد مطابقة للفلاتر، ولا نجزم بسببها دون سجل تاريخي.</div>';
+$('parts').innerHTML=summary.map(([k,v])=>'<div class="metric"><small>'+esc(k)+'</small><strong class="'+(v<0?'negative':'positive')+'">'+(v>0?'+':'')+money(v)+'</strong></div>').join('')||'<div class="metric">لا تغير في قيم الطلبات</div>';
+$('rows').innerHTML=changes.map(x=>'<tr><td>'+esc(x.kind)+'</td><td>'+esc(x.pharmacy)+'</td><td>'+esc(x.id)+'</td><td class="num">'+money(x.prev)+'</td><td class="num">'+money(x.next)+'</td><td class="num '+(x.diff<0?'negative':'positive')+'">'+(x.diff>0?'+':'')+money(x.diff)+'</td></tr>').join('')||'<tr><td colspan="6">لا اختلافات</td></tr>';
+}
+$('load').addEventListener('click',load);
+$('save').addEventListener('click',()=>{if(!dataReady)return;const arr=readSnapshots();arr.unshift({savedAt:new Date().toLocaleString('en-GB'),orders:actual.map(({id,pharmacy,value,status,updated})=>({id,pharmacy,value,status,updated}))});localStorage.setItem(storageKey(),JSON.stringify(arr.slice(0,30)));refreshBaseline();setState('تم حفظ اللقطة محليا ويمكن مقارنتها لاحقا')});
+$('compare').addEventListener('click',compare);
+$('export').addEventListener('click',()=>{const columns=['نوع التغير','الصيدلية','رقم الطلبية','القيمة السابقة','القيمة الحالية','الفرق'];const data=[columns,...comparison.map(x=>[x.kind,x.pharmacy,x.id,x.prev,x.next,x.diff])];const csv='\uFEFF'+data.map(row=>row.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n');const u=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=u;a.download='VARIANCE.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)});
+$('rep').addEventListener('change',()=>{dataReady=false;actual=[];$('save').disabled=true;$('compare').disabled=true;refreshBaseline()});
+for(const id of ['from','to'])$(id).addEventListener('change',()=>{dataReady=false;actual=[];$('save').disabled=true;$('compare').disabled=true;refreshBaseline()});
+init();
+</script></body></html>
