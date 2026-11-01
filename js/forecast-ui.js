@@ -222,6 +222,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
     }
     if (admin) {
         $(`fcUploadEndMonth`).value = String(Math.max(1, Number(state.month.slice(5)) - 1));
+        $(`fcUploadEndMonth`).onchange = () => { state.pending = null; $(`fcImport`).hidden = true; $(`fcImportPreview`).hidden = true; $(`fcUpload`).value = ``; };
         $(`fcContent`).hidden = true;
         $(`fcAdminLogin`).onsubmit = event => { event.preventDefault(); run(async () => { const password = $(`fcAdminPassword`).value; $(`fcAdminPassword`).value = ``; await api.unlockAdmin(password); state.admin = true; $(`fcAdminGate`).hidden = true; $(`fcAdminControls`).hidden = false; $(`fcContent`).hidden = true; state.template = await api.attachedBaseline(); showTemplate(); }); };
         $(`fcTemplateDownload`).onclick = () => run(async () => { showTemplate(); exportWorkbook(templateRows(), `Sales_Template_${$(`fcYear`).value}_${state.month.slice(5)}.xlsx`); });
