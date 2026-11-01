@@ -92,6 +92,10 @@ const sdk = {
     getDocFromServer: async reference => { readCount++; return snapshot(reference); },
     getDocsFromServer: async reference => { collectionReadCount++; const items = [...memory.keys()].filter(key => key.startsWith(`${reference.path}/`)).map(path => snapshot({ path })); return { docs: items, size: items.length }; },
     setDoc: async (reference, value, options) => memory.set(reference.path, options?.merge ? { ...memory.get(reference.path), ...value } : value),
+    writeBatch: () => {
+        const writes = [];
+        return { set: (reference, value) => writes.push(() => memory.set(reference.path, value)), commit: async () => writes.forEach(write => write()) };
+    },
     serverTimestamp: () => new Date(`2026-10-06T09:00:00Z`),
     query: value => value, orderBy: () => null, documentId: () => null, limit: () => null, startAfter: () => null,
     runTransaction: async (_, action) => { const writes = []; const result = await action({ get: async reference => snapshot(reference), set: (reference, value) => writes.push(() => memory.set(reference.path, value)), update: (reference, value) => writes.push(() => memory.set(reference.path, { ...memory.get(reference.path), ...value })) }); writes.forEach(write => write()); return result; }
@@ -133,7 +137,7 @@ assert.equal(memory.get(`monthly_forecasts/2026-10__r1`).entries[`1001`].amount,
 assert.equal((await api.checkOrderGate(`r1`)).allowed, true);
 await api.importSales(core.parseSalesRows([[`Cust No`, `Cust Name`, `Jan`, `Feb`, `Mar`], [1001, `اسم محدث`, 0, -3.67, 999]]), `2026`, `updated.xlsx`);
 assert.equal(memory.get(`forecast_sales/2026`).customers[`1001`].months[`3`], 99900);
-assert.equal(memory.get(`forecast_sales/2026`).customers[`1002`].months[`1`], 12346);
+assert.equal(memory.get(`forecast_sales/2026`).customers[`1002`], undefined);
 assert.equal(memory.get(`monthly_forecasts/2026-10__r1`).entries[`1001`].amount, 0);
 api.lockAdmin(); await assert.rejects(api.saveConfig(`2026-10`, true), /إدارة/);
 console.log(`Forecast checks passed: blank confirmation, order gate, Excel import validation, duplicates, revisions, permissions and sales import.`);
