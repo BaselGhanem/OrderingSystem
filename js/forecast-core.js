@@ -131,6 +131,9 @@ export function parseSalesRows(matrix) {
     const months = MONTH_HEADERS.map((aliases, index) => ({ month: index + 1, index: headers.findIndex(value => aliases.includes(value)) })).filter(item => item.index >= 0);
     if (months.some(item => headers.filter(value => MONTH_HEADERS[item.month - 1].includes(value)).length > 1)) throw new Error(`لا يمكن تكرار الشهر بأكثر من عنوان`);
     if (!months.length || months.some((item, index) => item.month !== index + 1)) throw new Error(`يجب أن تكون الأشهر متصلة من يناير حتى آخر شهر مرفوع`);
+    // A template may include future months with no sales yet. Ignore only wholly blank trailing columns.
+    while (months.length && nonempty.slice(1).every(row => row[months[months.length - 1].index] === null || row[months[months.length - 1].index] === undefined || String(row[months[months.length - 1].index]).trim() === ``)) months.pop();
+    if (!months.length) throw new Error(`لا توجد مبيعات شهرية في الملف`);
     const known = new Set([codeIndex, nameIndex, ...months.map(item => item.index)]);
     if (headers.some((header, index) => header && !known.has(index))) throw new Error(`يوجد عمود غير معروف؛ استخدم نفس أعمدة ملف المبيعات فقط`);
     const customers = {}, totals = {};
