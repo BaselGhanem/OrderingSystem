@@ -4517,15 +4517,25 @@ async function runMonthlyExport() {
         location.replace(`login.html?returnTo=monthly-export`);
         return;
     }
+    const monthPicker = getEl(`exportMonth`);
+    const now = new Date();
+    if (!monthPicker.value) monthPicker.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, `0`)}`;
+    monthPicker.onchange = () => { if (!monthPicker.disabled) runMonthlyExport(); };
+    const month = monthPicker.value;
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+        status.textContent = `اختر شهرا صحيحا للتصدير.`;
+        retry.hidden = false;
+        return;
+    }
+    const [year, monthNumber] = month.split(`-`).map(Number);
+    const start = new Date(year, monthNumber - 1, 1);
+    const end = new Date(year, monthNumber, 1);
     retry.onclick = runMonthlyExport;
     retry.hidden = true;
     download.hidden = true;
+    monthPicker.disabled = true;
     status.textContent = `جاري جلب جميع طلبيات الشهر من الخادم...`;
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, `0`)}`;
-    getEl(`exportPeriod`).textContent = `${month}-01 — ${month}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
+    getEl(`exportPeriod`).textContent = `${month}-01 — ${month}-${new Date(year, monthNumber, 0).getDate()}`;
     try {
         const { getDocsFromServer } = await import(`https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js`);
         const [snapshot, products] = await Promise.all([
@@ -4553,6 +4563,7 @@ async function runMonthlyExport() {
         status.textContent = `تعذر تجهيز الملف الكامل. تحقق من الاتصال ثم أعد المحاولة.`;
         retry.hidden = false;
     }
+    monthPicker.disabled = false;
     retry.onclick = runMonthlyExport;
 }
 
