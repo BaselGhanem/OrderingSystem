@@ -50,6 +50,12 @@ function shareRead(key, action) {
 export function errorMessage(error) {
     return /(^|\/)resource-exhausted$/.test(error?.code || ``) ? `وصل Firestore إلى حد الاستهلاك أو الطلبات. تعذر التحقق من البيانات؛ راجع Usage في Firebase قبل إعادة المحاولة.` : error?.message || `تعذر إتمام العملية`;
 }
+export async function loadSalesYear(year) {
+    requireAdmin();
+    if (!/^20\d\d$/.test(String(year))) throw new Error(`السنة غير صحيحة`);
+    const snap = await getDocFromServer(salesRef(year));
+    return snap.exists() ? snap.data() : null;
+}
 export function loadConfig() { return shareRead(`config`, async () => {
     const snapshot = await getDocFromServer(configRef());
     return snapshot.exists() ? snapshot.data() : { enabled: false, activeMonth: ammanMonth() };
