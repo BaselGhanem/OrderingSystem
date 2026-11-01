@@ -1,4 +1,4 @@
-import { MONTH_NAMES, monthLabel, validMonth, normalizeName, eligibleRows, progress, forecastValue, invoiceTotals, parseSalesRows, dateValue } from './forecast-core.js?v=20261101_month_select';
+import { MONTH_NAMES, monthLabel, validMonth, normalizeName, eligibleRows, progress, forecastValue, invoiceTotals, parseSalesRows, parseForecastExcel, dateValue } from './forecast-core.js?v=20261101_month_select';
 import * as api from './forecast-store.js?v=20261101_sales_summary';
 
 const escape = value => String(value ?? ``).replace(/[&<>"']/g, c => ({ [`&`]: `&amp;`, [`<`]: `&lt;`, [`>`]: `&gt;`, [`"`]: `&quot;`, [`'`]: `&#39;` })[c]);
@@ -7,7 +7,7 @@ const amountText = amount => Number.isSafeInteger(amount) ? (amount / 100).toFix
 const dateText = value => dateValue(value)?.toLocaleString(`en-GB`, { timeZone: `Asia/Amman`, hour12: true }) || `—`;
 export async function mountForecast(host, { mode = `rep` } = {}) {
     host.classList.add(`forecast-root`);
-    const state = { month: ``, config: null, dataset: null, docs: new Map(), entries: {}, invalid: new Set(), rawInputs: new Map(), dirty: false, busy: false, selected: ``, orders: null, filter: ``, status: `all`, pending: null, template: null, monitoring: false, admin: false, permits: new Map(), request: 0 };
+    const state = { month: ``, config: null, dataset: null, docs: new Map(), entries: {}, invalid: new Set(), rawInputs: new Map(), dirty: false, busy: false, selected: ``, orders: null, filter: ``, status: `all`, pending: null, importPreview: null, template: null, monitoring: false, admin: false, permits: new Map(), request: 0 };
     const $ = id => host.querySelector(`#${id}`);
     const notify = (message, type = ``) => { const element = $(`fcMessage`); if (element) { element.textContent = message; element.className = `fc-status ${type}`; element.hidden = false; } };
     const acting = api.session();
@@ -41,7 +41,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
         finally { state.busy = false; controls.forEach((control, index) => { if (control.isConnected) control.disabled = disabled[index]; }); updateSummary(); }
     }
     function stats(items) { return `<div class="fc-stats">${items.map(([label, value]) => `<article class="fc-stat"><span>${escape(label)}</span><b>${escape(value)}</b></article>`).join(``)}</div>`; }
-    function toolbar() { return `<div class="fc-toolbar"><input id="fcSearch" type="search" placeholder="ابحث باسم الصيدلية أو كودها" aria-label="البحث" value="${escape(state.filter)}"><select id="fcFilter" aria-label="تصفية النتائج">${(team || admin ? [[`all`, `كل المندوبين`], [`empty`, `لم يبدأ`], [`partial`, `حفظ جزئي`], [`confirmed`, `مؤكد`]] : [[`all`, `كل الصيدليات`], [`missing`, `غير المعبأة فقط`]]).map(([value, label]) => `<option value="${value}" ${state.status === value ? `selected` : ``}>${label}</option>`).join(``)}</select><button id="fcRefresh" type="button" class="secondary">تحديث</button>${team || admin ? `<button id="fcDownload" type="button" class="secondary">تصدير المعروض</button>` : ``}</div>`; }
+    function toolbar() { return `<div class="fc-toolbar"><input id="fcSearch" type="search" placeholder="ابحث باسم الصيدلية أو كودها" aria-label="البحث" value="${escape(state.filter)}"><select id="fcFilter" aria-label="تصفية النتائج">${(team || admin ? [[`all`, `كل المندوبين`], [`empty`, `لم يبدأ`], [`partial`, `حفظ جزئي`], [`confirmed`, `مؤكد`]] : [[`all`, `كل الصيدليات`], [`missing`, `غير المعبأة فقط`]]).map(([value, label]) => `<option value="${value}" ${state.status === value ? `selected` : ``}>${label}</option>`).join(``)}</select><button id="fcRefresh" type="button" class="secondary">تحديث</button>${team || admin ? `<button id="fcDownload" type="button" class="secondary">تصدير المعروض</button>` : `<button id="fcExportExcel" type="button" class="secondary">تنزيل Excel</button><button id="fcImportExcel" type="button" class="secondary">استيراد Excel</button><input id="fcExcelFile" type="file" accept=".xlsx,.xls" hidden aria-label="ملف توقعات Excel">`}</div>`; }
     function bindToolbar() {
         $(`fcSearch`)?.addEventListener(`input`, event => { state.filter = event.target.value; renderTable(); });
         $(`fcFilter`)?.addEventListener(`change`, event => { state.status = event.target.value; if (team || admin) renderTeam(); else renderTable(); });
@@ -64,7 +64,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
         const ids = [...new Set((team || admin ? selectedRows() : representativeRows()).map(row => row.repId))];
         state.docs = await api.loadTeamForecasts(state.month, ids);
         if (request !== state.request) return;
-        state.dirty = false; state.invalid.clear(); state.rawInputs.clear();
+        state.dirty = false; state.invalid.clear(); state.rawInputs.clear(); state.importPreview = null;
         if (admin) { state.permits = await api.loadPermits(state.month, ids); syncAdminControls(); }
         if (mode === `tracking`) {
             const orders = await api.loadOrders();
@@ -80,8 +80,8 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
         const rows = representativeRows();
         const latestMonth = (state.dataset.sales.months || []).at(-1);
         const latestSales = latestMonth ? rows.reduce((sum, row) => sum + (Number.isSafeInteger(row.months[String(latestMonth)]) ? row.months[String(latestMonth)] : 0), 0) : null;
-        $(`fcContent`).innerHTML = `${stats([[`الصيدليات المطلوبة`, rows.length], [`تم تعبئتها`, `0`], [`حالة التوقع`, `—`]])}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px"><div class="fc-panel" style="padding:15px;border-right:4px solid #099999"><span class="fc-muted">آخر شهر مبيعات مرفوع</span><h3 style="margin:6px 0 0;color:#077979">${escape(MONTH_NAMES[(state.dataset.sales.months || []).at(-1) - 1] || `غير متوفر`)} ${escape(state.month.slice(0,4))}</h3><b style="font-size:1.45rem;color:#077979" id="fcLatestSalesValue">${money(latestSales)} د.ا</b></div><div class="fc-panel" style="padding:15px;border-right:4px solid #099999"><span class="fc-muted">شهر التوقع الحالي</span><h3 style="margin:6px 0 0;color:#077979">${escape(monthLabel(state.month))}</h3><b style="font-size:1.45rem;color:#077979" id="fcCurrentForecastValue">0.00 د.ا</b></div></div><section class="fc-panel" style="margin-top:16px">${toolbar()}<p class="fc-muted">أدخل صافي مبيعات ${escape(monthLabel(state.month))} المتوقع بالدينار. الصفر مقبول، والفراغ يمنع التأكيد. الملاحظة اختيارية.</p><div id="fcTableHost"></div></section><div class="fc-savebar fc-foot" style="margin-top:14px"><div id="fcSavedStatus" class="fc-muted"></div><div class="fc-toolbar"><button id="fcSave" type="button" class="secondary">حفظ جزئي</button><button id="fcConfirm" type="button">تأكيد جميع التوقعات</button></div></div>`;
-        bindToolbar(); $(`fcSave`).onclick = () => save(false); $(`fcConfirm`).onclick = () => save(true); renderTable(); updateSummary();
+        $(`fcContent`).innerHTML = `${stats([[`الصيدليات المطلوبة`, rows.length], [`تم تعبئتها`, `0`], [`حالة التوقع`, `—`]])}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px"><div class="fc-panel" style="padding:15px;border-right:4px solid #099999"><span class="fc-muted">آخر شهر مبيعات مرفوع</span><h3 style="margin:6px 0 0;color:#077979">${escape(MONTH_NAMES[(state.dataset.sales.months || []).at(-1) - 1] || `غير متوفر`)} ${escape(state.month.slice(0,4))}</h3><b style="font-size:1.45rem;color:#077979" id="fcLatestSalesValue">${money(latestSales)} د.ا</b></div><div class="fc-panel" style="padding:15px;border-right:4px solid #099999"><span class="fc-muted">شهر التوقع الحالي</span><h3 style="margin:6px 0 0;color:#077979">${escape(monthLabel(state.month))}</h3><b style="font-size:1.45rem;color:#077979" id="fcCurrentForecastValue">0.00 د.ا</b></div></div><section class="fc-panel" style="margin-top:16px">${toolbar()}<p class="fc-muted">أدخل صافي مبيعات ${escape(monthLabel(state.month))} المتوقع بالدينار. الصفر والفراغ مقبولان عند التأكيد. الاستيراد يعدل القيم على الشاشة فقط، ثم يمكنك حفظها او تأكيدها.</p><div id="fcExcelPreview" class="fc-report fc-excel-preview" hidden></div><div id="fcTableHost"></div></section><div class="fc-savebar fc-foot" style="margin-top:14px"><div id="fcSavedStatus" class="fc-muted"></div><div class="fc-toolbar"><button id="fcSave" type="button" class="secondary">حفظ جزئي</button><button id="fcConfirm" type="button">تأكيد جميع التوقعات</button></div></div>`;
+        bindToolbar(); bindRepExcel(); $(`fcSave`).onclick = () => save(false); $(`fcConfirm`).onclick = () => save(true); renderTable(); updateSummary();
     }
     function updateSummary() {
         if (mode !== `rep` || !state.dataset || !$(`fcSave`)) return;
@@ -92,7 +92,9 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
         if ($(`fcCurrentForecastValue`)) $(`fcCurrentForecastValue`).textContent = `${money(p.totalCents)} د.ا`;
         const locked = doc.status === `confirmed` || state.month !== state.config.activeMonth || !rows.length;
         $(`fcSave`).disabled = locked || state.busy;
-        $(`fcConfirm`).disabled = locked || state.busy || p.filled !== rows.length || state.invalid.size > 0;
+        $(`fcConfirm`).disabled = locked || state.busy || state.invalid.size > 0;
+        if ($(`fcImportExcel`)) $(`fcImportExcel`).disabled = locked || state.busy;
+        if ($(`fcExcelFile`)) $(`fcExcelFile`).disabled = locked || state.busy;
         $(`fcSavedStatus`).textContent = state.dirty ? `تعديلات غير محفوظة` : doc.updatedAt ? `آخر حفظ: ${dateText(doc.updatedAt)}` : `لم تحفظ التوقعات بعد`;
         $(`fcSavedStatus`).classList.toggle(`fc-dirty`, state.dirty);
         if (doc.status === `confirmed`) $(`fcSavedStatus`).textContent = p.confirmed ? `تم التأكيد. إعادة الفتح للأدمن فقط.` : `تغيرت قائمة الصيدليات بعد التأكيد. اطلب من الأدمن إعادة فتح التوقع لاستكمالها.`;
@@ -136,11 +138,12 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
     }
     function save(confirmAll) {
         if (state.invalid.size) { notify(`صحح القيم غير الصالحة قبل الحفظ.`, `error`); return; }
-        if (confirmAll && !confirm(`تأكيد توقعات ${monthLabel(state.month)} لجميع الصيدليات؟ لا يمكن تعديلها بعدها إلا بإعادة فتح من الأدمن.`)) return;
+        const missing = representativeRows().length - progress({ entries: state.entries }, representativeRows()).filled;
+        if (confirmAll && !confirm(`تأكيد توقعات ${monthLabel(state.month)}؟ ${missing ? `سيتم تأكيد ${missing} صيدلية بقيم فارغة (غير صفرية). ` : ``}لا يمكن تعديل التوقعات بعد التأكيد إلا بإعادة فتح من الأدمن.`)) return;
         run(async () => {
             const saved = await api.saveForecast(state.month, acting.repId, state.entries, currentDocument().revision || 0, confirmAll);
-            state.docs.set(acting.repId, saved); state.dirty = false; state.invalid.clear(); state.rawInputs.clear(); renderRep();
-            notify(confirmAll ? `تم تأكيد جميع التوقعات. يمكنك الآن إدخال الطلبيات.` : `تم حفظ التوقعات جزئيا. أكمل الصيدليات المتبقية ثم أكدها.`);
+            state.docs.set(acting.repId, saved); state.dirty = false; state.invalid.clear(); state.rawInputs.clear(); state.importPreview = null; renderRep();
+            notify(confirmAll ? `تم تأكيد جميع التوقعات. يمكنك الآن إدخال الطلبيات.` : `تم الحفظ جزئيا. يمكنك التأكيد حتى مع وجود خانات فارغة.`);
         });
     }
     function renderTeam() {
@@ -150,7 +153,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
         if (!displayed.includes(state.selected)) state.selected = displayed[0] || ``;
         const totalForecast = rows.reduce((sum, row) => sum + (documentFor(row.repId).entries?.[row.code]?.amount ?? 0), 0);
         const actual = mode === `tracking` ? rows.reduce((sum, row) => sum + (state.orders?.totals.get(row.code)?.amount || 0), 0) : null;
-        $(`fcContent`).innerHTML = `${stats([[`مندوبو ${team ? `فريقي` : `النظام`}`, ids.length], [`أكدوا التوقعات`, ids.filter(id => rowStatus(id) === `confirmed`).length], [`إجمالي التوقع / دينار`, money(totalForecast)], [mode === `tracking` ? `المفوتر / دينار` : `لم يؤكدوا`, mode === `tracking` ? money(actual) : ids.filter(id => rowStatus(id) !== `confirmed`).length]])}<section class="fc-panel" style="margin-top:16px">${toolbar()}<p class="fc-muted">${mode === `tracking` ? `المفوتر يحسب بتاريخ سحب قسم الطلبيات بتوقيت عمّان. المبيعات الفعلية تعتمد حصرا على الملف الشهري المرفوع.` : `الحالة تعتمد على تأكيد جميع صيدليات المندوب، والحفظ الجزئي ظاهر للمتابعة.`}</p><div id="fcTeamCards" class="fc-team">${displayed.map(id => {
+        $(`fcContent`).innerHTML = `${stats([[`مندوبو ${team ? `فريقي` : `النظام`}`, ids.length], [`أكدوا التوقعات`, ids.filter(id => rowStatus(id) === `confirmed`).length], [`إجمالي التوقع / دينار`, money(totalForecast)], [mode === `tracking` ? `المفوتر / دينار` : `لم يؤكدوا`, mode === `tracking` ? money(actual) : ids.filter(id => rowStatus(id) !== `confirmed`).length]])}<section class="fc-panel" style="margin-top:16px">${toolbar()}<p class="fc-muted">${mode === `tracking` ? `المفوتر يحسب بتاريخ سحب قسم الطلبيات بتوقيت عمّان. المبيعات الفعلية تعتمد حصرا على الملف الشهري المرفوع.` : `الحالة تعتمد على تأكيد المندوب للتوقع، ويمكن تأكيد القيم مع وجود صيدليات غير معبأة.`}</p><div id="fcTeamCards" class="fc-team">${displayed.map(id => {
             const owned = groupRows(id), names = [...new Set(owned.map(row => row.repName))];
             const doc = documentFor(id), filled = owned.filter(row => Number.isSafeInteger(doc.entries?.[row.code]?.amount)).length;
             const total = owned.reduce((sum, row) => sum + (doc.entries?.[row.code]?.amount ?? 0), 0);
