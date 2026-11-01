@@ -118,8 +118,8 @@ export function invoiceTotals(orders, month) {
     return { totals, missingDates, missingCodes };
 }
 const MONTH_HEADERS = [
-    [`jan`, `january`], [`feb`, `february`], [`mar`, `march`], [`apr`, `april`], [`may`], [`jun`, `june`],
-    [`jul`, `july`], [`aug`, `august`], [`sep`, `sept`, `september`], [`oct`, `october`], [`nov`, `november`], [`dec`, `december`]
+    [`jan`, `january`, `يناير`], [`feb`, `february`, `فبراير`], [`mar`, `march`, `مارس`], [`apr`, `april`, `ابريل`, `أبريل`], [`may`, `مايو`], [`jun`, `june`, `يونيو`],
+    [`jul`, `july`, `يوليو`], [`aug`, `august`, `اغسطس`, `أغسطس`], [`sep`, `sept`, `september`, `سبتمبر`], [`oct`, `october`, `اكتوبر`, `أكتوبر`], [`nov`, `november`, `نوفمبر`], [`dec`, `december`, `ديسمبر`]
 ];
 export function parseSalesRows(matrix) {
     const nonempty = matrix.filter(row => row.some(value => value !== null && value !== undefined && String(value).trim() !== ``));
@@ -129,6 +129,7 @@ export function parseSalesRows(matrix) {
     const codeIndex = headers.indexOf(`cust no`), nameIndex = headers.indexOf(`cust name`);
     if (codeIndex < 0 || nameIndex < 0) throw new Error(`يجب وجود عمودي Cust No و Cust Name`);
     const months = MONTH_HEADERS.map((aliases, index) => ({ month: index + 1, index: headers.findIndex(value => aliases.includes(value)) })).filter(item => item.index >= 0);
+    if (months.some(item => headers.filter(value => MONTH_HEADERS[item.month - 1].includes(value)).length > 1)) throw new Error(`لا يمكن تكرار الشهر بأكثر من عنوان`);
     if (!months.length || months.some((item, index) => item.month !== index + 1)) throw new Error(`يجب أن تكون الأشهر متصلة من يناير حتى آخر شهر مرفوع`);
     const known = new Set([codeIndex, nameIndex, ...months.map(item => item.index)]);
     if (headers.some((header, index) => header && !known.has(index))) throw new Error(`يوجد عمود غير معروف؛ استخدم نفس أعمدة ملف المبيعات فقط`);
@@ -140,7 +141,7 @@ export function parseSalesRows(matrix) {
         const values = {};
         for (const item of months) {
             const value = row[item.index];
-            if (typeof value !== `number` || !Number.isFinite(value)) throw new Error(`الصف ${i + 2}: قيمة شهر ${item.month} فارغة أو ليست رقما`);
+            if (typeof value !== `number` || !Number.isFinite(value)) throw new Error(`الصف ${i + 2}: قيمة شهر ${MONTH_NAMES[item.month - 1]} فارغة أو ليست رقما`);
             values[String(item.month)] = cents(value);
             totals[item.month] = (totals[item.month] || 0) + cents(value);
         }
