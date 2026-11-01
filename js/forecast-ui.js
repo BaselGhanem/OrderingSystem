@@ -1,4 +1,4 @@
-import { MONTH_NAMES, monthLabel, validMonth, normalizeName, eligibleRows, progress, forecastValue, invoiceTotals, parseSalesRows, dateValue } from './forecast-core.js?v=20261006_reads1';
+import { MONTH_NAMES, monthLabel, validMonth, normalizeName, eligibleRows, progress, forecastValue, invoiceTotals, parseSalesRows, dateValue } from './forecast-core.js?v=20261101_blank_trailing';
 import * as api from './forecast-store.js?v=20261008_writeonly1';
 
 const escape = value => String(value ?? ``).replace(/[&<>"']/g, c => ({ [`&`]: `&amp;`, [`<`]: `&lt;`, [`>`]: `&gt;`, [`"`]: `&quot;`, [`'`]: `&#39;` })[c]);
