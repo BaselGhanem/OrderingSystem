@@ -44,18 +44,30 @@ const server = http.createServer((req, res) => {
         }
     };
     await context.addInitScript(value => { globalThis.__fixture=structuredClone(value); }, fixture);
+    await context.addInitScript(() => {
+        globalThis.XLSX = {
+            utils: {
+                book_new: () => ({ SheetNames: [], Sheets: {} }),
+                aoa_to_sheet: matrix => ({ __matrix: matrix }),
+                book_append_sheet: (book, sheet, name) => { book.Sheets[name] = sheet; book.SheetNames.push(name); },
+                sheet_to_json: sheet => sheet.__matrix,
+            },
+            writeFile: (book, name) => { globalThis.__lastExcel = { book, name }; },
+            read: () => globalThis.__lastExcel.book
+        };
+    });
     const page = await context.newPage(), errors=[]; page.on(`pageerror`,error=>errors.push(error.message));
     page.on(`dialog`,dialog=>dialog.accept());
     await page.goto(`${base}/forecast.html`, { waitUntil: `domcontentloaded` });
     await page.locator(`[data-code="1001"]`).waitFor();
     assert.equal(await page.locator(`tbody tr`).count(), 2);
     assert.equal(await page.getByText(`صيدلية مندوب آخر`,{exact:true}).count(),0);
-    assert.equal(await page.locator(`#fcConfirm`).isDisabled(),true);
+    assert.equal(await page.locator(`#fcConfirm`).isDisabled(),false);
     await page.locator(`[data-code="1001"]`).fill(`0`);
     await page.locator(`[data-note="1001"]`).fill(`ملاحظة الاختبار`);
     await page.locator(`#fcSave`).click();
-    await page.getByText(`تم حفظ التوقعات جزئيا. أكمل الصيدليات المتبقية ثم أكدها.`,{exact:true}).waitFor();
-    assert.equal(await page.locator(`#fcConfirm`).isDisabled(),true);
+    await page.getByText(`تم الحفظ جزئيا. يمكنك التأكيد حتى مع وجود خانات فارغة.`,{exact:true}).waitFor();
+    assert.equal(await page.locator(`#fcConfirm`).isDisabled(),false);
     assert.equal(await page.locator(`[data-note="1001"]`).inputValue(),`ملاحظة الاختبار`);
     await page.locator(`[data-code="1002"]`).fill(`1bad`);
     await page.locator(`#fcSearch`).fill(`الأولى`);
@@ -66,11 +78,26 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator(`[data-code="1002"]`).inputValue(),`1bad`);
     await page.locator(`[data-code="1002"]`).fill(`125.50`);
     assert.equal(await page.locator(`#fcConfirm`).isDisabled(),false);
+    await page.locator(`#fcExportExcel`).click();
+    assert.equal(await page.evaluate(() => globalThis.__lastExcel.book.Sheets.Meta.__matrix[1][1]), `2026-10`);
+    await page.evaluate(() => {
+        const sheet = globalThis.__lastExcel.book.Sheets.Forecast.__matrix;
+        const column = sheet[0].indexOf(`Forecast (JOD)`);
+        sheet[1][column] = null;
+        sheet[2][column] = 125.5;
+    });
+    await page.locator(`#fcExcelFile`).setInputFiles({ name: `forecast.xlsx`, mimeType: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, buffer: Buffer.from(`test`) });
+    await page.locator(`#fcApplyExcel`).waitFor({ state: `visible` });
+    await page.locator(`#fcApplyExcel`).click();
+    assert.equal(await page.locator(`[data-code="1001"]`).inputValue(),``);
+    assert.equal(await page.locator(`[data-code="1002"]`).inputValue(),`125.50`);
+    assert.equal(await page.locator(`#fcConfirm`).isDisabled(),false);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await page.screenshot({ path: `/tmp/forecast-mobile.png`, fullPage: true });
     await page.locator(`#fcConfirm`).click();
     await page.getByText(`تم تأكيد جميع التوقعات. يمكنك الآن إدخال الطلبيات.`,{exact:true}).waitFor();
     assert.equal(await page.locator(`[data-code]`).count(),0);
+    assert.equal(await page.evaluate(() => globalThis.__fixture.docs.r1.entries[`1001`].amount),null);
     assert.equal(await page.locator(`#fcSave`).isDisabled(),true);
     await page.setViewportSize({width:1440,height:1000});
     await page.goto(`${base}/forecast.html?mode=tracking`,{waitUntil:`domcontentloaded`});
@@ -86,7 +113,7 @@ const server = http.createServer((req, res) => {
     await page.locator(`#fcAttached`).waitFor({state:`visible`});
     await page.locator(`#fcAttached`).click();await page.locator(`#fcImport`).waitFor({state:`visible`});
     await page.locator(`#fcImport`).click();
-    await page.getByText(`تم اعتماد المبيعات. اختر شهر التعبئة ثم احفظ إعداد الشهر لتفعيل المنع.`,{exact:true}).waitFor();
+    await page.getByText(`تم استبدال مبيعات السنة بالملف المرفوع دون قراءة النسخة السابقة. اختر شهر التعبئة ثم احفظ إعداد الشهر لتفعيل المنع.`,{exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>globalThis.__fixture.imported),3);
     await page.locator(`#fcEnforce`).selectOption(`yes`);await page.locator(`#fcConfigSave`).click();
     await page.getByText(`تم حفظ إعداد أكتوبر 2026.`,{exact:true}).waitFor();
