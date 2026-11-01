@@ -1,6 +1,6 @@
 import { db } from './firebase.js';
 import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, setDoc, writeBatch, runTransaction, serverTimestamp } from './firestore-meter.js?v=20261006_reads1';
-import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261101_allow_blanks_excel';
+import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261101_partial_excel_v2';
 
 const configRef = () => doc(db, `system_settings`, `forecast`);
 const salesRef = year => doc(db, `forecast_sales`, String(year));
