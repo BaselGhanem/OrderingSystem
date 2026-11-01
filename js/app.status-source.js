@@ -4562,8 +4562,9 @@ async function runMonthlyExport() {
         console.error(`Monthly export failed`, error);
         status.textContent = `تعذر تجهيز الملف الكامل. تحقق من الاتصال ثم أعد المحاولة.`;
         retry.hidden = false;
+    } finally {
+        monthPicker.disabled = false;
     }
-    monthPicker.disabled = false;
     retry.onclick = runMonthlyExport;
 }
 
