@@ -121,20 +121,23 @@ const MONTH_HEADERS = [
     [`jan`, `january`, `يناير`], [`feb`, `february`, `فبراير`], [`mar`, `march`, `مارس`], [`apr`, `april`, `ابريل`, `أبريل`], [`may`, `مايو`], [`jun`, `june`, `يونيو`],
     [`jul`, `july`, `يوليو`], [`aug`, `august`, `اغسطس`, `أغسطس`], [`sep`, `sept`, `september`, `سبتمبر`], [`oct`, `october`, `اكتوبر`, `أكتوبر`], [`nov`, `november`, `نوفمبر`], [`dec`, `december`, `ديسمبر`]
 ];
-export function parseSalesRows(matrix) {
+export function parseSalesRows(matrix, lastMonth = null) {
     const nonempty = matrix.filter(row => row.some(value => value !== null && value !== undefined && String(value).trim() !== ``));
     if (nonempty.length < 2) throw new Error(`ملف المبيعات فارغ`);
     const headers = nonempty[0].map(value => String(value ?? ``).trim().toLowerCase().replace(/\s+/g, ` `));
     if (new Set(headers).size !== headers.length) throw new Error(`عناوين الأعمدة مكررة`);
     const codeIndex = headers.indexOf(`cust no`), nameIndex = headers.indexOf(`cust name`);
     if (codeIndex < 0 || nameIndex < 0) throw new Error(`يجب وجود عمودي Cust No و Cust Name`);
-    const months = MONTH_HEADERS.map((aliases, index) => ({ month: index + 1, index: headers.findIndex(value => aliases.includes(value)) })).filter(item => item.index >= 0);
+    const allMonths = MONTH_HEADERS.map((aliases, index) => ({ month: index + 1, index: headers.findIndex(value => aliases.includes(value)) })).filter(item => item.index >= 0);
+    if (lastMonth !== null && (!Number.isInteger(lastMonth) || lastMonth < 1 || lastMonth > 12)) throw new Error(`آخر شهر مبيعات غير صالح`);
+    const months = allMonths.filter(item => lastMonth === null || item.month <= lastMonth);
+    if (lastMonth !== null && !months.some(item => item.month === lastMonth)) throw new Error(`عمود الشهر المحدد غير موجود في الملف`);
     if (months.some(item => headers.filter(value => MONTH_HEADERS[item.month - 1].includes(value)).length > 1)) throw new Error(`لا يمكن تكرار الشهر بأكثر من عنوان`);
     if (!months.length || months.some((item, index) => item.month !== index + 1)) throw new Error(`يجب أن تكون الأشهر متصلة من يناير حتى آخر شهر مرفوع`);
     // A template may include future months with no sales yet. Ignore only wholly blank trailing columns.
     while (months.length && nonempty.slice(1).every(row => row[months[months.length - 1].index] === null || row[months[months.length - 1].index] === undefined || String(row[months[months.length - 1].index]).trim() === ``)) months.pop();
     if (!months.length) throw new Error(`لا توجد مبيعات شهرية في الملف`);
-    const known = new Set([codeIndex, nameIndex, ...months.map(item => item.index)]);
+    const known = new Set([codeIndex, nameIndex, ...allMonths.map(item => item.index)]);
     if (headers.some((header, index) => header && !known.has(index))) throw new Error(`يوجد عمود غير معروف؛ استخدم نفس أعمدة ملف المبيعات فقط`);
     const customers = {}, totals = {};
     for (const [i, row] of nonempty.slice(1).entries()) {
