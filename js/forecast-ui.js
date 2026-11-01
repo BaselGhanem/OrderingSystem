@@ -199,6 +199,8 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             const input = $(`fcExcelFile`), file = input.files?.[0];
             if (!file) return;
             input.value = ``;
+            state.importPreview = null;
+            $(`fcExcelPreview`).hidden = true;
             run(async () => {
                 if (currentDocument().status === `confirmed` || state.month !== state.config.activeMonth) throw new Error(`هذا الشهر مغلق للتعديل`);
                 if (!globalThis.XLSX) throw new Error(`تعذر تحميل مكتبة Excel. حدث الصفحة وحاول مرة ثانية`);
