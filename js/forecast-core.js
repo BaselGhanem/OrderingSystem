@@ -113,7 +113,7 @@ export function eligibleRows(sales, routes, repId = ``) {
     }).sort((a, b) => a.pharmacyName.localeCompare(b.pharmacyName, `ar`) || a.code.localeCompare(b.code, `en`, { numeric: true }));
 }
 export function isComplete(document, rows) {
-    return document?.status === `confirmed` && rows.every(row => Object.prototype.hasOwnProperty.call(document.entries || {}, row.code));
+    return document?.status === `confirmed` && rows.every(row => Object.prototype.hasOwnProperty.call(document.entries || {}, row.code) && (document.entries[row.code]?.amount === null || Number.isSafeInteger(document.entries[row.code]?.amount)));
 }
 export function progress(document, rows) {
     const filled = rows.filter(row => Number.isSafeInteger(document?.entries?.[row.code]?.amount)).length;
