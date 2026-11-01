@@ -29,6 +29,42 @@ export function forecastValue(value) {
     if (!/^-?\d+(?:\.\d{1,2})?$/.test(text)) throw new Error(`أدخل مبلغا صحيحا بمنزلتين عشريتين كحد أقصى`);
     return cents(text);
 }
+
+/**
+ * Parse a representative's Excel forecast. Only rows explicitly present in the
+ * workbook are updated; an empty Forecast (JOD) cell explicitly means null.
+ */
+export function parseForecastExcel(matrix, expectedRows) {
+    const expected = new Set(expectedRows.map(row => codeKey(row.code)));
+    if (!Array.isArray(matrix) || !Array.isArray(matrix[0])) throw new Error(`ملف توقعات Excel فارغ أو غير صالح`);
+    const header = matrix[0].map(value => String(value ?? ``).trim().toLowerCase().replace(/\s+/g, ` `));
+    const codeIndex = header.findIndex(value => [`cust no`, `customer code`, `code`, `كود الصيدلية`].includes(value));
+    const amountIndex = header.findIndex(value => [`forecast (jod)`, `التوقع (د.ا)`, `التوقع بالدينار`].includes(value));
+    const noteIndex = header.findIndex(value => [`notes`, `الملاحظة`].includes(value));
+    if (codeIndex < 0 || amountIndex < 0) throw new Error(`يجب وجود عمودي Cust No و Forecast (JOD) كما في الملف المصدر`);
+    if (matrix.length > 20001) throw new Error(`عدد صفوف الملف أكبر من الحد المسموح`);
+    const entries = {}, seen = new Set();
+    let filled = 0, cleared = 0;
+    for (let i = 1; i < matrix.length; i++) {
+        const row = matrix[i] || [];
+        if (row.every(value => value === null || value === undefined || String(value).trim() === ``)) continue;
+        const code = codeKey(row[codeIndex]);
+        if (!code) throw new Error(`كود الصيدلية غير صالح في صف Excel رقم ${i + 1}`);
+        if (!expected.has(code)) throw new Error(`الكود ${code} في صف ${i + 1} لا يتبع لهذا المندوب في الشهر المختار`);
+        if (seen.has(code)) throw new Error(`كود الصيدلية ${code} مكرر في الملف`);
+        seen.add(code);
+        let amount;
+        try { amount = forecastValue(row[amountIndex]); }
+        catch (error) { throw new Error(`خطأ في توقع الصيدلية ${code}، صف ${i + 1}: ${error.message}`); }
+        const note = noteIndex < 0 ? `` : String(row[noteIndex] ?? ``);
+        if (note.length > 1000) throw new Error(`ملاحظة الصيدلية ${code} أطول من 1000 حرف`);
+        entries[code] = { amount, note };
+        if (amount === null) cleared++; else filled++;
+    }
+    if (!seen.size) throw new Error(`ملف Excel لا يحتوي على أي صيدلية`);
+    return { entries, count: seen.size, filled, cleared };
+}
+
 export function dateValue(value) {
     if (!value) return null;
     if (typeof value.toDate === `function`) return value.toDate();
@@ -77,7 +113,7 @@ export function eligibleRows(sales, routes, repId = ``) {
     }).sort((a, b) => a.pharmacyName.localeCompare(b.pharmacyName, `ar`) || a.code.localeCompare(b.code, `en`, { numeric: true }));
 }
 export function isComplete(document, rows) {
-    return document?.status === `confirmed` && rows.every(row => Number.isSafeInteger(document.entries?.[row.code]?.amount));
+    return document?.status === `confirmed` && rows.every(row => Object.prototype.hasOwnProperty.call(document.entries || {}, row.code));
 }
 export function progress(document, rows) {
     const filled = rows.filter(row => Number.isSafeInteger(document?.entries?.[row.code]?.amount)).length;
