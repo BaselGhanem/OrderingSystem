@@ -21,6 +21,7 @@ main{position:relative;width:min(100%,540px);padding:36px 32px 28px;text-align:c
 .eyebrow{font-size:10px;letter-spacing:3px;color:#72cfc5;margin:0 0 12px;direction:ltr}
 h1{font-size:clamp(23px,5vw,30px);line-height:1.5;margin:0 0 14px;font-weight:700;letter-spacing:-.7px}
 #exportPeriod{direction:ltr;unicode-bidi:isolate;display:inline-block;font-family:Tahoma,Arial,sans-serif;font-size:12px;letter-spacing:1px;color:#c0d8d7;background:#05191e66;border:1px solid #a1e4da15;padding:10px 15px;border-radius:12px;margin:0 0 20px;min-height:35px}
+.month-field{display:flex;align-items:center;justify-content:center;gap:12px;margin:0 auto 17px;flex-wrap:wrap}.month-field label{font-size:12px;color:#b6cdce}.month-field input{color:#edfdfb;color-scheme:dark;background:#071f24;border:1px solid #a1e4da35;border-radius:12px;padding:9px 12px;font:inherit;font-size:13px;max-width:170px;outline-offset:3px}.month-field input:focus-visible{outline:2px solid #9fffe4}.month-field input:disabled{opacity:.65;cursor:wait}
 #exportStatus{color:#b6cdce;font-size:14px;line-height:1.95;min-height:55px;margin:0 auto 20px;max-width:410px}
 .track{height:3px;background:#ffffff09;border-radius:5px;overflow:hidden;margin:0 auto 18px;max-width:280px;direction:ltr}.track:after{content:"";display:block;width:35%;height:100%;border-radius:5px;background:linear-gradient(90deg,transparent,#70f5d9,transparent);animation:progress 1.8s ease-in-out infinite}
 .note{font-size:11px;color:#72989b;margin:0 0 20px;line-height:1.8}
@@ -59,6 +60,7 @@ body:has(#retryExport:not([hidden])) .orbit,body:has(#retryExport:not([hidden]))
 </div>
 <p class="eyebrow">YOUR MONTH. ONE FILE.</p>
 <h1>تصدير طلبيات الشركة</h1>
+<div class="month-field"><label for="exportMonth">شهر التصدير</label><input id="exportMonth" type="month" aria-label="اختيار شهر التصدير"></div>
 <p id="exportPeriod"></p>
 <p id="exportStatus" role="status" aria-live="polite">جاري تجهيز التصدير...</p>
 <div class="track" aria-hidden="true"></div>
@@ -68,5 +70,5 @@ body:has(#retryExport:not([hidden])) .orbit,body:has(#retryExport:not([hidden]))
 <a href="supervisor.html">العودة إلى صفحة المشرف ↗</a>
 <div class="footer">LESS WAITING · MORE DOING</div>
 </main>
-<script type="module" src="js/app.js?v=20261001_bonus1"></script>
+<script type="module" src="js/app.js?v=20261101_monthselector1"></script>
 </body></html>
