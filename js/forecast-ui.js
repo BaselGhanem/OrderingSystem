@@ -146,6 +146,82 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             notify(confirmAll ? `تم تأكيد جميع التوقعات. يمكنك الآن إدخال الطلبيات.` : `تم الحفظ جزئيا. يمكنك التأكيد حتى مع وجود خانات فارغة.`);
         });
     }
+
+    function exportRepExcel() {
+        if (!globalThis.XLSX) throw new Error(`تعذر تحميل مكتبة Excel. حدث الصفحة وحاول مرة ثانية`);
+        if (state.invalid.size) throw new Error(`صحح المدخلات غير الصالحة قبل تصدير ملف Excel`);
+        const rows = representativeRows();
+        if (!rows.length) throw new Error(`لا توجد صيدليات للتصدير`);
+        const months = (state.dataset.sales.months || []).filter(month => month < Number(state.month.slice(5)));
+        const matrix = [
+            [`Cust No`, `Cust Name`, ...months.map(month => MONTH_NAMES[month - 1]), `Forecast (JOD)`, `Notes`],
+            ...rows.map(row => {
+                const entry = state.entries[row.code] || {};
+                return [row.code, row.pharmacyName || row.salesName, ...months.map(month => Number.isSafeInteger(row.months[String(month)]) ? row.months[String(month)] / 100 : ``), Number.isSafeInteger(entry.amount) ? entry.amount / 100 : ``, entry.note || ``];
+            })
+        ];
+        const workbook = XLSX.utils.book_new();
+        const sheet = XLSX.utils.aoa_to_sheet(matrix);
+        sheet[`!cols`] = [{ wch: 19 }, { wch: 46 }, ...months.map(() => ({ wch: 18 })), { wch: 20 }, { wch: 48 }];
+        XLSX.utils.book_append_sheet(workbook, sheet, `Forecast`);
+        const meta = XLSX.utils.aoa_to_sheet([
+            [`Format`, `DAD_FORECAST_V1`],
+            [`Month`, state.month],
+            [`RepId`, acting.repId],
+            [`Instructions`, `Edit only Forecast (JOD) and Notes. Blank forecast means no estimate, not zero. Keep the Meta sheet and pharmacy codes unchanged.`]
+        ]);
+        meta[`!cols`] = [{ wch: 20 }, { wch: 95 }];
+        XLSX.utils.book_append_sheet(workbook, meta, `Meta`);
+        XLSX.writeFile(workbook, `Sales_Forecast_${state.month}.xlsx`);
+        notify(`تم تجهيز Excel لـ ${rows.length} صيدلية. يتضمن الملف التعديلات الحالية حتى لو لم يتم حفظها بعد.`);
+    }
+    function applyRepExcel() {
+        const parsed = state.importPreview;
+        if (!parsed || parsed.month !== state.month || state.busy) return;
+        if (currentDocument().status === `confirmed` || state.month !== state.config.activeMonth) return notify(`هذا الشهر مغلق للتعديل`, `error`);
+        if (!confirm(`تطبيق قيم Excel لـ ${parsed.count} صيدلية على الشاشة؟ سيتم تحديث هذه الصيدليات فقط، بما فيها ${parsed.cleared} قيمة فارغة. الصيدليات غير الموجودة بالملف لن تتغير. لن تحفظ البيانات في Firebase قبل الضغط على حفظ جزئي أو تأكيد جميع التوقعات.`)) return;
+        for (const [code, entry] of Object.entries(parsed.entries)) {
+            state.entries[code] = { ...(state.entries[code] || {}), amount: entry.amount, note: entry.note };
+            state.invalid.delete(code);
+            state.rawInputs.delete(code);
+        }
+        state.importPreview = null;
+        $(`fcExcelPreview`).hidden = true;
+        state.dirty = true;
+        renderTable();
+        updateSummary();
+        notify(`تم تطبيق ${parsed.count} صيدلية من Excel. التغييرات غير محفوظة بعد: اختر حفظ جزئي أو تأكيد جميع التوقعات.`);
+    }
+    function bindRepExcel() {
+        $(`fcExportExcel`).onclick = () => { try { exportRepExcel(); } catch (error) { notify(error.message, `error`); } };
+        $(`fcImportExcel`).onclick = () => { if (!state.busy) $(`fcExcelFile`).click(); };
+        $(`fcExcelFile`).onchange = () => {
+            const input = $(`fcExcelFile`), file = input.files?.[0];
+            if (!file) return;
+            input.value = ``;
+            run(async () => {
+                if (currentDocument().status === `confirmed` || state.month !== state.config.activeMonth) throw new Error(`هذا الشهر مغلق للتعديل`);
+                if (!globalThis.XLSX) throw new Error(`تعذر تحميل مكتبة Excel. حدث الصفحة وحاول مرة ثانية`);
+                if (file.size > 5 * 1024 * 1024) throw new Error(`حجم ملف Excel أكبر من 5 ميجابايت`);
+                const workbook = XLSX.read(await file.arrayBuffer(), { type: `array` });
+                if (!workbook.Sheets.Forecast || !workbook.Sheets.Meta) throw new Error(`استورد ملف التوقعات الذي تم تنزيله من هذه الصفحة، مع الحفاظ على ورقتي Forecast و Meta`);
+                const metadata = XLSX.utils.sheet_to_json(workbook.Sheets.Meta, { header: 1, defval: null, raw: true });
+                if (metadata[0]?.[1] !== `DAD_FORECAST_V1`) throw new Error(`صيغة ملف التوقعات غير معروفة`);
+                if (String(metadata[1]?.[1]) !== state.month) throw new Error(`ملف Excel يخص شهر ${metadata[1]?.[1] || `غير معروف`}، والشهر المختار حاليا ${state.month}`);
+                if (String(metadata[2]?.[1]) !== String(acting.repId)) throw new Error(`هذا الملف يخص مندوبا آخر. استخدم الملف المصدر من حسابك`);
+                const matrix = XLSX.utils.sheet_to_json(workbook.Sheets.Forecast, { header: 1, defval: null, raw: true });
+                const parsed = parseForecastExcel(matrix, representativeRows());
+                state.importPreview = { ...parsed, month: state.month };
+                const preview = $(`fcExcelPreview`);
+                preview.hidden = false;
+                preview.innerHTML = `<b>معاينة استيراد Excel — ${escape(monthLabel(state.month))}</b><p>عدد الصيدليات: <b>${parsed.count}</b> • قيم معبأة (تتضمن الصفر): <b>${parsed.filled}</b> • قيم فارغة: <b>${parsed.cleared}</b></p><p class="fc-muted">لن تتغير الصيدليات غير الموجودة بالملف. لا يوجد حفظ تلقائي، وسيتم الاحتفاظ بالملاحظات حسب الملف.</p><div class="fc-toolbar"><button id="fcApplyExcel" type="button">تطبيق القيم على الشاشة</button><button id="fcCancelExcel" type="button" class="secondary">إلغاء الاستيراد</button></div>`;
+                $(`fcApplyExcel`).onclick = applyRepExcel;
+                $(`fcCancelExcel`).onclick = () => { state.importPreview = null; preview.hidden = true; };
+                notify(`تم فحص ملف Excel بنجاح. راجع المعاينة ثم اضغط تطبيق القيم.`);
+            });
+        };
+    }
+
     function renderTeam() {
         const rows = selectedRows();
         const ids = [...new Set(rows.map(row => row.repId))];
