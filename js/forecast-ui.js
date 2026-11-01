@@ -1,5 +1,5 @@
 import { MONTH_NAMES, monthLabel, validMonth, normalizeName, eligibleRows, progress, forecastValue, invoiceTotals, parseSalesRows, dateValue } from './forecast-core.js?v=20261101_month_select';
-import * as api from './forecast-store.js?v=20261008_writeonly1';
+import * as api from './forecast-store.js?v=20261101_sales_summary';
 
 const escape = value => String(value ?? ``).replace(/[&<>"']/g, c => ({ [`&`]: `&amp;`, [`<`]: `&lt;`, [`>`]: `&gt;`, [`"`]: `&quot;`, [`'`]: `&#39;` })[c]);
 const money = amount => amount === undefined || amount === null ? `—` : (amount / 100).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -207,10 +207,12 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             return row;
         });
     }
-    function showTemplate() {
-        const rows = templateRows(), headers = Object.keys(rows[0] || {});
+    async function showTemplate() {
+        const saved = await api.loadSalesYear($(`fcYear`).value);
+        const rows = saved?.customers ? Object.entries(saved.customers).map(([code, customer]) => { const row = { [`Cust No`]: code, [`Cust Name`]: customer.name }; for (const month of saved.months || []) row[MONTH_NAMES[month - 1]] = Number.isSafeInteger(customer.months?.[String(month)]) ? customer.months[String(month)] / 100 : ``; return row; }) : templateRows();
+        const headers = Object.keys(rows[0] || {});
         const preview = $(`fcTemplatePreview`); preview.hidden = false;
-        preview.innerHTML = `<h3>قالب المبيعات الفعلية — ${escape($(`fcYear`).value)}</h3><p>${rows.length} صيدلية. معاينة أول 10 صفوف؛ التنزيل يحتوي على جميع الصفوف. هذا الملف للمبيعات الفعلية، وتوقعات المندوبين تبقى منفصلة.</p><div style="overflow:auto"><table class="fc-table"><thead><tr>${headers.map(h => `<th>${escape(h)}</th>`).join(``)}</tr></thead><tbody>${rows.slice(0,10).map(row => `<tr>${headers.map(h => `<td>${escape(row[h])}</td>`).join(``)}</tr>`).join(``)}</tbody></table></div>`;
+        preview.innerHTML = `<h3>${saved ? `المبيعات المعتمدة حاليا` : `القالب الاساسي (لم يتم رفع مبيعات للسنة)`} — ${escape($(`fcYear`).value)}</h3><p>${saved ? `آخر شهر معتمد: ${escape(MONTH_NAMES[(saved.months || []).at(-1) - 1] || `غير متاح`)} | الملف: ${escape(saved.filename || `غير مسجل`)}` : `هذه بيانات القالب وليست المبيعات المرفوعة`}</p><p>${rows.length} صيدلية. معاينة أول 10 صفوف؛ التنزيل يحتوي على جميع الصفوف. هذا الملف للمبيعات الفعلية، وتوقعات المندوبين تبقى منفصلة.</p><div style="overflow:auto"><table class="fc-table"><thead><tr>${headers.map(h => `<th>${escape(h)}</th>`).join(``)}</tr></thead><tbody>${rows.slice(0,10).map(row => `<tr>${headers.map(h => `<td>${escape(row[h])}</td>`).join(``)}</tr>`).join(``)}</tbody></table></div>`;
     }
     async function previewImport(matrix, filename, year) {
         const parsed = parseSalesRows(matrix, Number($(`fcUploadEndMonth`).value));
@@ -224,13 +226,13 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
         $(`fcUploadEndMonth`).value = String(Math.max(1, Number(state.month.slice(5)) - 1));
         $(`fcUploadEndMonth`).onchange = () => { state.pending = null; $(`fcImport`).hidden = true; $(`fcImportPreview`).hidden = true; $(`fcUpload`).value = ``; };
         $(`fcContent`).hidden = true;
-        $(`fcAdminLogin`).onsubmit = event => { event.preventDefault(); run(async () => { const password = $(`fcAdminPassword`).value; $(`fcAdminPassword`).value = ``; await api.unlockAdmin(password); state.admin = true; $(`fcAdminGate`).hidden = true; $(`fcAdminControls`).hidden = false; $(`fcContent`).hidden = true; state.template = await api.attachedBaseline(); showTemplate(); }); };
-        $(`fcTemplateDownload`).onclick = () => run(async () => { showTemplate(); exportWorkbook(templateRows(), `Sales_Template_${$(`fcYear`).value}_${state.month.slice(5)}.xlsx`); });
+        $(`fcAdminLogin`).onsubmit = event => { event.preventDefault(); run(async () => { const password = $(`fcAdminPassword`).value; $(`fcAdminPassword`).value = ``; await api.unlockAdmin(password); state.admin = true; $(`fcAdminGate`).hidden = true; $(`fcAdminControls`).hidden = false; $(`fcContent`).hidden = true; state.template = await api.attachedBaseline(); await showTemplate(); }); };
+        $(`fcTemplateDownload`).onclick = () => run(async () => { await showTemplate(); exportWorkbook(templateRows(), `Sales_Template_${$(`fcYear`).value}_${state.month.slice(5)}.xlsx`); });
         $(`fcMonitor`).onclick = () => run(async () => { state.monitoring = true; $(`fcContent`).hidden = false; await load(); });
         $(`fcAttached`).onclick = () => run(async () => { const baseline = await api.attachedBaseline(); $(`fcYear`).value = baseline.year; await previewImport(baseline.matrix, baseline.filename, String(baseline.year)); });
         $(`fcUpload`).onchange = () => { state.pending = null; $(`fcImport`).hidden = true; $(`fcImportPreview`).hidden = true; const file = $(`fcUpload`).files[0]; if (!file) return; run(async () => { if (!globalThis.XLSX) throw new Error(`تعذر تحميل مكتبة قراءة Excel`); const workbook = XLSX.read(await file.arrayBuffer(), { type: `array` }); if (workbook.SheetNames.length !== 1) throw new Error(`استخدم ملف مبيعات بورقة واحدة فقط`); await previewImport(XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: null, raw: true }), file.name, $(`fcYear`).value); }); };
-        $(`fcYear`).onchange = () => { state.pending = null; $(`fcImport`).hidden = true; $(`fcImportPreview`).hidden = true; $(`fcUpload`).value = ``; if (state.template) showTemplate(); };
-        $(`fcImport`).onclick = () => run(async () => { if (!state.pending) return; const { parsed, year, filename } = state.pending; if (!confirm(`اعتماد مبيعات ${parsed.count} صيدلية لسنة ${year} واستبدال مبيعات السنة كاملة؟ أي صيدلية أو شهر غير موجود بالملف لن تبقى بيانات مبيعاته السابقة. توقعات المندوبين لا تتأثر.`)) return; await api.importSales(parsed, year, filename); state.pending = null; $(`fcImport`).hidden = true; $(`fcUpload`).value = ``; state.monitoring = false; $(`fcContent`).hidden = true; notify(`تم استبدال مبيعات السنة بالملف المرفوع دون قراءة النسخة السابقة. اختر شهر التعبئة ثم احفظ إعداد الشهر لتفعيل المنع.`); });
+        $(`fcYear`).onchange = () => { state.pending = null; $(`fcImport`).hidden = true; $(`fcImportPreview`).hidden = true; $(`fcUpload`).value = ``; if (state.template) run(showTemplate); };
+        $(`fcImport`).onclick = () => run(async () => { if (!state.pending) return; const { parsed, year, filename } = state.pending; if (!confirm(`اعتماد مبيعات ${parsed.count} صيدلية لسنة ${year} واستبدال مبيعات السنة كاملة؟ أي صيدلية أو شهر غير موجود بالملف لن تبقى بيانات مبيعاته السابقة. توقعات المندوبين لا تتأثر.`)) return; await api.importSales(parsed, year, filename); state.pending = null; $(`fcImport`).hidden = true; $(`fcUpload`).value = ``; state.monitoring = false; $(`fcContent`).hidden = true; await showTemplate(); notify(`تم استبدال مبيعات السنة بالملف المرفوع دون قراءة النسخة السابقة. اختر شهر التعبئة ثم احفظ إعداد الشهر لتفعيل المنع.`); });
         $(`fcConfigSave`).onclick = () => run(async () => { const month = $(`fcActiveMonth`).value; if (!$(`fcEnforce`).value) throw new Error(`اختر إعداد المنع المطلوب أو اعرض التوقعات لتحميل الإعداد الحالي`); await api.saveConfig(month, $(`fcEnforce`).value === `yes`); state.month = month; $(`fcMonth`).value = month; state.monitoring = false; $(`fcContent`).hidden = true; notify(`تم حفظ إعداد ${monthLabel(month)}.`); });
         $(`fcAdminLock`).onclick = () => { api.lockAdmin(); state.admin = false; state.pending = null; state.template = null; state.monitoring = false; $(`fcTemplatePreview`).innerHTML = ``; $(`fcImportPreview`).textContent = ``; $(`fcAdminGate`).hidden = false; $(`fcAdminControls`).hidden = true; $(`fcContent`).hidden = true; };
     }
