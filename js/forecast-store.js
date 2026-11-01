@@ -1,6 +1,6 @@
 import { db } from './firebase.js';
 import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, setDoc, writeBatch, runTransaction, serverTimestamp } from './firestore-meter.js?v=20261006_reads1';
-import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261006_reads1';
+import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261101_allow_blanks_excel';
 
 const configRef = () => doc(db, `system_settings`, `forecast`);
 const salesRef = year => doc(db, `forecast_sales`, String(year));
@@ -134,7 +134,6 @@ export async function saveForecast(month, repId, entries, revision, confirm) {
         if (entry?.amount !== null && entry?.amount !== undefined && !Number.isSafeInteger(entry.amount)) throw new Error(`قيمة غير صحيحة للصيدلية ${row.code}`);
         clean[row.code] = { amount: entry?.amount ?? null, note: String(entry?.note || ``).trim().slice(0, 1000) };
     }
-    if (confirm && eligible.some(row => clean[row.code].amount === null)) throw new Error(`لا يمكن التأكيد قبل تعبئة جميع الصيدليات`);
     const ref = forecastRef(month, repId);
     await runTransaction(db, async transaction => {
         const snapshot = await transaction.get(ref);
