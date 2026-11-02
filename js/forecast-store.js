@@ -51,8 +51,8 @@ function routingMarker() {
         return Number.isInteger(value?.pharmacies) && value.pharmacies > 0 && Number.isInteger(value?.reps) && value.reps > 0 ? value : null;
     } catch { return null; }
 }
-function markRouting(pharmacies, reps) {
-    try { localStorage.setItem(ROUTING_MARKER_KEY, JSON.stringify({ pharmacies: pharmacies.size, reps: reps.size, at: Date.now() })); } catch {}
+function markRouting(pharmacies, reps, assignments) {
+    try { localStorage.setItem(ROUTING_MARKER_KEY, JSON.stringify({ pharmacies: pharmacies.size, reps: reps.size, assignmentsExist: assignments.exists(), at: Date.now() })); } catch {}
 }
 function shareRead(key, action, maxAgeMs = 0) {
     const cached = recentReads.get(key);
@@ -113,7 +113,8 @@ async function loadRouting() {
         if (marker && Date.now() - marker.at < ROUTING_PERSISTED_MS) {
             try {
                 const cache = await Promise.all([
-                    getDocsFromCache(pharmaciesRef), getDocsFromCache(repsRef), getDocFromCache(assignmentsRef)
+                    getDocsFromCache(pharmaciesRef), getDocsFromCache(repsRef),
+                    marker.assignmentsExist === false ? Promise.resolve({ exists: () => false }) : getDocFromCache(assignmentsRef)
                 ]);
                 if (cache[0].size === marker.pharmacies && cache[1].size === marker.reps) [pharmacies, reps, assignments] = cache;
             } catch { /* Cache incomplete: use the server. */ }
@@ -122,7 +123,7 @@ async function loadRouting() {
             [pharmacies, reps, assignments] = await Promise.all([
                 getDocsFromServer(pharmaciesRef), getDocsFromServer(repsRef), getDocFromServer(assignmentsRef)
             ]);
-            markRouting(pharmacies, reps);
+            markRouting(pharmacies, reps, assignments);
         }
         const repRows = rows(reps), pharmacyRows = rows(pharmacies);
         return { reps: repRows, pharmacies: pharmacyRows, ...resolveRoutes(pharmacyRows, repRows, assignments.exists() ? assignments.data()?.assignments : {}) };
