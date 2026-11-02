@@ -1,5 +1,5 @@
 import { db } from './firebase.js';
-import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, setDoc, writeBatch, runTransaction, serverTimestamp } from './firestore-meter.js?v=20261006_reads1';
+import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, getDocFromCache, getDocsFromCache, updateDoc, FieldPath, setDoc, writeBatch, runTransaction, serverTimestamp } from './firestore-meter.js?v=20261006_reads1';
 import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261101_partial_excel_v2';
 
 const configRef = () => doc(db, `system_settings`, `forecast`);
@@ -64,14 +64,23 @@ export async function loadSalesYear(year) {
     const snap = await getDocFromServer(salesRef(year));
     return snap.exists() ? snap.data() : null;
 }
-export function loadConfig() { return shareRead(`config`, async () => {
-    const snapshot = await getDocFromServer(configRef());
-    return snapshot.exists() ? snapshot.data() : { enabled: false, activeMonth: ammanMonth() };
-}); }
+export function loadConfig({ preferCache = false } = {}) {
+    return shareRead(`config:${preferCache}`, async () => {
+        let snapshot;
+        if (preferCache) {
+            try { snapshot = await getDocFromCache(configRef()); } catch { /* No locally cached config. */ }
+        }
+        if (!snapshot) snapshot = await getDocFromServer(configRef());
+        return snapshot.exists() ? snapshot.data() : { enabled: false, activeMonth: ammanMonth() };
+    }, preferCache ? 30000 : 15000);
+}
 async function loadRouting() {
     return shareRead(`routing`, async () => {
+        const pharmaciesRef = collection(db, `pharmacies`), repsRef = collection(db, `reps`);
+        // An empty cached query cannot prove it contains the complete routing list.
+        // Only reuse it after a full server query in this tab; other tabs use the server.
         const [pharmacies, reps, assignments] = await Promise.all([
-            getDocsFromServer(collection(db, `pharmacies`)), getDocsFromServer(collection(db, `reps`)),
+            getDocsFromServer(pharmaciesRef), getDocsFromServer(repsRef),
             getDocFromServer(doc(db, `system_settings`, `rep_supervisor_assignments`))
         ]);
         const repRows = rows(reps), pharmacyRows = rows(pharmacies);
@@ -81,7 +90,7 @@ async function loadRouting() {
 export function loadDataset(month, { routingOnly = false } = {}) {
     if (!validMonth(month)) throw new Error(`اختر شهرا صحيحا`);
     return shareRead(`dataset:${month.slice(0, 4)}:${routingOnly}`, async () => {
-        const sales = routingOnly ? null : await getDocFromServer(salesRef(month.slice(0, 4)));
+        const sales = routingOnly ? null : await shareRead(`sales:${month.slice(0, 4)}`, async () => getDocFromServer(salesRef(month.slice(0, 4))), ROUTING_CACHE_MS);
         const salesData = sales?.exists() ? sales.data() : null;
         if (!routingOnly && !salesData) return { sales: null, reps: [], pharmacies: [], routes: new Map(), conflicts: new Map(), invalid: [], rows: [] };
         const routing = await loadRouting();
@@ -133,13 +142,17 @@ export async function ensureForecastBeforeOrder(repId) {
         return false;
     } catch (error) { window.showToast?.(errorMessage(error), `error`); return false; }
 }
-export async function saveForecast(month, repId, entries, revision, confirm) {
+export async function saveForecast(month, repId, entries, revision, confirm, screenContext = null) {
     if (session().repId !== repId || sessionStorage.getItem(`adminOrderMode`) === `1`) throw new Error(`الدخول كمندوب مطلوب لتعبئة التوقع`);
+    // The page has already loaded and validated these rows. Reusing them here avoids
+    // downloading every pharmacy again for a single representative's save.
     const config = await loadConfig();
     if (config.activeMonth !== month) throw new Error(`هذا الشهر مغلق للتعبئة`);
-    const dataset = await loadDataset(month);
+    const dataset = screenContext?.month === month && screenContext?.repId === repId && Array.isArray(screenContext.rows) && screenContext.conflicts instanceof Map
+        ? { conflicts: screenContext.conflicts, sales: null, routes: null }
+        : await loadDataset(month);
     if ([...dataset.conflicts.values()].some(routes => routes.some(route => route.repId === repId))) throw new Error(`ربط الصيدليات غير واضح؛ راجع الإدارة`);
-    const eligible = eligibleRows(dataset.sales, dataset.routes, repId);
+    const eligible = dataset.sales ? eligibleRows(dataset.sales, dataset.routes, repId) : screenContext.rows;
     if (!eligible.length) throw new Error(`لا توجد صيدليات مؤهلة لهذا المندوب`);
     const clean = {};
     for (const row of eligible) {
@@ -171,6 +184,34 @@ export async function importSales(parsed, year, filename) {
     batch.set(salesRef(year), payload);
     batch.set(doc(collection(db, `forecast_audit`)), { action: `sales_import`, mode: `full_replace`, year: Number(year), rowCount: parsed.count, months: parsed.months, filename, at: serverTimestamp() });
     await batch.commit();
+}
+/**
+ * Append one month's invoiced sales to the existing yearly document.
+ * Older months are never sent back to Firestore or overwritten.
+ * The caller must first verify that month follows the saved months.
+ */
+export async function appendSalesMonth(parsed, year, month, filename, previousMonths) {
+    requireAdmin();
+    if (!/^20\d\d$/.test(String(year))) throw new Error(`السنة غير صحيحة`);
+    if (!Number.isInteger(month) || month < 1 || month > 12) throw new Error(`الشهر غير صحيح`);
+    if (!Array.isArray(previousMonths) || !previousMonths.length || previousMonths.some((m, index) => m !== index + 1) || previousMonths.at(-1) + 1 !== month)
+        throw new Error(`يجب إضافة الشهر التالي مباشرة بعد آخر شهر محفوظ، بدون إعادة رفع الأشهر السابقة`);
+    const customers = Object.entries(parsed.customers || {});
+    if (!customers.length || customers.length > 20000) throw new Error(`ملف الشهر فارغ أو كبير جدا`);
+    const updates = [new FieldPath(`months`), [...previousMonths, month], new FieldPath(`updatedAt`), serverTimestamp(),
+        new FieldPath(`lastMonthFile`), filename, new FieldPath(`importMode`), `monthly_append`];
+    for (const [code, customer] of customers) {
+        if (!/^\d+$/.test(code) || !Number.isSafeInteger(customer.amount)) throw new Error(`قيمة أو كود غير صالح في ملف الشهر`);
+        updates.push(new FieldPath(`customers`, code, `name`), String(customer.name).slice(0, 500));
+        updates.push(new FieldPath(`customers`, code, `months`, String(month)), customer.amount);
+    }
+    const batch = writeBatch(db);
+    batch.update(salesRef(year), ...updates);
+    batch.set(doc(collection(db, `forecast_audit`)), { action: `sales_month_append`, year: Number(year), month, filename,
+        rowCount: customers.length, at: serverTimestamp() });
+    await batch.commit();
+    recentReads.delete(`sales:${year}`);
+    return { year: Number(year), months: [...previousMonths, month] };
 }
 export async function saveConfig(month, enabled) {
     requireAdmin();
