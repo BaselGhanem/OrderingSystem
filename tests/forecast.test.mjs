@@ -92,9 +92,27 @@ const sdk = {
     getDocFromServer: async reference => { readCount++; return snapshot(reference); },
     getDocsFromServer: async reference => { collectionReadCount++; const items = [...memory.keys()].filter(key => key.startsWith(`${reference.path}/`)).map(path => snapshot({ path })); return { docs: items, size: items.length }; },
     setDoc: async (reference, value, options) => memory.set(reference.path, options?.merge ? { ...memory.get(reference.path), ...value } : value),
+    FieldPath: class FieldPath { constructor(...segments) { this.segments = segments; } },
+    arrayUnion: value => ({ __arrayUnion: value }),
     writeBatch: () => {
         const writes = [];
-        return { set: (reference, value) => writes.push(() => memory.set(reference.path, value)), commit: async () => writes.forEach(write => write()) };
+        return {
+            set: (reference, value) => writes.push(() => memory.set(reference.path, value)),
+            update: (reference, ...pairs) => writes.push(() => {
+                if (!memory.has(reference.path)) throw new Error(`Document not found`);
+                const data = structuredClone(memory.get(reference.path));
+                for (let i = 0; i < pairs.length; i += 2) {
+                    const keys = pairs[i].segments, value = pairs[i + 1];
+                    let target = data;
+                    for (const key of keys.slice(0, -1)) target = target[key] ||= {};
+                    const field = keys.at(-1);
+                    if (value?.__arrayUnion !== undefined) target[field] = [...new Set([...(target[field] || []), value.__arrayUnion])];
+                    else target[field] = value;
+                }
+                memory.set(reference.path, data);
+            }),
+            commit: async () => writes.forEach(write => write())
+        };
     },
     serverTimestamp: () => new Date(`2026-10-06T09:00:00Z`),
     query: value => value, orderBy: () => null, documentId: () => null, limit: () => null, startAfter: () => null,
@@ -124,7 +142,8 @@ const readsBeforeSave = readCount;
 const firstSaved = await api.saveForecast(`2026-10`, `r1`, { [`1001`]: { amount: null, note: `جزئي` } }, 0, false);
 assert.equal(firstSaved.status, `draft`);
 assert.equal(firstSaved.revision, 1);
-assert.equal(readCount - readsBeforeSave, 2, `Saving must not perform a post-commit read`);
+assert.ok(readCount - readsBeforeSave <= 2, `Saving must not re-read annual sales for each edit`);
+assert.equal(collectionReadCount, cachedRoutingReadCount, `Save must not fetch whole collections`);
 assert.equal((await api.checkOrderGate(`r1`)).allowed, false);
 await assert.rejects(api.saveForecast(`2026-10`, `r1`, { [`1001`]: { amount: 0 } }, 0, true), /نافذة أخرى/);
 await api.saveForecast(`2026-10`, `r1`, { [`1001`]: { amount: 0 } }, 1, true);
@@ -147,5 +166,24 @@ await api.importSales(core.parseSalesRows([[`Cust No`, `Cust Name`, `Jan`, `Feb`
 assert.equal(memory.get(`forecast_sales/2026`).customers[`1001`].months[`3`], 99900);
 assert.equal(memory.get(`forecast_sales/2026`).customers[`1002`], undefined);
 assert.equal(memory.get(`monthly_forecasts/2026-10__r1`).entries[`1001`].amount, 0);
+const april = core.parseSalesMonth([[`Cust No`, `Cust Name`, `April`], [1001, `صيدلية شهرية`, 123.45]], 4);
+assert.equal(april.customers[`1001`].amount, 12345);
+assert.throws(() => core.parseSalesMonth([[`Cust No`, `Cust Name`, `Nov`], [1001, `صيدلية`, null]], 11), /فارغة/);
+await api.appendSalesMonth(april, `2026`, 4, `april.xlsx`, [1, 2, 3]);
+const afterAppend = memory.get(`forecast_sales/2026`);
+assert.deepEqual(afterAppend.months, [1, 2, 3, 4]);
+assert.equal(afterAppend.customers[`1001`].months[`1`], 0);
+assert.equal(afterAppend.customers[`1001`].months[`2`], -367);
+assert.equal(afterAppend.customers[`1001`].months[`3`], 99900);
+assert.equal(afterAppend.customers[`1001`].months[`4`], 12345);
+const correctedFebruary = core.parseSalesMonth([[`Cust No`, `Cust Name`, `Feb`], [1001, `صيدلية شهرية`, 25]], 2);
+await api.appendSalesMonth(correctedFebruary, `2026`, 2, `feb-fixed.xlsx`, [1, 2, 3, 4]);
+const afterCorrection = memory.get(`forecast_sales/2026`);
+assert.deepEqual(afterCorrection.months, [1, 2, 3, 4]);
+assert.equal(afterCorrection.customers[`1001`].months[`2`], 2500);
+assert.equal(afterCorrection.customers[`1001`].months[`1`], 0);
+assert.equal(afterCorrection.customers[`1001`].months[`3`], 99900);
+assert.equal(afterCorrection.customers[`1001`].months[`4`], 12345);
+await assert.rejects(api.appendSalesMonth(april, `2026`, 6, `skipped.xlsx`, [1, 2, 3, 4]), /الشهر التالي/);
 api.lockAdmin(); await assert.rejects(api.saveConfig(`2026-10`, true), /إدارة/);
 console.log(`Forecast checks passed: blank confirmation, order gate, Excel import validation, duplicates, revisions, permissions and sales import.`);
