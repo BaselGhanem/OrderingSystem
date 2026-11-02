@@ -231,7 +231,7 @@ export async function importSales(parsed, year, filename) {
  * Older months are never sent back to Firestore or overwritten.
  * The caller must first verify that month follows the saved months.
  */
-export async function appendSalesMonth(parsed, year, month, filename, previousMonths) {
+export async function appendSalesMonth(parsed, year, month, filename, previousMonths, existingCustomerCodes = null) {
     requireAdmin();
     if (!/^20\d\d$/.test(String(year))) throw new Error(`السنة غير صحيحة`);
     if (!Number.isInteger(month) || month < 1 || month > 12) throw new Error(`الشهر غير صحيح`);
@@ -239,11 +239,13 @@ export async function appendSalesMonth(parsed, year, month, filename, previousMo
         throw new Error(`يمكن تعديل شهر محفوظ أو إضافة الشهر التالي فقط، بدون إعادة رفع الأشهر السابقة`);
     const customers = Object.entries(parsed.customers || {});
     if (!customers.length || customers.length > 20000) throw new Error(`ملف الشهر فارغ أو كبير جدا`);
+    const existingCodes = new Set(Array.isArray(existingCustomerCodes) ? existingCustomerCodes : []);
     const updates = [new FieldPath(`months`), arrayUnion(month), new FieldPath(`updatedAt`), serverTimestamp(),
         new FieldPath(`lastMonthFile`), filename, new FieldPath(`importMode`), `monthly_append`];
     for (const [code, customer] of customers) {
         if (!/^\d+$/.test(code) || !Number.isSafeInteger(customer.amount)) throw new Error(`قيمة أو كود غير صالح في ملف الشهر`);
-        updates.push(new FieldPath(`customers`, code, `name`), String(customer.name).slice(0, 500));
+        // Preserve established pharmacy names; only introduce names for new codes.
+        if (!existingCustomerCodes || !existingCodes.has(code)) updates.push(new FieldPath(`customers`, code, `name`), String(customer.name).slice(0, 500));
         updates.push(new FieldPath(`customers`, code, `months`, String(month)), customer.amount);
     }
     const batch = writeBatch(db);
