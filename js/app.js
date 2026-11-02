@@ -99,7 +99,11 @@ try {
     }
 
     source = source.replace(resolverPattern, canonicalResolver);
-    source = source.replace("'./forecast-store.js?v=20261101_partial_excel_v2'", JSON.stringify(new URL(`./forecast-store.js?v=20261101_partial_excel_v2`, import.meta.url).href));
+    // The loaded application runs from a blob URL, where relative imports are invalid.
+    // Resolve every local static import against its original source URL, including new version tags.
+    source = source.replace(/\\bfrom\\s+(['"])(\\.\\/[^'"]+)\\1/g, (_match, _quote, relativePath) =>
+        `from ${JSON.stringify(new URL(relativePath, sourceUrl).href)}`
+    );
     source = source.replace(supervisorDeletePattern, supervisorDeleteResolver);
     source = source.replace(/from\s+(['"])\.\/firebase\.js\1/, `from ${JSON.stringify(firebaseUrl)}`);
     source = source.replace(
