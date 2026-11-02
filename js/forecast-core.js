@@ -157,6 +157,32 @@ const MONTH_HEADERS = [
     [`jan`, `january`, `يناير`], [`feb`, `february`, `فبراير`], [`mar`, `march`, `مارس`], [`apr`, `april`, `ابريل`, `أبريل`], [`may`, `مايو`], [`jun`, `june`, `يونيو`],
     [`jul`, `july`, `يوليو`], [`aug`, `august`, `اغسطس`, `أغسطس`], [`sep`, `sept`, `september`, `سبتمبر`], [`oct`, `october`, `اكتوبر`, `أكتوبر`], [`nov`, `november`, `نوفمبر`], [`dec`, `december`, `ديسمبر`]
 ];
+/**
+ * Accept a single month beside Cust No / Cust Name. Historical columns may be
+ * present in the workbook but are deliberately ignored, never uploaded again.
+ */
+export function parseSalesMonth(matrix, month) {
+    if (!Number.isInteger(month) || month < 1 || month > 12) throw new Error(`شهر المبيعات غير صالح`);
+    if (!Array.isArray(matrix)) throw new Error(`ملف المبيعات فارغ`);
+    const nonempty = matrix.filter(row => Array.isArray(row) && row.some(value => value !== null && value !== undefined && String(value).trim() !== ``));
+    if (nonempty.length < 2 || nonempty.length > 20001) throw new Error(`ملف الشهر فارغ أو يتجاوز 20000 صيدلية`);
+    const headers = nonempty[0].map(value => String(value ?? ``).trim().toLowerCase().replace(/\s+/g, ` `));
+    const codeIndex = headers.indexOf(`cust no`), nameIndex = headers.indexOf(`cust name`);
+    const monthIndices = headers.map((value, index) => MONTH_HEADERS[month - 1].includes(value) ? index : -1).filter(index => index >= 0);
+    if (codeIndex < 0 || nameIndex < 0 || monthIndices.length !== 1) throw new Error(`يجب وجود Cust No و Cust Name وعمود ${MONTH_NAMES[month - 1]} مرة واحدة فقط`);
+    const monthIndex = monthIndices[0], customers = {};
+    let total = 0;
+    nonempty.slice(1).forEach((row, i) => {
+        const code = codeKey(row[codeIndex]), name = String(row[nameIndex] ?? ``).trim();
+        if (!code || !name) throw new Error(`الصف ${i + 2}: كود او اسم الصيدلية غير صالح`);
+        if (Object.prototype.hasOwnProperty.call(customers, code)) throw new Error(`كود الصيدلية ${code} مكرر في الملف`);
+        const amount = row[monthIndex];
+        if (typeof amount !== `number` || !Number.isFinite(amount)) throw new Error(`الصف ${i + 2}: مبيعات ${MONTH_NAMES[month - 1]} غير رقمية او فارغة`);
+        customers[code] = { name, amount: cents(amount) };
+        total += cents(amount);
+    });
+    return { customers, count: Object.keys(customers).length, month, total };
+}
 export function parseSalesRows(matrix, lastMonth = null) {
     const nonempty = matrix.filter(row => row.some(value => value !== null && value !== undefined && String(value).trim() !== ``));
     if (nonempty.length < 2) throw new Error(`ملف المبيعات فارغ`);
