@@ -41,12 +41,20 @@ export async function attachedBaseline() {
 }
 const rows = snapshot => snapshot.docs.map(item => ({ ...item.data(), id: item.id }));
 const pendingReads = new Map();
-function shareRead(key, action) {
+const recentReads = new Map();
+const ROUTING_CACHE_MS = 5 * 60 * 1000;
+function shareRead(key, action, maxAgeMs = 0) {
+    const cached = recentReads.get(key);
+    if (maxAgeMs > 0 && cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.value);
     if (pendingReads.has(key)) return pendingReads.get(key);
-    const request = Promise.resolve().then(action).finally(() => pendingReads.delete(key));
+    const request = Promise.resolve().then(action).then(value => {
+        if (maxAgeMs > 0) recentReads.set(key, { value, expiresAt: Date.now() + maxAgeMs });
+        return value;
+    }).finally(() => pendingReads.delete(key));
     pendingReads.set(key, request);
     return request;
 }
+export function invalidateRoutingCache() { recentReads.delete(`routing`); }
 export function errorMessage(error) {
     return /(^|\/)resource-exhausted$/.test(error?.code || ``) ? `وصل Firestore إلى حد الاستهلاك أو الطلبات. تعذر التحقق من البيانات؛ راجع Usage في Firebase قبل إعادة المحاولة.` : error?.message || `تعذر إتمام العملية`;
 }
@@ -60,19 +68,24 @@ export function loadConfig() { return shareRead(`config`, async () => {
     const snapshot = await getDocFromServer(configRef());
     return snapshot.exists() ? snapshot.data() : { enabled: false, activeMonth: ammanMonth() };
 }); }
+async function loadRouting() {
+    return shareRead(`routing`, async () => {
+        const [pharmacies, reps, assignments] = await Promise.all([
+            getDocsFromServer(collection(db, `pharmacies`)), getDocsFromServer(collection(db, `reps`)),
+            getDocFromServer(doc(db, `system_settings`, `rep_supervisor_assignments`))
+        ]);
+        const repRows = rows(reps), pharmacyRows = rows(pharmacies);
+        return { reps: repRows, pharmacies: pharmacyRows, ...resolveRoutes(pharmacyRows, repRows, assignments.exists() ? assignments.data()?.assignments : {}) };
+    }, ROUTING_CACHE_MS);
+}
 export function loadDataset(month, { routingOnly = false } = {}) {
     if (!validMonth(month)) throw new Error(`اختر شهرا صحيحا`);
     return shareRead(`dataset:${month.slice(0, 4)}:${routingOnly}`, async () => {
-    const sales = routingOnly ? null : await getDocFromServer(salesRef(month.slice(0, 4)));
-    const salesData = sales?.exists() ? sales.data() : null;
-    if (!routingOnly && !salesData) return { sales: null, reps: [], pharmacies: [], routes: new Map(), conflicts: new Map(), invalid: [], rows: [] };
-    const [pharmacies, reps, assignments] = await Promise.all([
-        getDocsFromServer(collection(db, `pharmacies`)), getDocsFromServer(collection(db, `reps`)),
-        getDocFromServer(doc(db, `system_settings`, `rep_supervisor_assignments`))
-    ]);
-    const repRows = rows(reps), pharmacyRows = rows(pharmacies);
-    const routing = resolveRoutes(pharmacyRows, repRows, assignments.exists() ? assignments.data()?.assignments : {});
-    return { sales: salesData, reps: repRows, pharmacies: pharmacyRows, ...routing, rows: eligibleRows(salesData, routing.routes) };
+        const sales = routingOnly ? null : await getDocFromServer(salesRef(month.slice(0, 4)));
+        const salesData = sales?.exists() ? sales.data() : null;
+        if (!routingOnly && !salesData) return { sales: null, reps: [], pharmacies: [], routes: new Map(), conflicts: new Map(), invalid: [], rows: [] };
+        const routing = await loadRouting();
+        return { sales: salesData, ...routing, rows: eligibleRows(salesData, routing.routes) };
     });
 }
 export async function loadForecast(month, repId) {
@@ -135,14 +148,18 @@ export async function saveForecast(month, repId, entries, revision, confirm) {
         clean[row.code] = { amount: entry?.amount ?? null, note: String(entry?.note || ``).trim().slice(0, 1000) };
     }
     const ref = forecastRef(month, repId);
-    await runTransaction(db, async transaction => {
+    return runTransaction(db, async transaction => {
         const snapshot = await transaction.get(ref);
         const previous = snapshot.exists() ? snapshot.data() : { revision: 0 };
         if (previous.status === `confirmed`) throw new Error(`التوقع مؤكد. إعادة الفتح متاحة للأدمن فقط`);
         if ((previous.revision || 0) !== revision) throw new Error(`تغيرت البيانات من نافذة أخرى. حدث الصفحة قبل الحفظ`);
-        transaction.set(ref, { month, repId, repName: session().repName, entries: clean, codes: eligible.map(row => row.code), status: confirm ? `confirmed` : `draft`, revision: revision + 1, updatedAt: serverTimestamp(), confirmedAt: confirm ? serverTimestamp() : null });
+        const write = { month, repId, repName: session().repName, entries: clean, codes: eligible.map(row => row.code), status: confirm ? `confirmed` : `draft`, revision: revision + 1, updatedAt: serverTimestamp(), confirmedAt: confirm ? serverTimestamp() : null };
+        transaction.set(ref, write);
+        // The transaction result is returned only after a successful commit. Do not
+        // issue another server read: a quota failure there could falsely report save failure.
+        const savedAt = new Date();
+        return { ...write, updatedAt: savedAt, confirmedAt: confirm ? savedAt : null };
     });
-    return loadForecast(month, repId);
 }
 export async function importSales(parsed, year, filename) {
     requireAdmin();
