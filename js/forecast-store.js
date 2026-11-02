@@ -1,5 +1,5 @@
 import { db } from './firebase.js';
-import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, getDocFromCache, FieldPath, arrayUnion, setDoc, writeBatch, runTransaction, serverTimestamp } from './firestore-meter.js?v=20261006_reads1';
+import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, getDocFromCache, getDocsFromCache, FieldPath, arrayUnion, setDoc, writeBatch, runTransaction, serverTimestamp } from './firestore-meter.js?v=20261006_reads1';
 import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261102_monthly_append_v1';
 
 const configRef = () => doc(db, `system_settings`, `forecast`);
@@ -43,6 +43,17 @@ const rows = snapshot => snapshot.docs.map(item => ({ ...item.data(), id: item.i
 const pendingReads = new Map();
 const recentReads = new Map();
 const ROUTING_CACHE_MS = 5 * 60 * 1000;
+const ROUTING_PERSISTED_MS = 30 * 60 * 1000;
+const ROUTING_MARKER_KEY = `dad_forecast_full_routing_cache_v1`;
+function routingMarker() {
+    try {
+        const value = JSON.parse(localStorage.getItem(ROUTING_MARKER_KEY) || `null`);
+        return Number.isInteger(value?.pharmacies) && value.pharmacies > 0 && Number.isInteger(value?.reps) && value.reps > 0 ? value : null;
+    } catch { return null; }
+}
+function markRouting(pharmacies, reps) {
+    try { localStorage.setItem(ROUTING_MARKER_KEY, JSON.stringify({ pharmacies: pharmacies.size, reps: reps.size, at: Date.now() })); } catch {}
+}
 function shareRead(key, action, maxAgeMs = 0) {
     const cached = recentReads.get(key);
     if (maxAgeMs > 0 && cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.value);
@@ -56,6 +67,7 @@ function shareRead(key, action, maxAgeMs = 0) {
 }
 export function invalidateRoutingCache() {
     recentReads.clear();
+    try { localStorage.removeItem(ROUTING_MARKER_KEY); } catch {}
 }
 export function errorMessage(error) {
     return /(^|\/)resource-exhausted$/.test(error?.code || ``) ? `وصل Firestore إلى حد الاستهلاك أو الطلبات. تعذر التحقق من البيانات؛ راجع Usage في Firebase قبل إعادة المحاولة.` : error?.message || `تعذر إتمام العملية`;
@@ -92,12 +104,26 @@ export function loadConfig({ preferCache = false } = {}) {
 async function loadRouting() {
     return shareRead(`routing`, async () => {
         const pharmaciesRef = collection(db, `pharmacies`), repsRef = collection(db, `reps`);
-        // An empty cached query cannot prove it contains the complete routing list.
-        // Only reuse it after a full server query in this tab; other tabs use the server.
-        const [pharmacies, reps, assignments] = await Promise.all([
-            getDocsFromServer(pharmaciesRef), getDocsFromServer(repsRef),
-            getDocFromServer(doc(db, `system_settings`, `rep_supervisor_assignments`))
-        ]);
+        const assignmentsRef = doc(db, `system_settings`, `rep_supervisor_assignments`);
+        const marker = routingMarker();
+        let pharmacies = null, reps = null, assignments = null;
+        // Only trust a cached collection if this browser previously fetched the
+        // FULL collections and the number of cached documents still matches.
+        // Otherwise query the server and retain existing correctness checks.
+        if (marker && Date.now() - marker.at < ROUTING_PERSISTED_MS) {
+            try {
+                const cache = await Promise.all([
+                    getDocsFromCache(pharmaciesRef), getDocsFromCache(repsRef), getDocFromCache(assignmentsRef)
+                ]);
+                if (cache[0].size === marker.pharmacies && cache[1].size === marker.reps) [pharmacies, reps, assignments] = cache;
+            } catch { /* Cache incomplete: use the server. */ }
+        }
+        if (!pharmacies || !reps || !assignments) {
+            [pharmacies, reps, assignments] = await Promise.all([
+                getDocsFromServer(pharmaciesRef), getDocsFromServer(repsRef), getDocFromServer(assignmentsRef)
+            ]);
+            markRouting(pharmacies, reps);
+        }
         const repRows = rows(reps), pharmacyRows = rows(pharmacies);
         return { reps: repRows, pharmacies: pharmacyRows, ...resolveRoutes(pharmacyRows, repRows, assignments.exists() ? assignments.data()?.assignments : {}) };
     }, ROUTING_CACHE_MS);
