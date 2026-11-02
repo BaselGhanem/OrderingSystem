@@ -313,6 +313,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             const previous = await salesForAdmin(year);
             if (!previous) throw new Error(`لا يوجد ملف سنوي معتمد. استخدم استبدال السنة كاملة لرفع اول ملف للسنة`);
             const previousMonths = previous.months || [];
+            if (!previousMonths.length) throw new Error(`لا توجد اشهر سابقة معتمدة، يرجى رفع اول ملف سنوي كامل`);
             if (month > previousMonths.at(-1) + 1) throw new Error(`آخر شهر محفوظ هو ${MONTH_NAMES[previousMonths.at(-1) - 1] || `غير معروف`}. يمكنك تعديل شهر سابق او اضافة ${MONTH_NAMES[previousMonths.at(-1)] || `الشهر التالي`} فقط`);
             state.pending = { kind: `month`, parsed, filename, year, month, previousMonths };
             $(`fcImportPreview`).textContent = `${month <= previousMonths.at(-1) ? `تحديث` : `إضافة`} مبيعات ${MONTH_NAMES[month - 1]} ${year}: ${parsed.count} صيدلية، بإجمالي ${money(parsed.total)} د.ا. باقي اشهر السنة لن تتغير. تم فحص الملف، ولم يتم حفظه بعد.`;
@@ -380,7 +381,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             const description = kind === `month` ? `حفظ مبيعات ${MONTH_NAMES[month - 1]} ${year} فقط دون تغيير بقية الاشهر؟` : `استبدال مبيعات ${year} بالكامل وحذف اي شهر او صيدلية غير موجودة بالملف؟`;
             if (!confirm(description)) return;
             if (kind === `month`) {
-                await api.appendSalesMonth(parsed, year, month, filename, previousMonths);
+                await api.appendSalesMonth(parsed, year, month, filename, previousMonths, Object.keys(state.adminSales?.customers || {}));
                 if (state.adminSales) {
                     for (const [code, customer] of Object.entries(parsed.customers)) {
                         const oldCustomer = state.adminSales.customers[code] || { months: {} };
