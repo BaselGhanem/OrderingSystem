@@ -1,5 +1,5 @@
 import { MONTH_NAMES, monthLabel, validMonth, normalizeName, eligibleRows, progress, forecastValue, invoiceTotals, parseSalesRows, parseForecastExcel, dateValue } from './forecast-core.js?v=20261101_partial_excel_v2';
-import * as api from './forecast-store.js?v=20261101_partial_excel_v2';
+import * as api from './forecast-store.js?v=20261102_quota_reads_v1';
 
 const escape = value => String(value ?? ``).replace(/[&<>"']/g, c => ({ [`&`]: `&amp;`, [`<`]: `&lt;`, [`>`]: `&gt;`, [`"`]: `&quot;`, [`'`]: `&#39;` })[c]);
 const money = amount => amount === undefined || amount === null ? `—` : (amount / 100).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -45,7 +45,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
     function bindToolbar() {
         $(`fcSearch`)?.addEventListener(`input`, event => { state.filter = event.target.value; renderTable(); });
         $(`fcFilter`)?.addEventListener(`change`, event => { state.status = event.target.value; if (team || admin) renderTeam(); else renderTable(); });
-        $(`fcRefresh`)?.addEventListener(`click`, () => { if (state.dirty && !confirm(`يوجد تعديل غير محفوظ. تحديث الصفحة يفقد هذه التعديلات. المتابعة؟`)) return; run(load); });
+        $(`fcRefresh`)?.addEventListener(`click`, () => { if (state.dirty && !confirm(`يوجد تعديل غير محفوظ. تحديث الصفحة يفقد هذه التعديلات. المتابعة؟`)) return; run(async () => { api.invalidateRoutingCache(); await load(); }); });
         $(`fcDownload`)?.addEventListener(`click`, download);
     }
     async function load() {
