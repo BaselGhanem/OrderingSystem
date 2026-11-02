@@ -1,5 +1,5 @@
-import { MONTH_NAMES, monthLabel, validMonth, normalizeName, eligibleRows, progress, forecastValue, invoiceTotals, parseSalesRows, parseSalesMonth, parseForecastExcel, dateValue } from './forecast-core.js?v=20261102_monthly_append_v1';
-import * as api from './forecast-store.js?v=20261102_monthly_append_v1';
+import { MONTH_NAMES, monthLabel, validMonth, normalizeName, eligibleRows, progress, forecastValue, invoiceTotals, parseSalesRows, parseSalesMonth, parseForecastExcel, dateValue } from './forecast-core.js?v=20261102_monthly_append_v2';
+import * as api from './forecast-store.js?v=20261102_monthly_append_v2';
 
 const escape = value => String(value ?? ``).replace(/[&<>"']/g, c => ({ [`&`]: `&amp;`, [`<`]: `&lt;`, [`>`]: `&gt;`, [`"`]: `&quot;`, [`'`]: `&#39;` })[c]);
 const money = amount => amount === undefined || amount === null ? `—` : (amount / 100).toLocaleString(`en-US`, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
