@@ -300,7 +300,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
     }
     async function salesForAdmin(year, { force = false } = {}) {
         if (!force && state.adminSales && String(state.adminSales.year) === String(year)) return state.adminSales;
-        const saved = await api.loadSalesYear(year, { preferCache: !force });
+        const saved = await api.loadSalesYear(year);
         state.adminSales = saved ? { ...saved, year: Number(year) } : null;
         return state.adminSales;
     }
