@@ -1,5 +1,5 @@
 import { db } from './firebase.js';
-import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, getDocFromCache, getDocsFromCache, updateDoc, FieldPath, setDoc, writeBatch, runTransaction, serverTimestamp } from './firestore-meter.js?v=20261006_reads1';
+import { collection, doc, query, orderBy, documentId, limit, startAfter, getDocFromServer, getDocsFromServer, getDocFromCache, getDocsFromCache, updateDoc, FieldPath, arrayUnion, setDoc, writeBatch, runTransaction, serverTimestamp } from './firestore-meter.js?v=20261006_reads1';
 import { ammanMonth, validMonth, repDocumentId, resolveRoutes, eligibleRows, isComplete, permitActive, progress } from './forecast-core.js?v=20261101_partial_excel_v2';
 
 const configRef = () => doc(db, `system_settings`, `forecast`);
@@ -54,14 +54,29 @@ function shareRead(key, action, maxAgeMs = 0) {
     pendingReads.set(key, request);
     return request;
 }
-export function invalidateRoutingCache() { recentReads.delete(`routing`); }
+export function invalidateRoutingCache() {
+    recentReads.clear();
+}
 export function errorMessage(error) {
     return /(^|\/)resource-exhausted$/.test(error?.code || ``) ? `وصل Firestore إلى حد الاستهلاك أو الطلبات. تعذر التحقق من البيانات؛ راجع Usage في Firebase قبل إعادة المحاولة.` : error?.message || `تعذر إتمام العملية`;
 }
-export async function loadSalesYear(year) {
+export async function loadSalesYear(year, { preferCache = false } = {}) {
     requireAdmin();
     if (!/^20\d\d$/.test(String(year))) throw new Error(`السنة غير صحيحة`);
-    const snap = await getDocFromServer(salesRef(year));
+    let snap = null;
+    if (preferCache) {
+        try { snap = await getDocFromCache(salesRef(year)); }
+        catch { /* The year has not previously been cached in this browser. */ }
+    }
+    if (!snap || !snap.exists()) {
+        try { snap = await getDocFromServer(salesRef(year)); }
+        catch (error) {
+            if (!/(^|\/)resource-exhausted$/.test(error?.code || ``)) throw error;
+            try { snap = await getDocFromCache(salesRef(year)); }
+            catch { throw error; }
+            if (!snap.exists()) throw error;
+        }
+    }
     return snap.exists() ? snap.data() : null;
 }
 export function loadConfig({ preferCache = false } = {}) {
@@ -194,11 +209,11 @@ export async function appendSalesMonth(parsed, year, month, filename, previousMo
     requireAdmin();
     if (!/^20\d\d$/.test(String(year))) throw new Error(`السنة غير صحيحة`);
     if (!Number.isInteger(month) || month < 1 || month > 12) throw new Error(`الشهر غير صحيح`);
-    if (!Array.isArray(previousMonths) || !previousMonths.length || previousMonths.some((m, index) => m !== index + 1) || previousMonths.at(-1) + 1 !== month)
-        throw new Error(`يجب إضافة الشهر التالي مباشرة بعد آخر شهر محفوظ، بدون إعادة رفع الأشهر السابقة`);
+    if (!Array.isArray(previousMonths) || !previousMonths.length || previousMonths.some((m, index) => m !== index + 1) || month > previousMonths.at(-1) + 1)
+        throw new Error(`يمكن تعديل شهر محفوظ أو إضافة الشهر التالي فقط، بدون إعادة رفع الأشهر السابقة`);
     const customers = Object.entries(parsed.customers || {});
     if (!customers.length || customers.length > 20000) throw new Error(`ملف الشهر فارغ أو كبير جدا`);
-    const updates = [new FieldPath(`months`), [...previousMonths, month], new FieldPath(`updatedAt`), serverTimestamp(),
+    const updates = [new FieldPath(`months`), arrayUnion(month), new FieldPath(`updatedAt`), serverTimestamp(),
         new FieldPath(`lastMonthFile`), filename, new FieldPath(`importMode`), `monthly_append`];
     for (const [code, customer] of customers) {
         if (!/^\d+$/.test(code) || !Number.isSafeInteger(customer.amount)) throw new Error(`قيمة أو كود غير صالح في ملف الشهر`);
@@ -211,7 +226,7 @@ export async function appendSalesMonth(parsed, year, month, filename, previousMo
         rowCount: customers.length, at: serverTimestamp() });
     await batch.commit();
     recentReads.delete(`sales:${year}`);
-    return { year: Number(year), months: [...previousMonths, month] };
+    return { year: Number(year), months: month > previousMonths.at(-1) ? [...previousMonths, month] : [...previousMonths] };
 }
 export async function saveConfig(month, enabled) {
     requireAdmin();
