@@ -18,7 +18,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
     host.innerHTML = `<div class="fc-shell"><header class="fc-hero"><div><small dir="ltr">SALES FORECAST</small><h1>${admin ? `إدارة توقعات المبيعات` : mode === `tracking` ? `متابعة التوقع مقابل المفوتر` : team ? `توقعات فريقي` : `توقعات مبيعاتي`}</h1><p id="fcIdentity">${escape(team ? acting.admin.name : admin ? `إدارة شهرية للمبيعات والتوقعات` : acting.repName)}</p></div><div class="fc-hero-actions">${admin ? `` : `<a class="fc-hero-back" href="${team ? `supervisor.html` : `order.html`}" target="_top"><span aria-hidden="true">←</span> ${team ? `العودة إلى المشرف` : `العودة إلى صفحة الطلبيات`}</a>`}<div class="fc-hero-month"><label for="fcMonth">الشهر</label><input id="fcMonth" type="month" aria-label="شهر التوقع"></div></div></header>
 
     <div id="fcMessage" role="status" class="fc-status" hidden></div>
-    ${admin ? `<section id="fcAdminGate" class="fc-panel"><h2>فتح إدارة التوقعات</h2><p class="fc-muted">استخدم كلمة مرور الصفحة السرية. إعادة فتح التوقعات ومنح المهلة متاحتان هنا فقط.</p><form id="fcAdminLogin" class="fc-toolbar"><input id="fcAdminPassword" type="password" autocomplete="off" required aria-label="كلمة مرور الإدارة"><button type="submit">فتح الإدارة</button></form></section><section id="fcAdminControls" class="fc-panel" hidden><h2>المبيعات الفعلية وإعدادات الشهر</h2><p class="fc-muted">إعداد المنع الحالي لا يُحمّل تلقائيًا. اضغط عرض التوقعات لقراءة الإعداد الحالي قبل تغييره، أو اختر الإعداد المطلوب صراحةً واحفظه.</p><div class="fc-fields"><label class="fc-field">سنة ملف المبيعات<input id="fcYear" type="number" min="2020" max="2099" step="1"></label><label class="fc-field">طريقة تحديث المبيعات<select id="fcUploadMode"><option value="month" selected>إضافة شهر واحد (حفظ السابق)</option><option value="full">استبدال السنة كاملة (متقدم)</option></select></label><label class="fc-field">رفع ملف المبيعات<input id="fcUpload" type="file" accept=".xlsx,.xls"></label><label class="fc-field">الشهر المراد رفعه<select id="fcUploadEndMonth"><option value="9">سبتمبر</option><option value="10" selected>أكتوبر</option><option value="11">نوفمبر</option><option value="12">ديسمبر</option><option value="1">يناير</option><option value="2">فبراير</option><option value="3">مارس</option><option value="4">أبريل</option><option value="5">مايو</option><option value="6">يونيو</option><option value="7">يوليو</option><option value="8">أغسطس</option></select></label></div><div class="fc-toolbar"><button id="fcTemplateDownload" type="button">تنزيل قالب Excel</button><button id="fcShowSales" type="button" class="secondary">عرض المبيعات المحفوظة</button><button id="fcMonitor" type="button" class="secondary">عرض توقعات المندوبين والمهل</button><button id="fcAttached" type="button" class="secondary">معاينة البيانات الاساسية المرفقة</button><button id="fcImport" type="button" hidden>اعتماد ملف المبيعات</button></div><div id="fcTemplatePreview" class="fc-report" hidden></div><p class="fc-muted">مبيعات الاشهر السابقة محفوظة كما هي ولا تحتاج اعادة رفع. اختر اضافة شهر واحد ثم نزّل قالب الشهر المطلوب. زر عرض المبيعات المحفوظة يقرأ النسخة المعتمدة عند الطلب فقط.</p><div id="fcImportPreview" class="fc-report" hidden></div><p class="fc-muted">اضافة شهر واحد تحدث عمود ذلك الشهر فقط دون استبدال الاشهر السابقة. استبدال السنة كاملة خيار منفصل وخطير، لا تستخدمه لتحديث شهر واحد. توقعات المندوبين مستقلة عن المبيعات الفعلية.</p><div class="fc-fields"><label class="fc-field">شهر التعبئة ومنع الطلبات<input id="fcActiveMonth" type="month"></label><label class="fc-field">إلزام التأكيد قبل إدخال الطلبية<select id="fcEnforce"><option value="">اختر الإعداد المطلوب</option><option value="yes">مفعل</option><option value="no">غير مفعل</option></select></label></div><div class="fc-toolbar"><button id="fcConfigSave" type="button">حفظ إعداد الشهر</button><button id="fcAdminLock" type="button" class="secondary">قفل الإدارة</button></div></section>` : ``}
+    ${admin ? `<section id="fcAdminGate" class="fc-panel"><h2>فتح إدارة التوقعات</h2><p class="fc-muted">استخدم كلمة مرور الصفحة السرية. إعادة فتح التوقعات ومنح المهلة متاحتان هنا فقط.</p><form id="fcAdminLogin" class="fc-toolbar"><input id="fcAdminPassword" type="password" autocomplete="off" required aria-label="كلمة مرور الإدارة"><button type="submit">فتح الإدارة</button></form></section><section id="fcAdminControls" class="fc-panel" hidden><h2>المبيعات الفعلية وإعدادات الشهر</h2><p class="fc-muted">إعداد المنع الحالي لا يُحمّل تلقائيًا. اضغط عرض التوقعات لقراءة الإعداد الحالي قبل تغييره، أو اختر الإعداد المطلوب صراحةً واحفظه.</p><div class="fc-fields"><label class="fc-field">سنة ملف المبيعات<input id="fcYear" type="number" min="2020" max="2099" step="1"></label><label class="fc-field">طريقة تحديث المبيعات<select id="fcUploadMode"><option value="month" selected>إضافة او تحديث شهر واحد (حفظ بقية الاشهر)</option><option value="full">استبدال السنة كاملة (متقدم)</option></select></label><label class="fc-field">رفع ملف المبيعات<input id="fcUpload" type="file" accept=".xlsx,.xls"></label><label class="fc-field">الشهر المراد رفعه<select id="fcUploadEndMonth"><option value="9">سبتمبر</option><option value="10" selected>أكتوبر</option><option value="11">نوفمبر</option><option value="12">ديسمبر</option><option value="1">يناير</option><option value="2">فبراير</option><option value="3">مارس</option><option value="4">أبريل</option><option value="5">مايو</option><option value="6">يونيو</option><option value="7">يوليو</option><option value="8">أغسطس</option></select></label></div><div class="fc-toolbar"><button id="fcTemplateDownload" type="button">تنزيل قالب Excel</button><button id="fcShowSales" type="button" class="secondary">عرض المبيعات المحفوظة</button><button id="fcMonitor" type="button" class="secondary">عرض توقعات المندوبين والمهل</button><button id="fcAttached" type="button" class="secondary">معاينة البيانات الاساسية المرفقة</button><button id="fcImport" type="button" hidden>اعتماد ملف المبيعات</button></div><div id="fcTemplatePreview" class="fc-report" hidden></div><p class="fc-muted">مبيعات الاشهر السابقة محفوظة كما هي ولا تحتاج اعادة رفع. اختر اضافة شهر واحد ثم نزّل قالب الشهر المطلوب. زر عرض المبيعات المحفوظة يقرأ النسخة المعتمدة عند الطلب فقط.</p><div id="fcImportPreview" class="fc-report" hidden></div><p class="fc-muted">اضافة او تحديث شهر واحد يغير عمود ذلك الشهر فقط دون استبدال الاشهر السابقة. استبدال السنة كاملة خيار منفصل وخطير، لا تستخدمه لتحديث شهر واحد. توقعات المندوبين مستقلة عن المبيعات الفعلية.</p><div class="fc-fields"><label class="fc-field">شهر التعبئة ومنع الطلبات<input id="fcActiveMonth" type="month"></label><label class="fc-field">إلزام التأكيد قبل إدخال الطلبية<select id="fcEnforce"><option value="">اختر الإعداد المطلوب</option><option value="yes">مفعل</option><option value="no">غير مفعل</option></select></label></div><div class="fc-toolbar"><button id="fcConfigSave" type="button">حفظ إعداد الشهر</button><button id="fcAdminLock" type="button" class="secondary">قفل الإدارة</button></div></section>` : ``}
     <div id="fcContent"><div class="fc-busy"><span class="fc-spinner"></span>جاري تحميل البيانات من النظام…</div></div></div>`;
     const selectedRows = () => state.dataset.rows.filter(row => !team || normalizeName(row.supervisor) === normalizeName(acting.admin.name));
     const representativeRows = () => eligibleRows(state.dataset.sales, state.dataset.routes, acting.repId);
@@ -292,7 +292,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
         });
     }
     async function showTemplate() {
-        const saved = await api.loadSalesYear($(`fcYear`).value);
+        const saved = await salesForAdmin($(`fcYear`).value, { force: true });
         const rows = saved?.customers ? Object.entries(saved.customers).map(([code, customer]) => { const row = { [`Cust No`]: code, [`Cust Name`]: customer.name }; for (const month of saved.months || []) row[MONTH_NAMES[month - 1]] = Number.isSafeInteger(customer.months?.[String(month)]) ? customer.months[String(month)] / 100 : ``; return row; }) : templateRows();
         const headers = Object.keys(rows[0] || {});
         const preview = $(`fcTemplatePreview`); preview.hidden = false;
@@ -300,7 +300,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
     }
     async function salesForAdmin(year, { force = false } = {}) {
         if (!force && state.adminSales && String(state.adminSales.year) === String(year)) return state.adminSales;
-        const saved = await api.loadSalesYear(year);
+        const saved = await api.loadSalesYear(year, { preferCache: !force });
         state.adminSales = saved ? { ...saved, year: Number(year) } : null;
         return state.adminSales;
     }
@@ -313,9 +313,9 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             const previous = await salesForAdmin(year);
             if (!previous) throw new Error(`لا يوجد ملف سنوي معتمد. استخدم استبدال السنة كاملة لرفع اول ملف للسنة`);
             const previousMonths = previous.months || [];
-            if (previousMonths.at(-1) + 1 !== month) throw new Error(`آخر شهر محفوظ هو ${MONTH_NAMES[previousMonths.at(-1) - 1] || `غير معروف`}. اختر ${MONTH_NAMES[previousMonths.at(-1)] || `الشهر التالي`} لاضافته، دون إعادة رفع الاشهر السابقة`);
+            if (month > previousMonths.at(-1) + 1) throw new Error(`آخر شهر محفوظ هو ${MONTH_NAMES[previousMonths.at(-1) - 1] || `غير معروف`}. يمكنك تعديل شهر سابق او اضافة ${MONTH_NAMES[previousMonths.at(-1)] || `الشهر التالي`} فقط`);
             state.pending = { kind: `month`, parsed, filename, year, month, previousMonths };
-            $(`fcImportPreview`).textContent = `إضافة مبيعات ${MONTH_NAMES[month - 1]} ${year}: ${parsed.count} صيدلية، بإجمالي ${money(parsed.total)} د.ا. الاشهر من يناير حتى ${MONTH_NAMES[month - 2]} لن تتغير. تم فحص الملف، ولم يتم حفظه بعد.`;
+            $(`fcImportPreview`).textContent = `${month <= previousMonths.at(-1) ? `تحديث` : `إضافة`} مبيعات ${MONTH_NAMES[month - 1]} ${year}: ${parsed.count} صيدلية، بإجمالي ${money(parsed.total)} د.ا. باقي اشهر السنة لن تتغير. تم فحص الملف، ولم يتم حفظه بعد.`;
         } else {
             const parsed = parseSalesRows(matrix, month);
             state.pending = { kind: `full`, parsed, filename, year };
@@ -344,7 +344,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             let values;
             if ($(`fcUploadMode`).value === `month`) {
                 if (!saved) throw new Error(`لا توجد مبيعات محفوظة لهذه السنة لإنشاء قالب الشهر. ارفع السنة كاملة اولا.`);
-                if (saved.months?.at(-1) + 1 !== month) throw new Error(`اختر الشهر التالي بعد ${MONTH_NAMES[saved.months.at(-1) - 1]}`);
+                if (month > saved.months?.at(-1) + 1) throw new Error(`يمكن تحميل قالب شهر محفوظ او الشهر التالي بعد ${MONTH_NAMES[saved.months.at(-1) - 1]}`);
                 values = Object.entries(saved.customers || {}).map(([code, customer]) => ({ [`Cust No`]: code, [`Cust Name`]: customer.name, [MONTH_NAMES[month - 1]]: `` }));
             } else {
                 values = saved?.customers ? Object.entries(saved.customers).map(([code, customer]) => {
@@ -357,7 +357,13 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             exportWorkbook(values, `Sales_${year}_${String(month).padStart(2, `0`)}_${$(`fcUploadMode`).value}.xlsx`);
         });
         $(`fcMonitor`).onclick = () => run(async () => { state.monitoring = true; $(`fcContent`).hidden = false; await load(); });
-        $(`fcAttached`).onclick = () => run(async () => { const baseline = await api.attachedBaseline(); $(`fcYear`).value = baseline.year; await previewImport(baseline.matrix, baseline.filename, String(baseline.year)); });
+        $(`fcAttached`).onclick = () => run(async () => {
+            const baseline = await api.attachedBaseline();
+            const first = baseline.matrix?.[0] || [];
+            const preview = $(`fcTemplatePreview`);
+            preview.hidden = false;
+            preview.innerHTML = `<h3>الملف الاساسي المرفق - للمعاينة فقط</h3><p>سنة ${escape(baseline.year)} - ${Math.max(0, baseline.matrix.length - 1)} صف - ${first.length} عمود</p><p class="fc-muted">هذا ملف مرجعي قديم، وليس بديلا عن المبيعات المحفوظة في Firebase. لن يتم استيراده تلقائيا.</p>`;
+        });
         $(`fcUpload`).onchange = () => { const file = $(`fcUpload`).files[0]; state.pending = null; $(`fcImport`).hidden = true; $(`fcImportPreview`).hidden = true; if (!file) return;
             // Preserve the file while clearing only the preceding preview state.
             run(async () => {
@@ -371,7 +377,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
         $(`fcImport`).onclick = () => run(async () => {
             if (!state.pending) return;
             const { kind, parsed, year, month, filename, previousMonths } = state.pending;
-            const description = kind === `month` ? `اضافة ${MONTH_NAMES[month - 1]} ${year} فقط دون تعديل الاشهر السابقة؟` : `استبدال مبيعات ${year} بالكامل وحذف اي شهر او صيدلية غير موجودة بالملف؟`;
+            const description = kind === `month` ? `حفظ مبيعات ${MONTH_NAMES[month - 1]} ${year} فقط دون تغيير بقية الاشهر؟` : `استبدال مبيعات ${year} بالكامل وحذف اي شهر او صيدلية غير موجودة بالملف؟`;
             if (!confirm(description)) return;
             if (kind === `month`) {
                 await api.appendSalesMonth(parsed, year, month, filename, previousMonths);
@@ -380,7 +386,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
                         const oldCustomer = state.adminSales.customers[code] || { months: {} };
                         state.adminSales.customers[code] = { ...oldCustomer, name: customer.name, months: { ...oldCustomer.months, [month]: customer.amount } };
                     }
-                    state.adminSales.months = [...previousMonths, month];
+                    state.adminSales.months = month > previousMonths.at(-1) ? [...previousMonths, month] : [...previousMonths];
                 }
             } else {
                 await api.importSales(parsed, year, filename);
@@ -388,7 +394,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             }
             clearPreview(); state.monitoring = false; $(`fcContent`).hidden = true;
             $(`fcTemplatePreview`).hidden = true;
-            notify(kind === `month` ? `تم حفظ ${MONTH_NAMES[month - 1]} فقط وبقيت مبيعات الاشهر السابقة كما هي` : `تم استبدال ملف مبيعات السنة حسب اختيارك`);
+            notify(kind === `month` ? `تم تحديث ${MONTH_NAMES[month - 1]} فقط دون تعديل بقية الاشهر` : `تم استبدال ملف مبيعات السنة حسب اختيارك`);
         });
         $(`fcConfigSave`).onclick = () => run(async () => {
             const month = $(`fcActiveMonth`).value;
@@ -403,7 +409,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             $(`fcAdminGate`).hidden = false; $(`fcAdminControls`).hidden = true; $(`fcContent`).hidden = true;
         };
     }
-    $(`fcMonth`).onchange = () => { if (state.busy) { $(`fcMonth`).value = state.month; return; } if (state.dirty && !confirm(`يوجد تعديل غير محفوظ. تغيير الشهر يفقد هذه التعديلات. المتابعة؟`)) { $(`fcMonth`).value = state.month; return; } state.month = $(`fcMonth`).value; if (!admin) run(load); else if (state.admin) { if (state.template) showTemplate(); if (state.monitoring) run(load); } };
+    $(`fcMonth`).onchange = () => { if (state.busy) { $(`fcMonth`).value = state.month; return; } if (state.dirty && !confirm(`يوجد تعديل غير محفوظ. تغيير الشهر يفقد هذه التعديلات. المتابعة؟`)) { $(`fcMonth`).value = state.month; return; } state.month = $(`fcMonth`).value; if (!admin) run(load); else if (state.admin) { if (state.monitoring) run(load); } };
     window.addEventListener(`beforeunload`, event => { if (state.dirty) { event.preventDefault(); event.returnValue = ``; } });
     if (!admin) await run(load);
     else { const parts = new Intl.DateTimeFormat(`en-CA`, { timeZone: `Asia/Amman`, year: `numeric`, month: `2-digit` }).formatToParts(new Date()); state.month = `${parts.find(p => p.type === `year`).value}-${parts.find(p => p.type === `month`).value}`; $(`fcMonth`).value = state.month; $(`fcYear`).value = state.month.slice(0, 4); $(`fcActiveMonth`).value = state.month; $(`fcEnforce`).value = ``; }
