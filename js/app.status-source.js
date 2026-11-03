@@ -342,6 +342,7 @@ let currentPharmaciesData = [];
 let currentMyOrdersData = [];
 let reportsOrdersData = [];
 let reservedProductKeys = new Set();
+let hiddenProductKeys = new Set();
 let reservationStateReady = false;
 let unsubInventoryReservations = null;
 
@@ -475,15 +476,19 @@ function getReservationKeys(value = {}) {
 }
 
 function rebuildReservedProductKeys(snapshot) {
-    const keys = new Set();
+    const reservedKeys = new Set();
+    const hiddenKeys = new Set();
     snapshot.forEach(row => {
         const data = row.data ? row.data() : row;
-        if (data?.active === false) return;
-        getReservationKeys({ id: data.productId || row.id, ...data }).forEach(key => keys.add(key));
+        const keys = getReservationKeys({ id: data.productId || row.id, ...data });
+        if (data?.active !== false) keys.forEach(key => reservedKeys.add(key));
+        if (data?.hiddenFromOrders === true) keys.forEach(key => hiddenKeys.add(key));
     });
-    reservedProductKeys = keys;
+    reservedProductKeys = reservedKeys;
+    hiddenProductKeys = hiddenKeys;
     reservationStateReady = true;
     syncReservationIndicators();
+    document.querySelectorAll('.product-suggestions').forEach(list => { list.style.display = 'none'; });
 }
 
 async function refreshInventoryReservations() {
@@ -514,6 +519,15 @@ function resolveProductForReservation(value = {}) {
 function isProductReserved(value = {}) {
     const product = resolveProductForReservation(value);
     return getReservationKeys(product).some(key => reservedProductKeys.has(key));
+}
+
+function isProductHidden(value = {}) {
+    const product = resolveProductForReservation(value);
+    return getReservationKeys(product).some(key => hiddenProductKeys.has(key));
+}
+
+function selectableOrderProductNames() {
+    return productsList.filter(product => !isProductHidden(product)).map(product => product.name);
 }
 
 function getOrderType(order = {}) {
@@ -1822,7 +1836,7 @@ function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) 
     let currentFocus = -1;
 
     function showList() {
-        const data = inputEl._autocompleteData || [];
+        const data = inputEl.classList.contains('product-input') ? selectableOrderProductNames() : (inputEl._autocompleteData || []);
         const cb = inputEl._autocompleteCallback;
         const val = inputEl.value.trim().toLowerCase();
         
@@ -2507,11 +2521,15 @@ function addNewRow(prefill = null) {
           t = tr.querySelector('.row-total'),
           bPct = tr.querySelector('.bonus-pct');
           
-    const productNames = productsList.map(prod => prod.name);
+    const productNames = selectableOrderProductNames();
     
     setupAutocomplete(s, sug, productNames, (selectedName) => {
         const selectedProd = productsList.find(prod => prod.name === selectedName);
         if (!selectedProd) return;
+        if (isProductHidden(selectedProd)) {
+            resetProductRow(tr);
+            return showToast('هذا الصنف مخفي عن ادخال الطلبيات حاليا.', 'warning');
+        }
         if (!enforceNoMixedOrderForRow(tr, selectedProd)) return;
         tr.regularBonusChanged?.();
         const pr = parseAppNumber(selectedProd.price);
@@ -2525,11 +2543,11 @@ function addNewRow(prefill = null) {
     s.addEventListener('blur', function() {
         const val = this.value.trim();
         if (val === "") return;
-        const isValid = productsList.some(p => p.name === val);
+        const isValid = productsList.some(p => p.name === val && !isProductHidden(p));
         if (!isValid) {
             this.classList.add('input-error');
             let err = this.parentNode.querySelector('.inline-error-msg');
-            if(!err) { err = document.createElement('span'); err.className="inline-error-msg"; err.innerText="صنف غير موجود"; this.parentNode.appendChild(err); }
+            if(!err) { err = document.createElement('span'); err.className="inline-error-msg"; err.innerText="الصنف غير موجود او مخفي حاليا"; this.parentNode.appendChild(err); }
         } else {
             this.classList.remove('input-error');
             const err = this.parentNode.querySelector('.inline-error-msg');
@@ -2673,7 +2691,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
     document.querySelectorAll('#orderBody tr').forEach(r => {
         const s = r.querySelector('.product-input');
         if (s && s.value.trim() !== "") {
-            const isValid = productsList.some(prod => prod.name === s.value.trim());
+            const isValid = productsList.some(prod => prod.name === s.value.trim() && !isProductHidden(prod));
             
             if (!isValid) {
                 invalidItem = true;
@@ -2695,6 +2713,9 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
     let orderTypeInfo;
     try {
         await refreshInventoryReservations();
+        if (items.some(item => isProductHidden(item))) {
+            return showToast('تحتوي الطلبية على صنف مخفي حاليا. احذفه قبل ارسال الطلبية.', 'error');
+        }
         taggedItems = tagItemsByCurrentReservations(items);
         orderTypeInfo = evaluateOrderItemTypes(taggedItems);
     } catch (error) {
@@ -4006,7 +4027,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         const s = tr.querySelector('.product-input'), sug = tr.querySelector('.product-suggestions');
         const q = tr.querySelector('.qty-input'), p = tr.querySelector('.price-cell'), t = tr.querySelector('.row-total');
         const b = tr.querySelector('.bonus-input'), bPct = tr.querySelector('.edit-bonus-pct'); // 🟢 جلب حقول البونص
-        const productNames = productsList.map(prod => prod.name);
+        const productNames = selectableOrderProductNames();
         
         // 🟢 وظيفة حساب نسبة البونص للتعديل
         function calcEditBonus() {
@@ -4020,7 +4041,12 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         }
 
         setupAutocomplete(s, sug, productNames, (selectedName) => { 
-            const prod = productsList.find(pr => pr.name === selectedName); 
+            const prod = productsList.find(pr => pr.name === selectedName);
+            if (prod && isProductHidden(prod) && !(Array.isArray(order.items) && order.items.some(item => item.name === selectedName))) {
+                s.value = '';
+                s.dataset.productCode = '';
+                return showToast('هذا الصنف مخفي عن ادخال الطلبيات حاليا.', 'warning');
+            }
             tr.regularBonusChanged?.();
             const pr = prod ? parseFloat(prod.price) : 0; 
             s.dataset.productCode = prod?.productCode || prod?.product_code || prod?.code || ''; 
@@ -4032,7 +4058,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
         s.addEventListener('blur', function() {
             const val = this.value.trim();
             if (val === "") return;
-            const isValid = productsList.some(pr => pr.name === val);
+            const isValid = productsList.some(pr => pr.name === val && (!isProductHidden(pr) || (Array.isArray(order.items) && order.items.some(item => item.name === val))));
             if (!isValid) { this.style.border = "2px solid red"; } 
             else { this.style.border = "1px solid #ccc"; }
         });
@@ -4099,6 +4125,10 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
             let editedTypeInfo;
             try {
                 await refreshInventoryReservations();
+                const originalNames = new Set((Array.isArray(order.items) ? order.items : []).map(item => String(item.name || '').trim()));
+                if (items.some(item => isProductHidden(item) && !originalNames.has(String(item.name || '').trim()))) {
+                    return showToast('لا يمكن اضافة صنف مخفي عند تعديل الطلبية.', 'error');
+                }
                 validatedItems = tagItemsForExistingOrder(items, order);
                 editedTypeInfo = evaluateOrderItemTypes(validatedItems);
                 const expectedType = order.orderType === RESERVED_ORDER_TYPE || order.isReservedOrder === true ? RESERVED_ORDER_TYPE : (order.orderType === REGULAR_ORDER_TYPE ? REGULAR_ORDER_TYPE : '');
