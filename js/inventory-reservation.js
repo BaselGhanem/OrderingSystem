@@ -7,6 +7,7 @@ const $ = id => document.getElementById(id);
 
 let products = [];
 let reservations = new Map();
+let hiddenProducts = new Map();
 let auditRows = [];
 let session = null;
 let unsubReservations = null;
@@ -68,6 +69,7 @@ function productPrice(product = {}) {
 function renderStats() {
     $('statProducts').textContent = products.length;
     $('statReserved').textContent = reservations.size;
+    $('statHidden').textContent = hiddenProducts.size;
     $('statAudit').textContent = auditRows.length;
 }
 
@@ -76,10 +78,13 @@ function filteredProducts() {
     const status = $('statusFilter')?.value || '';
     return products.filter(product => {
         const reserved = reservations.has(product.id);
+        const hidden = hiddenProducts.has(product.id);
         const haystack = `${product.name || ''} ${productCode(product)}`.toLocaleLowerCase('ar');
         if (q && !haystack.includes(q)) return false;
         if (status === 'reserved' && !reserved) return false;
         if (status === 'available' && reserved) return false;
+        if (status === 'hidden' && !hidden) return false;
+        if (status === 'visible' && hidden) return false;
         return true;
     });
 }
@@ -97,16 +102,19 @@ function renderProducts() {
     rows.forEach(product => {
         const reservation = reservations.get(product.id);
         const reserved = !!reservation;
+        const hidden = hiddenProducts.has(product.id);
         const tr = document.createElement('tr');
         if (reserved) tr.classList.add('reserved');
+        if (hidden) tr.classList.add('product-hidden');
         tr.innerHTML = `
-            <td><span class="ir-status ${reserved ? 'on' : 'off'}"><i class="ph ${reserved ? 'ph-lock-key' : 'ph-check-circle'}"></i>${reserved ? 'محجوز / مقطوع' : 'عادي'}</span></td>
+            <td><div class="ir-status-stack"><span class="ir-status ${reserved ? 'on' : 'off'}"><i class="ph ${reserved ? 'ph-lock-key' : 'ph-check-circle'}"></i>${reserved ? 'محجوز / مقطوع' : 'عادي'}</span>${hidden ? '<span class="ir-status hidden"><i class="ph ph-eye-slash"></i> مخفي عن الطلبيات</span>' : ''}</div></td>
             <td class="ir-code">${escapeHtml(productCode(product) || '-')}</td>
             <td><strong>${escapeHtml(product.name || '-')}</strong></td>
             <td>${escapeHtml(productPrice(product))}</td>
             <td>${reserved ? `<strong>${escapeHtml(reservation.reservedBy || '-')}</strong><div class="ir-actor">${escapeHtml(formatDate(reservation.reservedAt))}</div>` : '-'}</td>
-            <td><button type="button" class="ir-btn ${reserved ? 'danger' : 'reserve'} toggle-reservation"><i class="ph ${reserved ? 'ph-lock-open' : 'ph-lock-key'}"></i>${reserved ? 'فك الحجز' : 'حجز الصنف'}</button></td>`;
+            <td><div class="ir-row-actions"><button type="button" class="ir-btn ${reserved ? 'danger' : 'reserve'} toggle-reservation"><i class="ph ${reserved ? 'ph-lock-open' : 'ph-lock-key'}"></i>${reserved ? 'فك الحجز' : 'حجز الصنف'}</button><button type="button" class="ir-btn ${hidden ? 'show-product' : 'hide-product'} toggle-visibility"><i class="ph ${hidden ? 'ph-eye' : 'ph-eye-slash'}"></i>${hidden ? 'اظهار الصنف' : 'اخفاء الصنف'}</button></div></td>`;
         tr.querySelector('.toggle-reservation').addEventListener('click', () => toggleReservation(product, !reserved));
+        tr.querySelector('.toggle-visibility').addEventListener('click', () => toggleVisibility(product, !hidden));
         body.appendChild(tr);
     });
     renderStats();
@@ -116,14 +124,14 @@ function renderAudit() {
     const body = $('auditBody');
     if (!body) return;
     if (!auditRows.length) {
-        body.innerHTML = '<tr><td colspan="6" class="ir-empty">لا توجد حركات حجز مسجلة بعد.</td></tr>';
+        body.innerHTML = '<tr><td colspan="6" class="ir-empty">لا توجد حركات مسجلة بعد.</td></tr>';
         renderStats();
         return;
     }
     body.innerHTML = auditRows.slice(0, 300).map(row => `
         <tr>
             <td>${escapeHtml(formatDate(row.timestamp || row.createdAt))}</td>
-            <td><span class="ir-status ${row.action === 'inventory_reserved' ? 'on' : 'off'}">${row.action === 'inventory_reserved' ? 'حجز' : 'فك حجز'}</span></td>
+            <td><span class="ir-status ${row.action === 'inventory_reserved' ? 'on' : row.action === 'inventory_hidden' ? 'hidden' : 'off'}">${escapeHtml(({ inventory_reserved: 'حجز', inventory_released: 'فك حجز', inventory_hidden: 'اخفاء', inventory_shown: 'اظهار' })[row.action] || row.action || '-')}</span></td>
             <td class="ir-code">${escapeHtml(row.productCode || '-')}</td>
             <td>${escapeHtml(row.productName || '-')}</td>
             <td>${escapeHtml(row.actor || '-')}</td>
@@ -137,7 +145,7 @@ async function toggleReservation(product, shouldReserve) {
     const actionText = shouldReserve ? 'حجز' : 'فك حجز';
     if (!confirm(`${actionText} الصنف: ${product.name || '-'}؟`)) return;
     const actor = actorInfo();
-    const buttonCandidates = document.querySelectorAll('.toggle-reservation');
+    const buttonCandidates = document.querySelectorAll('.toggle-reservation, .toggle-visibility');
     buttonCandidates.forEach(btn => btn.disabled = true);
     try {
         const batch = writeBatch(db);
@@ -154,7 +162,8 @@ async function toggleReservation(product, shouldReserve) {
             reservedAt: now,
             updatedAt: now
         };
-        if (shouldReserve) batch.set(reservationRef, reservationPayload);
+        if (shouldReserve) batch.set(reservationRef, reservationPayload, { merge: true });
+        else if (hiddenProducts.has(product.id)) batch.set(reservationRef, { active: false, reservedBy: '', reservedByRole: '', reservedAt: null, updatedAt: now }, { merge: true });
         else batch.delete(reservationRef);
         batch.set(auditRef, {
             action: shouldReserve ? 'inventory_reserved' : 'inventory_released',
@@ -177,6 +186,58 @@ async function toggleReservation(product, shouldReserve) {
     }
 }
 
+async function toggleVisibility(product, shouldHide) {
+    if (!isAuthorized(session)) return showToast('لا تملك صلاحية تعديل ظهور الاصناف.', 'error');
+    const label = shouldHide ? 'اخفاء' : 'اظهار';
+    const detail = shouldHide ? 'لن يظهر هذا الصنف في قائمة اختيار الاصناف للطلبيات الجديدة، ولن يتمكن المندوب من اضافته' : 'سيظهر هذا الصنف مجددا للمندوبين';
+    if (!confirm(`${label} الصنف: ${product.name || '-'}؟\n${detail}\nحالة الحجز لن تتغير.`)) return;
+    const buttons = document.querySelectorAll('.toggle-reservation, .toggle-visibility');
+    buttons.forEach(button => button.disabled = true);
+    try {
+        const actor = actorInfo();
+        const now = new Date();
+        const ref = doc(db, 'inventoryReservations', product.id);
+        const auditRef = doc(collection(db, 'inventoryReservationAudit'));
+        const batch = writeBatch(db);
+        const reserved = reservations.has(product.id);
+        if (shouldHide) {
+            batch.set(ref, {
+                productId: product.id,
+                productName: product.name || '',
+                productCode: productCode(product),
+                active: reserved,
+                hiddenFromOrders: true,
+                hiddenBy: actor.name,
+                hiddenByRole: actor.role,
+                hiddenAt: now,
+                updatedAt: now
+            }, { merge: true });
+        } else if (reserved) {
+            batch.set(ref, { hiddenFromOrders: false, hiddenBy: '', hiddenByRole: '', hiddenAt: null, updatedAt: now }, { merge: true });
+        } else {
+            batch.delete(ref);
+        }
+        batch.set(auditRef, {
+            action: shouldHide ? 'inventory_hidden' : 'inventory_shown',
+            productId: product.id,
+            productName: product.name || '',
+            productCode: productCode(product),
+            actor: actor.name,
+            actorRole: actor.role,
+            timestamp: now,
+            oldValue: { hiddenFromOrders: !shouldHide, reserved },
+            newValue: { hiddenFromOrders: shouldHide, reserved }
+        });
+        await batch.commit();
+        showToast(shouldHide ? 'تم اخفاء الصنف عن ادخال الطلبيات مع بقاء الحجز كما هو.' : 'تم اظهار الصنف مجددا دون تغيير الحجز.', 'success');
+    } catch (error) {
+        console.error(error);
+        showToast('تعذر تعديل ظهور الصنف. لم يتم حفظ التغيير.', 'error');
+    } finally {
+        buttons.forEach(button => button.disabled = false);
+    }
+}
+
 async function loadProducts() {
     const snap = await getDocs(collection(db, 'products'));
     products = [];
@@ -189,10 +250,12 @@ function subscribeReservations() {
     unsubReservations?.();
     unsubReservations = onSnapshot(collection(db, 'inventoryReservations'), snap => {
         reservations = new Map();
+        hiddenProducts = new Map();
         snap.forEach(row => {
             const data = row.data();
-            if (data?.active === false) return;
-            reservations.set(data.productId || row.id, { id: row.id, ...data });
+            const id = data.productId || row.id;
+            if (data.hiddenFromOrders === true) hiddenProducts.set(id, { id: row.id, ...data });
+            if (data.active !== false) reservations.set(id, { id: row.id, ...data });
         });
         renderProducts();
     }, error => { console.error(error); showToast('تعذر مزامنة حالات الحجز.', 'error'); });
