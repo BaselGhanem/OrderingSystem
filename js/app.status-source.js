@@ -3875,6 +3875,53 @@ async function openEditOrder(orderId, userType) {
 
     let editPharmaciesData = [];
     let editPharmacyNames = [];
+    let selectedEditPharmacy = null;
+    const pharmacyChoiceMap = new Map();
+    const normalizeEditPharmacyName = value => String(value ?? ``)
+        .normalize(`NFKC`)
+        .replace(/[\u064B-\u065F\u0670\u0640\u200B-\u200F\uFEFF]/g, ``)
+        .replace(/[أإآٱ]/g, `ا`).replace(/ى/g, `ي`)
+        .replace(/[–—−]/g, `-`).replace(/\s*-\s*/g, `-`)
+        .replace(/\s+/g, ` `).trim().toLocaleLowerCase(`ar`);
+    const editPharmacyCode = pharmacy => String(pharmacy?.pharmacyCode || pharmacy?.pharmacy_code || pharmacy?.customerCode || ``).trim();
+    const refreshEditPharmacyOptions = () => {
+        pharmacyChoiceMap.clear();
+        const counts = new Map();
+        editPharmaciesData.forEach(p => {
+            const k = normalizeEditPharmacyName(p.name);
+            if (k) counts.set(k, (counts.get(k) || 0) + 1);
+        });
+        editPharmacyNames = editPharmaciesData.map(p => {
+            const name = String(p.name || ``).trim();
+            if (!name) return null;
+            const code = editPharmacyCode(p);
+            let label = counts.get(normalizeEditPharmacyName(name)) > 1 ? `${name} [${code || p.id || `بدون كود`}]` : name;
+            if (pharmacyChoiceMap.has(label)) label = `${label} [${p.id || `مكرر`}]`;
+            pharmacyChoiceMap.set(label, p);
+            return label;
+        }).filter(Boolean);
+    };
+    const resolveEditPharmacy = value => {
+        const key = normalizeEditPharmacyName(value);
+        if (!key) return { pharmacy: null, ambiguous: false };
+        if (selectedEditPharmacy && normalizeEditPharmacyName(selectedEditPharmacy.name) === key
+            && editPharmaciesData.includes(selectedEditPharmacy)) return { pharmacy: selectedEditPharmacy, ambiguous: false };
+        const matches = editPharmaciesData.filter(p => normalizeEditPharmacyName(p.name) === key);
+        const sameRep = lockRepSelection || String(document.getElementById(`editRepSelect`)?.value || ``) === originalRepId;
+        if (sameRep && key === normalizeEditPharmacyName(order.pharmacyName)) {
+            const id = String(order.pharmacyId || ``).trim();
+            const code = String(getPharmacyCodeFromOrder(order) || ``).trim();
+            const existing = (id && matches.find(p => String(p.id || ``).trim() === id))
+                || (code && matches.find(p => editPharmacyCode(p) === code));
+            return { pharmacy: existing || { name: order.pharmacyName, id, pharmacyCode: code, pharmacy_code: code }, ambiguous: false };
+        }
+        return { pharmacy: matches.length === 1 ? matches[0] : null, ambiguous: matches.length > 1 };
+    };
+    const onEditPharmacySelected = label => {
+        selectedEditPharmacy = pharmacyChoiceMap.get(label) || null;
+        if (selectedEditPharmacy) editPharmInput.value = selectedEditPharmacy.name || ``;
+        editPharmInput.style.border = `1px solid #ccc`;
+    };
     try {
         let pharmSnap;
         if (originalRepId) {
@@ -3898,7 +3945,10 @@ async function openEditOrder(orderId, userType) {
             });
             editPharmacyNames.push(order.pharmacyName);
         }
-    } catch (error) {}
+    } catch (error) {
+        console.warn(`تعذر تحميل صيدليات تعديل الطلبية:`, error);
+        showToast(`تعذر تحميل قائمة الصيدليات. يمكن إبقاء الصيدلية الأصلية.`, `warning`);
+    }
 
     const editModal = document.getElementById('editOrderModal');
     if (editModal) editModal.style.display = 'flex';
@@ -3962,18 +4012,22 @@ ${repFieldHTML}
     const editPharmInput = document.getElementById('editPharmacyInput');
     const editPharmSuggestions = document.getElementById('editPharmacySuggestions');
 
-    setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
+    refreshEditPharmacyOptions();
+                setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames, onEditPharmacySelected);
 
     if (editRepSelect && !lockRepSelection) {
         editRepSelect.addEventListener('change', async function() {
             const selectedRepId = this.value;
             editPharmaciesData = [];
             editPharmacyNames = [];
-            editPharmInput.value = ''; 
+            selectedEditPharmacy = null;
+            pharmacyChoiceMap.clear();
+            editPharmInput.value = ``; 
             
             if (!selectedRepId) {
                 editPharmInput.placeholder = 'اختر المندوب أولاً';
-                setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
+                refreshEditPharmacyOptions();
+                setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames, onEditPharmacySelected);
                 return;
             }
 
@@ -3981,22 +4035,25 @@ ${repFieldHTML}
             try {
                 const q = query(collection(db, "pharmacies"), where("rep_id", "==", selectedRepId));
                 const pharmSnap = await getDocs(q);
+                if (editRepSelect.value !== selectedRepId) return;
                 pharmSnap.forEach(d => {
                     const data = d.data();
                     editPharmaciesData.push({ id: d.id, ...data });
                     if (data.name) editPharmacyNames.push(data.name);
                 });
                 editPharmInput.placeholder = 'ابحث عن الصيدلية...';
-                setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames);
+                refreshEditPharmacyOptions();
+                setupAutocomplete(editPharmInput, editPharmSuggestions, editPharmacyNames, onEditPharmacySelected);
             } catch (error) { editPharmInput.placeholder = 'خطأ في التحميل'; }
         });
     }
 
-    editPharmInput.addEventListener('blur', function() {
+    editPharmInput.addEventListener(`input`, () => {
+        if (selectedEditPharmacy && normalizeEditPharmacyName(editPharmInput.value) !== normalizeEditPharmacyName(selectedEditPharmacy.name)) selectedEditPharmacy = null;
+    });
+    editPharmInput.addEventListener(`blur`, function() {
         const val = this.value.trim();
-        const isValid = editPharmacyNames.includes(val);
-        if (!isValid && val !== "") { this.style.border = "2px solid red"; } 
-        else { this.style.border = "1px solid #ccc"; }
+        this.style.border = val && !resolveEditPharmacy(val).pharmacy ? `2px solid red` : `1px solid #ccc`;
     });
 
     const editBody = document.getElementById('editOrderBody');
@@ -4097,12 +4154,13 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
             const selectedBaseRepName = lockRepSelection ? originalRepName : editRepSelect.options[editRepSelect.selectedIndex].text;
 
             const newPharmName = editPharmInput.value.trim();
-            let selectedPharm = editPharmaciesData.find(p => p.name === newPharmName);
-            if (!selectedPharm && newPharmName === (order.pharmacyName || '')) {
-                selectedPharm = { id: order.pharmacyId || '', pharmacyCode: getPharmacyCodeFromOrder(order), pharmacy_code: getPharmacyCodeFromOrder(order) };
+            const { pharmacy: selectedPharm, ambiguous } = resolveEditPharmacy(newPharmName);
+            if (!selectedPharm) {
+                editPharmInput.style.border = `2px solid red`;
+                return showToast(ambiguous
+                    ? `يوجد أكثر من صيدلية بهذا الاسم. اختر الصيدلية مع كودها من القائمة.`
+                    : `يرجى اختيار صيدلية صحيحة من القائمة.`, `error`);
             }
-            
-            if (!selectedPharm) { editPharmInput.style.border = "2px solid red"; return showToast("يرجى اختيار صيدلية صحيحة من القائمة.", "error"); }
             const newRepName = getOperationalRepNameForPharmacy(selectedPharm, selectedBaseRepName);
 
             if (![...document.querySelectorAll(`#editOrderBody tr`)].every(row => !row.querySelector(`.product-input`)?.value.trim() || row.validateRegularBonus?.() !== false)) return;
@@ -4149,7 +4207,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 const actorName = isRepresentativeReturnedEdit ? newRepName : (currentManagerName || 'Supervisor');
                 await updateOrderWithAudit(editingOrderId, { 
                     repId: newRepId, repName: newRepName, managerName: getManagerName(newRepName), 
-                    pharmacyName: newPharmName, pharmacyCode: selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || "",
+                    pharmacyName: selectedPharm.name || newPharmName, pharmacyCode: selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || "",
                     pharmacyId: selectedPharm.id || order.pharmacyId || '',
                     items: validatedItems, grandTotal: newGrandTotal,
                     orderType: order.orderType || editedTypeInfo.orderType || REGULAR_ORDER_TYPE,
