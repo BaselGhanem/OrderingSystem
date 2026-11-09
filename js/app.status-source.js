@@ -3876,6 +3876,7 @@ async function openEditOrder(orderId, userType) {
     let editPharmaciesData = [];
     let editPharmacyNames = [];
     let selectedEditPharmacy = null;
+    let editPharmacyWasChanged = false;
     const pharmacyChoiceMap = new Map();
     const normalizeEditPharmacyName = value => String(value ?? ``)
         .normalize(`NFKC`)
@@ -3918,6 +3919,7 @@ async function openEditOrder(orderId, userType) {
         return { pharmacy: matches.length === 1 ? matches[0] : null, ambiguous: matches.length > 1 };
     };
     const onEditPharmacySelected = label => {
+        editPharmacyWasChanged = true;
         selectedEditPharmacy = pharmacyChoiceMap.get(label) || null;
         if (selectedEditPharmacy) editPharmInput.value = selectedEditPharmacy.name || ``;
         editPharmInput.style.border = `1px solid #ccc`;
@@ -3965,7 +3967,7 @@ ${repFieldHTML}
                     <div style="flex: 1; min-width: 200px; position: relative;">
                         <label style="font-weight: 600; font-size: 14px; margin-bottom: 8px; display: block; color: #333;">اسم الصيدلية:</label>
                         <div class="autocomplete-wrapper" style="width: 100%;">
-                            <input type="text" id="editPharmacyInput" value="${order.pharmacyName || ''}" placeholder="ابحث عن الصيدلية..." style="width:100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;" autocomplete="off">
+                            <input type="text" id="editPharmacyInput" value="${escapePrintHtml(order.pharmacyName || '')}" placeholder="ابحث عن الصيدلية..." style="width:100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-family: inherit; font-size: 14px;" autocomplete="off">
                             <div id="editPharmacySuggestions" class="autocomplete-list"></div>
                         </div>
                     </div>
@@ -4018,6 +4020,7 @@ ${repFieldHTML}
     if (editRepSelect && !lockRepSelection) {
         editRepSelect.addEventListener('change', async function() {
             const selectedRepId = this.value;
+            editPharmacyWasChanged = true;
             editPharmaciesData = [];
             editPharmacyNames = [];
             selectedEditPharmacy = null;
@@ -4048,12 +4051,13 @@ ${repFieldHTML}
         });
     }
 
-    editPharmInput.addEventListener(`input`, () => {
+    editPharmInput.addEventListener(`input`, event => {
+        if (event.isTrusted) editPharmacyWasChanged = true;
         if (selectedEditPharmacy && normalizeEditPharmacyName(editPharmInput.value) !== normalizeEditPharmacyName(selectedEditPharmacy.name)) selectedEditPharmacy = null;
     });
     editPharmInput.addEventListener(`blur`, function() {
         const val = this.value.trim();
-        this.style.border = val && !resolveEditPharmacy(val).pharmacy ? `2px solid red` : `1px solid #ccc`;
+        this.style.border = editPharmacyWasChanged && val && !resolveEditPharmacy(val).pharmacy ? `2px solid red` : `1px solid #ccc`;
     });
 
     const editBody = document.getElementById('editOrderBody');
@@ -4154,14 +4158,30 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
             const selectedBaseRepName = lockRepSelection ? originalRepName : editRepSelect.options[editRepSelect.selectedIndex].text;
 
             const newPharmName = editPharmInput.value.trim();
-            const { pharmacy: selectedPharm, ambiguous } = resolveEditPharmacy(newPharmName);
-            if (!selectedPharm) {
+            // Updating items must never require reselecting or revalidating the order's existing pharmacy.
+            // Only an explicit pharmacy/representative change requires resolving a pharmacy from the list.
+            const { pharmacy: selectedPharm, ambiguous } = editPharmacyWasChanged
+                ? resolveEditPharmacy(newPharmName)
+                : { pharmacy: {
+                    name: order.pharmacyName || ``,
+                    id: order.pharmacyId || ``,
+                    pharmacyCode: getPharmacyCodeFromOrder(order),
+                    pharmacy_code: getPharmacyCodeFromOrder(order)
+                }, ambiguous: false };
+            if (!selectedPharm || !String(selectedPharm.name || ``).trim()) {
                 editPharmInput.style.border = `2px solid red`;
                 return showToast(ambiguous
                     ? `يوجد أكثر من صيدلية بهذا الاسم. اختر الصيدلية مع كودها من القائمة.`
                     : `يرجى اختيار صيدلية صحيحة من القائمة.`, `error`);
             }
-            const newRepName = getOperationalRepNameForPharmacy(selectedPharm, selectedBaseRepName);
+            const newRepName = !editPharmacyWasChanged && lockRepSelection
+                ? originalRepName
+                : getOperationalRepNameForPharmacy(selectedPharm, selectedBaseRepName);
+            const pharmacyChangeFields = editPharmacyWasChanged ? {
+                pharmacyName: selectedPharm.name || newPharmName,
+                pharmacyCode: editPharmacyCode(selectedPharm),
+                pharmacyId: selectedPharm.id || order.pharmacyId || ``
+            } : {};
 
             if (![...document.querySelectorAll(`#editOrderBody tr`)].every(row => !row.querySelector(`.product-input`)?.value.trim() || row.validateRegularBonus?.() !== false)) return;
             document.querySelectorAll('#editOrderBody tr').forEach(r => {
@@ -4207,8 +4227,7 @@ function addEditRow(productName='', qty=1, bonus=0, price=0, rowTotal=0, note=''
                 const actorName = isRepresentativeReturnedEdit ? newRepName : (currentManagerName || 'Supervisor');
                 await updateOrderWithAudit(editingOrderId, { 
                     repId: newRepId, repName: newRepName, managerName: getManagerName(newRepName), 
-                    pharmacyName: selectedPharm.name || newPharmName, pharmacyCode: selectedPharm.pharmacyCode || selectedPharm.pharmacy_code || "",
-                    pharmacyId: selectedPharm.id || order.pharmacyId || '',
+                    ...pharmacyChangeFields,
                     items: validatedItems, grandTotal: newGrandTotal,
                     orderType: order.orderType || editedTypeInfo.orderType || REGULAR_ORDER_TYPE,
                     isReservedOrder: (order.orderType || editedTypeInfo.orderType) === RESERVED_ORDER_TYPE || order.isReservedOrder === true,
