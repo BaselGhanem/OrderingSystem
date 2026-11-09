@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20261105_pharmacy_selection_v2`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20261109_edit_pharmacy_preserve_v3`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
