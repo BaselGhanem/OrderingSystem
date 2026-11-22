@@ -146,24 +146,33 @@ function installContext(userAgent, touchPoints = 0) {
         matchMedia: query => query.includes('standalone') ? standalone : coarse
     });
     vm.runInNewContext(read('js/install-app.js'), {
-        document: { getElementById: id => id === 'installAppFab' ? button : dialog }, window, navigator
+        document: {
+            body: { insertAdjacentHTML: (position, markup) => {
+                assert.equal(position, 'beforeend');
+                assert.match(markup, /id="installAppFab"/);
+                assert.match(markup, /id="installAppHelp"/);
+            } },
+            getElementById: id => id === 'installAppFab' ? button : dialog
+        }, window, navigator
     });
     return { button, dialog, window, standalone };
 }
 
-test('install button appears for Android tablet eligibility and hides after install', async () => {
-    const { button, window } = installContext('Android Tablet', 5);
-    assert.equal(button.hidden, true);
-    const prompt = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
-        prompt: async () => ({ outcome: 'accepted' })
+for (const device of ['Android Tablet', 'Android Mobile']) {
+    test(`install button appears for ${device} eligibility and hides after install`, async () => {
+        const { button, window } = installContext(device, 5);
+        assert.equal(button.hidden, true);
+        const prompt = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
+            prompt: async () => ({ outcome: 'accepted' })
+        });
+        window.dispatchEvent(prompt);
+        assert.equal(prompt.defaultPrevented, true);
+        assert.equal(button.hidden, false);
+        button.dispatchEvent(new Event('click'));
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(button.hidden, true);
     });
-    window.dispatchEvent(prompt);
-    assert.equal(prompt.defaultPrevented, true);
-    assert.equal(button.hidden, false);
-    button.dispatchEvent(new Event('click'));
-    await new Promise(resolve => setImmediate(resolve));
-    assert.equal(button.hidden, true);
-});
+}
 
 test('iPad can show manual install instructions and hides the button in installed mode', () => {
     const { button, dialog, standalone } = installContext('Macintosh', 5);

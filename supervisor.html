@@ -702,7 +702,14 @@
 @media(max-width:768px){.supervisor-premium-tabs .reservation-nav-btn{margin-inline-start:0}}
 
 .supervisor-order-picker {
+    position: fixed;
+    inset: 0;
+    box-sizing: border-box;
     width: min(420px, calc(100% - 32px));
+    height: fit-content;
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    overflow-y: auto;
     padding: 24px;
     border: 0;
     border-radius: 20px;
@@ -715,29 +722,11 @@
 .supervisor-order-picker-options .btn-primary { justify-content: center; }
 .supervisor-order-picker form { margin-top: 16px; }
 
-.install-app-fab {
-    position: fixed;
-    z-index: 1000;
-    inset-inline-end: max(16px, env(safe-area-inset-left));
-    bottom: max(18px, env(safe-area-inset-bottom));
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    min-height: 48px;
-    padding: 10px 18px;
-    border: 0;
-    border-radius: 100px;
-    color: #fff;
-    background: #087777;
-    box-shadow: 0 7px 22px #075d5d55;
-    font: 800 .9rem Cairo, sans-serif;
-    cursor: pointer;
-}
-.install-app-fab[hidden] { display: none; }
-.install-app-fab i { font-size: 1.25rem; }
 </style><script src="js/version-check.js?v=20261006_reads1" defer></script><link rel="stylesheet" href="extra-bonus.css?v=20261001_extra1"><link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/orders-app-192.png">
 <meta name="theme-color" content="#087777">
+<link rel="stylesheet" href="install-app.css?v=20261122_global_install_v2">
+<script src="js/install-app.js?v=20261122_global_install_v2" defer></script>
 </head><body data-page="supervisor"><div class="offline-banner" id="offline-banner">
 <i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال. النظام يعمل محلياً وسيتم المزامنة لاحقاً.
     </div><div class="saving-indicator" id="saving-indicator">
@@ -1088,12 +1077,5 @@
             </button>
 </div>
 </div></div><div id="toast-container"></div><script src="js/app.js?v=20261122_supervisor_order_v1" type="module"></script><script src="js/targets.js?v=20261006_reads1" type="module"></script><script src="js/supervisor-reminders.js?v=20261006_reads1" type="module"></script><script type="module" src="js/forecast-supervisor.js?v=20261006_reads1"></script>
-<button class="install-app-fab" id="installAppFab" type="button" hidden><i class="ph ph-download-simple" aria-hidden="true"></i><span lang="en" dir="ltr">Install App</span></button>
-<dialog class="supervisor-order-picker" id="installAppHelp" aria-labelledby="installAppHelpTitle">
-<h2 id="installAppHelpTitle">تثبيت التطبيق على iPad</h2>
-<p>افتح الصفحة في Safari، ثم من قائمة المشاركة اختار «إضافة إلى الشاشة الرئيسية» واضغط «إضافة»</p>
-<form method="dialog"><button class="btn-primary" type="submit" autofocus>تمام</button></form>
-</dialog>
-<script src="js/install-app.js?v=20261122_install_v1"></script>
 </body></html>
 
