@@ -359,3 +359,57 @@ body[data-rep-tab="order"] .rep-new-order-fab { display: none !important; }
     line-height: 1.3;
     white-space: nowrap;
 }
+
+.supervisor-navigation { display: grid; gap: 10px; margin-block: 16px 22px; }
+.supervisor-group-switches,
+.supervisor-group-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid #dce8ee;
+    border-radius: 16px;
+    background: #f7fafb;
+}
+.supervisor-group-content[hidden] { display: none !important; }
+.supervisor-navigation :is(.btn-subtab, .supervisor-group-button) {
+    flex: 1 1 auto;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 11px;
+    background: transparent;
+    color: #244b60;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.supervisor-navigation :is(.btn-subtab.active, [aria-pressed="true"]) {
+    color: #fff;
+    background: #087777;
+}
+#managerScreen { margin-block-end: 88px; }
+.supervisor-order-fab { z-index: 899; }
+.supervisor-order-fab[hidden], #orderScreen:not([style*="block"]) + .order-actions-bar { display: none !important; }
+.order-actions-bar {
+    position: fixed;
+    z-index: 860;
+    inset-inline: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px max(14px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    background: #fff;
+    border-top: 1px solid #dce8ee;
+    box-shadow: 0 -4px 24px #0f233a13;
+}
+.order-actions-total { color: #163247; font-weight: 800; }
+.order-actions-total strong { color: #087777; font-size: 1.2rem; }
+#orderDraftStatus { display: block; color: #426173; font-size: .72rem; }
+#submitOrderBtn { flex-shrink: 0; min-height: 46px; }
+#orderScreen { margin-block-end: calc(96px + env(safe-area-inset-bottom)); }
+body[data-page="order"]:has(#orderScreen[style*="block"]) .install-app-fab {
+    bottom: calc(90px + env(safe-area-inset-bottom));
+}

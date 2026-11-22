@@ -8,7 +8,7 @@
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="style.css?v=20261122_order_dialogs_v3" rel="stylesheet"/>
-<link href="order-premium.css?v=20261122_pharmacy_picker_v2" rel="stylesheet"/>
+<link href="order-premium.css?v=20261122_order_actions_v4" rel="stylesheet"/>
 <meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/>
 <meta content="no-cache" http-equiv="Pragma"/>
 <meta content="0" http-equiv="Expires"/>
@@ -142,16 +142,22 @@
 </div>
 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 15px;">
 <button class="btn-secondary" id="addRowBtn" type="button"><i class="ph ph-plus-circle"></i> اضافة صنف</button>
-<div class="total-box" style="font-size: 1.2rem; font-weight: 800;">الاجمالي: <strong id="grandTotal" style="color: var(--primary);">0.00</strong> د.ا</div>
 </div>
 <div class="input-group" style="margin-top: 25px; background: rgba(15, 59, 92, 0.03); padding: 15px; border-radius: 12px; border: 1px dashed var(--secondary-light);">
 <label style="color: var(--primary-dark);"><i class="ph ph-chat-text"></i> ملاحظات عامة على الطلبية (اختياري)</label>
 <textarea id="orderNoteInput" placeholder="أدخل أي ملاحظات هنا (مثل: يرجى التوصيل قبل الساعة 2، الانتباه لتواريخ الصلاحية...)" style="width: 100%; padding: 12px 16px; border-radius: var(--border-radius-md); border: 1.5px solid #e2e8f0; min-height: 80px; resize: vertical; font-family: inherit; font-size: 0.95rem;"></textarea>
 </div>
-<button class="btn-primary" id="submitOrderBtn" style="margin-top: 20px; width: 100%;" type="button">
-<i class="ph ph-paper-plane-tilt"></i> ارسال الطلبية النهائية
-            </button>
-</main><main class="screen glass-panel" id="myOrdersScreen" style="display: none;">
+</main>
+<div class="order-actions-bar">
+    <div class="order-actions-total">
+        <div>الاجمالي <strong id="grandTotal">0.00</strong> د.ا</div>
+        <small id="orderDraftStatus" role="status"></small>
+    </div>
+    <button class="btn-primary" id="submitOrderBtn" type="button">
+        <i class="ph ph-paper-plane-tilt" aria-hidden="true"></i> ارسال الطلبية
+    </button>
+</div>
+<main class="screen glass-panel" id="myOrdersScreen" style="display: none;">
 <h2>طلبياتي</h2>
 <!-- 🟢 إضافة: ملخص ذكي للطلبيات -->
 <div class="rep-summary-grid" id="myOrdersSummary">
@@ -327,6 +333,6 @@
 </table>
 </div>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20261122_supervisor_order_v1" type="module"></script><script src="js/targets.js?v=20260923_force_v2" type="module"></script><script type="module" src="js/forecast-entry.js?v=20261101_partial_excel_v2"></script>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20261122_order_actions_v4" type="module"></script><script src="js/targets.js?v=20260923_force_v2" type="module"></script><script type="module" src="js/forecast-entry.js?v=20261101_partial_excel_v2"></script>
 </body></html>
 

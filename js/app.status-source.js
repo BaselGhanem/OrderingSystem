@@ -91,7 +91,18 @@ function autoSaveDraft() {
         }
     });
     const note = document.getElementById('orderNoteInput')?.value || "";
-    localStorage.setItem(`draft_${currentRepId}_${currentPharmacyName}`, JSON.stringify({ items, note }));
+    const key = `draft_${currentRepId}_${currentPharmacyName}`;
+    const status = getEl(`orderDraftStatus`);
+    const hasDraft = items.length > 0 || note.trim() !== ``;
+    let message = ``;
+    try {
+        if (hasDraft) localStorage.setItem(key, JSON.stringify({ items, note }));
+        else localStorage.removeItem(key);
+        if (hasDraft) message = `المسودة محفوظة على هذا الجهاز`;
+    } catch {
+        message = `تعذر حفظ المسودة على هذا الجهاز`;
+    }
+    if (status && status.textContent !== message) status.textContent = message;
 }
 
 function clearDraft() {
@@ -206,6 +217,7 @@ function initializeManagerView(managerName, representatives) {
         }
         getEl(`supervisorOrderPickerEmpty`).hidden = options.childElementCount > 0;
         managerAddBtn.onclick = () => picker.showModal();
+        managerAddBtn.hidden = false;
     }
 
     const loginScreen = getEl('loginScreen');
@@ -1830,6 +1842,8 @@ if (addRowBtn) addRowBtn.onclick = () => {
     addNewRow();
 };
 
+getEl(`orderNoteInput`)?.addEventListener(`input`, autoSaveDraft);
+
 const grandTotalEl = document.getElementById('grandTotal');
 const submitOrderBtn = document.getElementById('submitOrderBtn');
 const detailsModal = document.getElementById('detailsModal');
@@ -2862,6 +2876,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
         orderBody.innerHTML = '';
         if (grandTotalEl) grandTotalEl.innerText = '0.00';
         if(orderNoteEl) orderNoteEl.value = '';
+        if (getEl(`orderDraftStatus`)) getEl(`orderDraftStatus`).textContent = ``;
         addNewRow();
 
         const orderScreenEl = getEl('orderScreen');
