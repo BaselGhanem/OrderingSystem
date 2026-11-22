@@ -1406,17 +1406,17 @@ async function handleMarketAction(order, action) {
         return;
     }
     if (action === 'reject') {
-        const reason = await await confirmReason('سبب رفض مدير السوق:', true);
+        const reason = await confirmReason('سبب رفض مدير السوق:', true);
         if (reason !== null) marketReject(order.id, reason);
         return;
     }
     if (action === 'return_rep') {
-        const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
+        const reason = await confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
         if (reason !== null) returnOrderStep(order.id, 'representative', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_rep');
         return;
     }
     if (action === 'return_supervisor') {
-        const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
+        const reason = await confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
         if (reason !== null) returnOrderStep(order.id, 'supervisor', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_supervisor');
         return;
     }
@@ -1432,17 +1432,17 @@ async function handleMarketModalAction(action) {
         return;
     }
     if (action === 'reject') {
-        const reason = await await confirmReason('سبب رفض مدير السوق:', true);
+        const reason = await confirmReason('سبب رفض مدير السوق:', true);
         if (reason !== null) marketReject(state.selectedOrder.id, reason);
         return;
     }
     if (action === 'return_rep') {
-        const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
+        const reason = await confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
         if (reason !== null) returnOrderStep(state.selectedOrder.id, 'representative', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_rep').then(closeMarketOrderModal);
         return;
     }
     if (action === 'return_supervisor') {
-        const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
+        const reason = await confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
         if (reason !== null) returnOrderStep(state.selectedOrder.id, 'supervisor', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_supervisor').then(closeMarketOrderModal);
         return;
     }
@@ -1506,7 +1506,7 @@ async function marketBulk(action) {
         showToast(`تم تنفيذ الاعتماد: ${results.filter(r => r.status === 'fulfilled').length}/${ids.length}`, 'success');
     }
     if (action === 'reject') {
-        const reason = await await confirmReason(`سبب رفض ${ids.length} طلبية من مدير السوق:`, true);
+        const reason = await confirmReason(`سبب رفض ${ids.length} طلبية من مدير السوق:`, true);
         if (reason === null) return;
         state.suspendRender = true;
         const results = await Promise.allSettled(ids.map(id => marketReject(id, reason, { silent: true, keepModalOpen: true })));
@@ -1664,11 +1664,11 @@ function renderFinanceOrders() {
                     if (note !== null) financeApprove(order.id, note.trim());
                 }
                 if (action === 'reject') {
-                    const reason = await await confirmReason(isRejected ? 'تعديل سبب الرفض المالي (سيظهر للمندوب والمشرف):' : 'سبب الرفض المالي (سيظهر للمندوب والمشرف):', true);
+                    const reason = await confirmReason(isRejected ? 'تعديل سبب الرفض المالي (سيظهر للمندوب والمشرف):' : 'سبب الرفض المالي (سيظهر للمندوب والمشرف):', true);
                     if (reason !== null) financeReject(order.id, reason);
                 }
                 if (action === 'return') {
-                    const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع لمدير السوق:');
+                    const reason = await confirmRequiredNote('اكتب ملاحظة الإرجاع لمدير السوق:');
                     if (reason !== null) returnOrderStep(order.id, 'market_manager', reason, 'Hamza', 'finance_controller', 'finance_returned_to_market_manager');
                 }
             });
@@ -2062,7 +2062,7 @@ function renderOrdersStaffRows() {
             `;
             tr.querySelectorAll('.staff-edit-btn').forEach(btn => btn.addEventListener('click', () => openStaffOrderModal(order)));
             tr.querySelector('.staff-return-btn')?.addEventListener('click', async () => {
-                const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
+                const reason = await confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
                 if (reason !== null) staffReturnToFinance(order.id, reason);
             });
             tr.querySelector('.staff-delete-btn')?.addEventListener('click', () => staffDeleteOrder(order.id));
@@ -2211,7 +2211,7 @@ async function saveStaffEdits(options = {}) {
     const confirmMove = await window.DadDialog.confirm('تنبيه مهم: بعد حفظ تعديل قسم الطلبيات، ستعود الطلبية تلقائياً إلى المالية للمراجعة والاعتماد مرة أخرى. هل تريد المتابعة؟');
     if (!confirmMove) return false;
 
-    const reason = await await confirmRequiredNote('اكتب سبب تعديل قسم الطلبيات لإرساله إلى المالية:');
+    const reason = await confirmRequiredNote('اكتب سبب تعديل قسم الطلبيات لإرساله إلى المالية:');
     if (reason === null) return false;
 
     const { kept, deleted, grandTotal } = collectStaffModalItems();
@@ -2387,7 +2387,7 @@ function initOrdersStaff() {
     $('saveStaffEditsBtn')?.addEventListener('click', () => saveStaffEdits());
     $('returnStaffToFinanceBtn')?.addEventListener('click', async () => {
         if (!state.selectedOrder) return;
-        const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
+        const reason = await confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
         if (reason !== null) staffReturnToFinance(state.selectedOrder.id, reason).then(closeStaffOrderModal);
     });
     $('deleteStaffOrderBtn')?.addEventListener('click', () => state.selectedOrder && staffDeleteOrder(state.selectedOrder.id));

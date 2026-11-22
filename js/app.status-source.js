@@ -1526,7 +1526,7 @@ async function promptRequiredReturnNote(message) {
 }
 
 async function supervisorReturnToRep(orderId, order = {}) {
-    const reason = await await promptRequiredReturnNote('اكتب ملاحظة الإرجاع للمندوب:');
+    const reason = await promptRequiredReturnNote('اكتب ملاحظة الإرجاع للمندوب:');
     if (reason === null) return;
     const current = order && Object.keys(order).length ? order : {}; 
     await updateOrderWithAudit(orderId, {
