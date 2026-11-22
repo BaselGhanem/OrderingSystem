@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./app.status-source.js?v=20261122_order_actions_v4`, import.meta.url);
+const sourceUrl = new URL(`./app.status-source.js?v=20261122_app_dialog_v1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -27,7 +27,7 @@ try {
 
     let source = await response.text();
     source = source.replaceAll(`https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js`, new URL(`./firestore-meter.js?v=20261006_reads1`, import.meta.url).href);
-    source = source.replace("'./regular-bonus.js?v=20261001_bonus1'", JSON.stringify(new URL(`./regular-bonus.js?v=20261001_review1`, import.meta.url).href));
+    source = source.replace("'./regular-bonus.js?v=20261001_bonus1'", JSON.stringify(new URL(`./regular-bonus.js?v=20261122_app_dialog_v1`, import.meta.url).href));
     const resolverPattern = /function getEffectiveOrderStatus\(order = \{\}\) \{[\s\S]*?\n\}/;
     const canonicalResolver = `function getEffectiveOrderStatus(order = {}) {
     const directStatus = order.status || order.orderStatus || order.workflowStatus || '';

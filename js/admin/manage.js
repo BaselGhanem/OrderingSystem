@@ -1039,6 +1039,8 @@ export default `<!DOCTYPE html>
     }
   </style>
 <link rel="stylesheet" href="admin-responsive.css?v=20260911">
+<link rel="stylesheet" href="app-dialog.css?v=20261122_app_dialog_v1">
+<script src="js/app-dialog.js?v=20261122_app_dialog_v1"></script>
 </head>
 
 <body class="admin-embedded">
@@ -2359,7 +2361,7 @@ export default `<!DOCTYPE html>
         const selectedIds = Array.from(selectedOrderIds);
         if (!selectedIds.length) return showToast(\`حدد طلبية واحدة على الأقل.\`, \`warning\`);
         const message = \`هل أنت متأكد من نقل \${formatCount(selectedIds.length)} طلبية إلى:\\n\${getArabicStatusName(targetStatus)}؟\`;
-        if (!confirm(message)) return;
+        if (!await window.DadDialog.confirm(message)) return;
         await applyStatusPatchToOrders(selectedIds, targetStatus, note, \`bulk_manual_workflow_status_change\`);
         selectedOrderIds.clear();
         closeModal(\`moveModal\`);
@@ -2373,7 +2375,7 @@ export default `<!DOCTYPE html>
       if (!order) return showToast(\`لم يتم العثور على الطلبية.\`, \`error\`);
       const previousStatus = getLatestWorkflowStatus(order) || order.status || \`\`;
       const message = \`هل أنت متأكد من نقل الطلبية من:\\n\${getArabicStatusName(previousStatus)}\\nإلى:\\n\${getArabicStatusName(targetStatus)}؟\`;
-      if (!confirm(message)) return;
+      if (!await window.DadDialog.confirm(message)) return;
       await applyStatusPatchToOrders([selectedOrderIdForMove], targetStatus, note, \`manual_workflow_status_change\`);
       closeModal(\`moveModal\`);
       showToast(\`تم نقل الحالة وتسجيل الإجراء باسم Basel.\`, \`success\`);
@@ -2384,9 +2386,9 @@ export default `<!DOCTYPE html>
       if (!selectedOrderIdForDetails) return;
       const order = allOrders.find(item => item.id === selectedOrderIdForDetails);
       if (!order) return;
-      const confirmText = window.prompt(\`هذا حذف نهائي من Firebase. اكتب DELETE للتأكيد:\`);
+      const confirmText = await window.DadDialog.prompt(\`هذا حذف نهائي من Firebase. اكتب DELETE للتأكيد:\`);
       if (confirmText !== \`DELETE\`) return;
-      const reason = window.prompt(\`اكتب سبب الحذف النهائي:\`) || \`\`;
+      const reason = await window.DadDialog.prompt(\`اكتب سبب الحذف النهائي:\`) || \`\`;
       if (!reason.trim()) return showToast(\`سبب الحذف النهائي إجباري.\`, \`warning\`);
       try {
         await addDoc(collection(db, \`auditLogs\`), {

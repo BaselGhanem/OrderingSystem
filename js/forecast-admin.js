@@ -1,4 +1,4 @@
-import { mountForecast } from './forecast-ui.js?v=20261101_cards_v5';
+import { mountForecast } from './forecast-ui.js?v=20261122_app_dialog_v1';
 const host = document.getElementById(`forecastAdminPanel`);
 let loaded = false;
 async function mount() {

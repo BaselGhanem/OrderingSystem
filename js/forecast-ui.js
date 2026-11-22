@@ -45,7 +45,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
     function bindToolbar() {
         $(`fcSearch`)?.addEventListener(`input`, event => { state.filter = event.target.value; renderTable(); });
         $(`fcFilter`)?.addEventListener(`change`, event => { state.status = event.target.value; if (team || admin) renderTeam(); else renderTable(); });
-        $(`fcRefresh`)?.addEventListener(`click`, () => { if (state.dirty && !confirm(`يوجد تعديل غير محفوظ. تحديث الصفحة يفقد هذه التعديلات. المتابعة؟`)) return; run(async () => { api.invalidateRoutingCache(); await load(); }); });
+        $(`fcRefresh`)?.addEventListener(`click`, async () => { if (state.dirty && !await window.DadDialog.confirm(`يوجد تعديل غير محفوظ. تحديث الصفحة يفقد هذه التعديلات. المتابعة؟`)) return; run(async () => { api.invalidateRoutingCache(); await load(); }); });
         $(`fcDownload`)?.addEventListener(`click`, download);
     }
     async function load() {
@@ -136,10 +136,10 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             const code = input.dataset.note; state.entries[code] = { amount: null, ...(state.entries[code] || {}), note: input.value }; state.dirty = true; updateSummary();
         }));
     }
-    function save(confirmAll) {
+    async function save(confirmAll) {
         if (state.invalid.size) { notify(`صحح القيم غير الصالحة قبل الحفظ.`, `error`); return; }
         const missing = representativeRows().length - progress({ entries: state.entries }, representativeRows()).filled;
-        if (confirmAll && !confirm(`تأكيد توقعات ${monthLabel(state.month)}؟ ${missing ? `سيتم تأكيد ${missing} صيدلية بقيم فارغة (غير صفرية). ` : ``}لا يمكن تعديل التوقعات بعد التأكيد إلا بإعادة فتح من الأدمن.`)) return;
+        if (confirmAll && !await window.DadDialog.confirm(`تأكيد توقعات ${monthLabel(state.month)}؟ ${missing ? `سيتم تأكيد ${missing} صيدلية بقيم فارغة (غير صفرية). ` : ``}لا يمكن تعديل التوقعات بعد التأكيد إلا بإعادة فتح من الأدمن.`)) return;
         run(async () => {
             const saved = await api.saveForecast(state.month, acting.repId, state.entries, currentDocument().revision || 0, confirmAll, { month: state.month, repId: acting.repId, rows: representativeRows(), conflicts: state.dataset.conflicts });
             state.docs.set(acting.repId, saved); state.dirty = false; state.invalid.clear(); state.rawInputs.clear(); state.importPreview = null; renderRep();
@@ -175,11 +175,11 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
         XLSX.writeFile(workbook, `Sales_Forecast_${state.month}.xlsx`);
         notify(`تم تجهيز Excel لـ ${rows.length} صيدلية. يتضمن الملف التعديلات الحالية حتى لو لم يتم حفظها بعد.`);
     }
-    function applyRepExcel() {
+    async function applyRepExcel() {
         const parsed = state.importPreview;
         if (!parsed || parsed.month !== state.month || state.busy) return;
         if (currentDocument().status === `confirmed` || state.month !== state.config.activeMonth) return notify(`هذا الشهر مغلق للتعديل`, `error`);
-        if (!confirm(`تطبيق قيم Excel لـ ${parsed.count} صيدلية على الشاشة؟ سيتم تحديث هذه الصيدليات فقط، بما فيها ${parsed.cleared} قيمة فارغة. الصيدليات غير الموجودة بالملف لن تتغير. لن تحفظ البيانات في Firebase قبل الضغط على حفظ جزئي أو تأكيد جميع التوقعات.`)) return;
+        if (!await window.DadDialog.confirm(`تطبيق قيم Excel لـ ${parsed.count} صيدلية على الشاشة؟ سيتم تحديث هذه الصيدليات فقط، بما فيها ${parsed.cleared} قيمة فارغة. الصيدليات غير الموجودة بالملف لن تتغير. لن تحفظ البيانات في Firebase قبل الضغط على حفظ جزئي أو تأكيد جميع التوقعات.`)) return;
         for (const [code, entry] of Object.entries(parsed.entries)) {
             state.entries[code] = { ...(state.entries[code] || {}), amount: entry.amount, note: entry.note };
             state.invalid.delete(code);
@@ -379,7 +379,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             if (!state.pending) return;
             const { kind, parsed, year, month, filename, previousMonths } = state.pending;
             const description = kind === `month` ? `حفظ مبيعات ${MONTH_NAMES[month - 1]} ${year} فقط دون تغيير بقية الاشهر؟` : `استبدال مبيعات ${year} بالكامل وحذف اي شهر او صيدلية غير موجودة بالملف؟`;
-            if (!confirm(description)) return;
+            if (!await window.DadDialog.confirm(description)) return;
             if (kind === `month`) {
                 await api.appendSalesMonth(parsed, year, month, filename, previousMonths, Object.keys(state.adminSales?.customers || {}));
                 if (state.adminSales) {
@@ -410,7 +410,7 @@ export async function mountForecast(host, { mode = `rep` } = {}) {
             $(`fcAdminGate`).hidden = false; $(`fcAdminControls`).hidden = true; $(`fcContent`).hidden = true;
         };
     }
-    $(`fcMonth`).onchange = () => { if (state.busy) { $(`fcMonth`).value = state.month; return; } if (state.dirty && !confirm(`يوجد تعديل غير محفوظ. تغيير الشهر يفقد هذه التعديلات. المتابعة؟`)) { $(`fcMonth`).value = state.month; return; } state.month = $(`fcMonth`).value; if (!admin) run(load); else if (state.admin) { if (state.monitoring) run(load); } };
+    $(`fcMonth`).onchange = async () => { if (state.busy) { $(`fcMonth`).value = state.month; return; } if (state.dirty && !await window.DadDialog.confirm(`يوجد تعديل غير محفوظ. تغيير الشهر يفقد هذه التعديلات. المتابعة؟`)) { $(`fcMonth`).value = state.month; return; } state.month = $(`fcMonth`).value; if (!admin) run(load); else if (state.admin) { if (state.monitoring) run(load); } };
     window.addEventListener(`beforeunload`, event => { if (state.dirty) { event.preventDefault(); event.returnValue = ``; } });
     if (!admin) await run(load);
     else { const parts = new Intl.DateTimeFormat(`en-CA`, { timeZone: `Asia/Amman`, year: `numeric`, month: `2-digit` }).formatToParts(new Date()); state.month = `${parts.find(p => p.type === `year`).value}-${parts.find(p => p.type === `month`).value}`; $(`fcMonth`).value = state.month; $(`fcYear`).value = state.month.slice(0, 4); $(`fcActiveMonth`).value = state.month; $(`fcEnforce`).value = ``; }

@@ -19,6 +19,8 @@
 <link rel="apple-touch-icon" href="assets/orders-app-192.png">
 <link rel="stylesheet" href="install-app.css?v=20261122_global_install_v2">
 <script src="js/install-app.js?v=20261122_global_install_v2" defer></script>
+<link rel="stylesheet" href="app-dialog.css?v=20261122_app_dialog_v1">
+<script src="js/app-dialog.js?v=20261122_app_dialog_v1"></script>
 </head>
 <body>
     <main class="card">
@@ -91,10 +93,10 @@
             }
         }
 
-        function getTestToken() {
+        async function getTestToken() {
             let token = sessionStorage.getItem('dad_push_test_token') || '';
             if (!token) {
-                token = window.prompt('أدخل TEST_TOKEN الخاص باختبار الإشعارات الفوري:') || '';
+                token = await window.DadDialog.prompt('أدخل TEST_TOKEN الخاص باختبار الإشعارات الفوري:') || '';
                 if (token) sessionStorage.setItem('dad_push_test_token', token);
             }
             return token;
@@ -138,7 +140,7 @@
             testBtn.disabled = true;
             showStatus('جاري تشغيل الاختبار الحقيقي الآن...', 'ok');
             try {
-                const token = getTestToken();
+                const token = await getTestToken();
                 if (!token) throw new Error('لم يتم إدخال TEST_TOKEN.');
                 const module = await loadPushModule();
                 await module.triggerImmediateRealPushTest(selectedUserKey, token);

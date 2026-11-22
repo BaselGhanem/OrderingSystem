@@ -19,5 +19,5 @@ function render(){
 }
 $(`date`).value=day(Date.now());$(`date`).onchange=render;$(`page`).onchange=render;$(`refresh`).onclick=render;
 $(`export`).onclick=()=>{const cols=[`page`,`operation`,`scope`,`source`,...fields];const csv=`\uFEFF`+[cols,...visible.map(r=>cols.map(c=>r[c]??``))].map(row=>row.map(v=>`"${String(v).replaceAll(`"`,`""`)}"`).join(`,`)).join(`\r\n`);const url=URL.createObjectURL(new Blob([csv],{type:`text/csv;charset=utf-8`}));const a=document.createElement(`a`);a.href=url;a.download=`Firestore_Reads_${$(`date`).value||`all`}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
-$(`clear`).onclick=()=>{if(!confirm(`مسح عدادات التشخيص في هذا المتصفح؟ هذا لا يحذف أي بيانات من Firebase.`))return;for(const r of records())localStorage.removeItem(prefix+r.id);render();};
+$(`clear`).onclick=async ()=>{if(!await window.DadDialog.confirm(`مسح عدادات التشخيص في هذا المتصفح؟ هذا لا يحذف أي بيانات من Firebase.`))return;for(const r of records())localStorage.removeItem(prefix+r.id);render();};
 window.addEventListener(`storage`,e=>{if(e.key?.startsWith(prefix))render();});render();

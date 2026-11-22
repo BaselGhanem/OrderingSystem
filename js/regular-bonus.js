@@ -171,10 +171,10 @@ export function attachBonusRow(row, findProduct, recalculate, { preserveExisting
     row.validateRegularBonus = () => {
         configure();
         if (legacy && input.value.trim() === legacy.name && quantity.value === legacy.qty && bonus.value === legacy.bonus) return true;
-        if (!configurationAvailable()) { alert(`تعذر تحميل إعدادات البونص. أعد تحميل الصفحة قبل الحفظ.`); return false; }
-        if (JSON.stringify(getBonusPolicy(findProduct(input.value.trim()))) !== signature) { alert(`تغيرت شرائح الصنف. أعد فتح الطلبية قبل الحفظ.`); return false; }
+        if (!configurationAvailable()) { window.DadDialog.alert(`تعذر تحميل إعدادات البونص. أعد تحميل الصفحة قبل الحفظ.`); return false; }
+        if (JSON.stringify(getBonusPolicy(findProduct(input.value.trim()))) !== signature) { window.DadDialog.alert(`تغيرت شرائح الصنف. أعد فتح الطلبية قبل الحفظ.`); return false; }
         apply(); notify();
-        if (!quantity.checkValidity() || !quantity.value) { alert(quantity.validationMessage || `اختر كمية الصنف`); if (!quantity.hidden) quantity.focus(); else select.focus(); return false; }
+        if (!quantity.checkValidity() || !quantity.value) { window.DadDialog.alert(quantity.validationMessage || `اختر كمية الصنف`); if (!quantity.hidden) quantity.focus(); else select.focus(); return false; }
         return true;
     };
     configure(false);

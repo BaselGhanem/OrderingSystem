@@ -39,6 +39,8 @@ body[data-page="audit"] .audit-shell{width:min(1440px,calc(100% - 56px));margin:
 <link rel="apple-touch-icon" href="assets/orders-app-192.png">
 <link rel="stylesheet" href="install-app.css?v=20261122_global_install_v2">
 <script src="js/install-app.js?v=20261122_global_install_v2" defer></script>
+<link rel="stylesheet" href="app-dialog.css?v=20261122_app_dialog_v1">
+<script src="js/app-dialog.js?v=20261122_app_dialog_v1"></script>
 </head>
 <body data-page="audit">
 <div class="offline-banner" id="offline-banner"><i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال.</div>
@@ -609,7 +611,7 @@ rows.slice().reverse().map(entry => `
 }
 function setToast(message, type = `info`) {
 const container = $(`toast-container`);
-if (!container) return alert(message);
+if (!container) return window.DadDialog.alert(message);
 const toast = document.createElement(`div`);
 toast.className = `toast ${type}`;
 const icon = type === `success`
@@ -1007,7 +1009,7 @@ const targetStatus = $(`auditMoveStatus`)?.value || ``;
 const note = ($(`auditMoveNote`)?.value || ``).trim();
 if (!targetStatus) return setToast(`اختر الحالة الجديدة.`, `warning`);
 if (!note) return setToast(`الملاحظة إجبارية عند نقل الحالة.`, `warning`);
-if (!confirm(`تأكيد نقل الطلبية إلى: ${statusLabel(targetStatus)}؟`)) return;
+if (!await window.DadDialog.confirm(`تأكيد نقل الطلبية إلى: ${statusLabel(targetStatus)}؟`)) return;
 const button = $(`auditMoveStatusBtn`);
 const originalContent = button?.innerHTML || ``;
 if (button) {

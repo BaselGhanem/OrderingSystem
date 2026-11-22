@@ -600,6 +600,8 @@
 <link rel="apple-touch-icon" href="assets/orders-app-192.png">
 <link rel="stylesheet" href="install-app.css?v=20261122_global_install_v2">
 <script src="js/install-app.js?v=20261122_global_install_v2" defer></script>
+<link rel="stylesheet" href="app-dialog.css?v=20261122_app_dialog_v1">
+<script src="js/app-dialog.js?v=20261122_app_dialog_v1"></script>
 </head>
 <body>
     <div class="bg-shapes"><div class="shape shape-1"></div><div class="shape shape-2"></div></div>
@@ -1174,7 +1176,7 @@
                 }
 
                 const redundantDocuments = [...duplicateGroups.values()].reduce((sum, rows) => sum + rows.length - 1, 0);
-                const approved = confirm(
+                const approved = await window.DadDialog.confirm(
                     `تم العثور على ${duplicateGroups.size} كود صيدلية مكرر، وسيتم حذف ${redundantDocuments} سجل زائد بعد توحيد جميع الطلبيات المرتبطة بها.\n\n` +
                     `سيختار النظام تلقائيًا السجل الأكثر استخدامًا في الطلبيات ليبقى كـ Document_ID موحد لكل كود.\n` +
                     `لن يتم تغيير المندوب أو المشرف في الطلبيات.\n\nهل تريد تنفيذ الدمج الشامل الآن؟`
@@ -1740,7 +1742,7 @@
             priceVal = Number(priceVal.toFixed(2));
 
             if (!nameVal || !codeVal) {
-                alert('اسم الصنف وكود الصنف حقول إجبارية.');
+                window.DadDialog.alert('اسم الصنف وكود الصنف حقول إجبارية.');
                 return;
             }
 
@@ -1757,7 +1759,7 @@
                     return existingCode === codeVal || existingName === nameVal;
                 });
 
-                if (duplicate && !confirm('يوجد صنف بنفس الاسم أو الكود. هل تريد الإضافة رغم ذلك؟')) return;
+                if (duplicate && !await window.DadDialog.confirm('يوجد صنف بنفس الاسم أو الكود. هل تريد الإضافة رغم ذلك؟')) return;
 
                 await addDoc(collection(db, 'products'), {
                     name: nameVal,
@@ -1775,7 +1777,7 @@
                 await loadProducts();
             } catch (error) {
                 console.error('Error adding product:', error);
-                alert('حدث خطأ أثناء إضافة الصنف.');
+                window.DadDialog.alert('حدث خطأ أثناء إضافة الصنف.');
             } finally {
                 button.innerText = originalText;
                 button.disabled = false;
@@ -1791,7 +1793,7 @@
             priceVal = Number(priceVal.toFixed(2));
 
             if (!nameVal || !codeVal) {
-                alert('لا يمكن ترك الاسم أو الكود فارغاً.');
+                window.DadDialog.alert('لا يمكن ترك الاسم أو الكود فارغاً.');
                 return;
             }
 
@@ -1820,7 +1822,7 @@
                 setStatus('productsStatus', `تم حفظ تعديل المنتج بنجاح.${syncMessage}${reportButton}`, '#10b981', true);
             } catch (error) {
                 console.error('Error updating product:', error);
-                alert('حدث خطأ أثناء حفظ التعديل.');
+                window.DadDialog.alert('حدث خطأ أثناء حفظ التعديل.');
             } finally {
                 setTimeout(() => {
                     button.innerText = originalText;
@@ -1831,7 +1833,7 @@
 
         async function deleteSingleProduct(button) {
             const id = button.dataset.id;
-            if (!confirm('هل أنت متأكد من حذف هذا الصنف نهائياً من قاعدة البيانات؟')) return;
+            if (!await window.DadDialog.confirm('هل أنت متأكد من حذف هذا الصنف نهائياً من قاعدة البيانات؟')) return;
 
             try {
                 await deleteDoc(doc(db, 'products', id));
@@ -1841,16 +1843,16 @@
                 setStatus('productsStatus', 'تم حذف الصنف بنجاح.', '#10b981');
             } catch (error) {
                 console.error('Error deleting product:', error);
-                alert('حدث خطأ أثناء محاولة الحذف.');
+                window.DadDialog.alert('حدث خطأ أثناء محاولة الحذف.');
             }
         }
 
         async function importProducts() {
             const fileInput = document.getElementById('productsExcelFile');
             const file = fileInput.files[0];
-            if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
+            if (!file) return window.DadDialog.alert('الرجاء اختيار ملف إكسل أولاً.');
 
-            const confirmed = confirm('تحذير مهم: هذا الخيار سيحذف كل الأصناف الحالية من Firebase ثم يرفع الأصناف الموجودة في الملف فقط. استخدم رفع نفس الملف بعد التعديل إذا كنت تريد تعديل أسعار أو أكواد فقط. هل تريد الاستمرار بالاستبدال الكامل؟');
+            const confirmed = await window.DadDialog.confirm('تحذير مهم: هذا الخيار سيحذف كل الأصناف الحالية من Firebase ثم يرفع الأصناف الموجودة في الملف فقط. استخدم رفع نفس الملف بعد التعديل إذا كنت تريد تعديل أسعار أو أكواد فقط. هل تريد الاستمرار بالاستبدال الكامل؟');
             if (!confirmed) return;
 
             setStatus('productsStatus', 'جاري قراءة ملف المنتجات...', '#f59e0b');
@@ -1976,7 +1978,7 @@
         async function importProductsPatch() {
             const fileInput = document.getElementById('productsPatchFile');
             const file = fileInput.files[0];
-            if (!file) return alert('الرجاء اختيار ملف الأصناف المعدل أولاً.');
+            if (!file) return window.DadDialog.alert('الرجاء اختيار ملف الأصناف المعدل أولاً.');
 
             setStatus('productsStatus', 'جاري قراءة ملف الأصناف المعدل...', '#f59e0b');
 
@@ -2014,7 +2016,7 @@
                     return;
                 }
 
-                if (duplicateCodes.length > 0 && !confirm(`يوجد كود منتج مكرر داخل الملف. أول الأكواد المكررة: ${[...new Set(duplicateCodes)].slice(0, 5).join(', ')}. هل تريد الاستمرار؟`)) return;
+                if (duplicateCodes.length > 0 && !await window.DadDialog.confirm(`يوجد كود منتج مكرر داخل الملف. أول الأكواد المكررة: ${[...new Set(duplicateCodes)].slice(0, 5).join(', ')}. هل تريد الاستمرار؟`)) return;
 
                 const currentSnap = await getDocs(collection(db, 'products'));
                 const existingIds = new Set(currentSnap.docs.map(item => item.id));
@@ -2078,10 +2080,10 @@
 
         async function saveVisibleProducts() {
             const rows = Array.from(document.querySelectorAll('#productsTableBody tr[data-id]'));
-            if (rows.length === 0) return alert('لا توجد أصناف ظاهرة للحفظ.');
+            if (rows.length === 0) return window.DadDialog.alert('لا توجد أصناف ظاهرة للحفظ.');
             const editedRows = rows.filter(row => row.classList.contains('row-edited'));
             const targetRows = editedRows.length > 0 ? editedRows : rows;
-            const confirmed = confirm(`سيتم حفظ ${targetRows.length} صف من الجدول الظاهر. هل تريد المتابعة؟`);
+            const confirmed = await window.DadDialog.confirm(`سيتم حفظ ${targetRows.length} صف من الجدول الظاهر. هل تريد المتابعة؟`);
             if (!confirmed) return;
 
             try {
@@ -2209,11 +2211,11 @@
             const areaVal = areaInput.value.trim() || '-';
 
             if (!nameVal || !repId) {
-                alert('اسم الصيدلية واختيار المندوب حقول إجبارية.');
+                window.DadDialog.alert('اسم الصيدلية واختيار المندوب حقول إجبارية.');
                 return;
             }
             if (!validateOthersRouting(baseRepName, supervisorVal)) {
-                alert('للمندوب "آخرين" يجب تحديد المشرف: عبدالله الناطور أو محمد طوالبه.');
+                window.DadDialog.alert('للمندوب "آخرين" يجب تحديد المشرف: عبدالله الناطور أو محمد طوالبه.');
                 supervisorInput.focus();
                 return;
             }
@@ -2227,10 +2229,10 @@
                 const duplicateByCode = codeVal && snap.docs.find(item => normalizePharmacyMergeCode(item.data()?.pharmacyCode || item.data()?.pharmacy_code || '') === normalizePharmacyMergeCode(codeVal));
                 const duplicateByName = snap.docs.find(item => normalizePharmacyMergeName(item.data()?.name || '') === normalizePharmacyMergeName(nameVal));
                 if (duplicateByCode) {
-                    alert(`يوجد سجل صيدلية بنفس الكود (${codeVal}) تحت Document_ID: ${duplicateByCode.id}. تم إيقاف الإضافة لمنع إنشاء نسخة مكررة. استخدم أداة دمج الصيدليات المكررة عند الحاجة.`);
+                    window.DadDialog.alert(`يوجد سجل صيدلية بنفس الكود (${codeVal}) تحت Document_ID: ${duplicateByCode.id}. تم إيقاف الإضافة لمنع إنشاء نسخة مكررة. استخدم أداة دمج الصيدليات المكررة عند الحاجة.`);
                     return;
                 }
-                if (duplicateByName && !confirm('توجد صيدلية بنفس الاسم ولكن بكود مختلف. هل تريد الإضافة؟')) return;
+                if (duplicateByName && !await window.DadDialog.confirm('توجد صيدلية بنفس الاسم ولكن بكود مختلف. هل تريد الإضافة؟')) return;
 
                 const newPharmacyRef = await addDoc(collection(db, 'pharmacies'), {
                     name: nameVal,
@@ -2264,7 +2266,7 @@
                 await loadPharmacies();
             } catch (error) {
                 console.error('Error adding pharmacy:', error);
-                alert('حدث خطأ أثناء إضافة الصيدلية.');
+                window.DadDialog.alert('حدث خطأ أثناء إضافة الصيدلية.');
             } finally {
                 button.innerText = originalText;
                 button.disabled = false;
@@ -2284,11 +2286,11 @@
             const areaVal = row.querySelector('.pharmacy-area').value.trim() || '-';
 
             if (!nameVal || !repId) {
-                alert('لا يمكن ترك اسم الصيدلية أو المندوب فارغاً.');
+                window.DadDialog.alert('لا يمكن ترك اسم الصيدلية أو المندوب فارغاً.');
                 return;
             }
             if (!validateOthersRouting(baseRepName, supervisorVal)) {
-                alert('للمندوب "آخرين" يجب تحديد المشرف: عبدالله الناطور أو محمد طوالبه.');
+                window.DadDialog.alert('للمندوب "آخرين" يجب تحديد المشرف: عبدالله الناطور أو محمد طوالبه.');
                 supervisorInput.focus();
                 return;
             }
@@ -2302,7 +2304,7 @@
                     const pharmaciesSnap = await getDocs(collection(db, 'pharmacies'));
                     const conflicting = pharmaciesSnap.docs.find(item => item.id !== id && normalizePharmacyMergeCode(item.data()?.pharmacyCode || item.data()?.pharmacy_code || '') === normalizePharmacyMergeCode(codeVal));
                     if (conflicting) {
-                        alert(`لا يمكن حفظ هذا الكود لأنه موجود مسبقاً تحت Document_ID: ${conflicting.id}. استخدم أداة دمج الصيدليات المكررة بدلاً من إنشاء تكرار جديد.`);
+                        window.DadDialog.alert(`لا يمكن حفظ هذا الكود لأنه موجود مسبقاً تحت Document_ID: ${conflicting.id}. استخدم أداة دمج الصيدليات المكررة بدلاً من إنشاء تكرار جديد.`);
                         return;
                     }
                 }
@@ -2332,7 +2334,7 @@
                 await loadPharmacies();
             } catch (error) {
                 console.error('Error updating pharmacy:', error);
-                alert('حدث خطأ أثناء حفظ تعديل الصيدلية.');
+                window.DadDialog.alert('حدث خطأ أثناء حفظ تعديل الصيدلية.');
             } finally {
                 setTimeout(() => {
                     button.innerText = originalText;
@@ -2343,7 +2345,7 @@
 
         async function deleteSinglePharmacy(button) {
             const id = button.dataset.id;
-            if (!confirm('هل أنت متأكد من حذف هذه الصيدلية نهائياً من قاعدة البيانات؟')) return;
+            if (!await window.DadDialog.confirm('هل أنت متأكد من حذف هذه الصيدلية نهائياً من قاعدة البيانات؟')) return;
 
             try {
                 await deleteDoc(doc(db, 'pharmacies', id));
@@ -2353,14 +2355,14 @@
                 await loadPharmacies();
             } catch (error) {
                 console.error('Error deleting pharmacy:', error);
-                alert('حدث خطأ أثناء محاولة حذف الصيدلية.');
+                window.DadDialog.alert('حدث خطأ أثناء محاولة حذف الصيدلية.');
             }
         }
 
         async function importPharmacies() {
             const fileInput = document.getElementById('pharmaciesExcelFile');
             const file = fileInput.files[0];
-            if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
+            if (!file) return window.DadDialog.alert('الرجاء اختيار ملف إكسل أولاً.');
 
             setStatus('pharmaciesStatus', 'جاري فحص الملف...', '#f59e0b', false);
 
@@ -2628,7 +2630,7 @@
 
         async function importOldOrders() {
             const file = document.getElementById('oldOrdersFile').files[0];
-            if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
+            if (!file) return window.DadDialog.alert('الرجاء اختيار ملف إكسل أولاً.');
 
             setStatus('oldOrdersStatus', 'جاري قراءة الملف وتجميع الأصناف...', '#f59e0b');
 
@@ -2703,7 +2705,7 @@
 
         async function importOldReturns() {
             const file = document.getElementById('oldReturnsFile').files[0];
-            if (!file) return alert('الرجاء اختيار ملف إكسل أولاً.');
+            if (!file) return window.DadDialog.alert('الرجاء اختيار ملف إكسل أولاً.');
 
             setStatus('oldReturnsStatus', 'جاري قراءة الملف وتجميع الأصناف...', '#f59e0b');
 
@@ -2819,10 +2821,10 @@
             await Promise.all([loadProducts(), loadRepsForSettings(), loadSupervisorTargetsForSettings()]);
         });
     </script>
-<script type="module" src="js/admin-hub.js?v=20260923_force_v2"></script>
+<script type="module" src="js/admin-hub.js?v=20261122_app_dialog_v1"></script>
 <script type="module" src="js/pharmacy-search.js?v=20260923_force_v2"></script>
 <script type="module" src="js/regular-bonus-admin.js?v=20261001_review1"></script>
-<script type="module" src="js/forecast-admin.js?v=20261101_totals_v4"></script>
+<script type="module" src="js/forecast-admin.js?v=20261122_app_dialog_v1"></script>
 <a href="read-diagnostics.html" style="display:block;margin:20px;text-align:center;color:#099999;font-weight:bold">تشخيص قراءات Firestore</a>
 </body>
 </html>

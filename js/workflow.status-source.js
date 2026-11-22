@@ -325,7 +325,7 @@ function currentPageOrderSource() {
 
 function showToast(message, type = 'info') {
     const container = $('toast-container');
-    if (!container) return alert(message);
+    if (!container) return window.DadDialog.alert(message);
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     const icon = type === 'success' ? 'ph-check-circle' : type === 'error' ? 'ph-warning-circle' : type === 'warning' ? 'ph-warning' : 'ph-info';
@@ -1061,8 +1061,8 @@ function bindCommonFilters(applyFn) {
     });
 }
 
-function confirmReason(message, requireReason = false) {
-    const reason = prompt(message, '');
+async function confirmReason(message, requireReason = false) {
+    const reason = await window.DadDialog.prompt(message, '');
     if (reason === null) return null;
     if (requireReason && !reason.trim()) {
         showToast('سبب الرفض مطلوب.', 'warning');
@@ -1070,8 +1070,8 @@ function confirmReason(message, requireReason = false) {
     }
     return reason.trim();
 }
-function confirmRequiredNote(message) {
-    const note = prompt(message, '');
+async function confirmRequiredNote(message) {
+    const note = await window.DadDialog.prompt(message, '');
     if (note === null) return null;
     if (!note.trim()) {
         showToast('الملاحظة إجبارية لإرجاع الطلبية خطوة للوراء.', 'warning');
@@ -1207,8 +1207,8 @@ function bindMarketItemRow(row) {
     row.querySelector('.mm-qty')?.addEventListener('input', () => recalcMarketRow(row, 'qty'));
     row.querySelector('.mm-bonus')?.addEventListener('input', () => recalcMarketRow(row, 'bonus'));
     row.querySelector('.mm-bonus-pct')?.addEventListener('input', () => recalcMarketRow(row, 'pct'));
-    row.querySelector('.workflow-delete-item')?.addEventListener('click', () => {
-        if (!confirm('هل أنت متأكد من حذف هذا الصنف من الطلبية؟ سيتم تسجيل العملية في سجل التدقيق.')) return;
+    row.querySelector('.workflow-delete-item')?.addEventListener('click', async () => {
+        if (!await window.DadDialog.confirm('هل أنت متأكد من حذف هذا الصنف من الطلبية؟ سيتم تسجيل العملية في سجل التدقيق.')) return;
         row.dataset.deleted = '1';
         row.style.display = 'none';
         updateMarketModalTotal();
@@ -1319,7 +1319,7 @@ async function saveMarketEdits(options = {}) {
 
 async function approveSelectedMarketOrderFromModal() {
     if (!state.selectedOrder) return;
-    if (!confirm('سيتم حفظ أي تعديلات حالية ثم اعتماد الطلبية وتحويلها إلى المالية. هل تريد المتابعة؟')) return;
+    if (!await window.DadDialog.confirm('سيتم حفظ أي تعديلات حالية ثم اعتماد الطلبية وتحويلها إلى المالية. هل تريد المتابعة؟')) return;
     const orderId = state.selectedOrder.id;
     const saved = await saveMarketEdits({ close: false, silent: true });
     if (saved) await marketApprove(orderId);
@@ -1395,59 +1395,59 @@ function applyMarketFilters() {
     renderMarketOrders();
 }
 
-function handleMarketAction(order, action) {
+async function handleMarketAction(order, action) {
     if (!order || !action) return;
     if (action === 'view') {
         openMarketOrderModal(order);
         return;
     }
     if (action === 'approve') {
-        if (confirm('اعتماد الطلبية وتحويلها إلى المالية؟')) marketApprove(order.id);
+        if (await window.DadDialog.confirm('اعتماد الطلبية وتحويلها إلى المالية؟')) marketApprove(order.id);
         return;
     }
     if (action === 'reject') {
-        const reason = confirmReason('سبب رفض مدير السوق:', true);
+        const reason = await await confirmReason('سبب رفض مدير السوق:', true);
         if (reason !== null) marketReject(order.id, reason);
         return;
     }
     if (action === 'return_rep') {
-        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
+        const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
         if (reason !== null) returnOrderStep(order.id, 'representative', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_rep');
         return;
     }
     if (action === 'return_supervisor') {
-        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
+        const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
         if (reason !== null) returnOrderStep(order.id, 'supervisor', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_supervisor');
         return;
     }
     if (action === 'delete') {
-        if (confirm('تحذير: سيتم حذف الطلبية من مسار العمل كحذف ناعم ولن تظهر للمراحل التالية. هل تريد المتابعة؟')) marketDeleteOrder(order.id);
+        if (await window.DadDialog.confirm('تحذير: سيتم حذف الطلبية من مسار العمل كحذف ناعم ولن تظهر للمراحل التالية. هل تريد المتابعة؟')) marketDeleteOrder(order.id);
     }
 }
 
-function handleMarketModalAction(action) {
+async function handleMarketModalAction(action) {
     if (!state.selectedOrder || !action) return;
     if (action === 'approve') {
         approveSelectedMarketOrderFromModal();
         return;
     }
     if (action === 'reject') {
-        const reason = confirmReason('سبب رفض مدير السوق:', true);
+        const reason = await await confirmReason('سبب رفض مدير السوق:', true);
         if (reason !== null) marketReject(state.selectedOrder.id, reason);
         return;
     }
     if (action === 'return_rep') {
-        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
+        const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمندوب:');
         if (reason !== null) returnOrderStep(state.selectedOrder.id, 'representative', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_rep').then(closeMarketOrderModal);
         return;
     }
     if (action === 'return_supervisor') {
-        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
+        const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمشرف:');
         if (reason !== null) returnOrderStep(state.selectedOrder.id, 'supervisor', reason, 'Market Manager', 'market_manager', 'market_manager_returned_to_supervisor').then(closeMarketOrderModal);
         return;
     }
     if (action === 'delete') {
-        if (confirm('تحذير: هل تريد حذف الطلبية بالكامل من مسار العمل؟')) marketDeleteOrder(state.selectedOrder.id);
+        if (await window.DadDialog.confirm('تحذير: هل تريد حذف الطلبية بالكامل من مسار العمل؟')) marketDeleteOrder(state.selectedOrder.id);
     }
 }
 
@@ -1498,7 +1498,7 @@ async function marketBulk(action) {
     const ids = selectedIds();
     if (ids.length === 0) return showToast('اختر طلبية واحدة على الأقل.', 'warning');
     if (action === 'approve') {
-        if (!confirm(`اعتماد ${ids.length} طلبية وتحويلها إلى المالية؟`)) return;
+        if (!await window.DadDialog.confirm(`اعتماد ${ids.length} طلبية وتحويلها إلى المالية؟`)) return;
         state.suspendRender = true;
         const results = await Promise.allSettled(ids.map(id => marketApprove(id, { silent: true, keepModalOpen: true })));
         state.suspendRender = false;
@@ -1506,7 +1506,7 @@ async function marketBulk(action) {
         showToast(`تم تنفيذ الاعتماد: ${results.filter(r => r.status === 'fulfilled').length}/${ids.length}`, 'success');
     }
     if (action === 'reject') {
-        const reason = confirmReason(`سبب رفض ${ids.length} طلبية من مدير السوق:`, true);
+        const reason = await await confirmReason(`سبب رفض ${ids.length} طلبية من مدير السوق:`, true);
         if (reason === null) return;
         state.suspendRender = true;
         const results = await Promise.allSettled(ids.map(id => marketReject(id, reason, { silent: true, keepModalOpen: true })));
@@ -1655,20 +1655,20 @@ function renderFinanceOrders() {
                 <td data-column="actions" data-label="الإجراءات المالية" class="workflow-actions-cell">${actionHtml}</td>
             `;
             tr.querySelector('.finance-history-trigger')?.addEventListener('click', () => openFinancePharmacyHistory(order));
-            tr.querySelector('.finance-action-select')?.addEventListener('change', event => {
+            tr.querySelector('.finance-action-select')?.addEventListener('change', async event => {
                 const action = event.target.value;
                 event.target.value = '';
                 if (action === 'approve') {
-                    if (!confirm('اعتماد الطلبية مالياً وتحويلها إلى فريق المعالجة؟')) return;
-                    const note = window.prompt('يمكنك كتابة ملاحظة اختيارية للمندوب والمشرف عند الاعتماد (اختياري):', order.financeApprovalNote || order.financeVisibleNote || '');
+                    if (!await window.DadDialog.confirm('اعتماد الطلبية مالياً وتحويلها إلى فريق المعالجة؟')) return;
+                    const note = await window.DadDialog.prompt('يمكنك كتابة ملاحظة اختيارية للمندوب والمشرف عند الاعتماد (اختياري):', order.financeApprovalNote || order.financeVisibleNote || '');
                     if (note !== null) financeApprove(order.id, note.trim());
                 }
                 if (action === 'reject') {
-                    const reason = confirmReason(isRejected ? 'تعديل سبب الرفض المالي (سيظهر للمندوب والمشرف):' : 'سبب الرفض المالي (سيظهر للمندوب والمشرف):', true);
+                    const reason = await await confirmReason(isRejected ? 'تعديل سبب الرفض المالي (سيظهر للمندوب والمشرف):' : 'سبب الرفض المالي (سيظهر للمندوب والمشرف):', true);
                     if (reason !== null) financeReject(order.id, reason);
                 }
                 if (action === 'return') {
-                    const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع لمدير السوق:');
+                    const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع لمدير السوق:');
                     if (reason !== null) returnOrderStep(order.id, 'market_manager', reason, 'Hamza', 'finance_controller', 'finance_returned_to_market_manager');
                 }
             });
@@ -2061,8 +2061,8 @@ function renderOrdersStaffRows() {
                 <td data-label="الإجراءات" class="workflow-actions-cell">${staffActionsHtml}</td>
             `;
             tr.querySelectorAll('.staff-edit-btn').forEach(btn => btn.addEventListener('click', () => openStaffOrderModal(order)));
-            tr.querySelector('.staff-return-btn')?.addEventListener('click', () => {
-                const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
+            tr.querySelector('.staff-return-btn')?.addEventListener('click', async () => {
+                const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
                 if (reason !== null) staffReturnToFinance(order.id, reason);
             });
             tr.querySelector('.staff-delete-btn')?.addEventListener('click', () => staffDeleteOrder(order.id));
@@ -2125,8 +2125,8 @@ function recalcStaffRow(row, source = '') {
 function bindStaffItemRow(row) {
     row.querySelector('.staff-product')?.addEventListener('change', () => recalcStaffRow(row, 'product'));
     row.querySelector('.staff-qty')?.addEventListener('input', () => recalcStaffRow(row, 'qty'));
-    row.querySelector('.staff-delete-item')?.addEventListener('click', () => {
-        if (!confirm('هل أنت متأكد من حذف هذا الصنف من الطلبية؟')) return;
+    row.querySelector('.staff-delete-item')?.addEventListener('click', async () => {
+        if (!await window.DadDialog.confirm('هل أنت متأكد من حذف هذا الصنف من الطلبية؟')) return;
         row.dataset.deleted = '1';
         row.style.display = 'none';
         updateStaffModalTotal();
@@ -2208,10 +2208,10 @@ async function saveStaffEdits(options = {}) {
         return false;
     }
 
-    const confirmMove = confirm('تنبيه مهم: بعد حفظ تعديل قسم الطلبيات، ستعود الطلبية تلقائياً إلى المالية للمراجعة والاعتماد مرة أخرى. هل تريد المتابعة؟');
+    const confirmMove = await window.DadDialog.confirm('تنبيه مهم: بعد حفظ تعديل قسم الطلبيات، ستعود الطلبية تلقائياً إلى المالية للمراجعة والاعتماد مرة أخرى. هل تريد المتابعة؟');
     if (!confirmMove) return false;
 
-    const reason = confirmRequiredNote('اكتب سبب تعديل قسم الطلبيات لإرساله إلى المالية:');
+    const reason = await await confirmRequiredNote('اكتب سبب تعديل قسم الطلبيات لإرساله إلى المالية:');
     if (reason === null) return false;
 
     const { kept, deleted, grandTotal } = collectStaffModalItems();
@@ -2265,7 +2265,7 @@ async function staffDeleteOrder(orderId) {
         showToast('لا يمكن حذف طلبية تمت فوترتها أو حذفها سابقاً.', 'warning');
         return;
     }
-    if (!confirm('تحذير: سيتم حذف الطلبية بالكامل من مسار العمل كحذف ناعم. هل تريد المتابعة؟')) return;
+    if (!await window.DadDialog.confirm('تحذير: سيتم حذف الطلبية بالكامل من مسار العمل كحذف ناعم. هل تريد المتابعة؟')) return;
     await updateOrderWithAudit(orderId, {
         status: 'deleted_by_orders_staff',
         workflowStage: 'deleted',
@@ -2339,7 +2339,7 @@ async function exportOrders(orders) {
         return;
     }
 
-    const hide = confirm(`تمت فوترة هذه الطلبيات بمجرد تصدير ملف Excel.
+    const hide = await window.DadDialog.confirm(`تمت فوترة هذه الطلبيات بمجرد تصدير ملف Excel.
 
 هل تريد إخفاءها من العرض الافتراضي؟
 موافق = إخفاء الطلبيات المفوترة.
@@ -2385,9 +2385,9 @@ function initOrdersStaff() {
     $('closeStaffModalBtn')?.addEventListener('click', closeStaffOrderModal);
     $('addStaffItemBtn')?.addEventListener('click', () => addStaffItemRow());
     $('saveStaffEditsBtn')?.addEventListener('click', () => saveStaffEdits());
-    $('returnStaffToFinanceBtn')?.addEventListener('click', () => {
+    $('returnStaffToFinanceBtn')?.addEventListener('click', async () => {
         if (!state.selectedOrder) return;
-        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
+        const reason = await await confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
         if (reason !== null) staffReturnToFinance(state.selectedOrder.id, reason).then(closeStaffOrderModal);
     });
     $('deleteStaffOrderBtn')?.addEventListener('click', () => state.selectedOrder && staffDeleteOrder(state.selectedOrder.id));

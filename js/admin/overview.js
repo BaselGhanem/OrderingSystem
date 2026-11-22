@@ -1014,6 +1014,8 @@ export default `<!DOCTYPE html>
     }
   </style>
 <link rel="stylesheet" href="admin-responsive.css?v=20260911">
+<link rel="stylesheet" href="app-dialog.css?v=20261122_app_dialog_v1">
+<script src="js/app-dialog.js?v=20261122_app_dialog_v1"></script>
 </head>
 <body class="admin-embedded">
   <div class="offline-banner" id="offlineBanner"><i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال</div>
@@ -2105,7 +2107,7 @@ export default `<!DOCTYPE html>
       if (!targetStatus) return toast(\`اختر الحالة الجديدة.\`, \`warning\`);
       if (!note) return toast(\`الملاحظة إجبارية.\`, \`warning\`);
       const message = \`هل أنت متأكد من تغيير حالة \${formatCount(ids.length)} طلبية إلى: \${statusLabel(targetStatus)}؟\`;
-      if (!confirm(message)) return;
+      if (!await window.DadDialog.confirm(message)) return;
       try {
         setBusy(true, \`جاري تغيير الحالة...\`);
         await applyStatusPatch(ids, targetStatus, note);

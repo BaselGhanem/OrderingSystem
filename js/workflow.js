@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./workflow.status-source.js?v=20261122_market_approval_v1`, import.meta.url);
+const sourceUrl = new URL(`./workflow.status-source.js?v=20261122_app_dialog_v1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -254,9 +254,9 @@ try {
     $('closeStaffModalBtn')?.addEventListener('click', closeStaffOrderModal);
     $('addStaffItemBtn')?.addEventListener('click', () => addStaffItemRow());
     $('saveStaffEditsBtn')?.addEventListener('click', () => saveStaffEdits());
-    $('returnStaffToFinanceBtn')?.addEventListener('click', () => {
+    $('returnStaffToFinanceBtn')?.addEventListener('click', async () => {
         if (!state.selectedOrder) return;
-        const reason = confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
+        const reason = await confirmRequiredNote('اكتب ملاحظة الإرجاع للمالية:');
         if (reason !== null) staffReturnToFinance(state.selectedOrder.id, reason).then(closeStaffOrderModal);
     });
     $('deleteStaffOrderBtn')?.addEventListener('click', () => state.selectedOrder && staffDeleteOrder(state.selectedOrder.id));

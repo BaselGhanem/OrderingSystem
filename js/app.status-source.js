@@ -1488,7 +1488,7 @@ async function confirmSupervisorDeleteOrder(orderId, order = {}, action = 'super
         return;
     }
     const refLabel = orderId ? orderId.substring(0, 6).toUpperCase() : '';
-    const ok = confirm(`تحذير: سيتم حذف الطلبية ${refLabel} كحذف ناعم مع حفظ سجلها في Firebase. هل تريد المتابعة؟`);
+    const ok = await window.DadDialog.confirm(`تحذير: سيتم حذف الطلبية ${refLabel} كحذف ناعم مع حفظ سجلها في Firebase. هل تريد المتابعة؟`);
     if (!ok) return;
     await softDeleteOrderBySupervisor(orderId, order, action);
     showToast('تم حذف الطلبية من مسار العمل.', 'success');
@@ -1515,8 +1515,8 @@ function softDeleteOrderBySupervisor(orderId, order = {}, action = 'supervisor_o
     }, buildAuditEntry(action, currentManagerName || 'Supervisor', 'supervisor', { status: order.status || '' }, { status: 'deleted_by_supervisor' }, 'Soft delete only - Firebase document preserved'));
 }
 
-function promptRequiredReturnNote(message) {
-    const note = prompt(message, '');
+async function promptRequiredReturnNote(message) {
+    const note = await window.DadDialog.prompt(message, '');
     if (note === null) return null;
     if (!note.trim()) {
         showToast('الملاحظة إجبارية عند إرجاع الطلبية.', 'warning');
@@ -1526,7 +1526,7 @@ function promptRequiredReturnNote(message) {
 }
 
 async function supervisorReturnToRep(orderId, order = {}) {
-    const reason = promptRequiredReturnNote('اكتب ملاحظة الإرجاع للمندوب:');
+    const reason = await await promptRequiredReturnNote('اكتب ملاحظة الإرجاع للمندوب:');
     if (reason === null) return;
     const current = order && Object.keys(order).length ? order : {}; 
     await updateOrderWithAudit(orderId, {
@@ -3595,7 +3595,7 @@ function renderManagerOrders(orders) {
         if (!isApproved) {
             tr.querySelector('.return-rep-btn')?.addEventListener('click', () => supervisorReturnToRep(order.id, order));
             tr.querySelector('.approve-btn').onclick = async () => { 
-                if(confirm("هل توافق على تمرير الطلبية؟")) { 
+                if(await window.DadDialog.confirm("هل توافق على تمرير الطلبية؟")) {
                     await approveOrderBySupervisor(order.id, order, 'supervisor_approved'); 
                     showToast("تم اعتماد الطلبية وتحويلها إلى مدير السوق", "success");
                 } 
@@ -3655,7 +3655,7 @@ async function handleBulkAction(actionType) {
     }
 
     const actionText = actionType === 'approve' ? 'الموافقة على' : 'حذف';
-    if (!confirm(`هل أنت متأكد من ${actionText} ${orderIds.length} طلبية دفعة واحدة؟`)) return;
+    if (!await window.DadDialog.confirm(`هل أنت متأكد من ${actionText} ${orderIds.length} طلبية دفعة واحدة؟`)) return;
 
     try {
         const skipped = [];
@@ -3737,7 +3737,7 @@ function renderAllOrders(orders) {
         tr.querySelector('.btn-view').onclick = () => showOrderDetails(order);
         tr.querySelector('.delete-all-order-btn')?.addEventListener('click', () => confirmSupervisorDeleteOrder(order.id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_soft_delete_unassigned_from_all_orders' : 'supervisor_soft_delete_from_all_orders'));
         tr.querySelector('.approve-all-order-btn')?.addEventListener('click', async () => {
-            if (!confirm('اعتماد الطلبية وتحويلها إلى مدير السوق؟')) return;
+            if (!await window.DadDialog.confirm('اعتماد الطلبية وتحويلها إلى مدير السوق؟')) return;
             await approveOrderBySupervisor(order.id, order, isOrderWithoutAssignedSupervisor(order) ? 'supervisor_approved_unassigned_order' : 'supervisor_approved_all_orders');
             showToast('تم اعتماد الطلبية وتحويلها إلى مدير السوق', 'success');
         });
@@ -3844,7 +3844,7 @@ function showOrderDetails(order) {
         `;
         getEl('detailsEditOrderBtn')?.addEventListener('click', () => { modal.style.display = 'none'; openEditOrder(order.id, 'all'); });
         getEl('detailsApproveOrderBtn')?.addEventListener('click', async () => {
-            if (!detailsModalOrder || !confirm('اعتماد الطلبية وتحويلها إلى مدير السوق؟')) return;
+            if (!detailsModalOrder || !await window.DadDialog.confirm('اعتماد الطلبية وتحويلها إلى مدير السوق؟')) return;
             await approveOrderBySupervisor(detailsModalOrder.id, detailsModalOrder, isOrderWithoutAssignedSupervisor(detailsModalOrder) ? 'supervisor_approved_unassigned_order_from_popup' : 'supervisor_approved_from_popup');
             showToast('تم اعتماد الطلبية وتحويلها إلى مدير السوق', 'success');
             modal.style.display = 'none';
@@ -4535,8 +4535,8 @@ if (navReportsBtn) navReportsBtn.onclick = () => {
     loadReports();
 };
 const logoutBtn = getEl('logoutBtn');
-if (logoutBtn) logoutBtn.onclick = () => {
-    if (!confirm("هل أنت متأكد من تسجيل الخروج؟")) return;
+if (logoutBtn) logoutBtn.onclick = async () => {
+    if (!await window.DadDialog.confirm("هل أنت متأكد من تسجيل الخروج؟")) return;
     clearRepSession();
     clearAdminSession();
     sessionStorage.removeItem('activeOrderContext');
@@ -4619,7 +4619,7 @@ async function handleAllOrdersBulkAction(actionType) {
     const orderIds = Array.from(selectedCheckboxes).map(cb => cb.value);
     if (orderIds.length === 0) { return showToast("الرجاء تحديد طلبية واحدة على الأقل", "warning"); }
     const actionText = actionType === 'approve' ? 'الموافقة على' : 'حذف';
-    if (!confirm(`تحذير: هل أنت متأكد من ${actionText} ${orderIds.length} طلبية دفعة واحدة؟`)) return;
+    if (!await window.DadDialog.confirm(`تحذير: هل أنت متأكد من ${actionText} ${orderIds.length} طلبية دفعة واحدة؟`)) return;
     try {
         const skipped = [];
         const promises = orderIds.map(id => {

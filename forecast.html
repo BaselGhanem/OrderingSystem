@@ -3,8 +3,10 @@
 <link rel="apple-touch-icon" href="assets/orders-app-192.png">
 <link rel="stylesheet" href="install-app.css?v=20261122_global_install_v2">
 <script src="js/install-app.js?v=20261122_global_install_v2" defer></script>
+<link rel="stylesheet" href="app-dialog.css?v=20261122_app_dialog_v1">
+<script src="js/app-dialog.js?v=20261122_app_dialog_v1"></script>
 </head><body style="margin:0;background:#f2f7f8"><main id="forecastApp" class="forecast-root"></main><script type="module">
-import { mountForecast } from './js/forecast-ui.js?v=20261102_monthly_append_v2';
+import { mountForecast } from './js/forecast-ui.js?v=20261122_app_dialog_v1';
 const mode = new URLSearchParams(location.search).get(`mode`);
 mountForecast(document.getElementById(`forecastApp`), { mode: [`team`, `tracking`, `admin`].includes(mode) ? mode : `rep` });
 </script></body></html>

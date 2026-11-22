@@ -163,6 +163,8 @@
 <link rel="apple-touch-icon" href="assets/orders-app-192.png">
 <link rel="stylesheet" href="install-app.css?v=20261122_global_install_v2">
 <script src="js/install-app.js?v=20261122_global_install_v2" defer></script>
+<link rel="stylesheet" href="app-dialog.css?v=20261122_app_dialog_v1">
+<script src="js/app-dialog.js?v=20261122_app_dialog_v1"></script>
 </head>
 <body>
     <div class="bg-shapes"><div class="shape shape-1"></div><div class="shape shape-2"></div></div>
@@ -1275,7 +1277,7 @@
 
         window.openOrderModal = function(orderId) {
             let order = allOrders.find(o => o.id === orderId);
-            if (!order) return alert('خطأ: الطلبية غير موجودة');
+            if (!order) return window.DadDialog.alert('خطأ: الطلبية غير موجودة');
             currentEditingOrder = JSON.parse(JSON.stringify(order));
             if (!Array.isArray(currentEditingOrder.items)) currentEditingOrder.items = [];
             const meta = document.getElementById('duplicateOrderMeta');
@@ -1366,7 +1368,7 @@
 
         window.removeRowFromModal = function(index) {
             if (currentEditingOrder.items.length === 1) {
-                alert("لا يمكن حذف الصنف الوحيد، قم بحذف الطلبية بالكامل بدلاً من ذلك.");
+                window.DadDialog.alert("لا يمكن حذف الصنف الوحيد، قم بحذف الطلبية بالكامل بدلاً من ذلك.");
                 return;
             }
             currentEditingOrder.items.splice(index, 1);
@@ -1404,7 +1406,7 @@
                     note: document.querySelector(`.item-note[data-idx="${idx}"]`)?.value || ''
                 });
             });
-            if (updatedItems.length === 0) return alert('لا يمكن حفظ طلبية بدون أصناف.');
+            if (updatedItems.length === 0) return window.DadDialog.alert('لا يمكن حفظ طلبية بدون أصناف.');
             const newGrandTotal = updatedItems.reduce((sum, item) => sum + parseReportNumber(item.total), 0);
             try {
                 const orderRef = doc(db, "orders", currentEditingOrder.id);
@@ -1424,16 +1426,16 @@
                         buildReportsAuditEntry('reports_order_edit', { items: currentEditingOrder.items || [], grandTotal: currentEditingOrder.grandTotal || 0 }, { items: updatedItems, grandTotal: Number(newGrandTotal.toFixed(3)) }, 'تعديل تفاصيل الطلبية من شاشة التقارير')
                     ]
                 });
-                alert("تم حفظ التعديلات بنجاح");
+                window.DadDialog.alert("تم حفظ التعديلات بنجاح");
                 location.reload(); 
             } catch (error) {
                 console.error(error);
-                alert("حدث خطأ أثناء الحفظ");
+                window.DadDialog.alert("حدث خطأ أثناء الحفظ");
             }
         };
 
         document.getElementById('deleteEntireOrderBtn').onclick = async () => {
-            if (!confirm("هل أنت متأكد من حذف هذه الطلبية من مسار العمل؟ سيتم حفظها في Firebase كطلبية محذوفة.")) return;
+            if (!await window.DadDialog.confirm("هل أنت متأكد من حذف هذه الطلبية من مسار العمل؟ سيتم حفظها في Firebase كطلبية محذوفة.")) return;
             try {
                 const orderRef = doc(db, "orders", currentEditingOrder.id);
                 const auditTrail = Array.isArray(currentEditingOrder.auditTrail) ? currentEditingOrder.auditTrail : [];
@@ -1452,11 +1454,11 @@
                         buildReportsAuditEntry('reports_order_deleted', { status: currentEditingOrder.status || '' }, { status: 'deleted_by_reports' }, 'حذف ناعم من شاشة التقارير')
                     ]
                 });
-                alert("تم حذف الطلبية من مسار العمل بنجاح");
+                window.DadDialog.alert("تم حذف الطلبية من مسار العمل بنجاح");
                 location.reload();
             } catch (error) {
                 console.error(error);
-                alert("حدث خطأ أثناء الحذف");
+                window.DadDialog.alert("حدث خطأ أثناء الحذف");
             }
         };
 

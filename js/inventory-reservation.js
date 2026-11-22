@@ -143,7 +143,7 @@ function renderAudit() {
 async function toggleReservation(product, shouldReserve) {
     if (!isAuthorized(session)) return showToast('لا تملك صلاحية حجز الأصناف.', 'error');
     const actionText = shouldReserve ? 'حجز' : 'فك حجز';
-    if (!confirm(`${actionText} الصنف: ${product.name || '-'}؟`)) return;
+    if (!await window.DadDialog.confirm(`${actionText} الصنف: ${product.name || '-'}؟`)) return;
     const actor = actorInfo();
     const buttonCandidates = document.querySelectorAll('.toggle-reservation, .toggle-visibility');
     buttonCandidates.forEach(btn => btn.disabled = true);
@@ -190,7 +190,7 @@ async function toggleVisibility(product, shouldHide) {
     if (!isAuthorized(session)) return showToast('لا تملك صلاحية تعديل ظهور الاصناف.', 'error');
     const label = shouldHide ? 'اخفاء' : 'اظهار';
     const detail = shouldHide ? 'لن يظهر هذا الصنف في قائمة اختيار الاصناف للطلبيات الجديدة، ولن يتمكن المندوب من اضافته' : 'سيظهر هذا الصنف مجددا للمندوبين';
-    if (!confirm(`${label} الصنف: ${product.name || '-'}؟\n${detail}\nحالة الحجز لن تتغير.`)) return;
+    if (!await window.DadDialog.confirm(`${label} الصنف: ${product.name || '-'}؟\n${detail}\nحالة الحجز لن تتغير.`)) return;
     const buttons = document.querySelectorAll('.toggle-reservation, .toggle-visibility');
     buttons.forEach(button => button.disabled = true);
     try {
@@ -291,7 +291,7 @@ async function refreshAll() {
 async function boot() {
     session = parseSession();
     if (!isAuthorized(session)) {
-        alert('هذه الصفحة محصورة بعبدالله الناطور، محمد طوالبه، والمدير العام عبر لوحة التقارير.');
+        await window.DadDialog.alert('هذه الصفحة محصورة بعبدالله الناطور، محمد طوالبه، والمدير العام عبر لوحة التقارير.');
         window.location.replace('login.html?switch=1');
         return;
     }

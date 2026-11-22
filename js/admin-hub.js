@@ -1,6 +1,6 @@
 const loaders = {
-    manage: () => import(`./admin/manage.js?v=20260911`),
-    overview: () => import(`./admin/overview.js?v=20260911`),
+    manage: () => import(`./admin/manage.js?v=20261122_app_dialog_v1`),
+    overview: () => import(`./admin/overview.js?v=20261122_app_dialog_v1`),
     assignments: () => import(`./admin/assignments.js?v=20260913_active_reps_v1`),
     areas: () => import(`./admin/areas.js?v=20260911`)
 };
