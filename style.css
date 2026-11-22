@@ -3406,3 +3406,31 @@ body[data-page="finance-controller"] .finance-rep-justification strong {
     .finance-history-header, .finance-history-content { padding-inline: 14px; }
     .finance-history-item { grid-template-columns: 1fr; }
 }
+
+body:is([data-page="order"], [data-page="supervisor"]) :is(#detailsModal, #pharmacyHistoryModal) {
+    align-items: center !important;
+    padding: clamp(8px, 2vw, 24px) !important;
+}
+body:is([data-page="order"], [data-page="supervisor"]) :is(#detailsModal, #pharmacyHistoryModal) > .modal-content {
+    display: flex;
+    flex-direction: column;
+    width: min(1280px, 100%) !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: calc(100dvh - clamp(16px, 4vw, 48px)) !important;
+    padding: clamp(14px, 2vw, 24px) !important;
+    border-radius: 20px !important;
+    overflow: auto;
+}
+body:is([data-page="order"], [data-page="supervisor"]) :is(#detailsModal, #pharmacyHistoryModal) > .modal-content::before {
+    display: none;
+}
+body:is([data-page="order"], [data-page="supervisor"]) :is(#detailsModal, #pharmacyHistoryModal) > .modal-content > :not(.table-responsive) {
+    flex-shrink: 0;
+}
+body:is([data-page="order"], [data-page="supervisor"]) :is(#detailsModal, #pharmacyHistoryModal) > .modal-content > .table-responsive {
+    flex: 1 1 auto;
+    min-height: min(96px, 24dvh);
+    overflow: auto;
+    overscroll-behavior: contain;
+}
