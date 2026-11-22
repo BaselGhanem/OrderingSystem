@@ -34,6 +34,7 @@
 .target-progress-track { height:8px; overflow:hidden; border-radius:999px; background:#e2e8f0; }
 .target-progress-track i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#099999,#087174); }
 @media (max-width:700px) { .rep-target-filter { width:100%; } }
+#mainTabs[hidden], #logoutBtn[hidden], #backToSupervisorBtn[hidden] { display: none !important; }
 </style>
 <script src="js/version-check.js?v=20261006_reads1" defer></script>
 <style>
@@ -77,6 +78,9 @@
   .pharmacy-history-count{margin-inline-start:auto;padding-bottom:0}
 }
 </style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/orders-app-192.png">
+<meta name="theme-color" content="#087777">
 </head><body class="rep-premium-page" data-page="order"><div class="offline-banner" id="offline-banner">
 <i class="ph ph-wifi-slash"></i> أنت الآن في وضع عدم الاتصال. النظام يعمل محلياً وسيتم المزامنة لاحقاً.
     </div><div class="saving-indicator" id="saving-indicator">
@@ -98,6 +102,7 @@
 <button class="btn-tab" id="navTargetsBtn" type="button"><i class="ph ph-target"></i> التارجت</button>
 </div>
 <span id="currentRepName"><i class="ph ph-user"></i> المندوب: <b>-</b></span>
+<button class="btn-icon" id="backToSupervisorBtn" type="button" hidden><i class="ph ph-arrow-right"></i> لوحة المشرف</button>
 <button class="btn-icon" id="logoutBtn" title="تسجيل خروج" type="button"><i class="ph ph-sign-out"></i></button>
 </div>
 </header><main class="screen glass-panel rep-page-panel" id="orderScreen" style="display: none;">
@@ -320,6 +325,6 @@
 </table>
 </div>
 </div>
-</div></div><div id="toast-container"></div><script src="js/app.js?v=20261109_edit_pharmacy_preserve_v3" type="module"></script><script src="js/targets.js?v=20260923_force_v2" type="module"></script><script type="module" src="js/forecast-entry.js?v=20261101_partial_excel_v2"></script>
+</div></div><div id="toast-container"></div><script src="js/app.js?v=20261122_supervisor_order_v1" type="module"></script><script src="js/targets.js?v=20260923_force_v2" type="module"></script><script type="module" src="js/forecast-entry.js?v=20261101_partial_excel_v2"></script>
 </body></html>
 

@@ -295,9 +295,25 @@ function showDataModeNotice(message) {
     if (el) el.textContent = message || '';
 }
 
+function needsMissingMarketApproval(order = {}) {
+    if (order.status !== `finance_pending`) return false;
+    const audit = Array.isArray(order.auditTrail) ? order.auditTrail : [];
+    const enteredBySupervisor = order.createdByRole === `supervisor` ||
+        audit.some(entry => entry?.action === `order_created` && entry.role === `supervisor`);
+    const isOthers = /^اخرين(?:\s*[-–—]|$)/.test(String(order.repName || order.representativeName || ``).trim().replace(/[أإآ]/g, `ا`));
+    if (!enteredBySupervisor && !(isOthers && (order.supervisorApprovedBy || order.supervisorStatus === `supervisor_approved`))) {
+        return false;
+    }
+    const hasMarketApproval = order.marketManagerApprovedAt || order.marketManagerApprovedBy ||
+        audit.some(entry => entry?.action === `market_manager_approved` && entry.role === `market_manager`);
+    return !hasMarketApproval;
+}
+
 function currentPageOrderSource() {
     const ordersRef = collection(db, 'orders');
-    if (WORKFLOW_PAGE === 'market-manager') return query(ordersRef, where('status', 'in', ['market_manager_pending', 'supervisor_approved', 'returned_to_market_manager']));
+    if (WORKFLOW_PAGE === `market-manager`) return query(ordersRef, where(`status`, `in`, [
+        `market_manager_pending`, `supervisor_approved`, `returned_to_market_manager`, `finance_pending`
+    ]));
     if (WORKFLOW_PAGE === 'finance-controller') return query(ordersRef, where('status', 'in', ['finance_pending', 'finance_rejected', 'returned_to_finance']));
     if (WORKFLOW_PAGE === 'orders-staff') return [
         query(ordersRef, where('status', 'in', ['orders_staff_pending', 'orders_staff_hidden', 'orders_staff_exported', 'finance_approved'])),
@@ -799,6 +815,10 @@ async function updateOrderWithAudit(orderId, updates, entry) {
     const snap = await getDoc(ref);
     if (!snap.exists()) throw new Error('Order not found');
     const current = snap.data();
+    if (entry.role === `finance_controller` && needsMissingMarketApproval(current)) {
+        showToast(`الطلبية بانتظار اعتماد مدير السوق.`, `warning`);
+        return false;
+    }
     const trail = Array.isArray(current.auditTrail) ? current.auditTrail : [];
     const localUpdates = {
         ...updates,
@@ -816,6 +836,7 @@ async function updateOrderWithAudit(orderId, updates, entry) {
     if (state.selectedOrder?.id === orderId) state.selectedOrder = { ...state.selectedOrder, ...localUpdates };
     writeCache(state.allOrdersLoaded ? ALL_ORDERS_CACHE_KEY : PAGE_CACHE_KEY, state.orders);
     if (!state.suspendRender) state.onOrdersChange?.();
+    return true;
 }
 
 async function loadProducts() {
@@ -1100,8 +1121,8 @@ function returnTargetPayload(target, actor, role, reason) {
 async function returnOrderStep(orderId, target, reason, actor, role, action) {
     const order = state.orders.find(o => o.id === orderId) || state.selectedOrder || {};
     const updates = returnTargetPayload(target, actor, role, reason);
-    await updateOrderWithAudit(orderId, updates, auditEntry(action, actor, role, { status: order.status || '', returnReason: order.returnReason || '' }, { status: updates.status, returnReason: reason }, reason));
-    showToast('تم إرجاع الطلبية وتسجيل الملاحظة بنجاح.', 'success');
+    const saved = await updateOrderWithAudit(orderId, updates, auditEntry(action, actor, role, { status: order.status || '', returnReason: order.returnReason || '' }, { status: updates.status, returnReason: reason }, reason));
+    if (saved) showToast(`تم إرجاع الطلبية وتسجيل الملاحظة بنجاح.`, `success`);
 }
 
 
@@ -1346,9 +1367,9 @@ async function marketDeleteOrder(orderId) {
 }
 
 function getMarketManagerDisplayStatus(order = {}) {
-    const status = order.status || '';
-    return ['supervisor_approved', 'market_manager_pending'].includes(status)
-        ? 'market_manager_pending'
+    const status = order.status || ``;
+    return status === `supervisor_approved` || needsMissingMarketApproval(order)
+        ? `market_manager_pending`
         : status;
 }
 
@@ -1359,12 +1380,12 @@ function applyMarketFilters() {
         const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
     state.visibleOrders = state.orders.filter(order => {
-        const orderStatus = order.status || '';
-        const eligible = ['market_manager_pending', 'supervisor_approved', 'returned_to_market_manager'].includes(orderStatus);
-        const awaitingMarketManager = ['market_manager_pending', 'supervisor_approved'].includes(orderStatus);
-        const statusMatch = status === 'awaiting_market_manager'
-            ? awaitingMarketManager
-            : (status ? orderStatus === status : eligible);
+        const orderStatus = getMarketManagerDisplayStatus(order);
+        const awaitingMarketManager = orderStatus === `market_manager_pending`;
+        const eligible = awaitingMarketManager || orderStatus === `returned_to_market_manager`;
+        const statusMatch = status === `awaiting_market_manager` ? awaitingMarketManager
+            : status === `supervisor_approved` ? order.status === status
+                : (status ? orderStatus === status : eligible);
         return statusMatch &&
             matchesExtraFilter(order, `marketExtraFilter`) &&
             inDateRange(order, from, to) &&
@@ -1567,6 +1588,7 @@ function applyFinanceFilters() {
         const from = $('filterDateFrom')?.value || '';
     const to = $('filterDateTo')?.value || '';
     state.visibleOrders = state.orders.filter(order => {
+        if (needsMissingMarketApproval(order)) return false;
         const financeState = order.financeStatus || (order.status === 'finance_pending' ? 'finance_pending' : '');
         const isFinancePending = order.status === 'finance_pending' || (order.marketManagerStatus === 'market_manager_approved' && financeState === 'finance_pending');
         const isFinanceRejected = order.status === 'finance_rejected' || financeState === 'finance_rejected';
@@ -1878,7 +1900,7 @@ function initFinanceHistoryModal() {
 async function financeApprove(orderId, approvalNote = '') {
     const order = state.orders.find(o => o.id === orderId) || {};
     const normalizedNote = String(approvalNote || '').trim();
-    await updateOrderWithAudit(orderId, {
+    const saved = await updateOrderWithAudit(orderId, {
         status: 'orders_staff_pending',
         workflowStage: 'orders_staff',
         financeStatus: 'finance_approved',
@@ -1890,6 +1912,7 @@ async function financeApprove(orderId, approvalNote = '') {
         orderStaffStatus: 'orders_staff_pending',
         hiddenByOrderStaff: false
     }, auditEntry('finance_approved', 'Hamza', 'finance_controller', { status: order.status, financeApprovalNote: order.financeApprovalNote || '', financeRejectionReason: order.financeRejectionReason || '' }, { status: 'orders_staff_pending', financeApprovalNote: normalizedNote }, normalizedNote || 'تم الاعتماد المالي بدون ملاحظة إضافية'));
+    if (!saved) return;
     financePharmacyHistoryCache.clear();
     showToast(normalizedNote ? 'تم الاعتماد المالي وتحويل الطلبية إلى فريق المعالجة مع حفظ الملاحظة.' : 'تم الاعتماد المالي وتحويل الطلبية إلى فريق المعالجة.', 'success');
 }
@@ -1897,7 +1920,7 @@ async function financeApprove(orderId, approvalNote = '') {
 async function financeReject(orderId, reason = '') {
     const order = state.orders.find(o => o.id === orderId) || {};
     const normalizedReason = String(reason || '').trim();
-    await updateOrderWithAudit(orderId, {
+    const saved = await updateOrderWithAudit(orderId, {
         status: 'finance_rejected',
         workflowStage: 'finance',
         financeStatus: 'finance_rejected',
@@ -1907,6 +1930,7 @@ async function financeReject(orderId, reason = '') {
         financeVisibleNote: normalizedReason,
         financeApprovalNote: ''
     }, auditEntry('finance_rejected', 'Hamza', 'finance_controller', { status: order.status, financeRejectionReason: order.financeRejectionReason || '' }, { status: 'finance_rejected', financeRejectionReason: normalizedReason }, normalizedReason));
+    if (!saved) return;
     showToast('تم رفض الطلبية مالياً مع حفظ الملاحظة للمندوب والمشرف.', 'success');
 }
 

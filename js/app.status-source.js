@@ -178,16 +178,34 @@ function setDefaultMonthFilter() {
     if (fromInput && !fromInput.value) fromInput.value = firstDay;
     if (toInput && !toInput.value) toInput.value = lastDay;
 }
-function initializeManagerView(managerName) {
+function initializeManagerView(managerName, representatives) {
     currentManagerName = managerName;
     isAdmin = true;
     const managerAddBtn = getEl('managerAddNewOrderBtn');
-    if (managerAddBtn) {
-        managerAddBtn.onclick = () => {
-            sessionStorage.setItem('adminOrderMode', '1');
-            sessionStorage.removeItem('activeOrderContext');
-            window.location.href = 'login.html';
-        };
+    const picker = getEl(`supervisorOrderPicker`);
+    const options = getEl(`supervisorOrderRepOptions`);
+    if (managerAddBtn && picker && options) {
+        for (const rep of representatives.filter(rep => canPlaceSupervisorOrderFor(rep.name, managerName))) {
+            const button = document.createElement(`button`);
+            button.type = `button`;
+            button.className = `btn-primary`;
+            button.textContent = rep.name;
+            button.addEventListener(`click`, () => {
+                const session = getAdminSession();
+                if (session?.type !== `manager` || session.name !== managerName) return goToLogin();
+                sessionStorage.setItem(`supervisorOrderRep`, JSON.stringify({
+                    id: rep.id,
+                    name: rep.name,
+                    token: session.token
+                }));
+                sessionStorage.setItem(`adminOrderMode`, `1`);
+                sessionStorage.removeItem(`activeOrderContext`);
+                window.location.href = `order.html`;
+            });
+            options.append(button);
+        }
+        getEl(`supervisorOrderPickerEmpty`).hidden = options.childElementCount > 0;
+        managerAddBtn.onclick = () => picker.showModal();
     }
 
     const loginScreen = getEl('loginScreen');
@@ -1826,6 +1844,41 @@ function getManagerName(repName) {
     return matchedEntry?.[1] || "غير محدد";
 }
 
+function canPlaceSupervisorOrderFor(repName, managerName) {
+    if (!repName || !managerName) return false;
+    const assignedManager = getManagerName(repName);
+    if (assignedManager === managerName) return true;
+    return assignedManager === `غير محدد` &&
+        normalizeOperationalRepName(repName) === `اخرين` &&
+        SUPERVISOR_TARGET_NAMES.includes(managerName);
+}
+
+function getSupervisorOrderSelection() {
+    if (sessionStorage.getItem(`adminOrderMode`) !== `1`) return null;
+    const session = getAdminSession();
+    if (session?.type !== `manager`) return null;
+    try {
+        const rep = JSON.parse(sessionStorage.getItem(`supervisorOrderRep`));
+        if (!rep?.id || rep.token !== session.token || !canPlaceSupervisorOrderFor(rep.name, session.name)) return null;
+        return { rep, managerName: session.name };
+    } catch {
+        return null;
+    }
+}
+
+function canPlaceSupervisorOrderAt(pharmacy, selection) {
+    if (!pharmacy || !selection || String(pharmacy.rep_id) !== selection.rep.id) return false;
+    const repName = getOperationalRepNameForPharmacy(pharmacy, selection.rep.name);
+    return getManagerName(repName) === selection.managerName;
+}
+
+function finishSupervisorOrder() {
+    sessionStorage.removeItem(`supervisorOrderRep`);
+    sessionStorage.removeItem(`adminOrderMode`);
+    sessionStorage.removeItem(`activeOrderContext`);
+    window.location.href = `supervisor.html`;
+}
+
 function setupAutocomplete(inputEl, suggestionsEl, dataArray, onSelectCallback) {
     inputEl._autocompleteData = dataArray;
     inputEl._autocompleteCallback = onSelectCallback;
@@ -1947,6 +2000,8 @@ function showRepresentativeHome() {
 
 async function openOrderPharmacyPicker() {
     if (!currentRepId && !loadRepSession()) return goToLogin();
+    const selection = isAdmin ? getSupervisorOrderSelection() : null;
+    if (isAdmin && !selection) return finishSupervisorOrder();
     if (!isAdmin && !await ensureForecastBeforeOrder(currentRepId)) return;
     const modal = getEl(`orderPharmacyModal`);
     const input = getEl(`orderPharmacyInput`);
@@ -1969,6 +2024,7 @@ async function openOrderPharmacyPicker() {
         const names = [];
         snap.forEach(pharmacyDoc => {
             const pharmacy = { id: pharmacyDoc.id, ...pharmacyDoc.data() };
+            if (selection && !canPlaceSupervisorOrderAt(pharmacy, selection)) return;
             currentPharmaciesData.push(pharmacy);
             if (pharmacy.name) names.push(pharmacy.name);
         });
@@ -2014,23 +2070,24 @@ getEl(`confirmOrderPharmacyBtn`)?.addEventListener(`click`, () => {
     const selectedPharmacy = validateOrderPharmacySelection();
     if (!selectedPharmacy) return showToast(`الرجاء اختيار صيدلية صحيحة من القائمة.`, `warning`);
 
-    const baseRepName = sessionStorage.getItem(`repName`) || currentRepName || ``;
+    const selection = isAdmin ? getSupervisorOrderSelection() : null;
+    if (isAdmin && !selection) return finishSupervisorOrder();
+    if (selection && !canPlaceSupervisorOrderAt(selectedPharmacy, selection)) {
+        return showToast(`هاي الصيدلية خارج نطاق مندوبيك.`, `warning`);
+    }
+    const baseRepName = selection?.rep.name || sessionStorage.getItem(`repName`) || currentRepName || ``;
     currentRepName = getOperationalRepNameForPharmacy(selectedPharmacy, baseRepName);
     currentPharmacyName = selectedPharmacy.name || ``;
     currentPharmacyCode = selectedPharmacy.pharmacyCode || selectedPharmacy.pharmacy_code || selectedPharmacy.customerCode || ``;
     currentPharmacyId = selectedPharmacy.id || ``;
-    saveRepSession(currentRepId, currentRepName);
-
-    const adminOrderSession = getAdminSession();
-    const isAdminOrder = sessionStorage.getItem(`adminOrderMode`) === `1` && adminOrderSession?.type === `manager`;
+    if (!selection) saveRepSession(currentRepId, currentRepName);
     sessionStorage.setItem(`activeOrderContext`, JSON.stringify({
         repId: currentRepId,
         repName: currentRepName,
         pharmacyName: currentPharmacyName,
         pharmacyCode: currentPharmacyCode,
         pharmacyId: currentPharmacyId,
-        isAdminOrder,
-        managerName: isAdminOrder ? adminOrderSession.name : null
+        isAdminOrder: Boolean(selection)
     }));
     closeOrderPharmacyPicker();
     window.location.href = `order.html`;
@@ -2269,7 +2326,7 @@ async function loadInitialData() {
             productCode: prod.productCode || prod.product_code || prod.code || ''
         }));
         productsList.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
-        await bootstrapPage();
+        await bootstrapPage(repsData);
     } catch(e) {
         console.error("خطأ في تحميل البيانات الأولية:", e);
         if (repSelect) repSelect.innerHTML = '<option value="">❌ فشل التحميل</option>';
@@ -2279,28 +2336,41 @@ async function loadInitialData() {
     }
 }
 
-async function bootstrapPage() {
-    if (APP_PAGE === 'order') {
+async function bootstrapPage(representatives = []) {
+    if (APP_PAGE === `order`) {
+        const delegationRequested = sessionStorage.getItem(`adminOrderMode`) === `1`;
+        const selection = delegationRequested ? getSupervisorOrderSelection() : null;
+        if (delegationRequested && !selection) return finishSupervisorOrder();
+        isAdmin = Boolean(selection);
+        currentManagerName = selection?.managerName || null;
+        if (selection) {
+            currentRepId = selection.rep.id;
+            currentRepName = selection.rep.name;
+            getEl(`mainTabs`).hidden = true;
+            getEl(`logoutBtn`).hidden = true;
+            getEl(`backToSupervisorBtn`).hidden = false;
+            getEl(`userInfo`).style.display = `flex`;
+            getEl(`currentRepName`).textContent = `طلبية بالنيابة عن ${currentRepName}`;
+        } else if (!loadRepSession()) return goToLogin();
+
         const ctxRaw = sessionStorage.getItem(`activeOrderContext`);
         if (!ctxRaw) {
-            if (!loadRepSession()) return goToLogin();
-            const adminOrderSession = getAdminSession();
-            isAdmin = sessionStorage.getItem(`adminOrderMode`) === `1` && adminOrderSession?.type === `manager`;
-            currentManagerName = isAdmin ? adminOrderSession.name : null;
-            showRepresentativeHome();
-            if (isAdmin) setTimeout(() => openOrderPharmacyPicker(), 0);
+            if (selection) {
+                getEl(`newOrderFab`).style.display = `flex`;
+                await openOrderPharmacyPicker();
+            } else showRepresentativeHome();
             return;
         }
         try {
             const ctx = JSON.parse(ctxRaw);
-            currentRepId = ctx.repId;
+            if (ctx.repId !== currentRepId || Boolean(ctx.isAdminOrder) !== isAdmin) {
+                throw new Error(`Order context does not match the active session`);
+            }
             currentRepName = ctx.repName;
             currentPharmacyName = ctx.pharmacyName;
             currentPharmacyCode = ctx.pharmacyCode || ``;
             currentPharmacyId = ctx.pharmacyId || ``;
-            isAdmin = !!ctx.isAdminOrder;
-            currentManagerName = ctx.managerName || null;
-            saveRepSession(currentRepId, currentRepName);
+            if (!selection) saveRepSession(currentRepId, currentRepName);
             getEl(`loginScreen`)?.style && (getEl(`loginScreen`).style.display = `none`);
             getEl(`orderScreen`)?.style && (getEl(`orderScreen`).style.display = `block`);
             getEl(`userInfo`)?.style && (getEl(`userInfo`).style.display = `flex`);
@@ -2326,10 +2396,11 @@ async function bootstrapPage() {
             }
             if (!restoreSavedDraft() && orderBody && orderBody.children.length === 0) addNewRow();
             syncReservationIndicators();
-            loadMyOrders();
+            if (!selection) loadMyOrders();
         } catch (error) {
             sessionStorage.removeItem(`activeOrderContext`);
-            if (loadRepSession()) showRepresentativeHome();
+            if (selection) finishSupervisorOrder();
+            else if (loadRepSession()) showRepresentativeHome();
             else goToLogin();
         }
     }
@@ -2339,7 +2410,7 @@ async function bootstrapPage() {
         if (!adminSession || adminSession.type !== 'manager') return goToLogin();
         isAdmin = true;
         currentManagerName = adminSession.name;
-        initializeManagerView(adminSession.name);
+        initializeManagerView(adminSession.name, representatives);
     }
 
     if (APP_PAGE === 'login') {
@@ -2662,7 +2733,9 @@ async function submitRepresentativeLogin(event) {
 
     currentRepId = repSelect.value;
     currentRepName = selectedRepName;
-    if (sessionStorage.getItem(`adminOrderMode`) !== `1`) clearAdminSession();
+    clearAdminSession();
+    sessionStorage.removeItem(`adminOrderMode`);
+    sessionStorage.removeItem(`supervisorOrderRep`);
     saveRepSession(currentRepId, currentRepName, !!rememberPassword?.checked);
     localStorage.setItem(`dad_last_rep_id`, currentRepId);
     sessionStorage.removeItem(`activeOrderContext`);
@@ -2677,7 +2750,10 @@ else if (startOrderBtn) {
     });
 }
 
+getEl(`backToSupervisorBtn`)?.addEventListener(`click`, finishSupervisorOrder);
+
 if (submitOrderBtn) submitOrderBtn.onclick = async () => {
+    if (submitOrderBtn.disabled) return;
     if (!isAdmin && !await ensureForecastBeforeOrder(currentRepId)) return;
     if (!navigator.onLine) {
         showToast("أنت في وضع عدم الاتصال (Offline). لا يمكن إرسال الطلبية الآن.", "error");
@@ -2709,37 +2785,47 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
 
     if (items.length === 0) return showToast("لا يمكن إرسال طلبية فارغة!", "warning");
 
-    let taggedItems;
-    let orderTypeInfo;
+    const orderNoteValue = getEl(`orderNoteInput`)?.value.trim() || ``;
+    const indicator = getEl(`saving-indicator`);
+    submitOrderBtn.disabled = true;
+    submitOrderBtn.classList.add(`btn-loading`);
+    indicator?.classList.add(`active`);
+
     try {
-        await refreshInventoryReservations();
-        if (items.some(item => isProductHidden(item))) {
-            return showToast('تحتوي الطلبية على صنف مخفي حاليا. احذفه قبل ارسال الطلبية.', 'error');
+        const selection = isAdmin ? getSupervisorOrderSelection() : null;
+        if (isAdmin && (!selection || selection.rep.id !== currentRepId)) return finishSupervisorOrder();
+        if (selection) {
+            const pharmacySnap = await getDoc(doc(db, `pharmacies`, currentPharmacyId));
+            const pharmacy = pharmacySnap.data();
+            if (!canPlaceSupervisorOrderAt(pharmacy, selection) || pharmacy.name !== currentPharmacyName) {
+                return showToast(`تعذر تأكيد ارتباط الصيدلية بالمندوب، اختار الصيدلية مرة ثانية.`, `warning`);
+            }
+            currentRepName = getOperationalRepNameForPharmacy(pharmacy, selection.rep.name);
         }
-        taggedItems = tagItemsByCurrentReservations(items);
-        orderTypeInfo = evaluateOrderItemTypes(taggedItems);
-    } catch (error) {
-        console.error('Reservation validation failed:', error);
-        return showToast('تعذر التحقق من حالة الأصناف المحجوزة. حاول مرة أخرى بعد التأكد من الاتصال.', 'error');
-    }
-    if (orderTypeInfo.mixed) return showToast(MIXED_ORDER_WARNING, 'warning');
-    
-    const orderNoteEl = document.getElementById('orderNoteInput');
-    const orderNoteValue = orderNoteEl ? orderNoteEl.value.trim() : "";
 
-    try {
-        submitOrderBtn.disabled = true;
-        submitOrderBtn.classList.add('btn-loading');
-        
-        const indicator = document.getElementById('saving-indicator');
-        if(indicator) indicator.classList.add('active');
+        let taggedItems;
+        let orderTypeInfo;
+        try {
+            await refreshInventoryReservations();
+            if (items.some(item => isProductHidden(item))) {
+                return showToast(`تحتوي الطلبية على صنف مخفي حاليا. احذفه قبل ارسال الطلبية.`, `error`);
+            }
+            taggedItems = tagItemsByCurrentReservations(items);
+            orderTypeInfo = evaluateOrderItemTypes(taggedItems);
+        } catch (error) {
+            console.error(`Reservation validation failed:`, error);
+            return showToast(`تعذر التحقق من حالة الأصناف المحجوزة. حاول مرة أخرى بعد التأكد من الاتصال.`, `error`);
+        }
+        if (orderTypeInfo.mixed) return showToast(MIXED_ORDER_WARNING, `warning`);
 
-        const initialStatus = isAdmin ? "market_manager_pending" : "pending_supervisor_approval";
+        if (selection && getSupervisorOrderSelection()?.rep.token !== selection.rep.token) return finishSupervisorOrder();
+        const initialStatus = selection ? `market_manager_pending` : `pending_supervisor_approval`;
+        const orderNoteEl = getEl(`orderNoteInput`);
         const now = new Date();
         await addDoc(collection(db, "orders"), {
             repId: currentRepId,
             repName: currentRepName,
-            managerName: getManagerName(currentRepName),
+            managerName: selection?.managerName || getManagerName(currentRepName),
             pharmacyName: currentPharmacyName,
             pharmacyCode: currentPharmacyCode, 
             pharmacyId: currentPharmacyId || '',
@@ -2753,14 +2839,15 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
             updatedAt: now,
             status: initialStatus,
             previousStatus: '',
-            workflowStage: isAdmin ? 'market_manager' : 'supervisor',
-            supervisorStatus: isAdmin ? 'supervisor_approved' : 'pending_supervisor_approval',
-            supervisorApprovedBy: isAdmin ? (currentManagerName || getManagerName(currentRepName)) : '',
-            supervisorApprovedAt: isAdmin ? now : null,
-            marketManagerStatus: isAdmin ? 'market_manager_pending' : '',
-            financeStatus: '',
-            orderStaffStatus: '',
-            auditTrail: [buildAuditEntry('order_created', currentRepName, isAdmin ? 'supervisor' : 'representative', null, { status: initialStatus, orderType: orderTypeInfo.orderType || REGULAR_ORDER_TYPE }, orderNoteValue)]
+            workflowStage: selection ? `market_manager` : `supervisor`,
+            supervisorStatus: selection ? `supervisor_approved` : `pending_supervisor_approval`,
+            supervisorApprovedBy: selection?.managerName || ``,
+            supervisorApprovedAt: selection ? now : null,
+            marketManagerStatus: selection ? `market_manager_pending` : ``,
+            financeStatus: ``,
+            orderStaffStatus: ``,
+            createdByRole: selection ? `supervisor` : `representative`,
+            auditTrail: [buildAuditEntry(`order_created`, selection?.managerName || currentRepName, selection ? `supervisor` : `representative`, null, { status: initialStatus, orderType: orderTypeInfo.orderType || REGULAR_ORDER_TYPE }, orderNoteValue)]
         });
         
         clearDraft(); // تنظيف المسودة بعد الإرسال الناجح
@@ -2770,17 +2857,12 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
             : "تم ارسال الطلبية بنجاح، في انتظار موافقة المدير.";
         showToast(successMessage, "success");
 
-        sessionStorage.removeItem('adminOrderMode');
+        if (selection) return finishSupervisorOrder();
+
         orderBody.innerHTML = '';
         if (grandTotalEl) grandTotalEl.innerText = '0.00';
         if(orderNoteEl) orderNoteEl.value = '';
         addNewRow();
-
-        if (isAdmin) {
-            sessionStorage.removeItem('activeOrderContext');
-            window.location.href = new URLSearchParams(location.search).get(`returnTo`) === `monthly-export` ? `monthly-export.html` : `supervisor.html`;
-            return;
-        }
 
         const orderScreenEl = getEl('orderScreen');
         const myOrdersScreenEl = getEl('myOrdersScreen');
@@ -2796,8 +2878,7 @@ if (submitOrderBtn) submitOrderBtn.onclick = async () => {
     } finally {
         submitOrderBtn.disabled = false; 
         submitOrderBtn.classList.remove('btn-loading');
-        const indicator = document.getElementById('saving-indicator');
-        if(indicator) indicator.classList.remove('active');
+        indicator?.classList.remove(`active`);
     }
 };
 

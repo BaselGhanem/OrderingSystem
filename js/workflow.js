@@ -1,4 +1,4 @@
-const sourceUrl = new URL(`./workflow.status-source.js?v=20261007_staff_load1`, import.meta.url);
+const sourceUrl = new URL(`./workflow.status-source.js?v=20261122_market_approval_v1`, import.meta.url);
 const firebaseUrl = new URL(`./firebase.js`, import.meta.url).href;
 
 const readyListeners = [];
@@ -52,6 +52,7 @@ try {
 }`;
 
     const canonicalPrimaryResolver = `function getPrimaryStatus(order = {}) {
+    if (needsMissingMarketApproval(order)) return 'market_manager_pending';
     const rawStatus = getRawPrimaryStatus(order);
     const terminalOrReturned = rawStatus.startsWith('deleted_') ||
         ['returned_to_rep', 'returned_to_supervisor', 'returned_to_market_manager', 'returned_to_finance',

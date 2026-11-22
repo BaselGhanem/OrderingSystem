@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "نظام الطلبيات",
+  "short_name": "الطلبيات",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f8fb",
+  "theme_color": "#087777",
+  "icons": [
+    { "src": "assets/orders-app-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/orders-app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
