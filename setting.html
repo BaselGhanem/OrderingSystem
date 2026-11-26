@@ -957,7 +957,7 @@
     </datalist>
 
     <script type="module">
-        import { db, collection, getDocs, deleteDoc, setDoc, doc, addDoc, updateDoc, getDoc, query, where, writeBatch, firebaseConfig } from './js/firebase.js';
+        import { db, collection, getDocs, deleteDoc, setDoc, doc, addDoc, updateDoc, getDoc, query, where, writeBatch } from './js/firebase.js';
 
         const repManagerMap = {
             "مراد عمر": "محمد طوالبه", "مؤيد الزعبي": "محمد طوالبه", "محمد عبدربه": "محمد طوالبه",
@@ -2220,52 +2220,19 @@
             return Number.isNaN(parsed.getTime()) ? null : parsed;
         }
 
-        function decodeFirestoreValue(value) {
-            if (!value || typeof value !== `object`) return null;
-            if (`stringValue` in value) return value.stringValue;
-            if (`integerValue` in value) return Number(value.integerValue);
-            if (`doubleValue` in value) return Number(value.doubleValue);
-            if (`booleanValue` in value) return value.booleanValue;
-            if (`timestampValue` in value) return value.timestampValue;
-            if (`nullValue` in value) return null;
-            if (value.mapValue) return Object.fromEntries(Object.entries(value.mapValue.fields || {}).map(([key, item]) => [key, decodeFirestoreValue(item)]));
-            if (value.arrayValue) return (value.arrayValue.values || []).map(decodeFirestoreValue);
-            if (`referenceValue` in value) return value.referenceValue;
-            return null;
-        }
-
-        async function loadFirestorePharmacyDocuments() {
-            const endpoint = new URL(`https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents/pharmacies`);
-            endpoint.searchParams.set(`key`, firebaseConfig.apiKey);
-            endpoint.searchParams.set(`pageSize`, `1000`);
-            const documents = [];
-            let pageToken = ``;
-            do {
-                if (pageToken) endpoint.searchParams.set(`pageToken`, pageToken);
-                const response = await fetch(endpoint.toString(), {method:`GET`,headers:{Accept:`application/json`}});
-                if (!response.ok) throw new Error(`Firestore metadata request failed: ${response.status}`);
-                const payload = await response.json();
-                for (const document of payload.documents || []) {
-                    const id = document.name.split(`/`).at(-1);
-                    const fields = Object.fromEntries(Object.entries(document.fields || {}).map(([key, value]) => [key, decodeFirestoreValue(value)]));
-                    documents.push({...fields,id,addedDate:pharmacyAddedDate(document.createTime)});
-                }
-                pageToken = payload.nextPageToken || ``;
-            } while (pageToken);
-            return documents;
-        }
-
         async function loadRecentPharmacies() {
             const tableBody = document.getElementById(`recentPharmaciesTableBody`);
             if (!tableBody) return;
             tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b;">جاري تحميل الصيدليات المضافة مؤخراً...</td></tr>`;
             try {
-                const rows = (await loadFirestorePharmacyDocuments())
+                const snapshot = await getDocs(collection(db, `pharmacies`));
+                const rows = snapshot.docs.map(item => ({...item.data(),id:item.id}))
+                    .map(row => ({...row,addedDate:pharmacyAddedDate(row.addedAt || row.createdAt || row.created_at)}))
                     .filter(row => row.addedDate)
                     .sort((a,b) => b.addedDate.getTime()-a.addedDate.getTime())
                     .slice(0,10);
                 if (!rows.length) {
-                    tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b;">لا توجد صيدليات محفوظة في قاعدة البيانات.</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b;">لا توجد تواريخ إضافة محفوظة داخل سجلات الصيدليات. ستظهر هنا الصيدليات الجديدة، أما تواريخ السجلات القديمة فتحتاج خدمة خلفية لقراءتها من Firebase.</td></tr>`;
                     return;
                 }
                 const formatter = new Intl.DateTimeFormat(`ar-JO`, {dateStyle:`medium`,timeStyle:`short`});
@@ -2279,7 +2246,7 @@
                 </tr>`).join(``);
             } catch (error) {
                 console.error(`Error loading recent pharmacies:`, error);
-                tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#dc2626;">تعذر قراءة تواريخ الإنشاء من Firestore. تحقق من صلاحيات القراءة عبر Firebase Security Rules.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#dc2626;">تعذر تحميل الصيدليات من Firebase.</td></tr>`;
             }
         }
 
