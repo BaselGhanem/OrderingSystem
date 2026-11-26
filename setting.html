@@ -2242,7 +2242,7 @@
             let pageToken = ``;
             do {
                 if (pageToken) endpoint.searchParams.set(`pageToken`, pageToken);
-                const response = await fetch(endpoint.toString(), {method:`GET`,headers:{`Accept`:`application/json`}});
+                const response = await fetch(endpoint.toString(), {method:`GET`,headers:{Accept:`application/json`}});
                 if (!response.ok) throw new Error(`Firestore metadata request failed: ${response.status}`);
                 const payload = await response.json();
                 for (const document of payload.documents || []) {
