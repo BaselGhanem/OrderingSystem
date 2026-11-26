@@ -529,6 +529,14 @@
             overflow: auto;
         }
 
+        .recent-pharmacies-panel { margin:14px 0 18px; padding:16px; border:1px solid rgba(9,153,153,.2); border-radius:18px; background:linear-gradient(135deg,#f0fdfa,#fff 72%); }
+        .recent-pharmacies-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+        .recent-pharmacies-heading h3 { display:flex; align-items:center; gap:8px; margin:0; color:var(--primary); font-size:1rem; }
+        .recent-pharmacies-heading p { margin:4px 0 0; color:var(--settings-muted); font-size:.85rem; font-weight:700; }
+        .recent-pharmacies-table { min-width:820px; }
+        .recent-pharmacy-date { white-space:nowrap; color:#475569; font-weight:700; }
+        @media (max-width:640px) { .recent-pharmacies-panel { padding:12px; } .recent-pharmacies-table { min-width:760px; } }
+
         .settings-table.compact-products {
             min-width: 920px;
         }
@@ -771,6 +779,22 @@
                 </div>
                 <button type="button" id="reloadPharmaciesBtn" class="btn-local btn-muted"><i class="ph ph-arrows-clockwise"></i> تحديث الجدول</button>
             </div>
+
+            <section class="recent-pharmacies-panel" aria-labelledby="recentPharmaciesTitle">
+                <div class="recent-pharmacies-heading">
+                    <div>
+                        <h3 id="recentPharmaciesTitle"><i class="ph ph-clock-counter-clockwise"></i> الصيدليات المضافة مؤخراً</h3>
+                        <p>آخر 10 صيدليات جديدة، مرتبة من الأحدث إلى الأقدم.</p>
+                    </div>
+                    <button type="button" id="reloadRecentPharmaciesBtn" class="btn-local btn-small btn-muted"><i class="ph ph-arrows-clockwise"></i> تحديث القائمة</button>
+                </div>
+                <div class="table-wrap" style="margin-top:0;">
+                    <table class="settings-table recent-pharmacies-table">
+                        <thead><tr><th>اسم الصيدلية</th><th>كود الصيدلية</th><th>المندوب</th><th>المشرف</th><th>المنطقة</th><th>تاريخ الإضافة</th></tr></thead>
+                        <tbody id="recentPharmaciesTableBody"><tr><td colspan="6" style="text-align:center;color:#64748b;">جاري تحميل الصيدليات المضافة مؤخراً...</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
 
             <div class="pharmacy-search-panel">
                 <label for="pharmacySearchInput">ابحث عن الصيدلية</label>
@@ -2187,8 +2211,48 @@
 
             window.dispatchEvent(new Event(`admin:rows`));
         }
+        function pharmacyAddedDate(value) {
+            if (!value) return null;
+            if (typeof value.toDate === `function`) return value.toDate();
+            if (value instanceof Date) return value;
+            if (typeof value === `object` && Number.isFinite(value.seconds)) return new Date(value.seconds * 1000);
+            const parsed = new Date(value);
+            return Number.isNaN(parsed.getTime()) ? null : parsed;
+        }
+
+        async function loadRecentPharmacies() {
+            const tableBody = document.getElementById(`recentPharmaciesTableBody`);
+            if (!tableBody) return;
+            tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b;">جاري تحميل الصيدليات المضافة مؤخراً...</td></tr>`;
+            try {
+                const snapshot = await getDocs(collection(db, `pharmacies`));
+                const rows = snapshot.docs.map(item => ({...item.data(), id:item.id}))
+                    .map(row => ({...row, addedDate:pharmacyAddedDate(row.addedAt || row.createdAt || row.created_at)}))
+                    .filter(row => row.addedDate)
+                    .sort((a,b) => b.addedDate.getTime()-a.addedDate.getTime())
+                    .slice(0,10);
+                if (!rows.length) {
+                    tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b;">لا توجد سجلات بتاريخ إضافة محفوظ حتى الآن. ستظهر هنا الصيدليات التي تُضاف من الآن فصاعداً.</td></tr>`;
+                    return;
+                }
+                const formatter = new Intl.DateTimeFormat(`ar-JO`, {dateStyle:`medium`,timeStyle:`short`});
+                tableBody.innerHTML = rows.map(row => `<tr>
+                    <td><strong>${escapeHtml(row.name || `صيدلية بدون اسم`)}</strong></td>
+                    <td>${escapeHtml(row.pharmacyCode || row.pharmacy_code || `-`)}</td>
+                    <td>${escapeHtml(row.repName || row.rep_name || row.rep || row.baseRepName || `-`)}</td>
+                    <td>${escapeHtml(row.supervisor || `-`)}</td>
+                    <td>${escapeHtml(row.area || `-`)}</td>
+                    <td class="recent-pharmacy-date">${escapeHtml(formatter.format(row.addedDate))}</td>
+                </tr>`).join(``);
+            } catch (error) {
+                console.error(`Error loading recent pharmacies:`, error);
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#dc2626;">تعذر تحميل الصيدليات المضافة مؤخراً.</td></tr>`;
+            }
+        }
+
         async function loadPharmacies() {
             window.dispatchEvent(new Event(`pharmacies:refresh`));
+            await loadRecentPharmacies();
         }
         window.addEventListener(`pharmacies:select`, event => {
             renderPharmacySelection([event.detail]);
@@ -2243,7 +2307,8 @@
                     pharmacy_code: codeVal || '-',
                     pharmacyCode: codeVal || '-',
                     supervisor: supervisorVal,
-                    area: areaVal
+                    area: areaVal,
+                    addedAt: new Date()
                 });
                 const syncedOrders = await syncOrdersForPharmacyRoute({
                     name: nameVal,
@@ -2485,6 +2550,7 @@
                         await setDoc(doc(db, 'pharmacies', match.id), payload);
                         preservedCount += 1;
                     } else {
+                        payload.addedAt = new Date();
                         const newRef = await addDoc(collection(db, 'pharmacies'), payload);
                         pharmacyId = newRef.id;
                         createdCount += 1;
@@ -2803,6 +2869,7 @@
             renderProductsTable();
         });
         document.getElementById('reloadPharmaciesBtn').addEventListener('click', loadPharmacies);
+        document.getElementById('reloadRecentPharmaciesBtn').addEventListener('click', loadRecentPharmacies);
         document.getElementById('mergeAllDuplicatePharmaciesBtn')?.addEventListener('click', event => mergeAllDuplicatePharmacies(event.currentTarget));
         document.getElementById('addPharmacyBtn').addEventListener('click', addNewPharmacy);
         document.getElementById('newPharmacyRep')?.addEventListener('change', refreshNewPharmacyRoutingPreview);
@@ -2818,7 +2885,7 @@
         document.getElementById(`supervisorTargetMonth`).addEventListener(`change`, loadSupervisorTargetsForSettings);
 
         window.addEventListener('DOMContentLoaded', async () => {
-            await Promise.all([loadProducts(), loadRepsForSettings(), loadSupervisorTargetsForSettings()]);
+            await Promise.all([loadProducts(), loadRepsForSettings(), loadSupervisorTargetsForSettings(), loadRecentPharmacies()]);
         });
     </script>
 <script type="module" src="js/admin-hub.js?v=20261122_app_dialog_v1"></script>
