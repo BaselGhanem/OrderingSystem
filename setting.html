@@ -2547,6 +2547,8 @@
                         pharmacyId = match.id;
                         claimedExistingIds.add(match.id);
                         retainedIds.add(match.id);
+                        const originalAddedAt = match.data.addedAt || match.data.createdAt || match.data.created_at;
+                        if (originalAddedAt) payload.addedAt = originalAddedAt;
                         await setDoc(doc(db, 'pharmacies', match.id), payload);
                         preservedCount += 1;
                     } else {
