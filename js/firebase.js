@@ -65,7 +65,6 @@ export {
     limit,
     startAfter,
     documentId,
-    writeBatch,
-    firebaseConfig
+    writeBatch
 };
 
